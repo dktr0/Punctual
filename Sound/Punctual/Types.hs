@@ -170,10 +170,16 @@ extent = choice $ fmap try [extentDb,extentPercent,fractional3 False]
 
 extentDb :: GenParser Char a Extent
 extentDb = do
-  x <- fractional3 False -- *** TODO: is not parsing negative values
+  x <- double -- *** TODO: is not parsing negative values
   spaces
   string "db" -- *** TODO: we should accept any capitalization of db
   return $ dbamp x
+
+double :: GenParser Char a Double
+double = choice [
+  try (char '-' >> fractional3 False >>= return . (* (-1))),
+  fractional3 False
+  ]
 
 extentPercent :: GenParser Char a Extent
 extentPercent = do
