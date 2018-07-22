@@ -145,8 +145,53 @@ graph = spaces >> string "graph" >> return Graph
 graphOrEmptyGraph :: GenParser Char a Graph
 graphOrEmptyGraph = choice [ try graph, return EmptyGraph ]
 
-parsePunctual :: String -> Either ParseError Definition
+
+-- routing things to the output (avoiding words like left or right to be less English)
+-- sine 440 :0.5   -- centre panned
+-- sine 440 :50%   -- the same thing another way
+-- sine 440 :      -- the same thing yet another way
+-- (sine 440 :square 80bpm -- dynamic panning, to be implemented later)
+-- (sine 440 :a            -- dynamic panning according to "a")
+-- a <> sine 440 :left -- something can be routed to a target and to an output
+
+data Output = NoOutput | PannedOutput Extent deriving (Show,Eq)
+
+output :: GenParser Char a Output
+output = spaces >> choice [
+  try (char ':' >> spaces >> extent >>= return . PannedOutput),
+  try (char ':' >> return (PannedOutput 0.5)),
+  return NoOutput
+  ]
+
+type Extent = Double
+
+extent :: GenParser Char a Extent
+extent = choice $ fmap try [extentDb,extentPercent,fractional3 False]
+
+extentDb :: GenParser Char a Extent
+extentDb = do
+  x <- fractional3 False -- *** TODO: is not parsing negative values
+  spaces
+  string "db" -- *** TODO: we should accept any capitalization of db
+  return $ dbamp x
+
+extentPercent :: GenParser Char a Extent
+extentPercent = do
+  x <- fractional3 False
+  spaces
+  char '%'
+  return $ x / 100
+
+dbamp :: Double -> Double
+dbamp x = 10 ** (x/20)
+
+data Expression = Expression Definition Output deriving (Show,Eq)
+
+expression :: GenParser Char a Expression
+expression = Expression <$> definition <*> output
+
+parsePunctual :: String -> Either ParseError Expression
 parsePunctual = parse punctualParser "(unknown)"
 
-punctualParser :: GenParser Char a Definition
-punctualParser = spaces >> definition
+punctualParser :: GenParser Char a Expression
+punctualParser = spaces >> expression
