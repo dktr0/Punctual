@@ -77,18 +77,76 @@ crossFade = do
   return $ CrossFade x
 
 data Target = Explicit String | Anonymous deriving (Show,Eq)
--- data Definition = Definition Target DefTime Transition Graph deriving (Show, Eq)
 
-{-
+data Definition = Definition Target DefTime Transition Graph deriving (Show, Eq)
+
 definition :: GenParser Char a Definition
 definition = choice [
-  try (graph >>= ),
-  try ()
+  try targetDefTimeTransitionGraph,
+  try targetTransitionGraph,
+  try targetDefTimeGraph,
+  try defTimeTransitionGraph,
+  try defTimeGraph,
+  try transitionGraph,
+  Definition Anonymous (After (Seconds 0)) DefaultCrossFade <$> graphOrEmptyGraph
   ]
--}
 
-parsePunctual :: String -> Either ParseError DefTime
+explicitTarget :: GenParser Char a Target
+explicitTarget = spaces >> (Explicit <$> many1 letter)
+
+targetDefTimeTransitionGraph :: GenParser Char a Definition
+targetDefTimeTransitionGraph = do
+  t <- explicitTarget
+  d <- defTime
+  tr <- transition
+  g <- graphOrEmptyGraph
+  return $ Definition t d tr g
+
+targetTransitionGraph :: GenParser Char a Definition
+targetTransitionGraph = do
+  t <- explicitTarget
+  tr <- transition
+  g <- graphOrEmptyGraph
+  return $ Definition t (After (Seconds 0)) tr g
+
+targetDefTimeGraph :: GenParser Char a Definition
+targetDefTimeGraph = do
+  t <- explicitTarget
+  d <- defTime
+  g <- graphOrEmptyGraph
+  return $ Definition t d DefaultCrossFade g
+
+defTimeTransitionGraph :: GenParser Char a Definition
+defTimeTransitionGraph = do
+  d <- defTime
+  tr <- transition
+  g <- graphOrEmptyGraph
+  return $ Definition Anonymous d tr g
+
+defTimeGraph :: GenParser Char a Definition
+defTimeGraph = do
+  x <- defTime
+  spaces
+  y <- graphOrEmptyGraph
+  return $ Definition Anonymous x DefaultCrossFade y
+
+transitionGraph :: GenParser Char a Definition
+transitionGraph = do
+  x <- transition
+  spaces
+  y <- graphOrEmptyGraph
+  return $ Definition Anonymous (After (Seconds 0)) x y
+
+data Graph = Graph | EmptyGraph deriving (Show,Eq)
+
+graph :: GenParser Char a Graph
+graph = spaces >> string "graph" >> return Graph
+
+graphOrEmptyGraph :: GenParser Char a Graph
+graphOrEmptyGraph = choice [ try graph, return EmptyGraph ]
+
+parsePunctual :: String -> Either ParseError Definition
 parsePunctual = parse punctualParser "(unknown)"
 
-punctualParser :: GenParser Char a DefTime
-punctualParser = spaces >> defTime
+punctualParser :: GenParser Char a Definition
+punctualParser = spaces >> definition
