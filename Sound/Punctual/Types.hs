@@ -3,6 +3,8 @@ module Sound.Punctual.Types where
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Number
 
+import Sound.Punctual.Graph
+
 -- Definitions (and transitions):
 -- a <> sine 660 -- default crossfade
 -- a <2s> sine 660 -- a 2 second crossfade, kind of like xFadein 4 in Tidal
@@ -88,7 +90,7 @@ definition = choice [
   try defTimeTransitionGraph,
   try defTimeGraph,
   try transitionGraph,
-  Definition Anonymous (After (Seconds 0)) DefaultCrossFade <$> graphOrEmptyGraph
+  Definition Anonymous (After (Seconds 0)) DefaultCrossFade <$> graph
   ]
 
 explicitTarget :: GenParser Char a Target
@@ -99,52 +101,43 @@ targetDefTimeTransitionGraph = do
   t <- explicitTarget
   d <- defTime
   tr <- transition
-  g <- graphOrEmptyGraph
+  g <- graph
   return $ Definition t d tr g
 
 targetTransitionGraph :: GenParser Char a Definition
 targetTransitionGraph = do
   t <- explicitTarget
   tr <- transition
-  g <- graphOrEmptyGraph
+  g <- graph
   return $ Definition t (After (Seconds 0)) tr g
 
 targetDefTimeGraph :: GenParser Char a Definition
 targetDefTimeGraph = do
   t <- explicitTarget
   d <- defTime
-  g <- graphOrEmptyGraph
+  g <- graph
   return $ Definition t d DefaultCrossFade g
 
 defTimeTransitionGraph :: GenParser Char a Definition
 defTimeTransitionGraph = do
   d <- defTime
   tr <- transition
-  g <- graphOrEmptyGraph
+  g <- graph
   return $ Definition Anonymous d tr g
 
 defTimeGraph :: GenParser Char a Definition
 defTimeGraph = do
   x <- defTime
   spaces
-  y <- graphOrEmptyGraph
+  y <- graph
   return $ Definition Anonymous x DefaultCrossFade y
 
 transitionGraph :: GenParser Char a Definition
 transitionGraph = do
   x <- transition
   spaces
-  y <- graphOrEmptyGraph
+  y <- graph
   return $ Definition Anonymous (After (Seconds 0)) x y
-
-data Graph = Graph | EmptyGraph deriving (Show,Eq)
-
-graph :: GenParser Char a Graph
-graph = spaces >> string "graph" >> return Graph
-
-graphOrEmptyGraph :: GenParser Char a Graph
-graphOrEmptyGraph = choice [ try graph, return EmptyGraph ]
-
 
 -- routing things to the output (avoiding words like left or right to be less English)
 -- sine 440 :0.5   -- centre panned
@@ -174,12 +167,6 @@ extentDb = do
   spaces
   choice $ fmap (try . string) ["db","dB","Db","DB"]
   return $ dbamp x
-
-double :: GenParser Char a Double
-double = choice [
-  try (char '-' >> fractional3 False >>= return . (* (-1))),
-  fractional3 False
-  ]
 
 extentPercent :: GenParser Char a Extent
 extentPercent = do
