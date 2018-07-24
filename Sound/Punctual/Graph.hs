@@ -1,30 +1,17 @@
 module Sound.Punctual.Graph where
 
 import Text.ParserCombinators.Parsec
-import Text.ParserCombinators.Parsec.Number
+-- import Text.ParserCombinators.Parsec.Number
+import Text.Parsec.Number
 
--- unit generators:
--- noise
--- pink
--- sine [frequency]
--- tri [frequency]
--- saw [frequency]
--- square [frequency]
--- pulse [frequency]
--- lpf [frequency] [q] [signal]
--- hpf [frequency] [q] [signal]
--- mix [list of graphs] -- produces signal channel signal
--- envelope unit generators:
--- perc
--- seq [ ] [ ]
--- circle [ ] [ ]
--- adsr 0.2s 0.2s gate 0.5s input
+-- *NEXT* multichannel expansion notations
 
 data Graph =
   Constant Double |
   Noise | Pink |
   Sine Graph | Tri Graph | Saw Graph | Square Graph | Pulse Graph |
   LPF Graph Graph Graph | HPF Graph Graph Graph |
+  ADSR Graph Graph Graph Graph | -- attack decay gate release
   Mix [Graph] |
   EmptyGraph |
   FromTarget String |
@@ -57,6 +44,7 @@ simpleGraph = do
     try $ string "pink" >> return Pink,
     try oscillators,
     try filters,
+    try envelopes,
     try mixGraph,
     FromTarget <$> many1 letter
     ]
@@ -76,6 +64,11 @@ filters :: GenParser Char a Graph
 filters = do
   x <- (string "lpf" >> return LPF) <|> (string "hpf" >> return HPF)
   x <$> simpleGraph <*> simpleGraph <*> simpleGraph
+
+envelopes :: GenParser Char a Graph
+envelopes = choice [
+  string "adsr" >> (ADSR <$> simpleGraph <*> simpleGraph <*> simpleGraph <*> simpleGraph)
+  ]
 
 mixGraph :: GenParser Char a Graph
 mixGraph = string "mix" >> spaces >> (Mix <$> listOfGraphs)

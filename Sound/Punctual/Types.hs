@@ -1,7 +1,8 @@
 module Sound.Punctual.Types where
 
 import Text.ParserCombinators.Parsec
-import Text.ParserCombinators.Parsec.Number
+-- import Text.ParserCombinators.Parsec.Number
+import Text.Parsec.Number
 
 import Sound.Punctual.Graph
 
