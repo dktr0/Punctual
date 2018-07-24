@@ -22,8 +22,10 @@ import Text.ParserCombinators.Parsec.Number
 
 data Graph =
   Constant Double |
-  Noise |
-  Sine Graph |
+  Noise | Pink |
+  Sine Graph | Tri Graph | Saw Graph | Square Graph | Pulse Graph |
+  LPF Graph Graph Graph | HPF Graph Graph Graph |
+  Mix [Graph] |
   EmptyGraph |
   FromTarget String |
   Product Graph Graph |
@@ -51,11 +53,38 @@ simpleGraph = do
   x <- choice [
     inBrackets sumOfGraphs,
     Constant <$> double,
-    string "noise" >> return Noise,
-    Sine <$> (string "sine" >> spaces >> simpleGraph),
+    try $ string "noise" >> return Noise,
+    try $ string "pink" >> return Pink,
+    try oscillators,
+    try filters,
+    try mixGraph,
     FromTarget <$> many1 letter
     ]
   spaces
+  return x
+
+oscillators :: GenParser Char a Graph
+oscillators = choice [
+  try $ Sine <$> (string "sine" >> spaces >> simpleGraph),
+  try $ Tri <$> (string "tri" >> spaces >> simpleGraph),
+  try $ Saw <$> (string "saw" >> spaces >> simpleGraph),
+  try $ Square <$> (string "square" >> spaces >> simpleGraph),
+  try $ Pulse <$> (string "pulse" >> spaces >> simpleGraph)
+  ]
+
+filters :: GenParser Char a Graph
+filters = do
+  x <- (string "lpf" >> return LPF) <|> (string "hpf" >> return HPF)
+  x <$> simpleGraph <*> simpleGraph <*> simpleGraph
+
+mixGraph :: GenParser Char a Graph
+mixGraph = string "mix" >> spaces >> (Mix <$> listOfGraphs)
+
+listOfGraphs :: GenParser Char a [Graph]
+listOfGraphs = do
+  char '['
+  x <- sepBy sumOfGraphs (char ',')
+  char ']'
   return x
 
 inBrackets :: GenParser Char a b -> GenParser Char a b
