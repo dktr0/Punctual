@@ -1,8 +1,10 @@
 module Sound.Punctual.Types where
 
 import Text.ParserCombinators.Parsec
+import Sound.Punctual.Token
+
 -- import Text.ParserCombinators.Parsec.Number
-import Text.Parsec.Number
+-- import Text.Parsec.Number
 
 import Sound.Punctual.Graph
 
@@ -26,58 +28,45 @@ duration = choice $ fmap try [seconds,milliseconds,cycles]
 
 seconds :: GenParser Char a Duration
 seconds = do
-  x <- fractional3 False
-  char 's'
+  x <- double
+  reserved "s"
   return $ Seconds x
 
 milliseconds :: GenParser Char a Duration
 milliseconds = do
-  x <- fractional3 False
-  string "ms"
+  x <- double
+  reserved "ms"
   return $ Seconds (x/1000.0)
 
 cycles :: GenParser Char a Duration
 cycles = do
-  x <- fractional3 False
-  char 'c'
+  x <- double
+  reserved "c"
   return $ Cycles x
 
 data DefTime = After Duration | Quant Double Duration deriving (Show,Eq)
 
 defTime :: GenParser Char a DefTime
-defTime = choice $ fmap try [after,quant]
-
-after :: GenParser Char a DefTime
-after = spaces >> char '@' >> (After <$> duration)
+defTime = do
+  reservedOp "@"
+  (After <$> duration) <|> quant
 
 quant :: GenParser Char a DefTime
-quant = do
-  spaces >> string "@("
-  x <- fractional3 False
-  spaces
-  char ','
-  spaces
+quant = parens $ do
+  x <- double
+  comma
   y <- duration
-  spaces
-  char ')'
   return $ Quant x y
 
 data Transition = DefaultCrossFade | CrossFade Duration | HoldPhase deriving (Show, Eq)
 
 transition :: GenParser Char a Transition
 transition = choice [
-  try (spaces >> string "<>" >> return DefaultCrossFade),
-  try crossFade,
-  try (spaces >> char '~' >> return HoldPhase),
-  try (spaces >> char '=' >> return (CrossFade (Seconds 0.0)))
+  reservedOp "<>" >> return DefaultCrossFade,
+  reservedOp "~" >> return HoldPhase,
+  reservedOp "=" >> return (CrossFade (Seconds 0.0)),
+  CrossFade <$> angles duration
   ]
-
-crossFade :: GenParser Char a Transition
-crossFade = do
-  spaces >> char '<' >> spaces
-  x <- duration
-  char '>'
-  return $ CrossFade x
 
 data Target = Explicit String | Anonymous deriving (Show,Eq)
 
@@ -95,50 +84,34 @@ definition = choice [
   ]
 
 explicitTarget :: GenParser Char a Target
-explicitTarget = spaces >> (Explicit <$> many1 letter)
+explicitTarget = (Explicit <$> identifier)
 
 targetDefTimeTransitionGraph :: GenParser Char a Definition
-targetDefTimeTransitionGraph = do
-  t <- explicitTarget
-  d <- defTime
-  tr <- transition
-  g <- graph
-  return $ Definition t d tr g
+targetDefTimeTransitionGraph = Definition <$> explicitTarget <*> defTime <*> transition <*> graph
 
 targetTransitionGraph :: GenParser Char a Definition
-targetTransitionGraph = do
-  t <- explicitTarget
-  tr <- transition
-  g <- graph
-  return $ Definition t (After (Seconds 0)) tr g
+targetTransitionGraph = Definition <$> explicitTarget <*> dt <*> transition <*> graph
+  where dt = return (After (Seconds 0))
 
 targetDefTimeGraph :: GenParser Char a Definition
-targetDefTimeGraph = do
-  t <- explicitTarget
-  d <- defTime
-  g <- graph
-  return $ Definition t d DefaultCrossFade g
+targetDefTimeGraph = Definition <$> explicitTarget <*> defTime <*> tr <*> graph
+  where tr = return DefaultCrossFade
 
 defTimeTransitionGraph :: GenParser Char a Definition
-defTimeTransitionGraph = do
-  d <- defTime
-  tr <- transition
-  g <- graph
-  return $ Definition Anonymous d tr g
+defTimeTransitionGraph = Definition <$> t <*> defTime <*> transition <*> graph
+  where t = return Anonymous
 
 defTimeGraph :: GenParser Char a Definition
-defTimeGraph = do
-  x <- defTime
-  spaces
-  y <- graph
-  return $ Definition Anonymous x DefaultCrossFade y
+defTimeGraph = Definition <$> t <*> defTime <*> tr <*> graph
+  where
+    t = return Anonymous
+    tr = return DefaultCrossFade
 
 transitionGraph :: GenParser Char a Definition
-transitionGraph = do
-  x <- transition
-  spaces
-  y <- graph
-  return $ Definition Anonymous (After (Seconds 0)) x y
+transitionGraph = Definition <$> t <*> dt <*> transition <*> graph
+  where
+    t = return Anonymous
+    dt = return (After (Seconds 0))
 
 -- routing things to the output (avoiding words like left or right to be less English)
 -- sine 440 :0.5   -- centre panned
@@ -151,29 +124,27 @@ transitionGraph = do
 data Output = NoOutput | PannedOutput Extent deriving (Show,Eq)
 
 output :: GenParser Char a Output
-output = spaces >> choice [
-  try (char ':' >> spaces >> extent >>= return . PannedOutput),
-  try (char ':' >> return (PannedOutput 0.5)),
+output = choice [
+  try $ reservedOp ":" >> (PannedOutput <$> extent),
+  reservedOp ":" >> return (PannedOutput 0.5),
   return NoOutput
   ]
 
 type Extent = Double
 
 extent :: GenParser Char a Extent
-extent = choice $ fmap try [extentDb,extentPercent,fractional3 False]
+extent = choice $ fmap try [extentDb,extentPercent,double]
 
 extentDb :: GenParser Char a Extent
 extentDb = do
   x <- double
-  spaces
-  choice $ fmap (try . string) ["db","dB","Db","DB"]
+  reserved "db"
   return $ dbamp x
 
 extentPercent :: GenParser Char a Extent
 extentPercent = do
-  x <- fractional3 False
-  spaces
-  char '%'
+  x <- double
+  reservedOp "%"
   return $ x / 100
 
 dbamp :: Double -> Double
@@ -184,8 +155,11 @@ data Expression = Expression Definition Output deriving (Show,Eq)
 expression :: GenParser Char a Expression
 expression = Expression <$> definition <*> output
 
-parsePunctual :: String -> Either ParseError Expression
-parsePunctual = parse punctualParser "(unknown)"
-
 punctualParser :: GenParser Char a Expression
-punctualParser = spaces >> expression
+punctualParser = do
+  x <- whiteSpace >> expression
+  eof
+  return x
+
+runPunctualParser :: String -> Either ParseError Expression
+runPunctualParser = parse punctualParser "(unknown)"
