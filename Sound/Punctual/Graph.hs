@@ -23,20 +23,14 @@ graph :: GenParser Char a Graph
 graph = sumOfGraphs <|> return EmptyGraph
 
 sumOfGraphs :: GenParser Char a Graph
-sumOfGraphs = chainl1 productOfGraphs sumOp
-
-sumOp :: GenParser Char a (Graph -> Graph -> Graph)
-sumOp = reservedOp "+" >> return Sum
+sumOfGraphs = chainl1 productOfGraphs (reservedOp "+" >> return Sum)
 
 productOfGraphs :: GenParser Char a Graph
-productOfGraphs = chainl1 simpleGraph productOp
-
-productOp :: GenParser Char a (Graph -> Graph -> Graph)
-productOp = reservedOp "*" >> return Product
+productOfGraphs = chainl1 simpleGraph (reservedOp "*" >> return Product)
 
 simpleGraph :: GenParser Char a Graph
 simpleGraph = choice [
-    parens sumOfGraphs,
+    parens graph,
     Constant <$> double,
     reserved "noise" >> return Noise,
     reserved "pink" >> return Pink,
@@ -44,7 +38,7 @@ simpleGraph = choice [
     filters,
     envelopes,
     mixGraph,
-    FromTarget <$> identifier
+    FromTarget <$> lexeme identifier
     ]
 
 oscillators :: GenParser Char a Graph

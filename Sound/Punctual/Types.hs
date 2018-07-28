@@ -162,4 +162,4 @@ punctualParser = do
   return x
 
 runPunctualParser :: String -> Either ParseError Expression
-runPunctualParser = parse punctualParser "(unknown)"
+runPunctualParser = parse punctualParser ""
