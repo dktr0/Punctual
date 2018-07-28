@@ -2,9 +2,7 @@ module Sound.Punctual.Graph where
 
 import Text.ParserCombinators.Parsec
 import Sound.Punctual.Token
-
--- import Text.ParserCombinators.Parsec.Number
--- import Text.Parsec.Number
+import Sound.Punctual.Extent
 
 data Graph =
   Constant Double |
@@ -31,7 +29,7 @@ productOfGraphs = chainl1 simpleGraph (reservedOp "*" >> return Product)
 simpleGraph :: GenParser Char a Graph
 simpleGraph = choice [
     parens graph,
-    Constant <$> double,
+    Constant <$> extent,
     reserved "noise" >> return Noise,
     reserved "pink" >> return Pink,
     oscillators,
