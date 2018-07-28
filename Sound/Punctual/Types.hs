@@ -77,6 +77,7 @@ definition = choice [
   try defTimeTransitionGraph,
   try defTimeGraph,
   try transitionGraph,
+  try targetGraph,
   Definition Anonymous (After (Seconds 0)) DefaultCrossFade <$> graph
   ]
 
@@ -109,6 +110,12 @@ transitionGraph = Definition <$> t <*> dt <*> transition <*> graph
   where
     t = return Anonymous
     dt = return (After (Seconds 0))
+
+targetGraph :: GenParser Char a Definition
+targetGraph = Definition <$> explicitTarget <*> dt <*> tr <*> graph
+  where
+    dt = return (After (Seconds 0))
+    tr = return DefaultCrossFade
 
 -- routing things to the output (avoiding words like left or right to be less English)
 -- sine 440 :0.5   -- centre panned
