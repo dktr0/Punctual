@@ -14,7 +14,7 @@ tokenParser = P.makeTokenParser $ P.LanguageDef {
   P.opStart = oneOf "+*:@<>~=%",
   P.opLetter = oneOf "+*:@<>~=%",
   P.reservedNames = ["c","s","ms","db","sine","tri","saw","square","pulse","noise","pink","lpf","hpf","adsr","mix"],
-  P.reservedOpNames = ["+","*",":","@","<>","~","=","%"],
+  P.reservedOpNames = ["+","*",":","@","<>","~","=","%",";"],
   P.caseSensitive = False
   }
 

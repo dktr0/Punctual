@@ -141,11 +141,12 @@ data Expression = Expression Definition Output deriving (Show,Eq)
 expression :: GenParser Char a Expression
 expression = Expression <$> definition <*> output
 
-punctualParser :: GenParser Char a Expression
+punctualParser :: GenParser Char a [Expression]
 punctualParser = do
-  x <- whiteSpace >> expression
+  x <- (whiteSpace >> expression) `sepBy` reservedOp ";"
+  whiteSpace
   eof
   return x
 
-runPunctualParser :: String -> Either ParseError Expression
+runPunctualParser :: String -> Either ParseError [Expression]
 runPunctualParser = parse punctualParser ""
