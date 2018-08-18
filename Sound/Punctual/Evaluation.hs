@@ -10,16 +10,21 @@ data History = History {
   expressions :: [Expression]
   }
 
+emptyHistory :: History
+emptyHistory = History {
+  phasors = [],
+  expressions = []
+  }
+
 type Evaluation = ([Expression],UTCTime)
+
+evaluationNow :: [Expression] -> IO Evaluation
+evaluationNow x = do
+  now <- getCurrentTime
+  return (x,now)
 
 updateHistory :: History -> Evaluation -> History
 updateHistory h e = History {
   phasors = [], -- placeholder
   expressions = fst e -- placeholder
   }
-
--- pastGraph :: History -> Evaluation -> Graph? -- or whatever appropriate type from MusicW is
--- pastGraph h e =
-
--- futureGraph :: History -> Evaluation -> Graph?
--- futureGraph h e =

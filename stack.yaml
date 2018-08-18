@@ -15,9 +15,9 @@ packages:
 
 - location:
     git: https://github.com/d0kt0r0/MusicW.git
-    commit: f2f7e7796f26facb83ed3d80bc0f0f6661208294
+    commit: e0e1735776358a67b9788546cf726dfe37f7cfe9
   extra-dep: true
-  
+
 extra-deps:
 - ghcjs-dom-0.2.3.1
 - reflex-dom-0.3

@@ -16,5 +16,5 @@ extra-source-files:
 executable Punctual
   hs-source-dirs:    .
   main-is:           Main.hs
-  build-depends:     base, reflex, reflex-dom, parsec, musicw, time
+  build-depends:     base, reflex, reflex-dom, parsec, musicw, time, mtl
   default-language:  Haskell2010
