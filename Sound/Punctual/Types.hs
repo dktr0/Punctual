@@ -127,19 +127,20 @@ targetGraph = Definition <$> explicitTarget <*> dt <*> tr <*> graph
 
 data Output = NoOutput | PannedOutput Extent deriving (Show,Eq)
 
-output :: GenParser Char a Output
-output = choice [
+outputParser :: GenParser Char a Output
+outputParser = choice [
   try $ reservedOp ":" >> (PannedOutput <$> extent),
   reservedOp ":" >> return (PannedOutput 0.5),
   return NoOutput
   ]
 
-
-
-data Expression = Expression Definition Output deriving (Show,Eq)
+data Expression = Expression {
+  definition :: Definition,
+  output :: Output
+  } deriving (Show,Eq)
 
 expression :: GenParser Char a Expression
-expression = Expression <$> definition <*> output
+expression = Expression <$> definition <*> outputParser
 
 punctualParser :: GenParser Char a [Expression]
 punctualParser = do
