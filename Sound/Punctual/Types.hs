@@ -69,8 +69,8 @@ data Target = Explicit String | Anonymous deriving (Show,Eq)
 
 data Definition = Definition Target DefTime Transition Graph deriving (Show, Eq)
 
-definition :: GenParser Char a Definition
-definition = choice [
+definitionParser :: GenParser Char a Definition
+definitionParser = choice [
   try targetDefTimeTransitionGraph,
   try targetTransitionGraph,
   try targetDefTimeGraph,
@@ -140,7 +140,7 @@ data Expression = Expression {
   } deriving (Show,Eq)
 
 expression :: GenParser Char a Expression
-expression = Expression <$> definition <*> outputParser
+expression = Expression <$> definitionParser <*> outputParser
 
 punctualParser :: GenParser Char a [Expression]
 punctualParser = do
