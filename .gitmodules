@@ -1,0 +1,3 @@
+[submodule "MusicW"]
+	path = MusicW
+	url = https://github.com/d0kt0r0/MusicW.git
