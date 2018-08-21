@@ -10,7 +10,7 @@ import Sound.Punctual.PunctualW
 
 main :: IO ()
 main = mainWidget $ do
-  el "div" $ text "Punctual today"
+  el "div" $ text "Punctual"
   evalButton <- el "div" $ button "eval"
   code <- el "div" $ textArea def
   let evaled = tagDyn (_textArea_value code) evalButton

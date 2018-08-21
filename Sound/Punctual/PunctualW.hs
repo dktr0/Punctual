@@ -20,19 +20,39 @@ emptyPunctualW = PunctualW {
 
 updatePunctualW :: PunctualW -> Evaluation -> IO PunctualW
 updatePunctualW s e = do
-  putStrLn "updatePunctualW"
   maybe (return ()) W.stopSynthNow $ prevSynthstance s -- placeholder: should be a specifically timed fade
-  putStrLn "previous synthstance stopped"
   let newSynth = futureSynth (history s) e -- placeholder: should manage replacement of previous synth
+  putStrLn $ show e
   putStrLn $ show newSynth
   newSynthstance <- W.instantiateSynth newSynth
-  putStrLn "new synthstance instantiated"
   newSynthstance' <- W.startSynthNow newSynthstance -- placeholder: time management needed
-  putStrLn "new synthstance started - updatePunctualW completed"
   let newHistory = updateHistory (history s) e
   return $ s { history = newHistory, prevSynthstance = Just newSynthstance' }
 
+test5 :: W.Synth ()
+test5 = W.buildSynth $ do
+  W.oscillator W.Sine (W.Hz 440)
+  g <- W.gain (W.Db $ -20)
+  do -- lfo gain modulation
+    W.oscillator W.Sine (W.Hz 2) -- osc.connect(g.gain)
+    W.audioParamSink "gain" g
+  W.destination
+  return ()
+
+test6 :: W.Synth ()
+test6 = W.buildSynth $ do
+  o <- W.oscillator W.Sine (W.Hz 220)
+  g <- W.gain (W.Db $ -20)
+  do -- lfo gain modulation
+    -- W.oscillator W.Sine (W.Hz 1) -- osc.connect(g.gain)
+    -- W.gain (W.Db $ 20)
+    W.constant 880
+    W.audioParamSink "frequency" o
+  W.destination
+  return ()
+
 futureSynth :: History -> Evaluation -> W.Synth ()
+-- futureSynth _ _ = test6
 futureSynth h (xs,t) = W.buildSynth $ mapM_ (definitionToMusicW . definition) xs
 
 definitionToMusicW :: Definition -> W.SynthBuilder W.Graph
@@ -46,7 +66,6 @@ graphToMusicW Noise = error "graphToMusicW Noise not supported yet"
 
 graphToMusicW Pink = error "graphToMusicW Pink not supported yet"
 
-graphToMusicW (Sine (Constant x)) = W.oscillator W.Sine (W.Hz x)
 graphToMusicW (Sine x) = do
   s <- W.oscillator W.Sine (W.Hz 0)
   graphToMusicW x >> W.audioParamSink "frequency" s
@@ -65,13 +84,13 @@ graphToMusicW (Square x) = do
 
 graphToMusicW (LPF i f q) = do
   graphToMusicW i
-  x <- W.biquadFilter (W.LowPass (W.Hz 20000) 1)
+  x <- W.biquadFilter (W.LowPass (W.Hz 0) 0)
   graphToMusicW f >> W.audioParamSink "frequency" x
   graphToMusicW q >> W.audioParamSink "Q" x
 
 graphToMusicW (HPF i f q) = do
   graphToMusicW i
-  x <- W.biquadFilter (W.HighPass (W.Hz 20000) 1)
+  x <- W.biquadFilter (W.HighPass (W.Hz 0) 0)
   graphToMusicW f >> W.audioParamSink "frequency" x
   graphToMusicW q >> W.audioParamSink "Q" x
 
