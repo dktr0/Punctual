@@ -15,7 +15,7 @@ packages:
 
 - location:
     git: https://github.com/d0kt0r0/MusicW.git
-    commit: efdd3de81d3a16373fec8c956fec92bbe466b992
+    commit: cddd7c8eccd16598405490b7b4ed26f4092ce0a9
   extra-dep: true
 
 extra-deps:
