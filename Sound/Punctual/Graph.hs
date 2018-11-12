@@ -9,7 +9,6 @@ data Graph =
   Noise | Pink |
   Sine Graph | Tri Graph | Saw Graph | Square Graph | Pulse Graph |
   LPF Graph Graph Graph | HPF Graph Graph Graph |
-  ADSR Graph Graph Graph Graph | -- attack decay gate release
   Mix [Graph] |
   EmptyGraph |
   FromTarget String |
@@ -34,7 +33,6 @@ simpleGraph = choice [
     reserved "pink" >> return Pink,
     oscillators,
     filters,
-    envelopes,
     mixGraph,
     FromTarget <$> lexeme identifier
     ]
@@ -52,11 +50,6 @@ filters :: GenParser Char a Graph
 filters = do
   x <- (reserved "lpf" >> return LPF) <|> (reserved "hpf" >> return HPF)
   x <$> simpleGraph <*> simpleGraph <*> simpleGraph
-
-envelopes :: GenParser Char a Graph
-envelopes = choice [
-  reserved "adsr" >> (ADSR <$> simpleGraph <*> simpleGraph <*> simpleGraph <*> simpleGraph)
-  ]
 
 mixGraph :: GenParser Char a Graph
 mixGraph = reserved "mix" >> (Mix <$> (brackets (commaSep sumOfGraphs)))

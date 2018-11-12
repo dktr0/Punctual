@@ -2,6 +2,8 @@ module Sound.Punctual.PunctualW where
 
 -- This module provides an implementation of Punctual using MusicW as an underlying synthesis library
 
+import Control.Monad (forM_)
+
 import Sound.Punctual.Graph
 import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
@@ -28,28 +30,6 @@ updatePunctualW s e = do
   newSynthstance' <- W.startSynthNow newSynthstance -- placeholder: time management needed
   let newHistory = updateHistory (history s) e
   return $ s { history = newHistory, prevSynthstance = Just newSynthstance' }
-
-test5 :: W.Synth ()
-test5 = W.buildSynth $ do
-  W.oscillator W.Sine (W.Hz 440)
-  g <- W.gain (W.Db $ -20)
-  do -- lfo gain modulation
-    W.oscillator W.Sine (W.Hz 2) -- osc.connect(g.gain)
-    W.audioParamSink "gain" g
-  W.destination
-  return ()
-
-test6 :: W.Synth ()
-test6 = W.buildSynth $ do
-  o <- W.oscillator W.Sine (W.Hz 220)
-  g <- W.gain (W.Db $ -20)
-  do -- lfo gain modulation
-    -- W.oscillator W.Sine (W.Hz 1) -- osc.connect(g.gain)
-    -- W.gain (W.Db $ 20)
-    W.constant 880
-    W.audioParamSink "frequency" o
-  W.destination
-  return ()
 
 futureSynth :: History -> Evaluation -> W.Synth ()
 -- futureSynth _ _ = test6
@@ -94,14 +74,27 @@ graphToMusicW (HPF i f q) = do
   graphToMusicW f >> W.audioParamSink "frequency" x
   graphToMusicW q >> W.audioParamSink "Q" x
 
-graphToMusicW (ADSR a b c d) = error "graphToMusicW ADSR _ _ _ not yet supported"
-
-graphToMusicW (Mix xs) = error "graphToMusicW Mix _ not yet supported"
+graphToMusicW (Mix []) = graphToMusicW EmptyGraph
+graphToMusicW (Mix (x:xs)) = do
+  graphToMusicW x
+  m <- W.gain (W.Amp 1.0)
+  forM_ xs $ \y -> do
+    graphToMusicW y
+    W.audioReSink m
+  return m
 
 graphToMusicW EmptyGraph = W.constant 0
 
 graphToMusicW (FromTarget x) = error "graphToMusicW (FromTarget _) not yet supported"
 
-graphToMusicW (Sum x y) = error "graphToMusicW Sum _ _ not yet supported"
+graphToMusicW (Sum x y) = do
+  graphToMusicW x
+  m <- W.gain (W.Amp 1.0)
+  graphToMusicW y
+  W.audioReSink m
 
-graphToMusicW (Product x y) = error "graphToMusicW Product _ _ not yet supported"
+graphToMusicW (Product x y) = do
+  graphToMusicW x
+  m <- W.gain (W.Amp 1.0)
+  graphToMusicW y
+  W.audioParamSink "gain" m
