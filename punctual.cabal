@@ -18,6 +18,8 @@ Library
   Build-Depends:     base, parsec, time, mtl, musicw
   GHC-Options:       -Wall -fwarn-tabs -fno-warn-unused-do-bind
   Exposed-modules:   Sound.Punctual.PunctualW
+                     Sound.Punctual.Types
+                     Sound.Punctual.Evaluation
   other-modules:
   default-language:  Haskell2010
 
