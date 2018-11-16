@@ -6,7 +6,7 @@ import Text.ParserCombinators.Parsec
 import Test.HUnit
 
 t :: String -> Either ParseError Expression -> Test
-t x y = x ~: (runPunctualParser x) ~?= y
+t x y = x ~: (runPunctualParser x) ~?= (fmap (\z -> [z]) y)
 
 tests = TestList [
   t "" (Right (Expression (Definition Anonymous (After (Seconds 0.0)) DefaultCrossFade EmptyGraph) NoOutput)),

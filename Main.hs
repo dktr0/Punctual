@@ -16,7 +16,7 @@ main = mainWidget $ do
   let evaled = tagDyn (_textArea_value code) evalButton
   let parsed = fmap runPunctualParser evaled
   punctualReflex $ fmapMaybe (either (const Nothing) Just) parsed
-  let errors = fmapMaybe (either (Just . show) (const (Just "Ok"))) parsed
+  let errors = fmapMaybe (either (Just . show) (Just . show)) parsed
   status <- holdDyn "" $ fmap show errors
   dynText status
 

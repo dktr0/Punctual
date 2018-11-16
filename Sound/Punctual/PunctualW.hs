@@ -42,9 +42,9 @@ graphToMusicW :: Graph -> W.SynthBuilder W.Graph
 
 graphToMusicW (Constant x) = W.constant x
 
-graphToMusicW Noise = error "graphToMusicW Noise not supported yet"
+graphToMusicW Noise = W.constant 0 -- placeholder
 
-graphToMusicW Pink = error "graphToMusicW Pink not supported yet"
+graphToMusicW Pink = W.constant 0 -- placeholder
 
 graphToMusicW (Sine x) = do
   s <- W.oscillator W.Sine (W.Hz 0)
@@ -85,7 +85,7 @@ graphToMusicW (Mix (x:xs)) = do
 
 graphToMusicW EmptyGraph = W.constant 0
 
-graphToMusicW (FromTarget x) = error "graphToMusicW (FromTarget _) not yet supported"
+graphToMusicW (FromTarget x) = W.constant 0 -- placeholder
 
 graphToMusicW (Sum x y) = do
   graphToMusicW x
@@ -95,6 +95,6 @@ graphToMusicW (Sum x y) = do
 
 graphToMusicW (Product x y) = do
   graphToMusicW x
-  m <- W.gain (W.Amp 1.0)
+  m <- W.gain (W.Amp 0.0)
   graphToMusicW y
   W.audioParamSink "gain" m
