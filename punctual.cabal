@@ -20,6 +20,7 @@ Library
   Exposed-modules:   Sound.Punctual.PunctualW
                      Sound.Punctual.Types
                      Sound.Punctual.Evaluation
+                     Sound.Punctual.Parser
   other-modules:
   default-language:  Haskell2010
 

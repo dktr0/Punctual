@@ -2,6 +2,7 @@ module Sound.Punctual.Tests where
 
 import Sound.Punctual.Graph
 import Sound.Punctual.Types
+import Sound.Punctual.Parser
 import Text.ParserCombinators.Parsec
 import Test.HUnit
 

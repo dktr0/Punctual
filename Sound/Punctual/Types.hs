@@ -1,6 +1,5 @@
 module Sound.Punctual.Types where
 
-import Text.ParserCombinators.Parsec
 import Sound.Punctual.Token
 import Sound.Punctual.Extent
 import Sound.Punctual.Graph
@@ -20,102 +19,18 @@ import Sound.Punctual.Graph
 
 data Duration = Seconds Double | Cycles Double deriving (Show,Eq)
 
-duration :: GenParser Char a Duration
-duration = choice $ fmap try [seconds,milliseconds,cycles]
-
-seconds :: GenParser Char a Duration
-seconds = do
-  x <- double
-  reserved "s"
-  return $ Seconds x
-
-milliseconds :: GenParser Char a Duration
-milliseconds = do
-  x <- double
-  reserved "ms"
-  return $ Seconds (x/1000.0)
-
-cycles :: GenParser Char a Duration
-cycles = do
-  x <- double
-  reserved "c"
-  return $ Cycles x
-
 data DefTime = After Duration | Quant Double Duration deriving (Show,Eq)
-
-defTime :: GenParser Char a DefTime
-defTime = do
-  reservedOp "@"
-  (After <$> duration) <|> quant
-
-quant :: GenParser Char a DefTime
-quant = parens $ do
-  x <- double
-  comma
-  y <- duration
-  return $ Quant x y
 
 data Transition = DefaultCrossFade | CrossFade Duration | HoldPhase deriving (Show, Eq)
 
-transition :: GenParser Char a Transition
-transition = choice [
-  reservedOp "<>" >> return DefaultCrossFade,
-  reservedOp "~" >> return HoldPhase,
-  reservedOp "=" >> return (CrossFade (Seconds 0.0)),
-  CrossFade <$> angles duration
-  ]
-
 data Target = Explicit String | Anonymous deriving (Show,Eq)
 
-data Definition = Definition Target DefTime Transition Graph deriving (Show, Eq)
-
-definitionParser :: GenParser Char a Definition
-definitionParser = choice [
-  try targetDefTimeTransitionGraph,
-  try targetTransitionGraph,
-  try targetDefTimeGraph,
-  try defTimeTransitionGraph,
-  try defTimeGraph,
-  try transitionGraph,
-  try targetGraph,
-  Definition Anonymous (After (Seconds 0)) DefaultCrossFade <$> graph
-  ]
-
-explicitTarget :: GenParser Char a Target
-explicitTarget = (Explicit <$> identifier)
-
-targetDefTimeTransitionGraph :: GenParser Char a Definition
-targetDefTimeTransitionGraph = Definition <$> explicitTarget <*> defTime <*> transition <*> graph
-
-targetTransitionGraph :: GenParser Char a Definition
-targetTransitionGraph = Definition <$> explicitTarget <*> dt <*> transition <*> graph
-  where dt = return (After (Seconds 0))
-
-targetDefTimeGraph :: GenParser Char a Definition
-targetDefTimeGraph = Definition <$> explicitTarget <*> defTime <*> tr <*> graph
-  where tr = return DefaultCrossFade
-
-defTimeTransitionGraph :: GenParser Char a Definition
-defTimeTransitionGraph = Definition <$> t <*> defTime <*> transition <*> graph
-  where t = return Anonymous
-
-defTimeGraph :: GenParser Char a Definition
-defTimeGraph = Definition <$> t <*> defTime <*> tr <*> graph
-  where
-    t = return Anonymous
-    tr = return DefaultCrossFade
-
-transitionGraph :: GenParser Char a Definition
-transitionGraph = Definition <$> t <*> dt <*> transition <*> graph
-  where
-    t = return Anonymous
-    dt = return (After (Seconds 0))
-
-targetGraph :: GenParser Char a Definition
-targetGraph = Definition <$> explicitTarget <*> dt <*> tr <*> graph
-  where
-    dt = return (After (Seconds 0))
-    tr = return DefaultCrossFade
+data Definition = Definition {
+  target :: Target,
+  defTime :: DefTime,
+  transition :: Transition,
+  graph :: Graph
+  } deriving (Show, Eq)
 
 -- routing things to the output (avoiding words like left or right to be less English)
 -- sine 440 :0.5   -- centre panned
@@ -127,27 +42,7 @@ targetGraph = Definition <$> explicitTarget <*> dt <*> tr <*> graph
 
 data Output = NoOutput | PannedOutput Extent deriving (Show,Eq)
 
-outputParser :: GenParser Char a Output
-outputParser = choice [
-  try $ reservedOp ":" >> (PannedOutput <$> extent),
-  reservedOp ":" >> return (PannedOutput 0.5),
-  return NoOutput
-  ]
-
 data Expression = Expression {
   definition :: Definition,
   output :: Output
   } deriving (Show,Eq)
-
-expression :: GenParser Char a Expression
-expression = Expression <$> definitionParser <*> outputParser
-
-punctualParser :: GenParser Char a [Expression]
-punctualParser = do
-  x <- (whiteSpace >> expression) `sepBy` reservedOp ";"
-  whiteSpace
-  eof
-  return x
-
-runPunctualParser :: String -> Either ParseError [Expression]
-runPunctualParser = parse punctualParser ""

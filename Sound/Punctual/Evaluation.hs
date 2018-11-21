@@ -5,15 +5,15 @@ import Data.Time.Clock
 import Sound.Punctual.Types
 import Sound.Punctual.Phasor
 
-data History = History {
-  phasors :: [Phasor],
-  expressions :: [Expression]
+data PunctualState = PunctualState {
+  expressions :: [Expression],
+  startTime :: UTCTime
   }
 
-emptyHistory :: History
-emptyHistory = History {
-  phasors = [],
-  expressions = []
+emptyPunctualState :: UTCTime -> PunctualState
+emptyPunctualState t = PunctualState {
+  expressions = [],
+  startTime = t
   }
 
 type Evaluation = ([Expression],UTCTime)
@@ -23,8 +23,8 @@ evaluationNow x = do
   now <- getCurrentTime
   return (x,now)
 
-updateHistory :: History -> Evaluation -> History
-updateHistory h e = History {
-  phasors = [], -- placeholder
-  expressions = fst e -- placeholder
+updatePunctualState :: PunctualState -> Evaluation -> PunctualState
+updatePunctualState s e = s {
+  expressions = fst e,
+  startTime = snd e
   }
