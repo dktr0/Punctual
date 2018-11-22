@@ -4,8 +4,11 @@ module Main where
 
 import Control.Monad.Trans
 import Reflex.Dom
+import Data.Time.Clock
+
 import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
+import Sound.Punctual.Parser
 import Sound.Punctual.PunctualW
 
 main :: IO ()
@@ -22,8 +25,9 @@ main = mainWidget $ do
 
 punctualReflex :: MonadWidget t m => Event t [Expression] -> m ()
 punctualReflex exprs = mdo
+  now <- liftIO $ getCurrentTime
   evals <- performEvent $ fmap (liftIO . evaluationNow) exprs
   let punctualWAndEval = attachDyn currentPunctualW evals
   newPunctualW <- performEvent $ fmap (liftIO . (uncurry updatePunctualW)) punctualWAndEval
-  currentPunctualW <- holdDyn emptyPunctualW newPunctualW
+  currentPunctualW <- holdDyn (emptyPunctualW now)  newPunctualW
   return ()

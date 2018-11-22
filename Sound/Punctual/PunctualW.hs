@@ -3,6 +3,7 @@ module Sound.Punctual.PunctualW where
 -- This module provides an implementation of Punctual using MusicW as an underlying synthesis library
 
 import Control.Monad (forM_)
+import Data.Time.Clock
 
 import Sound.Punctual.Graph
 import Sound.Punctual.Types
@@ -10,35 +11,36 @@ import Sound.Punctual.Evaluation
 import qualified Sound.MusicW as W
 
 data PunctualW = PunctualW {
-  history :: History,
+  punctualState :: PunctualState,
   prevSynthstance :: Maybe W.Synthstance
   }
 
-emptyPunctualW :: PunctualW
-emptyPunctualW = PunctualW {
-  history = emptyHistory,
+emptyPunctualW :: UTCTime -> PunctualW
+emptyPunctualW t = PunctualW {
+  punctualState = emptyPunctualState t,
   prevSynthstance = Nothing
   }
 
 updatePunctualW :: PunctualW -> Evaluation -> IO PunctualW
 updatePunctualW s e = do
   maybe (return ()) W.stopSynthNow $ prevSynthstance s -- placeholder: should be a specifically timed fade
-  let newSynth = futureSynth (history s) e -- placeholder: should manage replacement of previous synth
+  let newSynth = futureSynth (punctualState s) e -- placeholder: should manage replacement of previous synth
   putStrLn $ show e
   putStrLn $ show newSynth
   newSynthstance <- W.instantiateSynth newSynth
   newSynthstance' <- W.startSynthNow newSynthstance -- placeholder: time management needed
-  let newHistory = updateHistory (history s) e
-  return $ s { history = newHistory, prevSynthstance = Just newSynthstance' }
+  let newState = updatePunctualState (punctualState s) e
+  return $ s { punctualState = newState, prevSynthstance = Just newSynthstance' }
 
-futureSynth :: History -> Evaluation -> W.Synth ()
--- futureSynth _ _ = test6
-futureSynth h (xs,t) = W.buildSynth $ mapM_ (definitionToMusicW . definition) xs
+futureSynth :: PunctualState -> Evaluation -> W.Synth ()
+futureSynth s (xs,t) = W.buildSynth $ mapM_ (definitionToMusicW . definition) xs
 
 definitionToMusicW :: Definition -> W.SynthBuilder W.Graph
 definitionToMusicW (Definition _ _ _ g) = graphToMusicW g >> W.destination
 
 graphToMusicW :: Graph -> W.SynthBuilder W.Graph
+
+graphToMusicW EmptyGraph = W.constant 0
 
 graphToMusicW (Constant x) = W.constant x
 
@@ -73,17 +75,6 @@ graphToMusicW (HPF i f q) = do
   x <- W.biquadFilter (W.HighPass (W.Hz 0) 0)
   graphToMusicW f >> W.audioParamSink "frequency" x
   graphToMusicW q >> W.audioParamSink "Q" x
-
-graphToMusicW (Mix []) = graphToMusicW EmptyGraph
-graphToMusicW (Mix (x:xs)) = do
-  graphToMusicW x
-  m <- W.gain (W.Amp 1.0)
-  forM_ xs $ \y -> do
-    graphToMusicW y
-    W.audioReSink m
-  return m
-
-graphToMusicW EmptyGraph = W.constant 0
 
 graphToMusicW (FromTarget x) = W.constant 0 -- placeholder
 

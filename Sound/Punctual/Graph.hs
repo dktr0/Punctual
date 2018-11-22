@@ -1,9 +1,7 @@
 module Sound.Punctual.Graph where
 
-import Sound.Punctual.Token
-import Sound.Punctual.Extent
-
 data Graph =
+  EmptyGraph |
   Constant Double |
   Noise |
   Pink |
@@ -14,8 +12,6 @@ data Graph =
   Pulse Graph |
   LPF Graph Graph Graph |
   HPF Graph Graph Graph |
-  Mix [Graph] |
-  EmptyGraph |
   FromTarget String |
   Product Graph Graph |
   Sum Graph Graph
