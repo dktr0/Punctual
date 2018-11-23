@@ -79,7 +79,10 @@ graphParser :: GenParser Char a Graph
 graphParser = sumOfGraphs <|> return EmptyGraph
 
 sumOfGraphs :: GenParser Char a Graph
-sumOfGraphs = chainl1 productOfGraphs (reservedOp "+" >> return Sum)
+sumOfGraphs = chainl1 productOfGraphs $ choice [
+  reservedOp "+" >> return Sum,
+  reservedOp "-" >> return (\x y -> Sum x (Product y (Constant (-1))))
+  ]
 
 productOfGraphs :: GenParser Char a Graph
 productOfGraphs = chainl1 simpleGraph (reservedOp "*" >> return Product)
