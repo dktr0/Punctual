@@ -114,4 +114,7 @@ filters = do
   x <$> simpleGraph <*> simpleGraph <*> simpleGraph
 
 mixGraph :: GenParser Char a Graph
-mixGraph = reserved "mix" >> (Mix <$> (brackets (commaSep sumOfGraphs)))
+mixGraph = do
+  reserved "mix"
+  xs <- brackets (commaSep sumOfGraphs)
+  return $ foldl Sum EmptyGraph xs
