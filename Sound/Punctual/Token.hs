@@ -48,4 +48,9 @@ commaSep = P.commaSep tokenParser
 commaSep1 = P.commaSep1 tokenParser
 
 double :: GenParser Char a Double
-double = choice $ fmap try [float,fromIntegral <$> integer]
+double = choice [
+  parens double,
+  symbol "-" >> double >>= return . (* (-1)),
+  try float,
+  try $ fromIntegral <$> integer
+  ]
