@@ -9,7 +9,6 @@ data Graph =
   Tri Graph |
   Saw Graph |
   Square Graph |
-  Pulse Graph |
   LPF Graph Graph Graph |
   HPF Graph Graph Graph |
   FromTarget String |

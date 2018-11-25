@@ -104,8 +104,7 @@ oscillators = choice [
   Sine <$> (reserved "sine" >> simpleGraph),
   Tri <$> (reserved "tri" >> simpleGraph),
   Saw <$> (reserved "saw" >> simpleGraph),
-  Square <$> (reserved "square" >> simpleGraph),
-  Pulse <$> (reserved "pulse" >> simpleGraph)
+  Square <$> (reserved "square" >> simpleGraph)
   ]
 
 filters :: GenParser Char a Graph

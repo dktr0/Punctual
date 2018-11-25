@@ -32,17 +32,31 @@ fromDiffTime :: NominalDiffTime -> Double
 fromDiffTime = fromRational . toRational
 
 sampleGraph' :: NominalDiffTime -> Int -> Graph -> Double
-sampleGraph' t _ EmptyGraph = 0.0
-sampleGraph' t _ (Constant x) = x
-sampleGraph' t _ (Noise) = 0.5 -- placeholder
-sampleGraph' t _ (Pink) = 0.5 -- placeholder
+sampleGraph' _ _ EmptyGraph = 0.0
+sampleGraph' _ _ (Constant x) = x
+sampleGraph' _ _ (Noise) = 0.5 -- placeholder
+sampleGraph' _ _ (Pink) = 0.5 -- placeholder
 sampleGraph' t c (Sine x) = sin $ fromDiffTime t * sampleGraph' t c x * 2 * pi
-sampleGraph' t c (Tri x) = 0 -- placeholder
-sampleGraph' t c (Saw x) = 0 -- placeholder
-sampleGraph' t c (Square x) = 0 -- placeholder
-sampleGraph' t c (Pulse x) = 0 -- placeholder
+sampleGraph' t c (Tri x) = tri $ fromDiffTime t * sampleGraph' t c x
+sampleGraph' t c (Saw x) = saw $ fromDiffTime t * sampleGraph' t c x
+sampleGraph' t c (Square x) = sqr $ fromDiffTime t * sampleGraph' t c x
 sampleGraph' t c (LPF x _ _) = sampleGraph' t c x -- placeholder
 sampleGraph' t c (HPF x _ _) = sampleGraph' t c x -- placeholder
 sampleGraph' t _ (FromTarget _) = 1.0 -- placeholder
 sampleGraph' t c (Product x y) = sampleGraph' t c x * sampleGraph' t c y
 sampleGraph' t c (Sum x y) = sampleGraph' t c x + sampleGraph' t c y
+
+tri :: Double -> Double
+tri y = f $ (\x -> x - fromIntegral (floor x)) $ y + 0.25
+  where
+    f x | x < 0.5 = (x * 4) - 1
+    f x | otherwise = 1 - ((x - 0.5) * 4)
+
+saw :: Double -> Double
+saw x = x - fromIntegral (floor x)
+
+sqr :: Double -> Double
+sqr x = f $ x - fromIntegral (floor x)
+  where
+    f x | x < 0.5 = 1
+    f x | otherwise = -1
