@@ -53,7 +53,7 @@ tri y = f $ (\x -> x - fromIntegral (floor x)) $ y + 0.25
     f x | otherwise = 1 - ((x - 0.5) * 4)
 
 saw :: Double -> Double
-saw x = x - fromIntegral (floor x)
+saw x = (x - fromIntegral (floor x)) * 2 - 1
 
 sqr :: Double -> Double
 sqr x = f $ x - fromIntegral (floor x)
