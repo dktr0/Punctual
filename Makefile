@@ -4,4 +4,4 @@ build:
 	stack build
 
 install:
-	cp -Rf $$(stack path --local-install-root)/bin/Punctual.jsexe .
+	cp -Rf $$(stack path --local-install-root)/bin/punctual.jsexe .
