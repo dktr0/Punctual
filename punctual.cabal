@@ -29,5 +29,5 @@ Library
 executable punctual
   hs-source-dirs:    .
   main-is:           Main.hs
-  build-depends:     base, punctual, reflex, reflex-dom, time, parsec, mtl, musicw
+  build-depends:     base, punctual, reflex, reflex-dom, time, parsec, mtl, musicw, text
   default-language:  Haskell2010
