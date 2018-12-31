@@ -11,23 +11,26 @@ import Sound.Punctual.Evaluation
 import qualified Sound.MusicW as W
 
 data PunctualW = PunctualW {
+  punctualAudioContext :: W.AudioContext,
   punctualState :: PunctualState,
   prevSynthstance :: Maybe W.Synthstance
   }
 
-emptyPunctualW :: UTCTime -> PunctualW
-emptyPunctualW t = PunctualW {
+emptyPunctualW :: W.AudioContext -> UTCTime -> PunctualW
+emptyPunctualW ac t = PunctualW {
+  punctualAudioContext = ac,
   punctualState = emptyPunctualState t,
   prevSynthstance = Nothing
   }
 
 updatePunctualW :: PunctualW -> Evaluation -> IO PunctualW
 updatePunctualW s e = do
+  let ac = punctualAudioContext s
   maybe (return ()) W.stopSynthNow $ prevSynthstance s -- placeholder: should be a specifically timed fade
   let newSynth = futureSynth (punctualState s) e -- placeholder: should manage replacement of previous synth
   putStrLn $ show e
   putStrLn $ show newSynth
-  newSynthstance <- W.instantiateSynth newSynth
+  newSynthstance <- W.instantiateSynth (punctualAudioContext s) newSynth
   newSynthstance' <- W.startSynthNow newSynthstance -- placeholder: time management needed
   let newState = updatePunctualState (punctualState s) e
   return $ s { punctualState = newState, prevSynthstance = Just newSynthstance' }
