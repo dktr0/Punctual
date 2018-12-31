@@ -1,10 +1,11 @@
-{-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE RecursiveDo, OverloadedStrings #-}
 
 module Main where
 
 import Control.Monad.Trans
 import Reflex.Dom
 import Data.Time.Clock
+import Data.Text
 
 import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
@@ -17,10 +18,10 @@ main = mainWidget $ do
   evalButton <- el "div" $ button "eval"
   code <- el "div" $ textArea def
   let evaled = tagDyn (_textArea_value code) evalButton
-  let parsed = fmap runPunctualParser evaled
+  let parsed = fmap (runPunctualParser . unpack) evaled
   punctualReflex $ fmapMaybe (either (const Nothing) Just) parsed
   let errors = fmapMaybe (either (Just . show) (Just . show)) parsed
-  status <- holdDyn "" $ fmap show errors
+  status <- holdDyn "" $ fmap (pack . show) errors
   dynText status
 
 punctualReflex :: MonadWidget t m => Event t [Expression] -> m ()
