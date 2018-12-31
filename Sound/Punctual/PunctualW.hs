@@ -11,12 +11,12 @@ import Sound.Punctual.Evaluation
 import qualified Sound.MusicW as W
 
 data PunctualW = PunctualW {
-  punctualAudioContext :: W.AudioContext,
+  punctualAudioContext :: W.WebAudioContext,
   punctualState :: PunctualState,
   prevSynthstance :: Maybe W.Synthstance
   }
 
-emptyPunctualW :: W.AudioContext -> UTCTime -> PunctualW
+emptyPunctualW :: W.WebAudioContext -> UTCTime -> PunctualW
 emptyPunctualW ac t = PunctualW {
   punctualAudioContext = ac,
   punctualState = emptyPunctualState t,
