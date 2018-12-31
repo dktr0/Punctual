@@ -10,7 +10,7 @@ data PunctualState = PunctualState {
   startTime :: UTCTime
   }
 
-emptyPunctualState :: AudioContext -> UTCTime -> PunctualState
+emptyPunctualState :: UTCTime -> PunctualState
 emptyPunctualState t = PunctualState {
   expressions = [],
   startTime = t
