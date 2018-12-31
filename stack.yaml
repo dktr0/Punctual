@@ -25,11 +25,11 @@ packages:
   subdirs:
   - reflex-dom-core
   - reflex-dom
-  extra-dep: true 
+  extra-dep: true
 
 - location:
     git: https://github.com/d0kt0r0/MusicW.git
-    commit: 2905bb20c71412320d90f00d86fb93220743195e
+    commit: b24659792a9ff085331691d88908c4e6cf345057
   extra-dep: true
 
 extra-deps:
@@ -41,4 +41,3 @@ extra-deps:
   - jsaddle-0.9.5.0
   - zenc-0.1.1
   - monoidal-containers-0.4.0.0
-
