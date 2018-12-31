@@ -12,13 +12,15 @@ import qualified Sound.MusicW as W
 
 data PunctualW = PunctualW {
   punctualAudioContext :: W.WebAudioContext,
+  punctualDestination :: W.Node,
   punctualState :: PunctualState,
   prevSynthstance :: Maybe W.Synthstance
   }
 
-emptyPunctualW :: W.WebAudioContext -> UTCTime -> PunctualW
-emptyPunctualW ac t = PunctualW {
+emptyPunctualW :: W.WebAudioContext -> W.Node -> UTCTime -> PunctualW
+emptyPunctualW ac dest t = PunctualW {
   punctualAudioContext = ac,
+  punctualDestination = dest,
   punctualState = emptyPunctualState t,
   prevSynthstance = Nothing
   }
@@ -30,7 +32,7 @@ updatePunctualW s e = do
   let newSynth = futureSynth (punctualState s) e -- placeholder: should manage replacement of previous synth
   putStrLn $ show e
   putStrLn $ show newSynth
-  newSynthstance <- W.instantiateSynth (punctualAudioContext s) newSynth
+  newSynthstance <- W.instantiateSynthWithDestination (punctualAudioContext s) newSynth (punctualDestination s)
   newSynthstance' <- W.startSynthNow newSynthstance -- placeholder: time management needed
   let newState = updatePunctualState (punctualState s) e
   return $ s { punctualState = newState, prevSynthstance = Just newSynthstance' }

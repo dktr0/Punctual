@@ -16,22 +16,23 @@ import Sound.MusicW.AudioRoutingGraph
 
 main :: IO ()
 main = mainWidget $ do
-  ac <- liftIO $ getAudioContext
   el "div" $ text "Punctual"
   evalButton <- el "div" $ button "eval"
   code <- el "div" $ textArea def
   let evaled = tagDyn (_textArea_value code) evalButton
   let parsed = fmap (runPunctualParser . unpack) evaled
-  punctualReflex ac $ fmapMaybe (either (const Nothing) Just) parsed
+  punctualReflex $ fmapMaybe (either (const Nothing) Just) parsed
   let errors = fmapMaybe (either (Just . show) (Just . show)) parsed
   status <- holdDyn "" $ fmap (pack . show) errors
   dynText status
 
-punctualReflex :: MonadWidget t m => WebAudioContext -> Event t [Expression] -> m ()
-punctualReflex ac exprs = mdo
+punctualReflex :: MonadWidget t m => Event t [Expression] -> m ()
+punctualReflex exprs = mdo
+  ac <- liftIO $ getAudioContext
   now <- liftIO $ getAudioTime ac
+  dest <- liftIO $ instantiateSinkNode Destination ac
   evals <- performEvent $ fmap (liftIO . evaluationNow) exprs
   let punctualWAndEval = attachDyn currentPunctualW evals
   newPunctualW <- performEvent $ fmap (liftIO . (uncurry updatePunctualW)) punctualWAndEval
-  currentPunctualW <- holdDyn (emptyPunctualW ac now)  newPunctualW
+  currentPunctualW <- holdDyn (emptyPunctualW ac dest now)  newPunctualW
   return ()
