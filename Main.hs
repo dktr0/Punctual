@@ -12,7 +12,7 @@ import Sound.Punctual.Evaluation
 import Sound.Punctual.Parser
 import Sound.Punctual.PunctualW
 import Sound.MusicW
-import Sound.MusicW.AudioRoutingGraph
+import Sound.MusicW.AudioContext
 
 main :: IO ()
 main = mainWidget $ do
@@ -28,11 +28,12 @@ main = mainWidget $ do
 
 punctualReflex :: MonadWidget t m => Event t [Expression] -> m ()
 punctualReflex exprs = mdo
-  ac <- liftIO $ getAudioContext
-  now <- liftIO $ getAudioTime ac
-  dest <- liftIO $ instantiateSinkNode Destination ac
+  ac <- liftAudioIO $ audioContext
+  now <- liftAudioIO $ audioUTCTime
+  dest <- liftAudioIO $ createDestination
+  let initialPunctualW = emptyPunctualW ac dest now
   evals <- performEvent $ fmap (liftIO . evaluationNow) exprs
-  let punctualWAndEval = attachDyn currentPunctualW evals
-  newPunctualW <- performEvent $ fmap (liftIO . (uncurry updatePunctualW)) punctualWAndEval
-  currentPunctualW <- holdDyn (emptyPunctualW ac dest now)  newPunctualW
+  let f pW e = liftAudioIO $ updatePunctualW pW e
+  newPunctualW <- performEvent $ attachDynWith f currentPunctualW evals
+  currentPunctualW <- holdDyn initialPunctualW newPunctualW
   return ()

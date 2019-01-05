@@ -3,94 +3,82 @@ module Sound.Punctual.PunctualW where
 -- This module provides an implementation of Punctual using MusicW as an underlying synthesis library
 
 import Control.Monad (forM_)
+import Control.Monad.IO.Class (liftIO)
 import Data.Time.Clock
 
 import Sound.Punctual.Graph
 import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
+import Sound.MusicW (AudioIO,SynthDef,Synth,AudioContext,Node,NodeRef)
 import qualified Sound.MusicW as W
 
-data PunctualW = PunctualW {
-  punctualAudioContext :: W.WebAudioContext,
-  punctualDestination :: W.Node,
+data PunctualW m = PunctualW {
+  punctualAudioContext :: AudioContext,
+  punctualDestination :: Node,
   punctualState :: PunctualState,
-  prevSynthstance :: Maybe W.Synthstance
+  prevSynth :: Maybe (Synth m)
   }
 
-emptyPunctualW :: W.WebAudioContext -> W.Node -> UTCTime -> PunctualW
+emptyPunctualW :: AudioIO m => AudioContext -> Node -> UTCTime -> PunctualW m
 emptyPunctualW ac dest t = PunctualW {
   punctualAudioContext = ac,
   punctualDestination = dest,
   punctualState = emptyPunctualState t,
-  prevSynthstance = Nothing
+  prevSynth = Nothing
   }
 
-updatePunctualW :: PunctualW -> Evaluation -> IO PunctualW
+updatePunctualW :: AudioIO m => PunctualW m -> Evaluation -> m (PunctualW m)
 updatePunctualW s e = do
   let ac = punctualAudioContext s
-  maybe (return ()) W.stopSynthNow $ prevSynthstance s -- placeholder: should be a specifically timed fade
-  let newSynth = futureSynth (punctualState s) e -- placeholder: should manage replacement of previous synth
-  putStrLn $ show e
-  putStrLn $ show newSynth
-  newSynthstance <- W.instantiateSynthWithDestination (punctualAudioContext s) newSynth (punctualDestination s)
-  newSynthstance' <- W.startSynthNow newSynthstance -- placeholder: time management needed
+  maybe (return ()) W.stopSynthNow $ prevSynth s -- placeholder: should be a specifically timed fade
+  newSynthDef <- futureSynth (punctualState s) e -- placeholder: should manage replacement of previous synth
+  newSynth <- W.playSynth (punctualDestination s) newSynthDef
+  W.startSynthNow newSynth -- placeholder: time management needed
   let newState = updatePunctualState (punctualState s) e
-  return $ s { punctualState = newState, prevSynthstance = Just newSynthstance' }
+  return $ s { punctualState = newState, prevSynth = Just newSynth }
 
-futureSynth :: PunctualState -> Evaluation -> W.Synth ()
-futureSynth s (xs,t) = W.buildSynth $ mapM_ (definitionToMusicW . definition) xs
+futureSynth :: AudioIO m => PunctualState -> Evaluation -> m (SynthDef m ())
+futureSynth s (xs,t) = do
+  let x = fmap (definitionToMusicW . definition) xs -- [SynthDef m NodeRef]
+  return $ W.mixSynthDefs x >>= W.out -- SynthDef m ()
 
-definitionToMusicW :: Definition -> W.SynthBuilder W.Graph
-definitionToMusicW (Definition _ _ _ g) = graphToMusicW g >> W.destination
+definitionToMusicW :: AudioIO m => Definition -> SynthDef m NodeRef
+definitionToMusicW (Definition _ _ _ g) = graphToMusicW g
 
-graphToMusicW :: Graph -> W.SynthBuilder W.Graph
-
-graphToMusicW EmptyGraph = W.constant 0
-
-graphToMusicW (Constant x) = W.constant x
-
-graphToMusicW Noise = W.constant 0 -- placeholder
-
-graphToMusicW Pink = W.constant 0 -- placeholder
-
+graphToMusicW :: AudioIO m => Graph -> SynthDef m NodeRef
+graphToMusicW EmptyGraph = W.constantSource 0
+graphToMusicW (Constant x) = W.constantSource x
+graphToMusicW Noise = W.constantSource 0 -- placeholder
+graphToMusicW Pink = W.constantSource 0 -- placeholder
 graphToMusicW (Sine x) = do
-  s <- W.oscillator W.Sine (W.Hz 0)
-  graphToMusicW x >> W.audioParamSink "frequency" s
-
+  s <- W.oscillator W.Sine 0
+  graphToMusicW x >>= W.param W.Frequency s
+  return s
 graphToMusicW (Tri x) = do
-  s <- W.oscillator W.Triangle (W.Hz 0)
-  graphToMusicW x >> W.audioParamSink "frequency" s
-
+  s <- W.oscillator W.Triangle 0
+  graphToMusicW x >>= W.param W.Frequency s
+  return s
 graphToMusicW (Saw x) = do
-  s <- W.oscillator W.Sawtooth (W.Hz 0)
-  graphToMusicW x >> W.audioParamSink "frequency" s
-
+  s <- W.oscillator W.Sawtooth 0
+  graphToMusicW x >>= W.param W.Frequency s
+  return s
 graphToMusicW (Square x) = do
-  s <- W.oscillator W.Square (W.Hz 0)
-  graphToMusicW x >> W.audioParamSink "frequency" s
-
+  s <- W.oscillator W.Square 0
+  graphToMusicW x >>= W.param W.Frequency s
+  return s
 graphToMusicW (LPF i f q) = do
-  graphToMusicW i
-  x <- W.biquadFilter (W.LowPass (W.Hz 0) 0)
-  graphToMusicW f >> W.audioParamSink "frequency" x
-  graphToMusicW q >> W.audioParamSink "Q" x
-
+  x <- graphToMusicW i >>= W.biquadFilter (W.LowPass 0 0)
+  graphToMusicW f >>= W.param W.Frequency x
+  graphToMusicW q >>= W.param W.Q x
+  return x
 graphToMusicW (HPF i f q) = do
-  graphToMusicW i
-  x <- W.biquadFilter (W.HighPass (W.Hz 0) 0)
-  graphToMusicW f >> W.audioParamSink "frequency" x
-  graphToMusicW q >> W.audioParamSink "Q" x
-
-graphToMusicW (FromTarget x) = W.constant 0 -- placeholder
-
-graphToMusicW (Sum x y) = do
-  graphToMusicW x
-  m <- W.gain (W.Amp 1.0)
-  graphToMusicW y
-  W.audioReSink m
-
+  x <- graphToMusicW i >>= W.biquadFilter (W.HighPass 0 0)
+  graphToMusicW f >>= W.param W.Frequency x
+  graphToMusicW q >>= W.param W.Q x
+  return x
+graphToMusicW (FromTarget x) = W.constantSource 0 -- placeholder
+graphToMusicW (Sum x y) = W.mixSynthDefs $ fmap graphToMusicW [x,y]
 graphToMusicW (Product x y) = do
-  graphToMusicW x
-  m <- W.gain (W.Amp 0.0)
-  graphToMusicW y
-  W.audioParamSink "gain" m
+  m <- graphToMusicW x >>= W.gain 0.0
+  graphToMusicW y >>= W.param W.Gain m
+  return m
