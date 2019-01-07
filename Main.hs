@@ -29,11 +29,16 @@ main = mainWidget $ do
 punctualReflex :: MonadWidget t m => Event t [Expression] -> m ()
 punctualReflex exprs = mdo
   ac <- liftAudioIO $ audioContext
-  now <- liftAudioIO $ audioUTCTime
   dest <- liftAudioIO $ createDestination
-  let initialPunctualW = emptyPunctualW ac dest now
+  t0 <- liftAudioIO $ audioUTCTime
+  let initialPunctualW = emptyPunctualW ac dest t0
   evals <- performEvent $ fmap (liftIO . evaluationNow) exprs
   let f pW e = liftAudioIO $ updatePunctualW pW e
   newPunctualW <- performEvent $ attachDynWith f currentPunctualW evals
   currentPunctualW <- holdDyn initialPunctualW newPunctualW
   return ()
+
+evaluationNow :: [Expression] -> IO Evaluation
+evaluationNow exprs = do
+  t <- liftAudioIO $ audioUTCTime
+  return (exprs,t)

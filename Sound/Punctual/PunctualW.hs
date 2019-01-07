@@ -2,9 +2,10 @@ module Sound.Punctual.PunctualW where
 
 -- This module provides an implementation of Punctual using MusicW as an underlying synthesis library
 
-import Control.Monad (forM_)
+import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
-import Data.Time.Clock
+import Data.Time
+import Data.Maybe
 
 import Sound.Punctual.Graph
 import Sound.Punctual.Types
@@ -16,7 +17,8 @@ data PunctualW m = PunctualW {
   punctualAudioContext :: AudioContext,
   punctualDestination :: Node,
   punctualState :: PunctualState,
-  prevSynth :: Maybe (Synth m)
+  prevSynth :: Maybe (Synth m),
+  prevNode :: Maybe Node
   }
 
 emptyPunctualW :: AudioIO m => AudioContext -> Node -> UTCTime -> PunctualW m
@@ -24,23 +26,37 @@ emptyPunctualW ac dest t = PunctualW {
   punctualAudioContext = ac,
   punctualDestination = dest,
   punctualState = emptyPunctualState t,
-  prevSynth = Nothing
+  prevSynth = Nothing,
+  prevNode = Nothing
   }
 
 updatePunctualW :: AudioIO m => PunctualW m -> Evaluation -> m (PunctualW m)
-updatePunctualW s e = do
-  let ac = punctualAudioContext s
-  maybe (return ()) W.stopSynthNow $ prevSynth s -- placeholder: should be a specifically timed fade
-  newSynthDef <- futureSynth (punctualState s) e -- placeholder: should manage replacement of previous synth
-  newSynth <- W.playSynth (punctualDestination s) newSynthDef
-  W.startSynthNow newSynth -- placeholder: time management needed
+updatePunctualW s e@(xs,t) = do
+  let t' = W.utcTimeToDouble t
+  let synthStartTime = t' + 0.1
+  when (isJust $ prevNode s) $ do
+    W.linearRampToValueAtTime (fromJust $ prevNode s) W.Gain 0.0 (synthStartTime+0.005)
+    W.stopSynth (synthStartTime + 0.05) (fromJust $ prevSynth s)
+  let newSynthDef = futureSynth (punctualState s) e
+  (newNodeRef,newSynth) <- W.playSynth (punctualDestination s) synthStartTime newSynthDef
+  newNode <- W.nodeRefToNode newNodeRef newSynth
   let newState = updatePunctualState (punctualState s) e
-  return $ s { punctualState = newState, prevSynth = Just newSynth }
+  t2 <- W.audioUTCTime
+  liftIO$ putStrLn $ "t2=" ++ show t2
+  return $ s { punctualState = newState, prevSynth = Just newSynth, prevNode = Just newNode }
 
-futureSynth :: AudioIO m => PunctualState -> Evaluation -> m (SynthDef m ())
+futureSynth :: AudioIO m => PunctualState -> Evaluation -> SynthDef m NodeRef
 futureSynth s (xs,t) = do
-  let x = fmap (definitionToMusicW . definition) xs -- [SynthDef m NodeRef]
-  return $ W.mixSynthDefs x >>= W.out -- SynthDef m ()
+  let t' = W.utcTimeToDouble t
+  xs <- mapM (expressionToMusicW t') xs -- [SynthDef m NodeRef]
+  masterGain <- W.mix xs >>= W.gain 0
+  W.audioOut masterGain
+  W.setParam W.Gain 0.0 0.000 masterGain
+  W.linearRampOnParam W.Gain 1.0 0.005 masterGain -- a 5 msec fade in at synth start time
+
+expressionToMusicW :: AudioIO m => Double -> Expression -> SynthDef m NodeRef
+expressionToMusicW t (Expression _ NoOutput) = W.constantSource 0
+expressionToMusicW t (Expression d (PannedOutput p)) = definitionToMusicW d >>= W.equalPowerPan p
 
 definitionToMusicW :: AudioIO m => Definition -> SynthDef m NodeRef
 definitionToMusicW (Definition _ _ _ g) = graphToMusicW g
