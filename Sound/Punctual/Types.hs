@@ -23,7 +23,7 @@ data DefTime = After Duration | Quant Double Duration deriving (Show,Eq)
 
 data Transition = DefaultCrossFade | CrossFade Duration | HoldPhase deriving (Show, Eq)
 
-data Target = Explicit String | Anonymous deriving (Show,Eq)
+data Target = Explicit String | Anonymous deriving (Show,Eq,Ord)
 
 data Definition = Definition {
   target :: Target,
@@ -31,6 +31,14 @@ data Definition = Definition {
   transition :: Transition,
   graph :: Graph
   } deriving (Show, Eq)
+
+definitionIsExplicitlyNamed :: Definition -> Bool
+definitionIsExplicitlyNamed (Definition (Explicit _) _ _ _) = True
+definitionIsExplicitlyNamed _ = False
+
+explicitTargetOfDefinition :: Definition -> String
+explicitTargetOfDefinition (Definition (Explicit x) _ _ _) = x
+explicitTargetOfDefinition _ = ""
 
 -- routing things to the output (avoiding words like left or right to be less English)
 -- sine 440 :0.5   -- centre panned
