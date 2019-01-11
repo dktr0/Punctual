@@ -4,6 +4,7 @@ module Sound.Punctual.PunctualW where
 
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
+import Control.Concurrent
 import Data.Time
 import Data.Maybe
 import Data.Map.Strict
@@ -36,7 +37,7 @@ updatePunctualW s e@(xs,t) = do
   let evalTime = W.utcTimeToDouble t + 0.2
   let dest = punctualDestination s
   let exprs = listOfExpressionsToMap xs -- Map Target' Expression
-  mapM_ (deleteSynth evalTime (evalTime+0.005)) $ difference (prevSynthsNodes s) exprs -- delete synths no longer present in the expressions
+  mapM_ (deleteSynth evalTime evalTime (evalTime+0.005)) $ difference (prevSynthsNodes s) exprs -- delete synths no longer present in the expressions
   addedSynthsNodes <- mapM (addSynth dest evalTime) $ difference exprs (prevSynthsNodes s) -- add synths newly added to the expressions
   let continuingSynthsNodes = intersection (prevSynthsNodes s) exprs
   updatedSynthsNodes <- sequence $ intersectionWith (updateSynth dest evalTime) continuingSynthsNodes exprs
@@ -64,14 +65,18 @@ updateSynth dest evalTime prevSynthNode expr = do
     W.audioOut gainNode
     return gainNode
   newGainNode <- W.nodeRefToNode newNodeRef newSynth
-  deleteSynth xfadeStart xfadeEnd prevSynthNode
+  deleteSynth evalTime xfadeStart xfadeEnd prevSynthNode
   return (newSynth,newGainNode)
 
-deleteSynth :: AudioIO m => Double -> Double -> (Synth m, W.Node) -> m ()
-deleteSynth xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
+deleteSynth :: AudioIO m => Double -> Double -> Double -> (Synth m, W.Node) -> m ()
+deleteSynth evalTime xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
   W.setValueAtTime prevGainNode W.Gain 1.0 xfadeStart
   W.linearRampToValueAtTime prevGainNode W.Gain 0.0 xfadeEnd
-  -- *** TODO: need to schedule a disconnect all and stop!!!
+  W.stopSynth xfadeEnd prevSynth
+  let microseconds = ceiling $ (xfadeEnd - evalTime) * 1000000 + 0.1 -- 100 msecs after synth fades out...
+  liftIO $ forkIO $ do
+    threadDelay microseconds
+    W.disconnectSynth prevSynth
   return ()
 
 listOfExpressionsToMap :: [Expression] -> Map Target' Expression
