@@ -33,7 +33,7 @@ punctualReflex exprs = mdo
   t0 <- liftAudioIO $ audioUTCTime
   let initialPunctualW = emptyPunctualW ac dest t0
   evals <- performEvent $ fmap (liftIO . evaluationNow) exprs
-  let f pW e = liftAudioIO $ updatePunctualW pW e
+  let f pW e = liftAudioIO $ updatePunctualW pW (0.0,0.5) e
   newPunctualW <- performEvent $ attachDynWith f currentPunctualW evals
   currentPunctualW <- holdDyn initialPunctualW newPunctualW
   return ()
