@@ -23,6 +23,8 @@ Library
                      Sound.Punctual.Parser
                      Sound.Punctual.Sample
                      Sound.Punctual.Graph
+                     Sound.Punctual.Extent
+                     Sound.Punctual.Token
   other-modules:
   default-language:  Haskell2010
 
