@@ -48,13 +48,13 @@ updatePunctualW s tempo e@(xs,t) = do
 addNewSynth :: AudioIO m => W.Node -> (Double,Double) -> Double -> Expression -> m (Synth m, W.Node)
 addNewSynth dest tempo evalTime expr = do
   let (xfadeStart,xfadeEnd) = expressionToTimes tempo evalTime expr
-  liftIO $ putStrLn $ "addNewSynth evalTime=" ++ show evalTime ++ " xfadeStart=" ++ show xfadeStart ++ " xfadeEnd=" ++ show xfadeEnd
+  -- liftIO $ putStrLn $ "addNewSynth evalTime=" ++ show evalTime ++ " xfadeStart=" ++ show xfadeStart ++ " xfadeEnd=" ++ show xfadeEnd
   addSynth dest xfadeStart xfadeStart xfadeEnd expr
 
 updateSynth :: AudioIO m => W.Node -> (Double,Double) -> Double -> (Synth m, W.Node) -> Expression -> m (Synth m, W.Node)
 updateSynth dest tempo evalTime prevSynthNode expr = do
   let (xfadeStart,xfadeEnd) = expressionToTimes tempo evalTime expr
-  liftIO $ putStrLn $ "updateSynth evalTime=" ++ show evalTime ++ " xfadeStart=" ++ show xfadeStart ++ " xfadeEnd=" ++ show xfadeEnd
+  -- liftIO $ putStrLn $ "updateSynth evalTime=" ++ show evalTime ++ " xfadeStart=" ++ show xfadeStart ++ " xfadeEnd=" ++ show xfadeEnd
   deleteSynth evalTime xfadeStart xfadeEnd prevSynthNode
   addSynth dest xfadeStart xfadeStart xfadeEnd expr
 
