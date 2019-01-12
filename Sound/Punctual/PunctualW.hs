@@ -49,14 +49,14 @@ addNewSynth :: AudioIO m => W.Node -> (Double,Double) -> Double -> Expression ->
 addNewSynth dest tempo evalTime expr = do
   let (xfadeStart,xfadeEnd) = expressionToTimes tempo evalTime expr
   liftIO $ putStrLn $ "addNewSynth evalTime=" ++ show evalTime ++ " xfadeStart=" ++ show xfadeStart ++ " xfadeEnd=" ++ show xfadeEnd
-  addSynth dest evalTime xfadeStart xfadeEnd expr
+  addSynth dest xfadeStart xfadeStart xfadeEnd expr
 
 updateSynth :: AudioIO m => W.Node -> (Double,Double) -> Double -> (Synth m, W.Node) -> Expression -> m (Synth m, W.Node)
 updateSynth dest tempo evalTime prevSynthNode expr = do
   let (xfadeStart,xfadeEnd) = expressionToTimes tempo evalTime expr
   liftIO $ putStrLn $ "updateSynth evalTime=" ++ show evalTime ++ " xfadeStart=" ++ show xfadeStart ++ " xfadeEnd=" ++ show xfadeEnd
   deleteSynth evalTime xfadeStart xfadeEnd prevSynthNode
-  addSynth dest evalTime xfadeStart xfadeEnd expr
+  addSynth dest xfadeStart xfadeStart xfadeEnd expr
 
 addSynth :: AudioIO m => W.Node -> Double -> Double -> Double -> Expression -> m (Synth m, W.Node)
 addSynth dest startTime xfadeStart xfadeEnd expr = do
@@ -95,23 +95,21 @@ definitionToTimes :: (Double,Double) -> Double -> Definition -> (Double,Double)
 definitionToTimes tempo evalTime x = defTimeAndTransitionToTimes tempo evalTime (defTime x) (transition x)
 
 defTimeAndTransitionToTimes :: (Double,Double) -> Double -> DefTime -> Transition -> (Double,Double)
-defTimeAndTransitionToTimes tempo@(_,cps) evalTime dt tr = (t0,t2)
+defTimeAndTransitionToTimes tempo@(_,cps) evalTime dt tr = (t1,t2)
   where
-    halfXfade = transitionToXfade cps tr
-    t1 = calculateT1 tempo evalTime halfXfade dt
-    t0 = t1 - halfXfade
-    t2 = t1 + halfXfade
+    t1 = calculateT1 tempo evalTime dt
+    t2 = t1 + (transitionToXfade cps tr)
 
-calculateT1 :: (Double,Double) -> Double -> Double -> DefTime -> Double
-calculateT1 _ evalTime halfXfade (After (Seconds t)) = evalTime + halfXfade + t
-calculateT1 (_,cps) evalTime halfXfade (After (Cycles t)) = evalTime + halfXfade + (t / cps)
-calculateT1 (beat0time,cps) evalTime halfXfade (Quant n (Seconds t)) = nextBoundary + t
+calculateT1 :: (Double,Double) -> Double -> DefTime -> Double
+calculateT1 _ evalTime (After (Seconds t)) = evalTime + t
+calculateT1 (_,cps) evalTime (After (Cycles t)) = evalTime + (t / cps)
+calculateT1 (beat0time,cps) evalTime (Quant n (Seconds t)) = nextBoundary + t
   where
-    minimumT1inQuants = (evalTime + halfXfade - beat0time) * cps / n
+    minimumT1inQuants = (evalTime - beat0time) * cps / n
     nextBoundary = fromIntegral (floor minimumT1inQuants + 1) * n / cps
-calculateT1 (beat0time,cps) evalTime halfXfade (Quant n (Cycles t)) = nextBoundary + (t / cps)
+calculateT1 (beat0time,cps) evalTime (Quant n (Cycles t)) = nextBoundary + (t / cps)
   where
-    minimumT1inQuants = (evalTime + halfXfade - beat0time) * cps / n
+    minimumT1inQuants = (evalTime - beat0time) * cps / n
     nextBoundary = fromIntegral (floor minimumT1inQuants + 1) * n / cps
 
 -- note: returned value represents half of total xfade duration

@@ -13,8 +13,9 @@ tokenParser = P.makeTokenParser $ P.LanguageDef {
   P.identLetter = alphaNum <|> char '_',
   P.opStart = oneOf "+*:@<>~=%",
   P.opLetter = oneOf "+*:@<>~=%",
-  P.reservedNames = ["c","s","ms","db","sin","tri","saw","sqr","noise","pink","lpf","hpf","mix"],
-  P.reservedOpNames = ["+","*",":","@","<>","~","=","%",";","+-",".."],
+  P.reservedNames = ["c","s","ms","db","sin","tri","saw","sqr","noise","pink","lpf","hpf","mix",
+   "x","y","red","green","blue","alpha","clear","width","height"],
+  P.reservedOpNames = ["+","*",":","@","<>","~","=","%",";","+-","..","=>"],
   P.caseSensitive = False
   }
 
@@ -49,7 +50,7 @@ commaSep1 = P.commaSep1 tokenParser
 
 double :: GenParser Char a Double
 double = choice [
-  parens double,
+  try $ parens double,
   symbol "-" >> double >>= return . (* (-1)),
   try float,
   try $ fromIntegral <$> integer

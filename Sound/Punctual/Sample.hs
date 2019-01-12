@@ -7,11 +7,11 @@ import Sound.Punctual.Graph
 import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
 
-findGraphForTarget :: String -> PunctualState -> Maybe Graph
-findGraphForTarget targetName s = fmap (graph . definition) $ find ((==Explicit targetName) . target . definition) $ expressions s
+findGraphForOutput :: String -> PunctualState -> Maybe Graph
+findGraphForOutput outputName s = fmap (graph . definition) $ find ((==NamedOutput outputName) . output) $ expressions s
 
 sampleWithDefault :: String -> Double -> PunctualState -> UTCTime -> Double
-sampleWithDefault targetName d s t = maybe d id $ fmap (sampleGraph (startTime s) t 0) $ findGraphForTarget targetName s
+sampleWithDefault outputName d s t = maybe d id $ fmap (sampleGraph (startTime s) t 0) $ findGraphForOutput outputName s
 
 samplePunctualState :: PunctualState -> UTCTime -> Int -> Double
 samplePunctualState s t channel = sum $ fmap (sampleExpression (startTime s) t channel) $ expressions s
