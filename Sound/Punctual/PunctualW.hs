@@ -104,12 +104,12 @@ defTimeAndTransitionToTimes tempo@(_,cps) evalTime dt tr = (t0,t2)
 
 calculateT1 :: (Double,Double) -> Double -> Double -> DefTime -> Double
 calculateT1 _ evalTime halfXfade (After (Seconds t)) = evalTime + halfXfade + t
-calculateT1 (_,cps) evalTime halfXfade (After (Cycles t)) = evalTime + halfXfade + (t * cps)
+calculateT1 (_,cps) evalTime halfXfade (After (Cycles t)) = evalTime + halfXfade + (t / cps)
 calculateT1 (beat0time,cps) evalTime halfXfade (Quant n (Seconds t)) = nextBoundary + t
   where
     minimumT1inQuants = (evalTime + halfXfade - beat0time) * cps / n
     nextBoundary = fromIntegral (floor minimumT1inQuants + 1) * n / cps
-calculateT1 (beat0time,cps) evalTime halfXfade (Quant n (Cycles t)) = nextBoundary + (t * cps)
+calculateT1 (beat0time,cps) evalTime halfXfade (Quant n (Cycles t)) = nextBoundary + (t / cps)
   where
     minimumT1inQuants = (evalTime + halfXfade - beat0time) * cps / n
     nextBoundary = fromIntegral (floor minimumT1inQuants + 1) * n / cps
