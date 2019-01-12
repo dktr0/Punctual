@@ -127,26 +127,48 @@ graphToSynthDef EmptyGraph = W.constantSource 0
 graphToSynthDef (Constant x) = W.constantSource x
 graphToSynthDef Noise = W.constantSource 0 -- placeholder
 graphToSynthDef Pink = W.constantSource 0 -- placeholder
+graphToSynthDef (Sine (Constant x)) = W.oscillator W.Sine x
 graphToSynthDef (Sine x) = do
   s <- W.oscillator W.Sine 0
   graphToSynthDef x >>= W.param W.Frequency s
   return s
+graphToSynthDef (Tri (Constant x)) = W.oscillator W.Triangle x
 graphToSynthDef (Tri x) = do
   s <- W.oscillator W.Triangle 0
   graphToSynthDef x >>= W.param W.Frequency s
   return s
+graphToSynthDef (Saw (Constant x)) = W.oscillator W.Sawtooth x
 graphToSynthDef (Saw x) = do
   s <- W.oscillator W.Sawtooth 0
   graphToSynthDef x >>= W.param W.Frequency s
   return s
+graphToSynthDef (Square (Constant x)) = W.oscillator W.Square x
 graphToSynthDef (Square x) = do
   s <- W.oscillator W.Square 0
   graphToSynthDef x >>= W.param W.Frequency s
   return s
+graphToSynthDef (LPF i (Constant f) (Constant q)) = graphToSynthDef i >>= W.biquadFilter (W.LowPass f q)
+graphToSynthDef (LPF i (Constant f) q) = do
+  x <- graphToSynthDef i >>= W.biquadFilter (W.LowPass f 0)
+  graphToSynthDef q >>= W.param W.Q x
+  return x
+graphToSynthDef (LPF i f (Constant q)) = do
+  x <- graphToSynthDef i >>= W.biquadFilter (W.LowPass 0 q)
+  graphToSynthDef f >>= W.param W.Frequency x
+  return x
 graphToSynthDef (LPF i f q) = do
   x <- graphToSynthDef i >>= W.biquadFilter (W.LowPass 0 0)
   graphToSynthDef f >>= W.param W.Frequency x
   graphToSynthDef q >>= W.param W.Q x
+  return x
+graphToSynthDef (HPF i (Constant f) (Constant q)) = graphToSynthDef i >>= W.biquadFilter (W.HighPass f q)
+graphToSynthDef (HPF i (Constant f) q) = do
+  x <- graphToSynthDef i >>= W.biquadFilter (W.HighPass f 0)
+  graphToSynthDef q >>= W.param W.Q x
+  return x
+graphToSynthDef (HPF i f (Constant q)) = do
+  x <- graphToSynthDef i >>= W.biquadFilter (W.HighPass 0 q)
+  graphToSynthDef f >>= W.param W.Frequency x
   return x
 graphToSynthDef (HPF i f q) = do
   x <- graphToSynthDef i >>= W.biquadFilter (W.HighPass 0 0)
@@ -154,7 +176,11 @@ graphToSynthDef (HPF i f q) = do
   graphToSynthDef q >>= W.param W.Q x
   return x
 graphToSynthDef (FromTarget x) = W.constantSource 0 -- placeholder
+graphToSynthDef (Sum (Constant x) (Constant y)) = graphToSynthDef (Constant $ x+y)
 graphToSynthDef (Sum x y) = W.mixSynthDefs $ fmap graphToSynthDef [x,y]
+graphToSynthDef (Product (Constant x) (Constant y)) = graphToSynthDef (Constant $ x*y)
+graphToSynthDef (Product x (Constant y)) = graphToSynthDef x >>= W.gain y
+graphToSynthDef (Product (Constant x) y) = graphToSynthDef y >>= W.gain x
 graphToSynthDef (Product x y) = do
   m <- graphToSynthDef x >>= W.gain 0.0
   graphToSynthDef y >>= W.param W.Gain m
