@@ -76,7 +76,7 @@ deleteSynth evalTime xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
   W.linearRampToValueAtTime prevGainNode W.Gain 0.0 xfadeEnd
   W.stopSynth xfadeEnd prevSynth
   let microseconds = ceiling $ (xfadeEnd - evalTime + 0.3) * 1000000
-  --  ^ = kill synth 100ms after fade out, assuming evalTime is 200ms in future 
+  --  ^ = kill synth 100ms after fade out, assuming evalTime is 200ms in future
   liftIO $ forkIO $ do
     threadDelay microseconds
     W.disconnectSynth prevSynth
@@ -118,7 +118,7 @@ calculateT1 (beat0time,cps) evalTime halfXfade (Quant n (Cycles t)) = nextBounda
 transitionToXfade :: Double -> Transition -> Double
 transitionToXfade _ DefaultCrossFade = 0.25
 transitionToXfade _ (CrossFade (Seconds x)) = x / 2
-transitionToXfade cps (CrossFade (Cycles x)) = x * cps / 2
+transitionToXfade cps (CrossFade (Cycles x)) = x / cps / 2
 transitionToXfade _ HoldPhase = 0.005
 
 -- every expression, when converted to a SynthDef, has a Gain node as its final node,
