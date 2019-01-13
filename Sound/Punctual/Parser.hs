@@ -125,28 +125,23 @@ productOfGraphs = chainl1 simpleGraph (reservedOp "*" >> return Product)
 
 simpleGraph :: GenParser Char a Graph
 simpleGraph = choice [
-    try $ parens graphParser,
     try $ modulatedRange,
     Constant <$> extent,
     reserved "noise" >> return Noise,
     reserved "pink" >> return Pink,
     oscillators,
     filters,
-    mixGraph
+    mixGraph,
     -- FromTarget <$> lexeme identifier
+    try $ parens graphParser
     ]
 
 graphArgument :: GenParser Char a Graph
 graphArgument = choice [
   try $ parens graphParser,
-  try $ parens modulatedRange,
   Constant <$> try extent,
   reserved "noise" >> return Noise,
-  reserved "pink" >> return Pink,
-  try $ parens oscillators,
-  try $ parens filters,
-  try $ parens mixGraph
-  -- FromTarget <$> lexeme identifier
+  reserved "pink" >> return Pink
   ]
 
 --  x <> 440 +- 2% <- sin 0.5
