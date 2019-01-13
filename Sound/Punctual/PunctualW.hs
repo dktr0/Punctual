@@ -32,12 +32,13 @@ emptyPunctualW ac dest t = PunctualW {
   prevSynthsNodes = empty
   }
 
-updatePunctualW :: AudioIO m => PunctualW m -> (Double,Double) -> Evaluation -> m (PunctualW m)
+updatePunctualW :: AudioIO m => PunctualW m -> (UTCTime,Double) -> Evaluation -> m (PunctualW m)
 updatePunctualW s tempo e@(xs,t) = do
-  let evalTime = W.utcTimeToDouble t + 0.2
+  let evalTime = addUTCTime 0.2 t
+  -- liftIO $ putStrLn $ "evalTime=" ++ show evalTime
   let dest = punctualDestination s
   let exprs = listOfExpressionsToMap xs -- Map Target' Expression
-  mapM_ (deleteSynth evalTime evalTime (evalTime+0.050)) $ difference (prevSynthsNodes s) exprs -- delete synths no longer present
+  mapM_ (deleteSynth evalTime evalTime (addUTCTime 0.050 evalTime)) $ difference (prevSynthsNodes s) exprs -- delete synths no longer present
   addedSynthsNodes <- mapM (addNewSynth dest tempo evalTime) $ difference exprs (prevSynthsNodes s) -- add synths newly present
   let continuingSynthsNodes = intersection (prevSynthsNodes s) exprs
   updatedSynthsNodes <- sequence $ intersectionWith (updateSynth dest tempo evalTime) continuingSynthsNodes exprs
@@ -45,37 +46,42 @@ updatePunctualW s tempo e@(xs,t) = do
   let newState = updatePunctualState (punctualState s) e
   return $ s { punctualState = newState, prevSynthsNodes = newSynthsNodes }
 
-addNewSynth :: AudioIO m => W.Node -> (Double,Double) -> Double -> Expression -> m (Synth m, W.Node)
+addNewSynth :: AudioIO m => W.Node -> (UTCTime,Double) -> UTCTime -> Expression -> m (Synth m, W.Node)
 addNewSynth dest tempo evalTime expr = do
   let (xfadeStart,xfadeEnd) = expressionToTimes tempo evalTime expr
   -- liftIO $ putStrLn $ "addNewSynth evalTime=" ++ show evalTime ++ " xfadeStart=" ++ show xfadeStart ++ " xfadeEnd=" ++ show xfadeEnd
   addSynth dest xfadeStart xfadeStart xfadeEnd expr
 
-updateSynth :: AudioIO m => W.Node -> (Double,Double) -> Double -> (Synth m, W.Node) -> Expression -> m (Synth m, W.Node)
+updateSynth :: AudioIO m => W.Node -> (UTCTime,Double) -> UTCTime -> (Synth m, W.Node) -> Expression -> m (Synth m, W.Node)
 updateSynth dest tempo evalTime prevSynthNode expr = do
   let (xfadeStart,xfadeEnd) = expressionToTimes tempo evalTime expr
   -- liftIO $ putStrLn $ "updateSynth evalTime=" ++ show evalTime ++ " xfadeStart=" ++ show xfadeStart ++ " xfadeEnd=" ++ show xfadeEnd
   deleteSynth evalTime xfadeStart xfadeEnd prevSynthNode
   addSynth dest xfadeStart xfadeStart xfadeEnd expr
 
-addSynth :: AudioIO m => W.Node -> Double -> Double -> Double -> Expression -> m (Synth m, W.Node)
+addSynth :: AudioIO m => W.Node -> UTCTime -> UTCTime -> UTCTime -> Expression -> m (Synth m, W.Node)
 addSynth dest startTime xfadeStart xfadeEnd expr = do
-  (newNodeRef,newSynth) <- W.playSynth dest startTime $ do
+  let startTime' = W.utcTimeToDouble startTime
+  let xfadeStart' = realToFrac $ diffUTCTime xfadeStart startTime
+  let xfadeEnd' = realToFrac $ diffUTCTime xfadeEnd startTime
+  (newNodeRef,newSynth) <- W.playSynth dest startTime' $ do
     gainNode <- expressionToSynthDef expr
     W.setParam W.Gain 0.0 0.0 gainNode
-    W.setParam W.Gain 0.0 (xfadeStart - startTime) gainNode
-    W.linearRampOnParam W.Gain 1.0 (xfadeEnd - startTime) gainNode
+    W.setParam W.Gain 0.0 xfadeStart' gainNode
+    W.linearRampOnParam W.Gain 1.0 xfadeEnd' gainNode
     W.audioOut gainNode
     return gainNode
   newNode <- W.nodeRefToNode newNodeRef newSynth
   return (newSynth,newNode)
 
-deleteSynth :: AudioIO m => Double -> Double -> Double -> (Synth m, W.Node) -> m ()
+deleteSynth :: AudioIO m => UTCTime -> UTCTime -> UTCTime -> (Synth m, W.Node) -> m ()
 deleteSynth evalTime xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
-  W.setValueAtTime prevGainNode W.Gain 1.0 xfadeStart
-  W.linearRampToValueAtTime prevGainNode W.Gain 0.0 xfadeEnd
-  W.stopSynth xfadeEnd prevSynth
-  let microseconds = ceiling $ (xfadeEnd - evalTime + 0.3) * 1000000
+  let xfadeStart' = W.utcTimeToDouble xfadeStart
+  let xfadeEnd' = W.utcTimeToDouble xfadeEnd
+  W.setValueAtTime prevGainNode W.Gain 1.0 xfadeStart'
+  W.linearRampToValueAtTime prevGainNode W.Gain 0.0 xfadeEnd'
+  W.stopSynth xfadeEnd' prevSynth
+  let microseconds = ceiling $ (diffUTCTime xfadeEnd evalTime + 0.3) * 1000000
   --  ^ = kill synth 100ms after fade out, assuming evalTime is 200ms in future
   liftIO $ forkIO $ do
     threadDelay microseconds
@@ -88,35 +94,39 @@ listOfExpressionsToMap xs = fromList $ namedExprs ++ anonymousExprs
     namedExprs = fmap (\e -> (Named $ explicitTargetOfDefinition $ definition e,e)) $ Prelude.filter (definitionIsExplicitlyNamed . definition) xs
     anonymousExprs = zipWith (\e n -> (Anon n,e)) (Prelude.filter ((not . definitionIsExplicitlyNamed) . definition) xs) [0..]
 
-expressionToTimes :: (Double,Double) -> Double -> Expression -> (Double,Double)
+expressionToTimes :: (UTCTime,Double) -> UTCTime -> Expression -> (UTCTime,UTCTime)
 expressionToTimes tempo evalTime x = definitionToTimes tempo evalTime (definition x)
 
-definitionToTimes :: (Double,Double) -> Double -> Definition -> (Double,Double)
+definitionToTimes :: (UTCTime,Double) -> UTCTime -> Definition -> (UTCTime,UTCTime)
 definitionToTimes tempo evalTime x = defTimeAndTransitionToTimes tempo evalTime (defTime x) (transition x)
 
-defTimeAndTransitionToTimes :: (Double,Double) -> Double -> DefTime -> Transition -> (Double,Double)
+defTimeAndTransitionToTimes :: (UTCTime,Double) -> UTCTime -> DefTime -> Transition -> (UTCTime,UTCTime)
 defTimeAndTransitionToTimes tempo@(_,cps) evalTime dt tr = (t1,t2)
   where
     t1 = calculateT1 tempo evalTime dt
-    t2 = t1 + (transitionToXfade cps tr)
+    t2 = addUTCTime (transitionToXfade cps tr) t1
 
-calculateT1 :: (Double,Double) -> Double -> DefTime -> Double
-calculateT1 _ evalTime (After (Seconds t)) = evalTime + t
-calculateT1 (_,cps) evalTime (After (Cycles t)) = evalTime + (t / cps)
-calculateT1 (beat0time,cps) evalTime (Quant n (Seconds t)) = nextBoundary + t
+calculateT1 :: (UTCTime,Double) -> UTCTime -> DefTime -> UTCTime
+calculateT1 _ evalTime (After (Seconds t)) = addUTCTime (realToFrac t) evalTime
+calculateT1 (_,cps) evalTime (After (Cycles t)) = addUTCTime (realToFrac $ t/cps) evalTime
+calculateT1 (t0,cps) evalTime (Quant n (Seconds t)) = addUTCTime (realToFrac t) nextBoundary
   where
-    minimumT1inQuants = (evalTime - beat0time) * cps / n
-    nextBoundary = fromIntegral (floor minimumT1inQuants + 1) * n / cps
-calculateT1 (beat0time,cps) evalTime (Quant n (Cycles t)) = nextBoundary + (t / cps)
+    sinceBeat0 = diffUTCTime evalTime t0
+    minimumT1inQuants = sinceBeat0 * (realToFrac $ cps/n)
+    beat0toBoundary = fromIntegral (floor minimumT1inQuants + 1) * (realToFrac $ n/cps)
+    nextBoundary = addUTCTime beat0toBoundary t0
+calculateT1 (t0,cps) evalTime (Quant n (Cycles t)) = addUTCTime (realToFrac $ t/cps)  nextBoundary
   where
-    minimumT1inQuants = (evalTime - beat0time) * cps / n
-    nextBoundary = fromIntegral (floor minimumT1inQuants + 1) * n / cps
+    sinceBeat0 = diffUTCTime evalTime t0
+    minimumT1inQuants = sinceBeat0 * (realToFrac $ cps/n)
+    beat0toBoundary = fromIntegral (floor minimumT1inQuants + 1) * (realToFrac $ n/cps)
+    nextBoundary = addUTCTime beat0toBoundary t0
 
 -- note: returned value represents half of total xfade duration
-transitionToXfade :: Double -> Transition -> Double
+transitionToXfade :: Double -> Transition -> NominalDiffTime
 transitionToXfade _ DefaultCrossFade = 0.25
-transitionToXfade _ (CrossFade (Seconds x)) = x / 2
-transitionToXfade cps (CrossFade (Cycles x)) = x / cps / 2
+transitionToXfade _ (CrossFade (Seconds x)) = (realToFrac x) / 2
+transitionToXfade cps (CrossFade (Cycles x)) = (realToFrac $ x/cps) / 2
 transitionToXfade _ HoldPhase = 0.005
 
 -- every expression, when converted to a SynthDef, has a Gain node as its final node,
