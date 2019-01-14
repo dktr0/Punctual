@@ -9,8 +9,8 @@ supports the Web Audio API. While it can be used in a standalone way, it is also
 bundled inside the Estuary platform for collaborative live coding.
 
 Punctual was created by David Ogborn, building on top of the MusicW synthesis
-library (by David Ogborn, Spencer Park, and others). Conceptually, Punctual extends
-the work of Julian Rohrhuber and others on SuperCollider's JITlib notations.
+library (by David Ogborn, Spencer Park, Jamie Beverley, and others). Conceptually,
+Punctual extends the work of Julian Rohrhuber and others on SuperCollider's JITlib notations.
 
 # Audio Output
 
