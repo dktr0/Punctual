@@ -7,7 +7,7 @@ When definitions are changed, when and how they change can be explicitly indicat
 Punctual runs in a web browser, and is portable to any system with a browser that
 supports the Web Audio API. While it can be used in a standalone way, it is also
 bundled inside the Estuary platform for collaborative live coding. The easiest way to get
-started with Punctual is to use the Estuary test server at http://intramuros.mcmaster.ca:8002 (select Solo, then in one of the text editor panels select PunctualAudio or PunctualVideo from the panel's drop down language selection menu). 
+started with Punctual is to use the Estuary test server at http://intramuros.mcmaster.ca:8002 (note: Chrome is *strongly* recommended. select Solo, then in one of the text editor panels select PunctualAudio or PunctualVideo from the panel's drop down language selection menu). 
 
 Punctual was created by David Ogborn, building on top of the MusicW synthesis
 library (by David Ogborn, Spencer Park, Jamie Beverley, and others). Conceptually,
