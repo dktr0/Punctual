@@ -136,6 +136,7 @@ transitionToXfade _ HoldPhase = 0.005
 
 expressionToSynthDef:: AudioIO m => Expression -> SynthDef m NodeRef
 expressionToSynthDef (Expression _ NoOutput) = W.constantSource 0 >>= W.gain 0
+expressionToSynthDef (Expression _ (NamedOutput _)) = W.constantSource 0 >>= W.gain 0
 expressionToSynthDef (Expression d (PannedOutput p)) = definitionToSynthDef d >>= W.equalPowerPan p >>= W.gain 0
 
 definitionToSynthDef:: AudioIO m => Definition -> SynthDef m NodeRef
