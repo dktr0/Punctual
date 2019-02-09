@@ -129,6 +129,8 @@ simpleGraph = choice [
     Constant <$> extent,
     reserved "noise" >> return Noise,
     reserved "pink" >> return Pink,
+    reserved "fx" >> return Fx,
+    reserved "fy" >> return Fy,
     oscillators,
     filters,
     mixGraph,

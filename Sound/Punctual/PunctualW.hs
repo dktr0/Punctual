@@ -146,6 +146,8 @@ graphToSynthDef EmptyGraph = W.constantSource 0
 graphToSynthDef (Constant x) = W.constantSource x
 graphToSynthDef Noise = W.constantSource 0 -- placeholder
 graphToSynthDef Pink = W.constantSource 0 -- placeholder
+graphToSynthDef Fx = W.constantSource 1
+graphToSynthDef Fy = W.constantSource 1
 graphToSynthDef (Sine (Constant x)) = W.oscillator W.Sine x
 graphToSynthDef (Sine x) = do
   s <- W.oscillator W.Sine 0

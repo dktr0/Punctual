@@ -5,6 +5,8 @@ data Graph =
   Constant Double |
   Noise |
   Pink |
+  Fx |
+  Fy |
   Sine Graph |
   Tri Graph |
   Saw Graph |
