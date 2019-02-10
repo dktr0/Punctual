@@ -3,22 +3,37 @@ body {
 }
 
 .canvas {
-
+  position: absolute;
+	width: 100%;
+	height: 100%;
+	left: 0px;
+	top: 0px;
+	pointer-events: none;
 }
 
 .editor {
-
+  background-color: transparent;
+	width: 100%;
 }
 
 .title {
   font-family: monospace;
   font-size: 50%;
+  color: green;
 }
 
 .evalButton {
 
 }
 
-.editorArea {
+.editorDiv {
+  background-color: transparent;
+	width: 100%;
+}
 
+.editorArea {
+  background-color: transparent;
+  border: none;
+	width: 100%;
+  color: white;
 }

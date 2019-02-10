@@ -40,7 +40,8 @@ main = mainWidgetWithHead headElement $ do
   parsed <- elClass "div" "editor" $ do
     elClass "div" "title" $ text "Punctual"
     evalButton <- elClass "div" "evalButton" $ button "eval"
-    code <- elClass "div" "editorArea" $ textArea def
+    let textAttrs = constDyn $ fromList [("class","editorArea")]
+    code <- elClass "div" "editorDiv" $ textArea $ def & textAreaConfig_attributes .~ textAttrs
     let evaled = tagDyn (_textArea_value code) evalButton
     return $ fmap (runPunctualParser . unpack) evaled
 
