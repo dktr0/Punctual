@@ -22,8 +22,14 @@ import Sound.Punctual.WebGL
 import Sound.MusicW
 import Sound.MusicW.AudioContext
 
+headElement :: MonadWidget t m => m ()
+headElement = do
+  el "title" $ text "Punctual"
+  let attrs = fromList [("rel", "stylesheet"), ("type", "text/css"), ("href", "style.css")]
+  elAttr "link" attrs $ return ()
+
 main :: IO ()
-main = mainWidget $ do
+main = mainWidgetWithHead headElement $ do
 
   let attrs = fromList [("class","canvas"),("style",T.pack $ "z-index: -1;"), ("width","1920"), ("height","1080")]
   canvas <- liftM (uncheckedCastTo HTMLCanvasElement .  _element_raw . fst) $ elAttr' "canvas" attrs $ return ()
