@@ -134,6 +134,7 @@ simpleGraph = choice [
     oscillators,
     filters,
     mixGraph,
+    functions,
     -- FromTarget <$> lexeme identifier
     try $ parens graphParser
     ]
@@ -143,7 +144,9 @@ graphArgument = choice [
   try $ parens graphParser,
   Constant <$> try extent,
   reserved "noise" >> return Noise,
-  reserved "pink" >> return Pink
+  reserved "pink" >> return Pink,
+  reserved "fx" >> return Fx,
+  reserved "fy" >> return Fy
   ]
 
 --  x <> 440 +- 2% <- sin 0.5
@@ -199,3 +202,15 @@ mixGraph = do
   reserved "mix"
   xs <- brackets (commaSep graphParser)
   return $ foldl Sum EmptyGraph xs
+
+functions :: GenParser Char a Graph
+functions = choice [
+  (reserved "bipolar" >> return bipolar) <*> graphArgument,
+  (reserved "unipolar" >> return unipolar) <*> graphArgument
+  ]
+
+bipolar :: Graph -> Graph
+bipolar x = Sum (Product x (Constant 2)) (Constant (-1))
+
+unipolar :: Graph -> Graph
+unipolar x = Sum (Product x (Constant 0.5)) (Constant 0.5)
