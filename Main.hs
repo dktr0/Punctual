@@ -3,7 +3,8 @@
 module Main where
 
 import Control.Monad.Trans
-import Reflex.Dom
+import Reflex.Dom hiding (getKeyEvent,preventDefault)
+import Reflex.Dom.Contrib.KeyEvent
 import Data.Time.Clock
 import Data.Text as T
 import Control.Concurrent.MVar
@@ -13,6 +14,7 @@ import Control.Monad
 import GHCJS.DOM.Types (HTMLCanvasElement(..),uncheckedCastTo)
 import JavaScript.Web.AnimationFrame
 import GHCJS.Concurrent
+import GHCJS.DOM.EventM
 
 import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
@@ -38,15 +40,20 @@ main = mainWidgetWithHead headElement $ do
   liftIO $ forkIO $ requestAnimationFrame mv
 
   parsed <- elClass "div" "editor" $ do
-    elClass "div" "title" $ text "Punctual"
-    evalButton <- elClass "div" "evalButton" $ button "eval"
-    let textAttrs = constDyn $ fromList [("class","editorArea")]
+    -- elClass "div" "title" $ text "Punctual" -- title just as comment in editor maybe?
+    let textAttrs = constDyn $ fromList [("class","editorArea"),("rows","999")]
     code <- elClass "div" "editorDiv" $ textArea $ def & textAreaConfig_attributes .~ textAttrs
-    let evaled = tagDyn (_textArea_value code) evalButton
+    let e = _textArea_element code
+    e' <- wrapDomEvent (e) (onEventName Keypress) $ do
+      y <- getKeyEvent
+      let keyPressWasShiftEnter ke = (keShift ke == True) && (keKeyCode ke == 13)
+      if keyPressWasShiftEnter y then (preventDefault >> return True) else return False
+    let evalEvent = ffilter (==True) e'
+    let evaled = tagDyn (_textArea_value code) evalEvent
     return $ fmap (runPunctualParser . unpack) evaled
 
   punctualReflex mv $ fmapMaybe (either (const Nothing) Just) parsed
-  let errors = fmapMaybe (either (Just . show) (Just . show)) parsed
+  let errors = fmapMaybe (either (Just . show) (Just . const "")) parsed
   status <- holdDyn "" $ fmap (pack . show) errors
   dynText status
 

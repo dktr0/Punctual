@@ -16,16 +16,6 @@ body {
 	width: 100%;
 }
 
-.title {
-  font-family: monospace;
-  font-size: 50%;
-  color: green;
-}
-
-.evalButton {
-
-}
-
 .editorDiv {
   background-color: transparent;
 	width: 100%;
@@ -35,5 +25,10 @@ body {
   background-color: transparent;
   border: none;
 	width: 100%;
+  height: 100%;
   color: white;
+  resize: none;
+  overflow: hidden;
+  box-shadow: none;
+  outline: none;
 }
