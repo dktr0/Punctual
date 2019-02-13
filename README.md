@@ -11,7 +11,7 @@ The easiest way to try Punctual is to point your browser to https://dktr0.github
 
 Punctual was created by David Ogborn, building on top of the MusicW synthesis
 library (by David Ogborn, Spencer Park, Jamie Beverley, and others). Conceptually,
-Punctual extends the work of Julian Rohrhuber and others on SuperCollider's JITlib notations, as well as the work of Shawn Lawson and others (?) on The Force.
+Punctual extends the work of Julian Rohrhuber and others on SuperCollider's JITlib notations, as well as the work of Shawn Lawson on The Force.
 
 # Audio Output
 
