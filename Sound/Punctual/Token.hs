@@ -5,10 +5,10 @@ import qualified Text.ParserCombinators.Parsec.Token as P
 
 tokenParser :: P.TokenParser a
 tokenParser = P.makeTokenParser $ P.LanguageDef {
-  P.commentStart = "/*",
-  P.commentEnd = "*/",
-  P.commentLine = "//",
-  P.nestedComments = True,
+  P.commentStart = "{-",
+  P.commentEnd = "-}",
+  P.commentLine = "--",
+  P.nestedComments = False,
   P.identStart = letter <|> char '_',
   P.identLetter = alphaNum <|> char '_',
   P.opStart = oneOf "+*:@<>~=%",

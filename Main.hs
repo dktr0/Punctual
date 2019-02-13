@@ -30,6 +30,19 @@ headElement = do
   let attrs = fromList [("rel", "stylesheet"), ("type", "text/css"), ("href", "style.css")]
   elAttr "link" attrs $ return ()
 
+intro :: Text
+intro
+  ="-- Punctual, an audiovisual live coding language\n\
+   \-- for more info: https://github.com/d0kt0r0/Punctual.git\n\
+   \--\n\
+   \-- Press Shift-Enter to (re)evaluate/activate code\n\
+   \\n\
+   \sin 60m * -10db => left;\n\
+   \sin 60.05m * -10db => right;\n\
+   \fx => red;\n\
+   \fy * -1 => green;\n\
+   \sin (fx * 60m) * sin (fy * 60.05m) * fx * fy * 10db => blue;\n"
+
 main :: IO ()
 main = mainWidgetWithHead headElement $ do
 
@@ -42,7 +55,7 @@ main = mainWidgetWithHead headElement $ do
   parsed <- elClass "div" "editor" $ do
     -- elClass "div" "title" $ text "Punctual" -- title just as comment in editor maybe?
     let textAttrs = constDyn $ fromList [("class","editorArea"),("rows","999")]
-    code <- elClass "div" "editorDiv" $ textArea $ def & textAreaConfig_attributes .~ textAttrs
+    code <- elClass "div" "editorDiv" $ textArea $ def & textAreaConfig_attributes .~ textAttrs & textAreaConfig_initialValue .~ intro
     let e = _textArea_element code
     e' <- wrapDomEvent (e) (onEventName Keypress) $ do
       y <- getKeyEvent
