@@ -33,7 +33,7 @@ headElement = do
 intro :: Text
 intro
   ="-- Punctual, an audiovisual live coding language\n\
-   \-- for more info: https://github.com/d0kt0r0/Punctual.git\n\
+   \-- documentation @ https://github.com/dktr0/Punctual.git\n\
    \--\n\
    \-- Press Shift-Enter to (re)evaluate/activate code\n\
    \\n\
