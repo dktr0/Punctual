@@ -27,22 +27,22 @@ sin 440; -- no audible output
 
 # Video Output
 
-Video output with Punctual is a matter of using signal processors to direct a
-drawing element around a canvas (a kind of low frequency video synthesis). Each
-video parameter ranges from -1 (minimum) to 1 (maximum). This is the same as
-the output range of the oscillators (sin, etc) built in to Punctual. Here is an
-example showing all video parameters used together:
+Video output with Punctual is a matter of directing signals to targets for the red, green, and blue outputs of a "fragment shader" (this is similar to the type of programming one
+sees in the environment "The Force" - except that Punctual's notations are are turned into
+a fragment shader instead of programming the shader directly in GLSL).
+
+There are three colour targets - red green blue - and they each respond to values in the range from 0 (darkest) to 1 (brightest). This is different than the usual range for audio signals (-1 to 1). Punctual provides two functions for rescaling between these two ranges. The function unipolar expects a signal from -1 to 1 and gives back a signal from 0 to 1. The function bipolar expects a signal from 0 to 1 and gives back a signal from -1 to 1.
+
+The functions fx and fy represent the position of the current "fragment" (ie. pixel) that is being drawn, as a range from -1 (bottom or left) to +1 (top or right). (Note: when fx and fy are used in expressions targeting sound output, they are constant signals of +1).
 
 ```
-sin 0.5 => x;
-sin 0.2 => y;
-0 => red; -- 50% red
--1 => green; -- 0% green;
--1 => blue; -- 0% blue;
-0.5 => alpha; -- 75% opaque drawing
--1 => clear; -- don't erase the canvas at all, each frame
--0.5 => width; -- make the
--0.5 => height;
+1 => red; -- a very red screen
+sin 0.2 => red; -- a pulsating red screen
+unipolar (sin 0.2) => red; -- using all of the sine wave's range for the colour
+unipolar (sin 0.2) * -10db => red; -- a bit darker
+fx => red; -- getting redder as we go from left to right
+fy * -1 => green; -- getting greener as we go from to bottom
+sin (fx * 60m) * sin (fy * 60.05m) * fx * fy * 10db => blue; -- pretty patterns
 ```
 
 # Oscillators and Filters
