@@ -8,9 +8,37 @@ data Duration = Seconds Double | Cycles Double deriving (Show,Eq)
 
 data DefTime = After Duration | Quant Double Duration deriving (Show,Eq)
 
+calculateT1 :: (UTCTime,Double) -> UTCTime -> DefTime -> UTCTime
+calculateT1 _ evalTime (After (Seconds t)) = addUTCTime (realToFrac t) evalTime
+calculateT1 (_,cps) evalTime (After (Cycles t)) = addUTCTime (realToFrac $ t/cps) evalTime
+calculateT1 (t0,cps) evalTime (Quant n (Seconds t)) = addUTCTime (realToFrac t) nextBoundary
+  where
+    sinceBeat0 = diffUTCTime evalTime t0
+    minimumT1inQuants = sinceBeat0 * (realToFrac $ cps/n)
+    beat0toBoundary = fromIntegral (floor minimumT1inQuants + 1) * (realToFrac $ n/cps)
+    nextBoundary = addUTCTime beat0toBoundary t0
+calculateT1 (t0,cps) evalTime (Quant n (Cycles t)) = addUTCTime (realToFrac $ t/cps)  nextBoundary
+  where
+    sinceBeat0 = diffUTCTime evalTime t0
+    minimumT1inQuants = sinceBeat0 * (realToFrac $ cps/n)
+    beat0toBoundary = fromIntegral (floor minimumT1inQuants + 1) * (realToFrac $ n/cps)
+    nextBoundary = addUTCTime beat0toBoundary t0
+
 data Transition = DefaultCrossFade | CrossFade Duration | HoldPhase deriving (Show, Eq)
 
+-- note: returned value represents half of total xfade duration
+transitionToXfade :: Double -> Transition -> NominalDiffTime
+transitionToXfade _ DefaultCrossFade = 0.25
+transitionToXfade _ (CrossFade (Seconds x)) = (realToFrac x) / 2
+transitionToXfade cps (CrossFade (Cycles x)) = (realToFrac $ x/cps) / 2
+transitionToXfade _ HoldPhase = 0.005
+
 data Target = Explicit String | Anonymous deriving (Show,Eq,Ord)
+
+-- *** the type Target' is like Target except that anonymous targets have a numerical index
+-- In the future we should replace Target with Target' (and expect the parser to provide a valid index)
+
+data Target' = Named String | Anon Int deriving (Show,Eq,Ord)
 
 data Definition = Definition {
   target :: Target,
@@ -38,3 +66,25 @@ data Expression = Expression {
   definition :: Definition,
   output :: Output
   } deriving (Show,Eq)
+
+listOfExpressionsToMap :: [Expression] -> Map Target' Expression
+listOfExpressionsToMap xs = fromList $ namedExprs ++ anonymousExprs
+  where
+    namedExprs = fmap (\e -> (Named $ explicitTargetOfDefinition $ definition e,e)) $ Prelude.filter (definitionIsExplicitlyNamed . definition) xs
+    anonymousExprs = zipWith (\e n -> (Anon n,e)) (Prelude.filter ((not . definitionIsExplicitlyNamed) . definition) xs) [0..]
+
+maybeExpressionToTimes :: (UTCTime,Double) -> UTCTime -> Maybe Expression -> (UTCTime,UTCTime)
+maybeExpressionToTimes tempo evalTime (Just x) = expressionToTimes tempo evalTime x
+maybeExpressionToTimes tempo evalTime Nothing = (evalTime,addUTCTime 1.0 evalTime) -- one-second fade out on deleted expressions
+
+expressionToTimes :: (UTCTime,Double) -> UTCTime -> Expression -> (UTCTime,UTCTime)
+expressionToTimes tempo evalTime x = definitionToTimes tempo evalTime (definition x)
+
+definitionToTimes :: (UTCTime,Double) -> UTCTime -> Definition -> (UTCTime,UTCTime)
+definitionToTimes tempo evalTime x = defTimeAndTransitionToTimes tempo evalTime (defTime x) (transition x)
+
+defTimeAndTransitionToTimes :: (UTCTime,Double) -> UTCTime -> DefTime -> Transition -> (UTCTime,UTCTime)
+defTimeAndTransitionToTimes tempo@(_,cps) evalTime dt tr = (t1,t2)
+  where
+    t1 = calculateT1 tempo evalTime dt
+    t2 = addUTCTime (transitionToXfade cps tr) t1
