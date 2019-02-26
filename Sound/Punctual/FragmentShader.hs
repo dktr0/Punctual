@@ -20,6 +20,9 @@ graphToFloat (FromTarget x) = "0." -- placeholder
 graphToFloat (Sum x y) = "(" ++ graphToFloat x ++ ")+(" ++ graphToFloat y ++ ")"
 graphToFloat (Product x y) = "(" ++ graphToFloat x ++ ")*(" ++ graphToFloat y ++ ")"
 
+expressionToFloat :: Expression -> String
+expressionToFloat (Expression (Definition _ _ _ g) _) = graphToFloat g
+
 defaultFragmentShader :: String
 defaultFragmentShader = header ++ "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"
 
@@ -40,43 +43,53 @@ header
    \float xFadeNew(float t1,float t2) { if (t>t2) return 1.; if (t<t1) return 0.; return ();}\
    \float xFadeOld(float t1,float t2) { return 1.-xFadeNew(t1,t2);}"
 
-fragmentShader :: Evaluation -> String
-fragmentShader e = header ++ "void main(){" ++ red ++ green ++ blue ++ footer
-  where
-    red = "float red = " ++ expressionForChannel e "red" ++ ";"
-    green = "float green = " ++ expressionForChannel e "green" ++ ";"
-    blue = "float blue = " ++ expressionForChannel e "blue" ++ ";"
-    footer = "gl_FragColor = vec4(red,green,blue,1.0);}"
-
-
--- *** working below here
-
 targetToVariableName :: Target' -> String
-targetToVariableName (Named s) = "_" ++ s;
-targetToVariableName (Anon i) = "__anon" ++ (show i);
+targetToVariableName (Named s) = "_named_" ++ s;
+targetToVariableName (Anon i) = "_anon_" ++ (show i);
 
-maybeExpressionToFloat :: Maybe Expression -> String
-maybeDefinitionToFloat (Just (Expression (Definition _ _ _ g) _) = graphToFloat g
+continuingTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> (Target',Expression) -> String
+continuingTarget tempo evalTime (target',oldExpr) (_,newExpr) = oldVariable ++ newVariable ++ oldAndNew
+  where
+    (t1,t2) = expressionToTimes tempo evalTime newExpr
+    n = targetToVariableName target'
+    oldVariable = "float _old_" ++ n ++ "=" ++ expressionToFloat oldExpr ++ "*xFadeOld(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
+    newVariable = "float _new_" ++ n ++ '=' ++ expressionToFloat newExpr ++ "*xFadeNew(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
+    oldAndNew = "float _" ++ n ++ "=_old_" ++ n ++ "+_new_" ++ n ++ ";\n"
 
-f :: (UTCTime,Double) -> UTCTime -> Target' -> Maybe Expression -> Maybe Expression -> String
-f tempo evalTime target' oldExpr newExpr = oldVariable ++ newVariable ++ oldAndNew
+discontinuedTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> String
+discontinuedTarget tempo evalTime (target',oldExpr) = oldVariable
+  where
+    (t1,t2) = (evalTime,addUTCTime 0.5 evalTime) -- 0.5 sec
+    n = targetToVariableName target'
+    oldVariable = "float _" ++ n ++ "=" ++ expressionToFloat oldExpr ++ "*xFadeOld(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
+
+addedTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> String
+addedTarget tempo evalTime (target',newExpr) = newVariable
   where
     (t1,t2) = maybeExpressionToTimes tempo evalTime newExpr
     n = targetToVariableName target'
-    oldVariable = "float _old_" ++ n ++ "=" ++ maybeExpressionToFloat oldExpr ++ "*xFadeOld(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
-    newVariable = "float _new_" ++ n ++ '=' ++ maybeExpressionToFloat newExpr ++ "*xFadeNew(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
-    oldAndNew = "float _" ++ n ++ "=_old_" ++ n ++ "+_new_" ++ n ++ ";\n"
+    newVariable = "float _" ++ n ++ '=' ++ expressionToFloat newExpr ++ "*xFadeNew(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
 
-fragmentShader :: PunctualState -> (UTCTime,Double) -> Evaluation -> Identity String
-fragmentShader s tempo e@(xs,t) = do
-  let evalTime = addUTCTime 0.2 t
-  let exprs = listOfExpressionsToMap xs -- Map Target' Expression
+fragmentShader :: PunctualState -> (UTCTime,Double) -> Evaluation -> String
+fragmentShader s tempo e@(xs,t) = header ++ "void main() {\n" ++ allTargets ++ allOutputs ++ glFragColor ++ "}"
+  where
+    evalTime = addUTCTime 0.2 t
+    oldExprs = mapWithKey (\k a -> (k,a)) $ listOfExpressionsToMap $ expressions s -- Map Target' (Target',Expression)
+    newExprs = mapWithKey (\k a -> (k,a)) $ listOfExpressionsToMap xs -- Map Target' (Target',Expression)
+    continuing = intersectionWith (continuingTarget tempo evalTime) newExprs oldExprs -- Map Target' String
+    continuing' = concat $ elems continuing -- String
+    discontinued = fmap (discontinuedTarget tempo evalTime) $ difference oldExprs newExprs -- Map Target' String
+    discontinued' = concat $ elems discontinued -- String
+    added = fmap (addedTarget tempo evalTime) $ difference newExprs oldExprs -- Map Target' String
+    added' = concat $ elems added
+    allTargets = continuing' ++ discontinued' ++ added'
+    red = ?
+    green = ?
+    blue = ?
+    allOutputs = red ++ green ++ blue
+    glFragColor = "gl_FragColor = vec4(red,green,blue,1.);\n"
 
--- *** working above here
--- *** note: below here, expressionForChannel gets reworked so that channel expressions are just
--- sums of Target' names...
--- *** and then above, fragmentShader gets reworked to include 'f' above
-
-expressionForChannel :: Evaluation -> String -> String
-expressionForChannel e chName = foldl f "0." $ fmap graphToFloat $ findGraphsForOutput chName e
-  where f b a = b ++ "+" ++ a
+-- working here...
+-- for all targets - old new and continuing - generate sums for red green and blue
+-- as a sum of 0. and all targetnames with those output values in the new expressions
+-- after that, we are integrating the new 'fragmentShader' into the higher level stuff
