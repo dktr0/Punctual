@@ -118,7 +118,8 @@ data PunctualWebGL = PunctualWebGL {
   fShader :: WebGLShader,
   drawingBuffer :: WebGLBuffer,
   tLocation :: WebGLUniformLocation,
-  resLocation :: WebGLUniformLocation
+  resLocation :: WebGLUniformLocation,
+  prevExpressions :: [Expression]
   }
 
 newPunctualWebGL :: HTMLCanvasElement -> IO PunctualWebGL
@@ -144,7 +145,8 @@ newPunctualWebGL canvas = do
     fShader = f,
     drawingBuffer = b,
     tLocation = t,
-    resLocation = res
+    resLocation = res,
+    prevExpressions = []
   }
 
 foreign import javascript unsafe
@@ -155,11 +157,13 @@ foreign import javascript unsafe
   "$1.bufferData($1.ARRAY_BUFFER,new Float32Array([-1,1,-1,-1,1,1,1,-1]),$1.STATIC_DRAW);"
   bufferDataArrayStatic :: WebGLRenderingContext -> IO ()
 
-updatePunctualWebGL :: PunctualWebGL -> Evaluation -> IO PunctualWebGL
-updatePunctualWebGL st e = do
-  let shaderSrc = fragmentShader e
+updatePunctualWebGL :: PunctualWebGL -> (UTCTime,Double) -> Evaluation -> IO PunctualWebGL
+updatePunctualWebGL st tempo e = do
+  -- fragmentShader :: [Expression] -> (UTCTime,Double) -> Evaluation -> String
+  let shaderSrc = fragmentShader (prevExpressions st) tempo e
   putStrLn $ "new shader source: " ++ shaderSrc
-  replaceFragmentShader st (toJSString shaderSrc)
+  st' <- replaceFragmentShader st (toJSString shaderSrc)
+  return $ st { prevExpressions = fst e }
 
 replaceFragmentShader :: PunctualWebGL -> JSString -> IO PunctualWebGL
 replaceFragmentShader st src = do

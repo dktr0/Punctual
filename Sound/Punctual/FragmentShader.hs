@@ -2,6 +2,8 @@ module Sound.Punctual.FragmentShader (fragmentShader,defaultFragmentShader) wher
 
 import Sound.Punctual.Graph
 import Sound.Punctual.Evaluation
+import Data.List (intercalate)
+import Data.Map.Strict
 
 graphToFloat :: Graph -> String
 graphToFloat EmptyGraph = "0."
@@ -52,30 +54,33 @@ continuingTarget tempo evalTime (target',oldExpr) (_,newExpr) = oldVariable ++ n
   where
     (t1,t2) = expressionToTimes tempo evalTime newExpr
     n = targetToVariableName target'
-    oldVariable = "float _old_" ++ n ++ "=" ++ expressionToFloat oldExpr ++ "*xFadeOld(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
-    newVariable = "float _new_" ++ n ++ '=' ++ expressionToFloat newExpr ++ "*xFadeNew(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
-    oldAndNew = "float _" ++ n ++ "=_old_" ++ n ++ "+_new_" ++ n ++ ";\n"
+    oldVariable = "float _old" ++ n ++ "=" ++ expressionToFloat oldExpr ++ "*xFadeOld(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
+    newVariable = "float _new" ++ n ++ '=' ++ expressionToFloat newExpr ++ "*xFadeNew(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
+    oldAndNew = "float " ++ n ++ "=_old" ++ n ++ "+_new" ++ n ++ ";\n"
 
 discontinuedTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> String
 discontinuedTarget tempo evalTime (target',oldExpr) = oldVariable
   where
     (t1,t2) = (evalTime,addUTCTime 0.5 evalTime) -- 0.5 sec
     n = targetToVariableName target'
-    oldVariable = "float _" ++ n ++ "=" ++ expressionToFloat oldExpr ++ "*xFadeOld(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
+    oldVariable = "float " ++ n ++ "=" ++ expressionToFloat oldExpr ++ "*xFadeOld(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
 
 addedTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> String
 addedTarget tempo evalTime (target',newExpr) = newVariable
   where
     (t1,t2) = maybeExpressionToTimes tempo evalTime newExpr
     n = targetToVariableName target'
-    newVariable = "float _" ++ n ++ '=' ++ expressionToFloat newExpr ++ "*xFadeNew(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
+    newVariable = "float " ++ n ++ '=' ++ expressionToFloat newExpr ++ "*xFadeNew(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
 
-fragmentShader :: PunctualState -> (UTCTime,Double) -> Evaluation -> String
-fragmentShader s tempo e@(xs,t) = header ++ "void main() {\n" ++ allTargets ++ allOutputs ++ glFragColor ++ "}"
+fragmentShader :: [Expression] -> (UTCTime,Double) -> Evaluation -> String
+fragmentShader xs0 tempo e@(xs1,t) = header ++ "void main() {\n" ++ allTargets ++ allOutputs ++ glFragColor ++ "}"
   where
     evalTime = addUTCTime 0.2 t
-    oldExprs = mapWithKey (\k a -> (k,a)) $ listOfExpressionsToMap $ expressions s -- Map Target' (Target',Expression)
-    newExprs = mapWithKey (\k a -> (k,a)) $ listOfExpressionsToMap xs -- Map Target' (Target',Expression)
+    -- generate maps of previous, current and all relevant expressions :: Map Target' (Target',Expression)
+    oldExprs = mapWithKey (\k a -> (k,a)) $ listOfExpressionsToMap xs0
+    newExprs = mapWithKey (\k a -> (k,a)) $ listOfExpressionsToMap xs1
+    allExprs = union newExprs oldExprs
+    -- using the maps in oldExprs and newExprs, generate GLSL shader code for each target, with crossfades
     continuing = intersectionWith (continuingTarget tempo evalTime) newExprs oldExprs -- Map Target' String
     continuing' = concat $ elems continuing -- String
     discontinued = fmap (discontinuedTarget tempo evalTime) $ difference oldExprs newExprs -- Map Target' String
@@ -83,13 +88,16 @@ fragmentShader s tempo e@(xs,t) = header ++ "void main() {\n" ++ allTargets ++ a
     added = fmap (addedTarget tempo evalTime) $ difference newExprs oldExprs -- Map Target' String
     added' = concat $ elems added
     allTargets = continuing' ++ discontinued' ++ added'
-    red = ?
-    green = ?
-    blue = ?
+    --
+    redExprs = filter (\(_,x) -> output x == NamedOutput "red") $ elems allExprs
+    greenExprs = filter (\(_,x) -> output x == NamedOutput "green") $ elems allExprs
+    blueExprs = filter (\(_,x) -> output x == NamedOutput "blue") $ elems allExprs
+    redVars = intercalate "+" $ fmap (targetToVariableName . fst) redExprs
+    greenVars = intercalate "+" $ fmap (targetToVariableName . fst) greenExprs
+    blueVars = intercalate "+" $ fmap (targetToVariableName . fst) blueExprs
+    red = "float red = 0.+" ++ redVars ++ ";\n"
+    green = "float green = 0.+" ++ greenVars ++ ";\n"
+    blue = "float blue = 0.+" ++ blueVars ++ ";\n"
     allOutputs = red ++ green ++ blue
+    --
     glFragColor = "gl_FragColor = vec4(red,green,blue,1.);\n"
-
--- working here...
--- for all targets - old new and continuing - generate sums for red green and blue
--- as a sum of 0. and all targetnames with those output values in the new expressions
--- after that, we are integrating the new 'fragmentShader' into the higher level stuff

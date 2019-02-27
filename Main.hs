@@ -82,13 +82,13 @@ punctualReflex mv exprs = mdo
   newPunctualW <- performEvent $ attachDynWith f currentPunctualW evals
   currentPunctualW <- holdDyn initialPunctualW newPunctualW
   -- video
-  performEvent $ fmap (liftIO . evaluatePunctualWebGL mv) evals
+  performEvent $ fmap (liftIO . evaluatePunctualWebGL (t0,0.5) mv) evals -- *** note: tempo hard-coded here
   return ()
 
-evaluatePunctualWebGL :: MVar PunctualWebGL -> Evaluation -> IO ()
-evaluatePunctualWebGL mv e = do
+evaluatePunctualWebGL :: (UTCTime,Double) -> MVar PunctualWebGL -> Evaluation -> IO ()
+evaluatePunctualWebGL t mv e = do
   x <- takeMVar mv
-  y <- updatePunctualWebGL x e
+  y <- updatePunctualWebGL x t e
   putMVar mv y
 
 evaluationNow :: [Expression] -> IO Evaluation
