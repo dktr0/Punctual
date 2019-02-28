@@ -102,9 +102,9 @@ fragmentShader xs0 tempo e@(xs1,t) = header ++ "void main() {\n" ++ allTargets +
     redExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "red") $ elems allExprs
     greenExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "green") $ elems allExprs
     blueExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "blue") $ elems allExprs
-    redVars = intercalate "+" $ fmap (targetToVariableName . fst) redExprs
-    greenVars = intercalate "+" $ fmap (targetToVariableName . fst) greenExprs
-    blueVars = intercalate "+" $ fmap (targetToVariableName . fst) blueExprs
+    redVars = intercalate "+" $ (["0."] ++) $ fmap (targetToVariableName . fst) redExprs
+    greenVars = intercalate "+" $ (["0."] ++) $ fmap (targetToVariableName . fst) greenExprs
+    blueVars = intercalate "+" $ (["0."] ++) $ fmap (targetToVariableName . fst) blueExprs
     red = "float red = 0.+" ++ redVars ++ ";\n"
     green = "float green = 0.+" ++ greenVars ++ ";\n"
     blue = "float blue = 0.+" ++ blueVars ++ ";\n"
