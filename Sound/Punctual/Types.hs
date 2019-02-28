@@ -1,5 +1,8 @@
 module Sound.Punctual.Types where
 
+import Data.Time
+import Data.Map.Strict
+
 import Sound.Punctual.Token
 import Sound.Punctual.Extent
 import Sound.Punctual.Graph

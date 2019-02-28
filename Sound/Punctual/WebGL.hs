@@ -12,9 +12,11 @@ import Control.Exception
 import GHCJS.Types
 import GHCJS.DOM.Types
 import GHCJS.Marshal.Pure
+import Data.Time
 
 import Sound.Punctual.FragmentShader
 import Sound.Punctual.Evaluation
+import Sound.Punctual.Types
 
 foreign import javascript unsafe
   "$1.getContext('webgl')"
@@ -163,7 +165,7 @@ updatePunctualWebGL st tempo e = do
   let shaderSrc = fragmentShader (prevExpressions st) tempo e
   putStrLn $ "new shader source: " ++ shaderSrc
   st' <- replaceFragmentShader st (toJSString shaderSrc)
-  return $ st { prevExpressions = fst e }
+  return $ st' { prevExpressions = fst e }
 
 replaceFragmentShader :: PunctualWebGL -> JSString -> IO PunctualWebGL
 replaceFragmentShader st src = do

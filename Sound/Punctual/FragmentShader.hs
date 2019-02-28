@@ -1,9 +1,13 @@
 module Sound.Punctual.FragmentShader (fragmentShader,defaultFragmentShader) where
 
-import Sound.Punctual.Graph
-import Sound.Punctual.Evaluation
 import Data.List (intercalate)
 import Data.Map.Strict
+import Data.Time
+
+import Sound.Punctual.Graph
+import Sound.Punctual.Types
+import Sound.Punctual.Evaluation
+import Sound.MusicW.AudioContext (utcTimeToDouble)
 
 graphToFloat :: Graph -> String
 graphToFloat EmptyGraph = "0."
@@ -42,7 +46,7 @@ header
    \float tri(float f) { float p = phasor(f); return p < 0.5 ? p*4.-1. : 1.-((p-0.5)*4.) ;}\
    \float saw(float f) { return phasor(f)*2.-1.;}\
    \float sqr(float f) { float p = phasor(f); return p < 0.5 ? -1. : 1.;}\
-   \float xFadeNew(float t1,float t2) { if (t>t2) return 1.; if (t<t1) return 0.; return ();}\
+   \float xFadeNew(float t1,float t2) { if (t>t2) return 1.; if (t<t1) return 0.; return ((t-t1)/(t2-t1));}\
    \float xFadeOld(float t1,float t2) { return 1.-xFadeNew(t1,t2);}"
 
 targetToVariableName :: Target' -> String
@@ -50,12 +54,12 @@ targetToVariableName (Named s) = "_named_" ++ s;
 targetToVariableName (Anon i) = "_anon_" ++ (show i);
 
 continuingTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> (Target',Expression) -> String
-continuingTarget tempo evalTime (target',oldExpr) (_,newExpr) = oldVariable ++ newVariable ++ oldAndNew
+continuingTarget tempo evalTime (_,newExpr) (target',oldExpr) = oldVariable ++ newVariable ++ oldAndNew
   where
     (t1,t2) = expressionToTimes tempo evalTime newExpr
     n = targetToVariableName target'
-    oldVariable = "float _old" ++ n ++ "=" ++ expressionToFloat oldExpr ++ "*xFadeOld(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
-    newVariable = "float _new" ++ n ++ '=' ++ expressionToFloat newExpr ++ "*xFadeNew(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
+    oldVariable = "float _old" ++ n ++ "=" ++ expressionToFloat oldExpr ++ "*" ++ xFadeOld t1 t2 ++ ";\n"
+    newVariable = "float _new" ++ n ++ "=" ++ expressionToFloat newExpr ++ "*" ++ xFadeNew t1 t2 ++ ";\n"
     oldAndNew = "float " ++ n ++ "=_old" ++ n ++ "+_new" ++ n ++ ";\n"
 
 discontinuedTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> String
@@ -63,14 +67,20 @@ discontinuedTarget tempo evalTime (target',oldExpr) = oldVariable
   where
     (t1,t2) = (evalTime,addUTCTime 0.5 evalTime) -- 0.5 sec
     n = targetToVariableName target'
-    oldVariable = "float " ++ n ++ "=" ++ expressionToFloat oldExpr ++ "*xFadeOld(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
+    oldVariable = "float " ++ n ++ "=" ++ expressionToFloat oldExpr ++ "*" ++ xFadeOld t1 t2 ++ ";\n"
 
 addedTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> String
 addedTarget tempo evalTime (target',newExpr) = newVariable
   where
-    (t1,t2) = maybeExpressionToTimes tempo evalTime newExpr
+    (t1,t2) = expressionToTimes tempo evalTime newExpr
     n = targetToVariableName target'
-    newVariable = "float " ++ n ++ '=' ++ expressionToFloat newExpr ++ "*xFadeNew(" ++ show t1 ++ "," ++ show t2 ++ ");\n"
+    newVariable = "float " ++ n ++ "=" ++ expressionToFloat newExpr ++ "*" ++ xFadeNew t1 t2 ++ ";\n"
+
+xFadeOld :: UTCTime -> UTCTime -> String
+xFadeOld t1 t2 = "xFadeOld(" ++ show (utcTimeToDouble t1) ++ "," ++ show (utcTimeToDouble t2) ++ ")"
+
+xFadeNew :: UTCTime -> UTCTime -> String
+xFadeNew t1 t2 = "xFadeNew(" ++ show (utcTimeToDouble t1) ++ "," ++ show (utcTimeToDouble t2) ++ ")"
 
 fragmentShader :: [Expression] -> (UTCTime,Double) -> Evaluation -> String
 fragmentShader xs0 tempo e@(xs1,t) = header ++ "void main() {\n" ++ allTargets ++ allOutputs ++ glFragColor ++ "}"
@@ -89,9 +99,9 @@ fragmentShader xs0 tempo e@(xs1,t) = header ++ "void main() {\n" ++ allTargets +
     added' = concat $ elems added
     allTargets = continuing' ++ discontinued' ++ added'
     --
-    redExprs = filter (\(_,x) -> output x == NamedOutput "red") $ elems allExprs
-    greenExprs = filter (\(_,x) -> output x == NamedOutput "green") $ elems allExprs
-    blueExprs = filter (\(_,x) -> output x == NamedOutput "blue") $ elems allExprs
+    redExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "red") $ elems allExprs
+    greenExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "green") $ elems allExprs
+    blueExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "blue") $ elems allExprs
     redVars = intercalate "+" $ fmap (targetToVariableName . fst) redExprs
     greenVars = intercalate "+" $ fmap (targetToVariableName . fst) greenExprs
     blueVars = intercalate "+" $ fmap (targetToVariableName . fst) blueExprs
