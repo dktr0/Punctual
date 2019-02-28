@@ -32,8 +32,8 @@ data Transition = DefaultCrossFade | CrossFade Duration | HoldPhase deriving (Sh
 -- note: returned value represents half of total xfade duration
 transitionToXfade :: Double -> Transition -> NominalDiffTime
 transitionToXfade _ DefaultCrossFade = 0.25
-transitionToXfade _ (CrossFade (Seconds x)) = (realToFrac x) / 2
-transitionToXfade cps (CrossFade (Cycles x)) = (realToFrac $ x/cps) / 2
+transitionToXfade _ (CrossFade (Seconds x)) = realToFrac x
+transitionToXfade cps (CrossFade (Cycles x)) = (realToFrac $ x/cps)
 transitionToXfade _ HoldPhase = 0.005
 
 data Target = Explicit String | Anonymous deriving (Show,Eq,Ord)
@@ -75,10 +75,6 @@ listOfExpressionsToMap xs = fromList $ namedExprs ++ anonymousExprs
   where
     namedExprs = fmap (\e -> (Named $ explicitTargetOfDefinition $ definition e,e)) $ Prelude.filter (definitionIsExplicitlyNamed . definition) xs
     anonymousExprs = zipWith (\e n -> (Anon n,e)) (Prelude.filter ((not . definitionIsExplicitlyNamed) . definition) xs) [0..]
-
-maybeExpressionToTimes :: (UTCTime,Double) -> UTCTime -> Maybe Expression -> (UTCTime,UTCTime)
-maybeExpressionToTimes tempo evalTime (Just x) = expressionToTimes tempo evalTime x
-maybeExpressionToTimes tempo evalTime Nothing = (evalTime,addUTCTime 1.0 evalTime) -- one-second fade out on deleted expressions
 
 expressionToTimes :: (UTCTime,Double) -> UTCTime -> Expression -> (UTCTime,UTCTime)
 expressionToTimes tempo evalTime x = definitionToTimes tempo evalTime (definition x)
