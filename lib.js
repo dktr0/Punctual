@@ -2134,185 +2134,101 @@ function h$ghcjsbn_encodeDouble_s(m, e) {
   h$ghcjsbn_assertValid_d(r, "encodeDouble_s result");
   return r;
 }
-function h$dom$sendXHR(xhr, d, cont) {
-    var clear;
-    var error = function () {
-        clear(); cont(2);
-    };
-    var abort = function () {
-        clear(); cont(1);
-    };
-    var load = function () {
-        clear(); cont(0);
-    };
-    clear = function () {
-        xhr.removeEventListener('error', error);
-        xhr.removeEventListener('abort', abort);
-        xhr.removeEventListener('load', load);
-    }
-    xhr.addEventListener('error', error);
-    xhr.addEventListener('abort', abort);
-    xhr.addEventListener('load', load);
-    if(d) {
- xhr.send(d);
-    } else {
- xhr.send();
-    }
+/*
+ * @class
+ * @property {string | File | Blob} this.source
+ * @property {('created' | 'loading' | 'decoding' | 'decoded' | 'error')} this.status
+ * @property {?string} this.error
+ * @property {?AudioBuffer} this.buffer
+ *
+ * @param {string | File | Blob} source - the source to load the audio buffer from
+ * @param {WebAudioContext} ctx - the web audio context to use for decoding
+ */
+function Buffer(source, ctx) {
+  this.source = source;
+  this.ctx = ctx;
+
+  this.status = 'created';
+  this.error = null;
+  this.buffer = null;
 }
 
-
-
-
-
-
-// values defined in Gen2.ClosureInfo
-
-
-
-
-
-
-
-// thread status
-
-/*
- * low-level heap object manipulation macros
- */
-// GHCJS.Prim.JSVal
-
-
-
-
-
-
-
-// GHCJS.Prim.JSException
-
-
-
-
-
-// Exception dictionary for JSException
-
-
-// SomeException
-
-
-
-
-
-
-// GHC.Ptr.Ptr
-
-
-
-
-
-
-// GHC.Integer.GMP.Internals
-// Data.Maybe.Maybe
-
-
-
-
-// #define HS_NOTHING h$nothing
-
-
-
-
-
-
-// Data.List
-// Data.Text
-
-
-
-
-// Data.Text.Lazy
-
-
-
-
-
-// black holes
-// can we skip the indirection for black holes?
-
-
-
-
-
-
-// resumable thunks
-
-
-// general deconstruction
-
-
-
-// retrieve  a numeric value that's possibly stored as an indirection
-
-
-
-// generic lazy values
-// generic data constructors and selectors
-// unboxed tuple returns
-// #define RETURN_UBX_TUP1(x) return x;
-
-function h$createWebSocket(url, protocols) {
-  return new WebSocket(url, protocols);
+Buffer.prototype._changeStatus = function (onStatusChange, status, error, buffer) {
+  this.status = status;
+  this.error = error != null ? error : null; // If undefined set to null (not undefined)
+  this.buffer = buffer != null ? buffer : null;
+  onStatusChange(this);
 }
 
-/*
-   this must be called before the websocket has connected,
-   typically synchronously after creating the socket
+/**
+ * @param {function(buffer: Buffer): void} onStatusChange
  */
-function h$openWebSocket(ws, mcb, ccb, c) {
-  if(ws.readyState !== 0) {
-    throw new Error("h$openWebSocket: unexpected readyState, socket must be CONNECTING");
+Buffer.prototype.startLoadingAndDecoding = function(onStatusChange) {
+  var closure = this;
+  var sourceIsUrl = typeof this.source === 'string';
+
+  this._changeStatus(onStatusChange, 'loading');
+
+  var loader = sourceIsUrl ? new XMLHttpRequest() : new FileReader();
+
+  loader.onerror = function () {
+    var message = 'Error loading buffer: ' + (sourceIsUrl ? loader.statusText : loader.error.message);
+    closure._changeStatus(onStatusChange, 'error', message);
   }
-  ws.lastError = null;
-  ws.onopen = function() {
-    if(mcb) {
-      ws.onmessage = mcb;
-    }
-    if(ccb || mcb) {
-      ws.onclose = function(ce) {
-        if(ws.onmessage) {
-          h$release(ws.onmessage);
-          ws.onmessage = null;
-        }
-        if(ccb) {
-          h$release(ccb);
-          ccb(ce);
-        }
-      };
-    };
-    ws.onerror = function(err) {
-      ws.lastError = err;
-      if(ws.onmessage) {
-        h$release(ws.onmessage);
-        ws.onmessage = null;
+  loader.onabort = this._changeStatus.bind(this, onStatusChange, 'abort', 'Read aborted', null);
+
+  loader.onload = function() {
+    closure._changeStatus(onStatusChange, 'decoding');
+
+    var arrayBuffer = sourceIsUrl ? loader.response : loader.result;
+    closure.ctx.decodeAudioData(arrayBuffer,
+      function success(audioBuffer) {
+        closure._changeStatus(onStatusChange, 'decoded', null, audioBuffer);
+      },
+      function failure(error) {
+        closure._changeStatus(onStatusChange, 'error', 'Error decoding buffer: ' + error.message);
       }
-      ws.close();
-    };
-    c(null);
-  };
-  ws.onerror = function(err) {
-    if(ccb) h$release(ccb);
-    if(mcb) h$release(mcb);
-    ws.onmessage = null;
-    ws.close();
-    c(err);
-  };
+    );
+  }
+
+  // Start reading.
+  if (sourceIsUrl) {
+    loader.responseType = 'arraybuffer';
+    loader.open('GET', this.source, true);
+    loader.send();
+  } else {
+    loader.readAsArrayBuffer(this.source);
+  }
 }
 
-function h$closeWebSocket(status, reason, ws) {
-  ws.onerror = null;
-  if(ws.onmessage) {
-    h$release(ws.onmessage);
-    ws.onmessage = null;
+function startLoadingAndDecodingMultiple(list, cb){
+  var closure = []
+  var loaded = []
+  for (i in list){
+
+    console.log(i)
+    console.log(list[i])
+    console.log(loaded)
+    list[i].startLoadingAndDecoding((x)=>{
+      console.log("x is : " + x)
+      console.log("x.status is : " + x.status)
+
+      closure.push(x)
+      var haveLoaded = true
+      for (j in closure){
+        haveLoaded = (closure[j].status == "error" || closure[j].status == "abort" || closure[j].status == "decoded")&&haveLoaded;
+        if(haveLoaded){
+          loaded.push(closure[j])
+        }
+      }
+      console.log("cb test case:  haveloaded - "+(haveLoaded) +"  loadedlength - "+loaded.length);
+      if (haveLoaded && loaded.length >= list.length ){
+        console.log("cb being called...")
+        cb(closure)
+      }
+    });
   }
-  ws.close(status, reason);
+  console.log("closure:  "+closure)
 }
 
 
@@ -4154,101 +4070,185 @@ function h$sendXHR(xhr, d, cont) {
  xhr.send();
     }
 }
+
+
+
+
+
+
+// values defined in Gen2.ClosureInfo
+
+
+
+
+
+
+
+// thread status
+
 /*
- * @class
- * @property {string | File | Blob} this.source
- * @property {('created' | 'loading' | 'decoding' | 'decoded' | 'error')} this.status
- * @property {?string} this.error
- * @property {?AudioBuffer} this.buffer
- *
- * @param {string | File | Blob} source - the source to load the audio buffer from
- * @param {WebAudioContext} ctx - the web audio context to use for decoding
+ * low-level heap object manipulation macros
  */
-function Buffer(source, ctx) {
-  this.source = source;
-  this.ctx = ctx;
+// GHCJS.Prim.JSVal
 
-  this.status = 'created';
-  this.error = null;
-  this.buffer = null;
+
+
+
+
+
+
+// GHCJS.Prim.JSException
+
+
+
+
+
+// Exception dictionary for JSException
+
+
+// SomeException
+
+
+
+
+
+
+// GHC.Ptr.Ptr
+
+
+
+
+
+
+// GHC.Integer.GMP.Internals
+// Data.Maybe.Maybe
+
+
+
+
+// #define HS_NOTHING h$nothing
+
+
+
+
+
+
+// Data.List
+// Data.Text
+
+
+
+
+// Data.Text.Lazy
+
+
+
+
+
+// black holes
+// can we skip the indirection for black holes?
+
+
+
+
+
+
+// resumable thunks
+
+
+// general deconstruction
+
+
+
+// retrieve  a numeric value that's possibly stored as an indirection
+
+
+
+// generic lazy values
+// generic data constructors and selectors
+// unboxed tuple returns
+// #define RETURN_UBX_TUP1(x) return x;
+
+function h$createWebSocket(url, protocols) {
+  return new WebSocket(url, protocols);
 }
 
-Buffer.prototype._changeStatus = function (onStatusChange, status, error, buffer) {
-  this.status = status;
-  this.error = error != null ? error : null; // If undefined set to null (not undefined)
-  this.buffer = buffer != null ? buffer : null;
-  onStatusChange(this);
-}
-
-/**
- * @param {function(buffer: Buffer): void} onStatusChange
+/*
+   this must be called before the websocket has connected,
+   typically synchronously after creating the socket
  */
-Buffer.prototype.startLoadingAndDecoding = function(onStatusChange) {
-  var closure = this;
-  var sourceIsUrl = typeof this.source === 'string';
-
-  this._changeStatus(onStatusChange, 'loading');
-
-  var loader = sourceIsUrl ? new XMLHttpRequest() : new FileReader();
-
-  loader.onerror = function () {
-    var message = 'Error loading buffer: ' + (sourceIsUrl ? loader.statusText : loader.error.message);
-    closure._changeStatus(onStatusChange, 'error', message);
+function h$openWebSocket(ws, mcb, ccb, c) {
+  if(ws.readyState !== 0) {
+    throw new Error("h$openWebSocket: unexpected readyState, socket must be CONNECTING");
   }
-  loader.onabort = this._changeStatus.bind(this, onStatusChange, 'abort', 'Read aborted', null);
-
-  loader.onload = function() {
-    closure._changeStatus(onStatusChange, 'decoding');
-
-    var arrayBuffer = sourceIsUrl ? loader.response : loader.result;
-    closure.ctx.decodeAudioData(arrayBuffer,
-      function success(audioBuffer) {
-        closure._changeStatus(onStatusChange, 'decoded', null, audioBuffer);
-      },
-      function failure(error) {
-        closure._changeStatus(onStatusChange, 'error', 'Error decoding buffer: ' + error.message);
-      }
-    );
-  }
-
-  // Start reading.
-  if (sourceIsUrl) {
-    loader.responseType = 'arraybuffer';
-    loader.open('GET', this.source, true);
-    loader.send();
-  } else {
-    loader.readAsArrayBuffer(this.source);
-  }
-}
-
-function startLoadingAndDecodingMultiple(list, cb){
-  var closure = []
-  var loaded = []
-  for (i in list){
-
-    console.log(i)
-    console.log(list[i])
-    console.log(loaded)
-    list[i].startLoadingAndDecoding((x)=>{
-      console.log("x is : " + x)
-      console.log("x.status is : " + x.status)
-
-      closure.push(x)
-      var haveLoaded = true
-      for (j in closure){
-        haveLoaded = (closure[j].status == "error" || closure[j].status == "abort" || closure[j].status == "decoded")&&haveLoaded;
-        if(haveLoaded){
-          loaded.push(closure[j])
+  ws.lastError = null;
+  ws.onopen = function() {
+    if(mcb) {
+      ws.onmessage = mcb;
+    }
+    if(ccb || mcb) {
+      ws.onclose = function(ce) {
+        if(ws.onmessage) {
+          h$release(ws.onmessage);
+          ws.onmessage = null;
         }
+        if(ccb) {
+          h$release(ccb);
+          ccb(ce);
+        }
+      };
+    };
+    ws.onerror = function(err) {
+      ws.lastError = err;
+      if(ws.onmessage) {
+        h$release(ws.onmessage);
+        ws.onmessage = null;
       }
-      console.log("cb test case:  haveloaded - "+(haveLoaded) +"  loadedlength - "+loaded.length);
-      if (haveLoaded && loaded.length >= list.length ){
-        console.log("cb being called...")
-        cb(closure)
-      }
-    });
+      ws.close();
+    };
+    c(null);
+  };
+  ws.onerror = function(err) {
+    if(ccb) h$release(ccb);
+    if(mcb) h$release(mcb);
+    ws.onmessage = null;
+    ws.close();
+    c(err);
+  };
+}
+
+function h$closeWebSocket(status, reason, ws) {
+  ws.onerror = null;
+  if(ws.onmessage) {
+    h$release(ws.onmessage);
+    ws.onmessage = null;
   }
-  console.log("closure:  "+closure)
+  ws.close(status, reason);
+}
+function h$dom$sendXHR(xhr, d, cont) {
+    var clear;
+    var error = function () {
+        clear(); cont(2);
+    };
+    var abort = function () {
+        clear(); cont(1);
+    };
+    var load = function () {
+        clear(); cont(0);
+    };
+    clear = function () {
+        xhr.removeEventListener('error', error);
+        xhr.removeEventListener('abort', abort);
+        xhr.removeEventListener('load', load);
+    }
+    xhr.addEventListener('error', error);
+    xhr.addEventListener('abort', abort);
+    xhr.addEventListener('load', load);
+    if(d) {
+ xhr.send(d);
+    } else {
+ xhr.send();
+    }
 }
 // Copyright 2011 The Closure Library Authors. All Rights Reserved.
 //
@@ -6608,6 +6608,205 @@ function h$_hs_text_encode_utf8(destp_v, destp_o, src_v, srcoff, srclen) {
 // unboxed tuple returns
 // #define RETURN_UBX_TUP1(x) return x;
 
+// JS Objects stuff
+
+function h$isFloat (n) {
+  return n===+n && n!==(n|0);
+}
+
+function h$isInteger (n) {
+  return n===+n && n===(n|0);
+}
+
+/*
+        -- 0 - null, 1 - integer,
+        -- 2 - float, 3 - bool,
+        -- 4 - string, 5 - array
+        -- 6 - object
+*/
+function h$typeOf(o) {
+    if (!(o instanceof Object)) {
+        if (o == null) {
+            return 0;
+        } else if (typeof o == 'number') {
+            if (h$isInteger(o)) {
+                return 1;
+            } else {
+                return 2;
+            }
+        } else if (typeof o == 'boolean') {
+            return 3;
+        } else {
+            return 4;
+        }
+    } else {
+        if (Object.prototype.toString.call(o) == '[object Array]') {
+            // it's an array
+            return 5;
+        } else if (!o) {
+            // null 
+            return 0;
+        } else {
+            // it's an object
+            return 6;
+        }
+    }
+}
+
+function h$flattenObj(o) {
+    var l = [], i = 0;
+    for (var prop in o) {
+        l[i++] = [prop, o[prop]];
+    }
+    return l;
+}
+
+/*
+
+  build an object from key/value pairs:
+    var obj = h$buildObject(key1, val1, key2, val2, ...);
+
+  note: magic name:
+    invocations of this function are replaced by object literals wherever
+    possible
+
+ */
+function h$buildObject() {
+    var r = {}, l = arguments.length;
+    for(var i = 0; i < l; i += 2) {
+        var k = arguments[i], v = arguments[i+1];
+        r[k] = v;
+    }
+    return r;
+}
+
+// same as above, but from a list: [k1,v1,k2,v2,...]
+function h$buildObjectFromList(xs) {
+    var r = {}, k, v, t;
+    while(((xs).f === h$ghczmprimZCGHCziTypesziZC_con_e)) {
+        xs = ((xs).d2);
+        t = ((xs).d2);
+        if(((t).f === h$ghczmprimZCGHCziTypesziZC_con_e)) {
+            k = ((xs).d1);
+            v = ((t).d1);
+            xs = ((t).d2);
+            r[k] = v;
+        } else {
+            return r;
+        }
+    }
+    return r;
+}
+
+// same as above, but from a list of tuples [(k1,v1),(k2,v2),...]
+function h$buildObjectFromTupList(xs) {
+    var r = {};
+    while(((xs).f === h$ghczmprimZCGHCziTypesziZC_con_e)) {
+ var h = ((xs).d1);
+ xs = ((xs).d2);
+ r[((((h).d1)).d1)] = ((((h).d2)).d1);
+    }
+    return r;
+}
+
+
+
+
+
+
+// values defined in Gen2.ClosureInfo
+
+
+
+
+
+
+
+// thread status
+
+/*
+ * low-level heap object manipulation macros
+ */
+// GHCJS.Prim.JSVal
+
+
+
+
+
+
+
+// GHCJS.Prim.JSException
+
+
+
+
+
+// Exception dictionary for JSException
+
+
+// SomeException
+
+
+
+
+
+
+// GHC.Ptr.Ptr
+
+
+
+
+
+
+// GHC.Integer.GMP.Internals
+// Data.Maybe.Maybe
+
+
+
+
+// #define HS_NOTHING h$nothing
+
+
+
+
+
+
+// Data.List
+// Data.Text
+
+
+
+
+// Data.Text.Lazy
+
+
+
+
+
+// black holes
+// can we skip the indirection for black holes?
+
+
+
+
+
+
+// resumable thunks
+
+
+// general deconstruction
+
+
+
+// retrieve  a numeric value that's possibly stored as an indirection
+
+
+
+// generic lazy values
+// generic data constructors and selectors
+// unboxed tuple returns
+// #define RETURN_UBX_TUP1(x) return x;
+
 // translated from bytestring cbits/fpstring.c
 
 function h$fps_reverse(a_v, a_o, b_v, b_o, n) {
@@ -6917,205 +7116,6 @@ function h$hashable_getRandomBytes(dest_d, dest_o, len) {
     }
   }
   return len;
-}
-
-
-
-
-
-
-// values defined in Gen2.ClosureInfo
-
-
-
-
-
-
-
-// thread status
-
-/*
- * low-level heap object manipulation macros
- */
-// GHCJS.Prim.JSVal
-
-
-
-
-
-
-
-// GHCJS.Prim.JSException
-
-
-
-
-
-// Exception dictionary for JSException
-
-
-// SomeException
-
-
-
-
-
-
-// GHC.Ptr.Ptr
-
-
-
-
-
-
-// GHC.Integer.GMP.Internals
-// Data.Maybe.Maybe
-
-
-
-
-// #define HS_NOTHING h$nothing
-
-
-
-
-
-
-// Data.List
-// Data.Text
-
-
-
-
-// Data.Text.Lazy
-
-
-
-
-
-// black holes
-// can we skip the indirection for black holes?
-
-
-
-
-
-
-// resumable thunks
-
-
-// general deconstruction
-
-
-
-// retrieve  a numeric value that's possibly stored as an indirection
-
-
-
-// generic lazy values
-// generic data constructors and selectors
-// unboxed tuple returns
-// #define RETURN_UBX_TUP1(x) return x;
-
-// JS Objects stuff
-
-function h$isFloat (n) {
-  return n===+n && n!==(n|0);
-}
-
-function h$isInteger (n) {
-  return n===+n && n===(n|0);
-}
-
-/*
-        -- 0 - null, 1 - integer,
-        -- 2 - float, 3 - bool,
-        -- 4 - string, 5 - array
-        -- 6 - object
-*/
-function h$typeOf(o) {
-    if (!(o instanceof Object)) {
-        if (o == null) {
-            return 0;
-        } else if (typeof o == 'number') {
-            if (h$isInteger(o)) {
-                return 1;
-            } else {
-                return 2;
-            }
-        } else if (typeof o == 'boolean') {
-            return 3;
-        } else {
-            return 4;
-        }
-    } else {
-        if (Object.prototype.toString.call(o) == '[object Array]') {
-            // it's an array
-            return 5;
-        } else if (!o) {
-            // null 
-            return 0;
-        } else {
-            // it's an object
-            return 6;
-        }
-    }
-}
-
-function h$flattenObj(o) {
-    var l = [], i = 0;
-    for (var prop in o) {
-        l[i++] = [prop, o[prop]];
-    }
-    return l;
-}
-
-/*
-
-  build an object from key/value pairs:
-    var obj = h$buildObject(key1, val1, key2, val2, ...);
-
-  note: magic name:
-    invocations of this function are replaced by object literals wherever
-    possible
-
- */
-function h$buildObject() {
-    var r = {}, l = arguments.length;
-    for(var i = 0; i < l; i += 2) {
-        var k = arguments[i], v = arguments[i+1];
-        r[k] = v;
-    }
-    return r;
-}
-
-// same as above, but from a list: [k1,v1,k2,v2,...]
-function h$buildObjectFromList(xs) {
-    var r = {}, k, v, t;
-    while(((xs).f === h$ghczmprimZCGHCziTypesziZC_con_e)) {
-        xs = ((xs).d2);
-        t = ((xs).d2);
-        if(((t).f === h$ghczmprimZCGHCziTypesziZC_con_e)) {
-            k = ((xs).d1);
-            v = ((t).d1);
-            xs = ((t).d2);
-            r[k] = v;
-        } else {
-            return r;
-        }
-    }
-    return r;
-}
-
-// same as above, but from a list of tuples [(k1,v1),(k2,v2),...]
-function h$buildObjectFromTupList(xs) {
-    var r = {};
-    while(((xs).f === h$ghczmprimZCGHCziTypesziZC_con_e)) {
- var h = ((xs).d1);
- xs = ((xs).d2);
- r[((((h).d1)).d1)] = ((((h).d2)).d1);
-    }
-    return r;
 }
 // generated by generate_threefish_block.hs
 var h$Threefish_256_Process_Block;

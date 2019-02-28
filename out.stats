@@ -1,27 +1,27 @@
 code size summary per package:
 
 base:                    639307
-containers-0.5.7.1-Gdn6hEG92Xy5CWPHSqAWuL:265643
-deepseq-1.4.2.0-3s3V7ccQoBOLl60IshKUSF:650
-dependent-map-0.2.4.0-JLE7KgCDifLAYBi5XtMFVp:115933
-dependent-sum-0.4-YzIoctXpuC1m8HgqVziyi:12159
+containers-0.5.7.1-CNDGHyCvmV1LOquSIjavXT:268305
+deepseq-1.4.2.0-5yBpiIKe171Ed0xdzHLUnd:652
+dependent-map-0.2.4.0-Gni1dPpPwUTAVvvDDVjewO:115920
+dependent-sum-0.4-CLS8NG8RSLJJRpdQqS4nKg:12106
 ghc-prim:                27719
-ghcjs-base-0.2.0.0-78kAsDiGWh11oyqLakpZ7z:8718
-ghcjs-dom-jsffi-0.9.2.0-6vO8nKzyKNe9P1KTvB5TpF:104970
-ghcjs-prim-0.1.0.0-6E2A607dLAc749CT5dxkNh:11069
+ghcjs-base-0.2.0.0-9S78kHf48akI7mNMWJpBY2:8666
+ghcjs-dom-jsffi-0.9.2.0-DM4gL69JpRG1iaCIaPpq2i:104608
+ghcjs-prim-0.1.0.0-ECGW2Q1ZRP7Dy2ZoZg69QN:11075
 integer-gmp:             86262
-main:                    725392
-musicw-0.0.0.1-95xNAJclLVtCD5y9E2SYd8:151411
-parsec-3.1.11-1qus3qVcWGzBmXHJMx6Gmb:479012
-primitive-0.6.2.0-CrQJFOPTQVY76A6o8V1CkN:814
-ref-tf-0.4.0.1-BimJRqJ91Xv9hUBbn9Iw5m:1286
-reflex-0.5-1QXjphmr2rnKoxTo9n0k62:1379483
-reflex-dom-contrib-0.5.1.0-2m601AweKKHSRvuIFZYof:1471
-reflex-dom-core-0.4-LTUnQkEuQ139ZgEQ9jQJWL:973635
-text-1.2.2.2-H4e06yb6sPTLJNWbm3JNtk:21415
-these-0.7.3-4TsJTpaFra79uZM36xMKrP:2996
-time-1.6.0.1-L6Lf0i6IXBr5xRovy5GIXg:6746
-transformers-0.5.2.0-IGRvs8mRrJ09Lm6BZ7wb9k:27258
+main:                    785636
+musicw-0.0.0.1-8V78JxRArMCKgNKXgH2V8o:151369
+parsec-3.1.11-IepkJMHb6GnAd2DA0H1wvP:478120
+primitive-0.6.2.0-BJ716eYPRyJ24Cm9G9EwcW:814
+ref-tf-0.4.0.1-3X9FRDpwnPIIns11GQIBrx:1286
+reflex-0.5-HAdwmBBWLPz8M6UjcDswXJ:1382057
+reflex-dom-contrib-0.5.1.0-5mk73eWOZcvL90WNq9oElH:1478
+reflex-dom-core-0.4-3X8ONgNIPutJDbpS8yc9iV:972768
+text-1.2.2.2-LwhbL92dpbWDIMptVATpYs:21415
+these-0.7.3-57EgD1Kc57X7S3ISoFTdrg:2979
+time-1.6.0.1-7Qe5idX8aca34ZaHW7ZvQv:6016
+transformers-0.5.2.0-CfOBsj4K77MED7rnYcpLrN:27187
 
 
 code size per module:
@@ -103,23 +103,23 @@ base
     Text.Read.Lex:                      82694
     Unsafe.Coerce:                      97
 
-containers-0.5.7.1-Gdn6hEG92Xy5CWPHSqAWuL
+containers-0.5.7.1-CNDGHyCvmV1LOquSIjavXT
     Data.IntMap.Base:                   111593
     Data.IntMap.Strict:                 39416
-    Data.Map.Base:                      102129
+    Data.Map.Base:                      104791
     Data.Map.Strict:                    12505
 
-deepseq-1.4.2.0-3s3V7ccQoBOLl60IshKUSF
-    Control.DeepSeq:                    650
+deepseq-1.4.2.0-5yBpiIKe171Ed0xdzHLUnd
+    Control.DeepSeq:                    652
 
-dependent-map-0.2.4.0-JLE7KgCDifLAYBi5XtMFVp
-    Data.Dependent.Map:                 61565
-    Data.Dependent.Map.Internal:        54368
+dependent-map-0.2.4.0-Gni1dPpPwUTAVvvDDVjewO
+    Data.Dependent.Map:                 61555
+    Data.Dependent.Map.Internal:        54365
 
-dependent-sum-0.4-YzIoctXpuC1m8HgqVziyi
-    Data.Dependent.Sum:                 710
-    Data.GADT.Compare:                  2169
-    Data.Some:                          9280
+dependent-sum-0.4-CLS8NG8RSLJJRpdQqS4nKg
+    Data.Dependent.Sum:                 705
+    Data.GADT.Compare:                  2156
+    Data.Some:                          9245
 
 ghc-prim
     GHC.CString:                        4516
@@ -128,130 +128,130 @@ ghc-prim
     GHC.Tuple:                          3052
     GHC.Types:                          2415
 
-ghcjs-base-0.2.0.0-78kAsDiGWh11oyqLakpZ7z
-    Data.JSString:                      3863
-    Data.JSString.Internal.Type:        269
-    Data.JSString.Text:                 669
-    GHCJS.Foreign.Internal:             388
-    GHCJS.Internal.Types:               244
-    GHCJS.Marshal:                      940
-    GHCJS.Marshal.Internal:             1377
-    GHCJS.Marshal.Pure:                 968
+ghcjs-base-0.2.0.0-9S78kHf48akI7mNMWJpBY2
+    Data.JSString:                      3861
+    Data.JSString.Internal.Type:        267
+    Data.JSString.Text:                 663
+    GHCJS.Foreign.Internal:             384
+    GHCJS.Internal.Types:               242
+    GHCJS.Marshal:                      934
+    GHCJS.Marshal.Internal:             1359
+    GHCJS.Marshal.Pure:                 956
 
-ghcjs-dom-jsffi-0.9.2.0-6vO8nKzyKNe9P1KTvB5TpF
-    GHCJS.DOM:                          442
-    GHCJS.DOM.EventM:                   2648
-    GHCJS.DOM.EventTargetClosures:      923
-    GHCJS.DOM.JSFFI.Generated.DocumentAndElementEventHandlers:4572
-    GHCJS.DOM.JSFFI.Generated.Element:  706
-    GHCJS.DOM.JSFFI.Generated.Event:    1063
-    GHCJS.DOM.JSFFI.Generated.GlobalEventHandlers:28338
-    GHCJS.DOM.JSFFI.Generated.Node:     1271
-    GHCJS.DOM.Types:                    65007
+ghcjs-dom-jsffi-0.9.2.0-DM4gL69JpRG1iaCIaPpq2i
+    GHCJS.DOM:                          441
+    GHCJS.DOM.EventM:                   2643
+    GHCJS.DOM.EventTargetClosures:      919
+    GHCJS.DOM.JSFFI.Generated.DocumentAndElementEventHandlers:4554
+    GHCJS.DOM.JSFFI.Generated.Element:  703
+    GHCJS.DOM.JSFFI.Generated.Event:    1061
+    GHCJS.DOM.JSFFI.Generated.GlobalEventHandlers:28221
+    GHCJS.DOM.JSFFI.Generated.Node:     1268
+    GHCJS.DOM.Types:                    64798
 
-ghcjs-prim-0.1.0.0-6E2A607dLAc749CT5dxkNh
-    GHCJS.Prim:                         7870
+ghcjs-prim-0.1.0.0-ECGW2Q1ZRP7Dy2ZoZg69QN
+    GHCJS.Prim:                         7876
     GHCJS.Prim.Internal:                3199
 
 integer-gmp
     GHC.Integer.Type:                   86262
 
 main
-    Main:                               121951
+    Main:                               122448
     Sound.Punctual.Evaluation:          3182
-    Sound.Punctual.Extent:              17081
-    Sound.Punctual.FragmentShader:      10160
+    Sound.Punctual.Extent:              17057
+    Sound.Punctual.FragmentShader:      76999
     Sound.Punctual.Graph:               26199
-    Sound.Punctual.Parser:              243310
+    Sound.Punctual.Parser:              242940
     Sound.Punctual.Phasor:              556
-    Sound.Punctual.PunctualW:           202152
-    Sound.Punctual.Token:               25288
-    Sound.Punctual.Types:               60519
-    Sound.Punctual.WebGL:               14994
+    Sound.Punctual.PunctualW:           119544
+    Sound.Punctual.Token:               25265
+    Sound.Punctual.Types:               135649
+    Sound.Punctual.WebGL:               15797
 
-musicw-0.0.0.1-95xNAJclLVtCD5y9E2SYd8
-    Sound.MusicW.AudioContext:          11050
-    Sound.MusicW.Node:                  64323
+musicw-0.0.0.1-8V78JxRArMCKgNKXgH2V8o
+    Sound.MusicW.AudioContext:          11054
+    Sound.MusicW.Node:                  64279
     Sound.MusicW.Synth:                 30909
-    Sound.MusicW.SynthDef:              42016
+    Sound.MusicW.SynthDef:              42014
     Sound.MusicW.Transformations:       3113
 
-parsec-3.1.11-1qus3qVcWGzBmXHJMx6Gmb
-    Text.Parsec.Char:                   20893
-    Text.Parsec.Combinator:             37913
-    Text.Parsec.Error:                  29308
-    Text.Parsec.Pos:                    4963
-    Text.Parsec.Prim:                   27235
-    Text.Parsec.Token:                  358700
+parsec-3.1.11-IepkJMHb6GnAd2DA0H1wvP
+    Text.Parsec.Char:                   20837
+    Text.Parsec.Combinator:             37832
+    Text.Parsec.Error:                  29224
+    Text.Parsec.Pos:                    4943
+    Text.Parsec.Prim:                   27155
+    Text.Parsec.Token:                  358129
 
-primitive-0.6.2.0-CrQJFOPTQVY76A6o8V1CkN
+primitive-0.6.2.0-BJ716eYPRyJ24Cm9G9EwcW
     Control.Monad.Primitive:            814
 
-ref-tf-0.4.0.1-BimJRqJ91Xv9hUBbn9Iw5m
+ref-tf-0.4.0.1-3X9FRDpwnPIIns11GQIBrx
     Control.Monad.Ref:                  1286
 
-reflex-0.5-1QXjphmr2rnKoxTo9n0k62
-    Data.FastMutableIntMap:             3384
-    Data.FastWeakBag:                   1606
-    Data.Functor.Misc:                  14033
-    Data.Map.Misc:                      1245
-    Data.WeakBag:                       1526
-    Reflex.Adjustable.Class:            7388
-    Reflex.Class:                       32258
-    Reflex.Dynamic:                     12597
-    Reflex.FastWeak:                    1809
-    Reflex.Host.Class:                  3102
-    Reflex.NotReady.Class:              2722
-    Reflex.Patch.Class:                 167
-    Reflex.Patch.DMap:                  7450
-    Reflex.Patch.DMapWithMove:          29422
-    Reflex.Patch.IntMap:                5622
-    Reflex.Patch.Map:                   3679
-    Reflex.Patch.MapWithMove:           7192
-    Reflex.PerformEvent.Base:           153514
-    Reflex.PerformEvent.Class:          4544
-    Reflex.PostBuild.Base:              61636
-    Reflex.PostBuild.Class:             1012
-    Reflex.Requester.Base:              173419
-    Reflex.Requester.Class:             3055
-    Reflex.Spider.Internal:             818707
-    Reflex.TriggerEvent.Base:           27036
-    Reflex.TriggerEvent.Class:          1358
+reflex-0.5-HAdwmBBWLPz8M6UjcDswXJ
+    Data.FastMutableIntMap:             3387
+    Data.FastWeakBag:                   1616
+    Data.Functor.Misc:                  14069
+    Data.Map.Misc:                      1247
+    Data.WeakBag:                       1536
+    Reflex.Adjustable.Class:            7410
+    Reflex.Class:                       32391
+    Reflex.Dynamic:                     12631
+    Reflex.FastWeak:                    1815
+    Reflex.Host.Class:                  3120
+    Reflex.NotReady.Class:              2737
+    Reflex.Patch.Class:                 168
+    Reflex.Patch.DMap:                  7466
+    Reflex.Patch.DMapWithMove:          29492
+    Reflex.Patch.IntMap:                5633
+    Reflex.Patch.Map:                   3682
+    Reflex.Patch.MapWithMove:           7214
+    Reflex.PerformEvent.Base:           153766
+    Reflex.PerformEvent.Class:          4560
+    Reflex.PostBuild.Base:              61772
+    Reflex.PostBuild.Class:             1018
+    Reflex.Requester.Base:              173631
+    Reflex.Requester.Class:             3067
+    Reflex.Spider.Internal:             820153
+    Reflex.TriggerEvent.Base:           27111
+    Reflex.TriggerEvent.Class:          1365
 
-reflex-dom-contrib-0.5.1.0-2m601AweKKHSRvuIFZYof
-    Reflex.Dom.Contrib.KeyEvent:        1471
+reflex-dom-contrib-0.5.1.0-5mk73eWOZcvL90WNq9oElH
+    Reflex.Dom.Contrib.KeyEvent:        1478
 
-reflex-dom-core-0.4-LTUnQkEuQ139ZgEQ9jQJWL
-    Foreign.JavaScript.TH:              28985
-    Reflex.Dom.Builder.Class:           20563
-    Reflex.Dom.Builder.Class.Events:    139346
-    Reflex.Dom.Builder.Immediate:       623521
-    Reflex.Dom.Main:                    37388
-    Reflex.Dom.Specializations:         19139
-    Reflex.Dom.Widget.Basic:            97768
-    Reflex.Dom.Widget.Input:            6925
+reflex-dom-core-0.4-3X8ONgNIPutJDbpS8yc9iV
+    Foreign.JavaScript.TH:              28932
+    Reflex.Dom.Builder.Class:           20468
+    Reflex.Dom.Builder.Class.Events:    139187
+    Reflex.Dom.Builder.Immediate:       623052
+    Reflex.Dom.Main:                    37360
+    Reflex.Dom.Specializations:         19147
+    Reflex.Dom.Widget.Basic:            97711
+    Reflex.Dom.Widget.Input:            6911
 
-text-1.2.2.2-H4e06yb6sPTLJNWbm3JNtk
+text-1.2.2.2-LwhbL92dpbWDIMptVATpYs
     Data.Text:                          10804
     Data.Text.Array:                    1200
     Data.Text.Internal:                 1591
     Data.Text.Show:                     7820
 
-these-0.7.3-4TsJTpaFra79uZM36xMKrP
-    Data.Align:                         2132
-    Data.These:                         864
+these-0.7.3-57EgD1Kc57X7S3ISoFTdrg
+    Data.Align:                         2124
+    Data.These:                         855
 
-time-1.6.0.1-L6Lf0i6IXBr5xRovy5GIXg
-    Data.Time.Clock.POSIX:              4072
-    Data.Time.Clock.Scale:              791
-    Data.Time.Clock.UTC:                1883
+time-1.6.0.1-7Qe5idX8aca34ZaHW7ZvQv
+    Data.Time.Clock.POSIX:              4090
+    Data.Time.Clock.Scale:              793
+    Data.Time.Clock.UTC:                1133
 
-transformers-0.5.2.0-IGRvs8mRrJ09Lm6BZ7wb9k
-    Control.Monad.Trans.Reader:         11821
-    Control.Monad.Trans.State.Lazy:     2559
-    Control.Monad.Trans.State.Strict:   12878
+transformers-0.5.2.0-CfOBsj4K77MED7rnYcpLrN
+    Control.Monad.Trans.Reader:         11783
+    Control.Monad.Trans.State.Lazy:     2555
+    Control.Monad.Trans.State.Strict:   12849
 
 
 
-packed metadata: 902268
+packed metadata: 907325
 
