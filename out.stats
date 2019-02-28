@@ -10,7 +10,7 @@ ghcjs-base-0.2.0.0-9S78kHf48akI7mNMWJpBY2:8666
 ghcjs-dom-jsffi-0.9.2.0-DM4gL69JpRG1iaCIaPpq2i:104608
 ghcjs-prim-0.1.0.0-ECGW2Q1ZRP7Dy2ZoZg69QN:11075
 integer-gmp:             86262
-main:                    785636
+main:                    785632
 musicw-0.0.0.1-8V78JxRArMCKgNKXgH2V8o:151369
 parsec-3.1.11-IepkJMHb6GnAd2DA0H1wvP:478120
 primitive-0.6.2.0-BJ716eYPRyJ24Cm9G9EwcW:814
@@ -160,7 +160,7 @@ main
     Main:                               122448
     Sound.Punctual.Evaluation:          3182
     Sound.Punctual.Extent:              17057
-    Sound.Punctual.FragmentShader:      76999
+    Sound.Punctual.FragmentShader:      76995
     Sound.Punctual.Graph:               26199
     Sound.Punctual.Parser:              242940
     Sound.Punctual.Phasor:              556
