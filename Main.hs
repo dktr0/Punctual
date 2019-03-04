@@ -48,7 +48,7 @@ main = mainWidgetWithHead headElement $ do
 
   let attrs = fromList [("class","canvas"),("style",T.pack $ "z-index: -1;"), ("width","1920"), ("height","1080")]
   canvas <- liftM (uncheckedCastTo HTMLCanvasElement .  _element_raw . fst) $ elAttr' "canvas" attrs $ return ()
-  initialPunctualWebGL <- liftIO $ newPunctualWebGL canvas
+  initialPunctualWebGL <- liftIO $ updateRenderingContext emptyPunctualWebGL (Just canvas)
   mv <- liftIO $ newMVar initialPunctualWebGL
   liftIO $ forkIO $ requestAnimationFrame mv
 
@@ -82,13 +82,13 @@ punctualReflex mv exprs = mdo
   newPunctualW <- performEvent $ attachDynWith f currentPunctualW evals
   currentPunctualW <- holdDyn initialPunctualW newPunctualW
   -- video
-  performEvent $ fmap (liftIO . evaluatePunctualWebGL (t0,0.5) mv) evals -- *** note: tempo hard-coded here
+  performEvent $ fmap (liftIO . evaluatePunctualWebGL' (t0,0.5) mv) evals -- *** note: tempo hard-coded here
   return ()
 
-evaluatePunctualWebGL :: (UTCTime,Double) -> MVar PunctualWebGL -> Evaluation -> IO ()
-evaluatePunctualWebGL t mv e = do
+evaluatePunctualWebGL' :: (UTCTime,Double) -> MVar PunctualWebGL -> Evaluation -> IO ()
+evaluatePunctualWebGL' t mv e = do
   x <- takeMVar mv
-  y <- updatePunctualWebGL x t e
+  y <- evaluatePunctualWebGL x t e
   putMVar mv y
 
 evaluationNow :: [Expression] -> IO Evaluation

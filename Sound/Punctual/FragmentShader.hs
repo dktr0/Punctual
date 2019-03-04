@@ -3,6 +3,8 @@ module Sound.Punctual.FragmentShader (fragmentShader,defaultFragmentShader) wher
 import Data.List (intercalate)
 import Data.Map.Strict
 import Data.Time
+import GHCJS.Types
+import GHCJS.DOM.Types
 
 import Sound.Punctual.Graph
 import Sound.Punctual.Types
@@ -29,8 +31,8 @@ graphToFloat (Product x y) = "(" ++ graphToFloat x ++ "*" ++ graphToFloat y ++ "
 expressionToFloat :: Expression -> String
 expressionToFloat (Expression (Definition _ _ _ g) _) = graphToFloat g
 
-defaultFragmentShader :: String
-defaultFragmentShader = header ++ "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"
+defaultFragmentShader :: JSString
+defaultFragmentShader = toJSString $ header ++ "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"
 
 header :: String
 header
@@ -82,8 +84,8 @@ xFadeOld t1 t2 = "xFadeOld(" ++ show (utcTimeToDouble t1) ++ "," ++ show (utcTim
 xFadeNew :: UTCTime -> UTCTime -> String
 xFadeNew t1 t2 = "xFadeNew(" ++ show (utcTimeToDouble t1) ++ "," ++ show (utcTimeToDouble t2) ++ ")"
 
-fragmentShader :: [Expression] -> (UTCTime,Double) -> Evaluation -> String
-fragmentShader xs0 tempo e@(xs1,t) = header ++ "void main() {\n" ++ allTargets ++ allOutputs ++ glFragColor ++ "}"
+fragmentShader :: [Expression] -> (UTCTime,Double) -> Evaluation -> JSString
+fragmentShader xs0 tempo e@(xs1,t) = toJSString $ header ++ "void main() {\n" ++ allTargets ++ allOutputs ++ glFragColor ++ "}"
   where
     evalTime = addUTCTime 0.2 t
     -- generate maps of previous, current and all relevant expressions :: Map Target' (Target',Expression)

@@ -2,8 +2,10 @@
 
 module Sound.Punctual.WebGL
   (PunctualWebGL(..),
-  newPunctualWebGL,
-  updatePunctualWebGL,
+  emptyPunctualWebGL,
+  updateRenderingContext,
+  updateFragmentShader,
+  evaluatePunctualWebGL,
   drawFrame)
   where
 
@@ -13,6 +15,7 @@ import GHCJS.Types
 import GHCJS.DOM.Types
 import GHCJS.Marshal.Pure
 import Data.Time
+import Data.Maybe
 
 import Sound.Punctual.FragmentShader
 import Sound.Punctual.Evaluation
@@ -103,7 +106,7 @@ makeProgram glCtx vShader fShader = do
   useProgram glCtx program
   return program
 
-defaultVertexShader :: String
+defaultVertexShader :: JSString
 defaultVertexShader = "attribute vec4 p; void main() { gl_Position = p; }"
 
 foreign import javascript unsafe
@@ -114,26 +117,46 @@ foreign import javascript unsafe
   "$1.createBuffer()"
   createBuffer :: WebGLRenderingContext -> IO WebGLBuffer
 
-data PunctualWebGL = PunctualWebGL {
+-- a PunctualWebGLContext represents a valid WebGL rendering context together
+-- with handles/locations for the most recently compiled/linked shader programs
+data PunctualWebGLContext = PunctualWebGLContext {
   renderingContext :: WebGLRenderingContext,
   vShader :: WebGLShader,
   fShader :: WebGLShader,
   drawingBuffer :: WebGLBuffer,
   tLocation :: WebGLUniformLocation,
-  resLocation :: WebGLUniformLocation,
+  resLocation :: WebGLUniformLocation
+  }
+
+-- a PunctualWebGl might have a a PunctualWebGLContext (eg. if there is indeed
+-- a canvas on which everything can be run) but regardless it keeps track of the
+-- most recent, calculated source code of shader programs as well as the previously
+-- evaluated expressions (in order to be able to generate suitable crossfades in
+-- a subsequent evaluation).
+data PunctualWebGL = PunctualWebGL {
+  context :: Maybe PunctualWebGLContext,
+  vShaderSrc :: JSString,
+  fShaderSrc :: JSString,
   prevExpressions :: [Expression]
   }
 
-newPunctualWebGL :: HTMLCanvasElement -> IO PunctualWebGL
-newPunctualWebGL canvas = do
-  -- stuff we only need to do once per canvas
+emptyPunctualWebGL :: PunctualWebGL
+emptyPunctualWebGL = PunctualWebGL {
+  context = Nothing,
+  vShaderSrc = defaultVertexShader,
+  fShaderSrc = defaultFragmentShader,
+  prevExpressions = []
+  }
+
+updateRenderingContext :: PunctualWebGL -> Maybe HTMLCanvasElement -> IO PunctualWebGL
+updateRenderingContext s Nothing = return $ s { context = Nothing }
+updateRenderingContext s (Just canvas) = do
   glCtx <- getWebGLRenderingContext canvas
-  v <- makeVertexShader glCtx (toJSString defaultVertexShader)
+  v <- makeVertexShader glCtx (vShaderSrc s)
   b <- createBuffer glCtx
   bindBufferArray glCtx b
   bufferDataArrayStatic glCtx
-  -- stuff we need to do everytime fragment shader changes
-  f <- makeFragmentShader glCtx (toJSString defaultFragmentShader)
+  f <- makeFragmentShader glCtx (fShaderSrc s)
   program <- makeProgram glCtx v f
   p <- getAttribLocation glCtx program "p"
   bindBufferArray glCtx b
@@ -141,15 +164,35 @@ newPunctualWebGL canvas = do
   enableVertexAttribArray glCtx p
   t <- getUniformLocation glCtx program "t"
   res <- getUniformLocation glCtx program "res"
-  return $ PunctualWebGL {
+  let newContext = PunctualWebGLContext {
     renderingContext = glCtx,
     vShader = v,
     fShader = f,
     drawingBuffer = b,
     tLocation = t,
-    resLocation = res,
-    prevExpressions = []
+    resLocation  = res
+    }
+  return $ s { context = Just newContext }
+
+updateFragmentShader :: PunctualWebGL -> JSString -> IO PunctualWebGL
+updateFragmentShader st src | isNothing (context st) = return $ st { fShaderSrc = src }
+updateFragmentShader st src | otherwise = do
+  let oldCtx = fromJust $ context st
+  let glCtx = renderingContext oldCtx
+  f <- makeFragmentShader glCtx src
+  program <- makeProgram glCtx (vShader oldCtx) f
+  p <- getAttribLocation glCtx program "p"
+  bindBufferArray glCtx (drawingBuffer oldCtx)
+  vertexAttribPointer glCtx p
+  enableVertexAttribArray glCtx p
+  t <- getUniformLocation glCtx program "t"
+  res <- getUniformLocation glCtx program "res"
+  let newContext = oldCtx {
+    fShader = f,
+    tLocation = t,
+    resLocation = res
   }
+  return $ st { context = Just newContext, fShaderSrc = src }
 
 foreign import javascript unsafe
   "$1.getUniformLocation($2,$3)"
@@ -159,42 +202,26 @@ foreign import javascript unsafe
   "$1.bufferData($1.ARRAY_BUFFER,new Float32Array([-1,1,-1,-1,1,1,1,-1]),$1.STATIC_DRAW);"
   bufferDataArrayStatic :: WebGLRenderingContext -> IO ()
 
-updatePunctualWebGL :: PunctualWebGL -> (UTCTime,Double) -> Evaluation -> IO PunctualWebGL
-updatePunctualWebGL st tempo e = do
-  -- fragmentShader :: [Expression] -> (UTCTime,Double) -> Evaluation -> String
+evaluatePunctualWebGL :: PunctualWebGL -> (UTCTime,Double) -> Evaluation -> IO PunctualWebGL
+evaluatePunctualWebGL st tempo e = do
   let shaderSrc = fragmentShader (prevExpressions st) tempo e
-  putStrLn $ "new shader source: " ++ shaderSrc
-  st' <- replaceFragmentShader st (toJSString shaderSrc)
+  putStrLn $ "new shader source: " ++ show shaderSrc
+  st' <- updateFragmentShader st shaderSrc
   return $ st' { prevExpressions = fst e }
-
-replaceFragmentShader :: PunctualWebGL -> JSString -> IO PunctualWebGL
-replaceFragmentShader st src = do
-  let glCtx = renderingContext st
-  f <- makeFragmentShader glCtx (toJSString src)
-  program <- makeProgram glCtx (vShader st) f
-  p <- getAttribLocation glCtx program "p"
-  bindBufferArray glCtx (drawingBuffer st)
-  vertexAttribPointer glCtx p
-  enableVertexAttribArray glCtx p
-  t <- getUniformLocation glCtx program "t"
-  res <- getUniformLocation glCtx program "res"
-  return $ st {
-    fShader = f,
-    tLocation = t,
-    resLocation = res
-  }
 
 foreign import javascript unsafe
   "$1.bindBuffer($1.ARRAY_BUFFER,$2);"
   bindBufferArray :: WebGLRenderingContext -> WebGLBuffer -> IO ()
 
 drawFrame :: Double -> PunctualWebGL -> IO ()
-drawFrame t st = do
-  let glCtx = renderingContext st
+drawFrame t st | isNothing (context st) = return ()
+drawFrame t st | otherwise = do
+  let ctx = fromJust (context st)
+  let glCtx = renderingContext ctx
   clearColor glCtx 0.0 0.0 0.0 1.0 -- probably should comment this out
   clearColorBuffer glCtx -- probably should comment this out
-  uniform1f glCtx (tLocation st) t
-  uniform2f glCtx (resLocation st) 1920 1080
+  uniform1f glCtx (tLocation ctx) t
+  uniform2f glCtx (resLocation ctx) 1920 1080
   drawArraysTriangleStrip glCtx 0 4
 
 foreign import javascript unsafe
