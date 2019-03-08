@@ -25,6 +25,7 @@ Library
                      Sound.Punctual.Graph
                      Sound.Punctual.Extent
                      Sound.Punctual.Token
+                     Sound.Punctual.WebGL
   other-modules:
   default-language:  Haskell2010
 
