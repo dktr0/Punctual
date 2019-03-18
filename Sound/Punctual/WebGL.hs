@@ -123,6 +123,7 @@ data PunctualWebGLContext = PunctualWebGLContext {
   renderingContext :: WebGLRenderingContext,
   vShader :: WebGLShader,
   fShader :: WebGLShader,
+  shaderProgram :: WebGLProgram,
   drawingBuffer :: WebGLBuffer,
   tLocation :: WebGLUniformLocation,
   resLocation :: WebGLUniformLocation
@@ -169,6 +170,7 @@ updateRenderingContext s (Just canvas) = do
     vShader = v,
     fShader = f,
     drawingBuffer = b,
+    shaderProgram = program,
     tLocation = t,
     resLocation  = res
     }
@@ -189,6 +191,7 @@ updateFragmentShader st src | otherwise = do
   res <- getUniformLocation glCtx program "res"
   let newContext = oldCtx {
     fShader = f,
+    shaderProgram = program,
     tLocation = t,
     resLocation = res
   }
@@ -218,11 +221,17 @@ drawFrame t st | isNothing (context st) = return ()
 drawFrame t st | otherwise = do
   let ctx = fromJust (context st)
   let glCtx = renderingContext ctx
-  clearColor glCtx 0.0 0.0 0.0 1.0 -- probably should comment this out
-  clearColorBuffer glCtx -- probably should comment this out
+  useProgram glCtx $ shaderProgram ctx
+  defaultBlendFunc glCtx
+--  clearColor glCtx 0.0 0.0 0.0 1.0 -- probably should comment this out
+--  clearColorBuffer glCtx -- probably should comment this out
   uniform1f glCtx (tLocation ctx) t
   uniform2f glCtx (resLocation ctx) 1920 1080
   drawArraysTriangleStrip glCtx 0 4
+
+foreign import javascript unsafe
+  "$1.enable($1.BLEND); $1.blendFunc($1.ONE, $1.ONE_MINUS_SRC_ALPHA);"
+  defaultBlendFunc :: WebGLRenderingContext -> IO ()
 
 foreign import javascript unsafe
   "$1.uniform1f($2,$3);"

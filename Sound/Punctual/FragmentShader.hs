@@ -104,12 +104,15 @@ fragmentShader xs0 tempo e@(xs1,t) = toJSString $ header ++ "void main() {\n" ++
     redExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "red") $ elems allExprs
     greenExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "green") $ elems allExprs
     blueExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "blue") $ elems allExprs
+    alphaExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "alpha") $ elems allExprs
     redVars = intercalate "+" $ (["0."] ++) $ fmap (targetToVariableName . fst) redExprs
     greenVars = intercalate "+" $ (["0."] ++) $ fmap (targetToVariableName . fst) greenExprs
     blueVars = intercalate "+" $ (["0."] ++) $ fmap (targetToVariableName . fst) blueExprs
+    alphaVars = intercalate "+" $ (["0."] ++) $ fmap (targetToVariableName . fst) alphaExprs
     red = "float red = 0.+" ++ redVars ++ ";\n"
     green = "float green = 0.+" ++ greenVars ++ ";\n"
     blue = "float blue = 0.+" ++ blueVars ++ ";\n"
-    allOutputs = red ++ green ++ blue
+    alpha = "float alpha = 0.+" ++ alphaVars ++ ";\n"
+    allOutputs = red ++ green ++ blue ++ alpha
     --
-    glFragColor = "gl_FragColor = vec4(red,green,blue,1.);\n"
+    glFragColor = "gl_FragColor = vec4(red,green,blue,alpha);\n"
