@@ -27,6 +27,7 @@ graphToFloat (HPF i f q) = graphToFloat i -- placeholder, doesn't filter yet
 graphToFloat (FromTarget x) = "0." -- placeholder
 graphToFloat (Sum x y) = "(" ++ graphToFloat x ++ "+" ++ graphToFloat y ++ ")"
 graphToFloat (Product x y) = "(" ++ graphToFloat x ++ "*" ++ graphToFloat y ++ ")"
+graphToFloat (Division x y) = "(" ++ graphToFloat x ++ "/" ++ graphToFloat y ++ ")"
 graphToFloat (GreaterThan x y) = "float(" ++ graphToFloat x ++ ">" ++ graphToFloat y ++ ")"
 graphToFloat (GreaterThanOrEqual x y) = "float(" ++ graphToFloat x ++ ">=" ++ graphToFloat y ++ ")"
 graphToFloat (LessThan x y) = "float(" ++ graphToFloat x ++ "<" ++ graphToFloat y ++ ")"

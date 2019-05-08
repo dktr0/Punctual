@@ -169,6 +169,7 @@ graphToSynthDef (Product x y) = do
   graphToSynthDef y >>= W.param W.Gain m
   return m
 
+graphToSynthDef (Division x y) = W.constantSource 0 -- placeholder
 graphToSynthDef (GreaterThan x y) = W.constantSource 0 -- placeholder
 graphToSynthDef (GreaterThanOrEqual x y) = W.constantSource 0 -- placeholder
 graphToSynthDef (LessThan x y) = W.constantSource 0 -- placeholder

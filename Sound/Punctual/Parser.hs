@@ -131,7 +131,10 @@ comparisonOfGraphs = chainl1 productOfGraphs $ choice [
   ]
 
 productOfGraphs :: GenParser Char a Graph
-productOfGraphs = chainl1 simpleGraph (reservedOp "*" >> return Product)
+productOfGraphs = chainl1 simpleGraph $ choice [
+  reservedOp "*" >> return Product,
+  reservedOp "/" >> return Division
+  ]
 
 simpleGraph :: GenParser Char a Graph
 simpleGraph = choice [
@@ -141,6 +144,7 @@ simpleGraph = choice [
     reserved "pink" >> return Pink,
     reserved "fx" >> return Fx,
     reserved "fy" >> return Fy,
+    (reserved "linlin" >> return linlin) <*> graphArgument <*> graphArgument <*> graphArgument <*> graphArgument <*> graphArgument,
     oscillators,
     filters,
     mixGraph,
@@ -148,6 +152,13 @@ simpleGraph = choice [
     -- FromTarget <$> lexeme identifier
     try $ parens graphParser
     ]
+
+linlin :: Graph -> Graph -> Graph -> Graph -> Graph -> Graph
+linlin min1 max1 min2 max2 x = Sum min2 (Product outputRange proportion)
+  where
+    inputRange = difference max1 min1
+    outputRange = difference max2 min2
+    proportion = Division (difference x min1) inputRange
 
 graphArgument :: GenParser Char a Graph
 graphArgument = choice [

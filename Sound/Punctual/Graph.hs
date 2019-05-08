@@ -16,6 +16,7 @@ data Graph =
   FromTarget String |
   Product Graph Graph |
   Sum Graph Graph |
+  Division Graph Graph |
   GreaterThan Graph Graph |
   GreaterThanOrEqual Graph Graph |
   LessThan Graph Graph |
