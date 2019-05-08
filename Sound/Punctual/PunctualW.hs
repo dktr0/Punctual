@@ -168,3 +168,13 @@ graphToSynthDef (Product x y) = do
   m <- graphToSynthDef x >>= W.gain 0.0
   graphToSynthDef y >>= W.param W.Gain m
   return m
+
+graphToSynthDef (GreaterThan x y) = W.constantSource 0 -- placeholder
+graphToSynthDef (GreaterThanOrEqual x y) = W.constantSource 0 -- placeholder
+graphToSynthDef (LessThan x y) = W.constantSource 0 -- placeholder
+graphToSynthDef (LessThanOrEqual x y) = W.constantSource 0 -- placeholder
+graphToSynthDef (Equal x y) = W.constantSource 0 -- placeholder
+graphToSynthDef (NotEqual x y) = W.constantSource 0 -- placeholder
+
+
+

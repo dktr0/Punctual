@@ -115,9 +115,19 @@ graphParser :: GenParser Char a Graph
 graphParser = sumOfGraphs <|> return EmptyGraph
 
 sumOfGraphs :: GenParser Char a Graph
-sumOfGraphs = chainl1 productOfGraphs $ choice [
+sumOfGraphs = chainl1 comparisonOfGraphs $ choice [
   reservedOp "+" >> return Sum,
   reservedOp "-" >> return (\x y -> Sum x (Product y (Constant (-1))))
+  ]
+
+comparisonOfGraphs :: GenParser Char a Graph
+comparisonOfGraphs = chainl1 productOfGraphs $ choice [
+  reservedOp ">" >> return GreaterThan,
+  reservedOp "<" >> return LessThan,
+  reservedOp ">=" >> return GreaterThanOrEqual,
+  reservedOp "<=" >> return LessThanOrEqual,
+  reservedOp "==" >> return Equal,
+  reservedOp "!=" >> return NotEqual
   ]
 
 productOfGraphs :: GenParser Char a Graph

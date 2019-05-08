@@ -15,5 +15,11 @@ data Graph =
   HPF Graph Graph Graph |
   FromTarget String |
   Product Graph Graph |
-  Sum Graph Graph
+  Sum Graph Graph |
+  GreaterThan Graph Graph |
+  GreaterThanOrEqual Graph Graph |
+  LessThan Graph Graph |
+  LessThanOrEqual Graph Graph |
+  Equal Graph Graph |
+  NotEqual Graph Graph
   deriving (Show,Eq)
