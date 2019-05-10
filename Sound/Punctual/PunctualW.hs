@@ -170,12 +170,28 @@ graphToSynthDef (Product x y) = do
   return m
 
 graphToSynthDef (Division x y) = W.constantSource 0 -- placeholder
-graphToSynthDef (GreaterThan x y) = W.constantSource 0 -- placeholder
-graphToSynthDef (GreaterThanOrEqual x y) = W.constantSource 0 -- placeholder
-graphToSynthDef (LessThan x y) = W.constantSource 0 -- placeholder
-graphToSynthDef (LessThanOrEqual x y) = W.constantSource 0 -- placeholder
-graphToSynthDef (Equal x y) = W.constantSource 0 -- placeholder
-graphToSynthDef (NotEqual x y) = W.constantSource 0 -- placeholder
 
-
-
+graphToSynthDef (GreaterThan x y) = do
+  x' <- graphToSynthDef x
+  y' <- graphToSynthDef y
+  W.greaterThanWorklet x' y'
+graphToSynthDef (GreaterThanOrEqual x y) = do
+  x' <- graphToSynthDef x
+  y' <- graphToSynthDef y
+  W.greaterThanOrEqualWorklet x' y'
+graphToSynthDef (LessThan x y) = do
+  x' <- graphToSynthDef x
+  y' <- graphToSynthDef y
+  W.lessThanWorklet x' y'
+graphToSynthDef (LessThanOrEqual x y) = do
+  x' <- graphToSynthDef x
+  y' <- graphToSynthDef y
+  W.lessThanOrEqualWorklet x' y'
+graphToSynthDef (Equal x y) = do
+  x' <- graphToSynthDef x
+  y' <- graphToSynthDef y
+  W.equalWorklet x' y'
+graphToSynthDef (NotEqual x y) = do
+  x' <- graphToSynthDef x
+  y' <- graphToSynthDef y
+  W.notEqualWorklet x' y'

@@ -35,6 +35,7 @@ intro
   ="-- Punctual, an audiovisual live coding language\n\
    \-- documentation @ https://github.com/dktr0/Punctual.git\n\
    \--\n\
+   \-- Chromium/Chrome browser required for full results\n\
    \-- Press Shift-Enter to (re)evaluate/activate code\n\
    \\n\
    \sin 60m * -10db => left;\n\
@@ -73,6 +74,7 @@ main = mainWidgetWithHead headElement $ do
 punctualReflex :: MonadWidget t m => MVar PunctualWebGL -> Event t [Expression] -> m ()
 punctualReflex mv exprs = mdo
   ac <- liftAudioIO $ audioContext
+--  liftIO $ audioWorkletAddModule ac "MusicW-audioWorklets.js"
   dest <- liftAudioIO $ createDestination
   t0 <- liftAudioIO $ audioUTCTime
   let initialPunctualW = emptyPunctualW ac dest t0
