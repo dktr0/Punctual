@@ -144,7 +144,13 @@ simpleGraph = choice [
     reserved "pink" >> return Pink,
     reserved "fx" >> return Fx,
     reserved "fy" >> return Fy,
+    reserved "px" >> return Px,
+    reserved "py" >> return Py,
+    (reserved "point" >> return point) <*> graphArgument <*> graphArgument,
+    (reserved "hline" >> return hline) <*> graphArgument,
+    (reserved "vline" >> return vline) <*> graphArgument,
     (reserved "linlin" >> return linlin) <*> graphArgument <*> graphArgument <*> graphArgument <*> graphArgument <*> graphArgument,
+    (reserved "rect" >> return rect) <*> graphArgument <*> graphArgument <*> graphArgument <*> graphArgument,
     oscillators,
     filters,
     mixGraph,
@@ -159,6 +165,38 @@ linlin min1 max1 min2 max2 x = Sum min2 (Product outputRange proportion)
     inputRange = difference max1 min1
     outputRange = difference max2 min2
     proportion = Division (difference x min1) inputRange
+
+rect :: Graph -> Graph -> Graph -> Graph -> Graph
+rect x y w h = Product inHrange inVrange
+  where
+    x0 = Sum x (Product w (Constant (-0.5)))
+    x1 = Sum x (Product w (Constant (0.5)))
+    y0 = Sum y (Product h (Constant (-0.5)))
+    y1 = Sum y (Product h (Constant (0.5)))
+    inHrange = Product (GreaterThanOrEqual Fx x0) (LessThanOrEqual Fx x1)
+    inVrange = Product (GreaterThanOrEqual Fy y0) (LessThanOrEqual Fy y1)
+
+point :: Graph -> Graph -> Graph
+point x y = Product inHrange inVrange
+  where
+    x0 = Sum x (Product Px (Constant (-0.5)))
+    x1 = Sum x (Product Px (Constant (0.5)))
+    y0 = Sum y (Product Py (Constant (-0.5)))
+    y1 = Sum y (Product Py (Constant (0.5)))
+    inHrange = Product (GreaterThanOrEqual Fx x0) (LessThanOrEqual Fx x1)
+    inVrange = Product (GreaterThanOrEqual Fy y0) (LessThanOrEqual Fy y1)
+
+hline :: Graph -> Graph
+hline y = Product (GreaterThanOrEqual Fy y0) (LessThanOrEqual Fy y1)
+  where
+    y0 = Sum y (Product Py (Constant (-0.5)))
+    y1 = Sum y (Product Py (Constant (0.5)))
+
+vline :: Graph -> Graph
+vline x = Product (GreaterThanOrEqual Fx x0) (LessThanOrEqual Fx x1)
+  where
+    x0 = Sum x (Product Px (Constant (-0.5)))
+    x1 = Sum x (Product Px (Constant (0.5)))
 
 graphArgument :: GenParser Char a Graph
 graphArgument = choice [

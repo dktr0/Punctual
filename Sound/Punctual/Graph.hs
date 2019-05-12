@@ -7,6 +7,8 @@ data Graph =
   Pink |
   Fx |
   Fy |
+  Px |
+  Py |
   Sine Graph |
   Tri Graph |
   Saw Graph |
