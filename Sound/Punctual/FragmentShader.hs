@@ -115,11 +115,12 @@ fragmentShader xs0 tempo e@(xs1,t) = toJSString $ header ++ "void main() {\n" ++
     redVars = intercalate "+" $ (["0."] ++) $ fmap (targetToVariableName . fst) redExprs
     greenVars = intercalate "+" $ (["0."] ++) $ fmap (targetToVariableName . fst) greenExprs
     blueVars = intercalate "+" $ (["0."] ++) $ fmap (targetToVariableName . fst) blueExprs
-    alphaVars = intercalate "+" $ (["0."] ++) $ fmap (targetToVariableName . fst) alphaExprs
-    red = "float red = 0.+" ++ redVars ++ ";\n"
-    green = "float green = 0.+" ++ greenVars ++ ";\n"
-    blue = "float blue = 0.+" ++ blueVars ++ ";\n"
-    alpha = "float alpha = 0.+" ++ alphaVars ++ ";\n"
+    alphaVars = if length alphaExprs == 0 then "1." else
+      intercalate "+" $ fmap (targetToVariableName . fst) alphaExprs
+    red = "float red = " ++ redVars ++ ";\n"
+    green = "float green = " ++ greenVars ++ ";\n"
+    blue = "float blue = " ++ blueVars ++ ";\n"
+    alpha = "float alpha = " ++ alphaVars ++ ";\n"
     allOutputs = red ++ green ++ blue ++ alpha
     --
     glFragColor = "gl_FragColor = vec4(red,green,blue,alpha);\n"
