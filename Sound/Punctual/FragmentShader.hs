@@ -12,30 +12,37 @@ import Sound.Punctual.Evaluation
 import Sound.MusicW.AudioContext (utcTimeToDouble)
 
 graphToFloat :: Graph -> String
-graphToFloat EmptyGraph = "0."
-graphToFloat (Constant x) = show x
-graphToFloat Noise = "0." -- placeholder
-graphToFloat Pink = "0." -- placeholder
-graphToFloat Fx = "fx()"
-graphToFloat Fy = "fy()"
-graphToFloat Px = "10./1920."
-graphToFloat Py = "10./1080."
-graphToFloat (Sine x) = "sin_(" ++ graphToFloat x ++ ")"
-graphToFloat (Tri x) = "tri(" ++ graphToFloat x ++ ")"
-graphToFloat (Saw x) = "saw(" ++ graphToFloat x ++ ")"
-graphToFloat (Square x) = "sqr(" ++ graphToFloat x ++ ")"
-graphToFloat (LPF i f q) = graphToFloat i -- placeholder, doesn't filter yet
-graphToFloat (HPF i f q) = graphToFloat i -- placeholder, doesn't filter yet
-graphToFloat (FromTarget x) = "0." -- placeholder
-graphToFloat (Sum x y) = "(" ++ graphToFloat x ++ "+" ++ graphToFloat y ++ ")"
-graphToFloat (Product x y) = "(" ++ graphToFloat x ++ "*" ++ graphToFloat y ++ ")"
-graphToFloat (Division x y) = "(" ++ graphToFloat x ++ "/" ++ graphToFloat y ++ ")"
-graphToFloat (GreaterThan x y) = "float(" ++ graphToFloat x ++ ">" ++ graphToFloat y ++ ")"
-graphToFloat (GreaterThanOrEqual x y) = "float(" ++ graphToFloat x ++ ">=" ++ graphToFloat y ++ ")"
-graphToFloat (LessThan x y) = "float(" ++ graphToFloat x ++ "<" ++ graphToFloat y ++ ")"
-graphToFloat (LessThanOrEqual x y) = "float(" ++ graphToFloat x ++ "<=" ++ graphToFloat y ++ ")"
-graphToFloat (Equal x y) = "float(" ++ graphToFloat x ++ "==" ++ graphToFloat y ++ ")"
-graphToFloat (NotEqual x y) = "float(" ++ graphToFloat x ++ "!=" ++ graphToFloat y ++ ")"
+graphToFloat = graphToFloat' . mixGraphs . expandMultis
+
+graphToFloat' :: Graph -> String
+graphToFloat' (Multi _) = error "internal error: graphToFloat' should only be used after multi-channel expansion"
+graphToFloat' EmptyGraph = "0."
+graphToFloat' (Constant x) = show x
+graphToFloat' Noise = "0." -- placeholder
+graphToFloat' Pink = "0." -- placeholder
+graphToFloat' Fx = "fx()"
+graphToFloat' Fy = "fy()"
+graphToFloat' Px = "10./1920."
+graphToFloat' Py = "10./1080."
+graphToFloat' (Sine x) = unaryShaderFunction "sin_" (graphToFloat' x)
+graphToFloat' (Tri x) = unaryShaderFunction "tri" (graphToFloat' x)
+graphToFloat' (Saw x) = unaryShaderFunction "saw" (graphToFloat' x)
+graphToFloat' (Square x) = unaryShaderFunction "sqr" (graphToFloat' x)
+graphToFloat' (LPF i f q) = graphToFloat' i -- placeholder, doesn't filter yet
+graphToFloat' (HPF i f q) = graphToFloat' i -- placeholder, doesn't filter yet
+graphToFloat' (FromTarget x) = "0." -- placeholder
+graphToFloat' (Sum x y) = "(" ++ graphToFloat' x ++ "+" ++ graphToFloat' y ++ ")"
+graphToFloat' (Product x y) = "(" ++ graphToFloat' x ++ "*" ++ graphToFloat' y ++ ")"
+graphToFloat' (Division x y) = "(" ++ graphToFloat' x ++ "/" ++ graphToFloat' y ++ ")"
+graphToFloat' (GreaterThan x y) = "float(" ++ graphToFloat' x ++ ">" ++ graphToFloat' y ++ ")"
+graphToFloat' (GreaterThanOrEqual x y) = "float(" ++ graphToFloat' x ++ ">=" ++ graphToFloat' y ++ ")"
+graphToFloat' (LessThan x y) = "float(" ++ graphToFloat' x ++ "<" ++ graphToFloat' y ++ ")"
+graphToFloat' (LessThanOrEqual x y) = "float(" ++ graphToFloat' x ++ "<=" ++ graphToFloat' y ++ ")"
+graphToFloat' (Equal x y) = "float(" ++ graphToFloat' x ++ "==" ++ graphToFloat' y ++ ")"
+graphToFloat' (NotEqual x y) = "float(" ++ graphToFloat' x ++ "!=" ++ graphToFloat' y ++ ")"
+
+unaryShaderFunction :: String -> String -> String
+unaryShaderFunction f x = f ++ "(" ++ x ++ ")"
 
 expressionToFloat :: Expression -> String
 expressionToFloat (Expression (Definition _ _ _ g) _) = graphToFloat g

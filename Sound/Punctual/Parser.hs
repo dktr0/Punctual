@@ -154,6 +154,7 @@ simpleGraph = choice [
     oscillators,
     filters,
     mixGraph,
+    multiGraph,
     functions,
     -- FromTarget <$> lexeme identifier
     try $ parens graphParser
@@ -201,6 +202,7 @@ vline x = Product (GreaterThanOrEqual Fx x0) (LessThanOrEqual Fx x1)
 graphArgument :: GenParser Char a Graph
 graphArgument = choice [
   try $ parens graphParser,
+  multiGraph,
   Constant <$> try extent,
   reserved "noise" >> return Noise,
   reserved "pink" >> return Pink,
@@ -259,8 +261,10 @@ filters = do
 mixGraph :: GenParser Char a Graph
 mixGraph = do
   reserved "mix"
-  xs <- brackets (commaSep graphParser)
-  return $ foldl Sum EmptyGraph xs
+  mixGraphs <$> brackets (commaSep graphParser)
+
+multiGraph :: GenParser Char a Graph
+multiGraph = brackets (commaSep graphParser) >>= return . Multi
 
 functions :: GenParser Char a Graph
 functions = choice [

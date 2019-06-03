@@ -101,9 +101,13 @@ expressionToSynthDef (Expression _ (NamedOutput _)) = W.constantSource 0 >>= W.g
 expressionToSynthDef (Expression d (PannedOutput p)) = definitionToSynthDef d >>= W.equalPowerPan p >>= W.gain 0
 
 definitionToSynthDef:: AudioIO m => Definition -> SynthDef m NodeRef
-definitionToSynthDef (Definition _ _ _ g) = graphToSynthDef g
+definitionToSynthDef (Definition _ _ _ g) = graphToMonoSynthDef g
+
+graphToMonoSynthDef :: AudioIO m => Graph -> SynthDef m NodeRef
+graphToMonoSynthDef = graphToSynthDef . mixGraphs . expandMultis
 
 graphToSynthDef :: AudioIO m => Graph -> SynthDef m NodeRef
+graphToSynthDef (Multi _) = error "internal error: graphToSynthDef should only be used post multi-channel expansion"
 graphToSynthDef EmptyGraph = W.constantSource 0
 graphToSynthDef (Constant x) = W.constantSource x
 graphToSynthDef Noise = W.constantSource 0 -- placeholder
