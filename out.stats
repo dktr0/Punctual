@@ -1,16 +1,16 @@
 code size summary per package:
 
-base:                    639307
+base:                    642140
 containers-0.5.7.1-CNDGHyCvmV1LOquSIjavXT:268305
 deepseq-1.4.2.0-5yBpiIKe171Ed0xdzHLUnd:652
 dependent-map-0.2.4.0-Gni1dPpPwUTAVvvDDVjewO:115920
 dependent-sum-0.4-CLS8NG8RSLJJRpdQqS4nKg:12106
-ghc-prim:                27719
+ghc-prim:                28821
 ghcjs-base-0.2.0.0-9S78kHf48akI7mNMWJpBY2:10329
 ghcjs-dom-jsffi-0.9.2.0-DM4gL69JpRG1iaCIaPpq2i:104608
 ghcjs-prim-0.1.0.0-ECGW2Q1ZRP7Dy2ZoZg69QN:11075
 integer-gmp:             86262
-main:                    869087
+main:                    884638
 musicw-0.0.0.1-8V78JxRArMCKgNKXgH2V8o:151465
 parsec-3.1.11-IepkJMHb6GnAd2DA0H1wvP:478120
 primitive-0.6.2.0-BJ716eYPRyJ24Cm9G9EwcW:814
@@ -81,7 +81,7 @@ base
     GHC.IO.Unsafe:                      370
     GHC.IORef:                          159
     GHC.Int:                            755
-    GHC.List:                           10498
+    GHC.List:                           13331
     GHC.MVar:                           174
     GHC.Num:                            2888
     GHC.Ptr:                            174
@@ -123,7 +123,7 @@ dependent-sum-0.4-CLS8NG8RSLJJRpdQqS4nKg
 
 ghc-prim
     GHC.CString:                        4516
-    GHC.Classes:                        17438
+    GHC.Classes:                        18540
     GHC.IntWord64:                      298
     GHC.Tuple:                          3052
     GHC.Types:                          2415
@@ -160,13 +160,13 @@ main
     Main:                               121913
     Sound.Punctual.Evaluation:          3182
     Sound.Punctual.Extent:              17057
-    Sound.Punctual.FragmentShader:      89980
-    Sound.Punctual.Graph:               46965
-    Sound.Punctual.Parser:              288166
+    Sound.Punctual.FragmentShader:      91045
+    Sound.Punctual.Graph:               60749
+    Sound.Punctual.Parser:              288406
     Sound.Punctual.Phasor:              556
-    Sound.Punctual.PunctualW:           119546
+    Sound.Punctual.PunctualW:           119980
     Sound.Punctual.Token:               26239
-    Sound.Punctual.Types:               135663
+    Sound.Punctual.Types:               135691
     Sound.Punctual.WebGL:               19820
 
 musicw-0.0.0.1-8V78JxRArMCKgNKXgH2V8o
@@ -253,5 +253,5 @@ transformers-0.5.2.0-CfOBsj4K77MED7rnYcpLrN
 
 
 
-packed metadata: 922905
+packed metadata: 926704
 
