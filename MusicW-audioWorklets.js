@@ -1,39 +1,5 @@
 
-class GainProcessor extends AudioWorkletProcessor {
-
-  // Custom AudioParams can be defined with this static getter.
-  static get parameterDescriptors() {
-    return [{ name: 'gain', defaultValue: 1 }];
-  }
-
-  constructor() {
-    // The super constructor call is required.
-    super();
-  }
-
-  process(inputs, outputs, parameters) {
-    const input = inputs[0];
-    const output = outputs[0];
-    const gain = parameters.gain;
-    for (let channel = 0; channel < input.length; ++channel) {
-      const inputChannel = input[channel];
-      const outputChannel = output[channel];
-      if (gain.length === 1) {
-        for (let i = 0; i < inputChannel.length; ++i)
-          outputChannel[i] = inputChannel[i] * gain[0];
-      } else {
-        for (let i = 0; i < inputChannel.length; ++i)
-          outputChannel[i] = inputChannel[i] * gain[i];
-      }
-    }
-
-    return true;
-  }
-}
-
-registerProcessor('gain-processor', GainProcessor);
-
-/* class EqualProcessor extends AudioWorkletProcessor {
+class EqualProcessor extends AudioWorkletProcessor {
   static get parameterDescriptors() {
     return [];
   }
@@ -45,7 +11,7 @@ registerProcessor('gain-processor', GainProcessor);
     const input2 = inputs[1];
     const output = outputs[0];
     for(let i = 0; i < input1[0].length; i++) {
-      if(input1[i] == input2[i]) output[i] = 1; else output[i] = 0;
+      if(input1[0][i] == input2[0][i]) output[0][i] = 1; else output[0][i] = 0;
     }
     return true;
   }
@@ -65,7 +31,7 @@ class NotEqualProcessor extends AudioWorkletProcessor {
     const input2 = inputs[1];
     const output = outputs[0];
     for(let i = 0; i < input1[0].length; i++) {
-      if(input1[i] != input2[i]) output[i] = 1; else output[i] = 0;
+      if(input1[0][i] != input2[0][i]) output[0][i] = 1; else output[0][i] = 0;
     }
     return true;
   }
@@ -85,7 +51,7 @@ class GreaterThanProcessor extends AudioWorkletProcessor {
     const input2 = inputs[1];
     const output = outputs[0];
     for(let i = 0; i < input1[0].length; i++) {
-      if(input1[i] > input2[i]) output[i] = 1; else output[i] = 0;
+      if(input1[0][i] > input2[0][i]) output[0][i] = 1; else output[0][i] = 0;
     }
     return true;
   }
@@ -105,7 +71,7 @@ class GreaterThanOrEqualProcessor extends AudioWorkletProcessor {
     const input2 = inputs[1];
     const output = outputs[0];
     for(let i = 0; i < input1[0].length; i++) {
-      if(input1[i] >= input2[i]) output[i] = 1; else output[i] = 0;
+      if(input1[0][i] >= input2[0][i]) output[0][i] = 1; else output[0][i] = 0;
     }
     return true;
   }
@@ -125,7 +91,7 @@ class LessThanProcessor extends AudioWorkletProcessor {
     const input2 = inputs[1];
     const output = outputs[0];
     for(let i = 0; i < input1[0].length; i++) {
-      if(input1[i] < input2[i]) output[i] = 1; else output[i] = 0;
+      if(input1[0][i] < input2[0][i]) output[0][i] = 1; else output[0][i] = 0;
     }
     return true;
   }
@@ -145,10 +111,10 @@ class LessThanOrEqualProcessor extends AudioWorkletProcessor {
     const input2 = inputs[1];
     const output = outputs[0];
     for(let i = 0; i < input1[0].length; i++) {
-      if(input1[i] <= input2[i]) output[i] = 1; else output[i] = 0;
+      if(input1[0][i] <= input2[0][i]) output[0][i] = 1; else output[0][i] = 0;
     }
     return true;
   }
 }
 registerProcessor('lessThanOrEqual-processor',LessThanOrEqualProcessor);
-*/
+

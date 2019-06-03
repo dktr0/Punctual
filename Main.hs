@@ -45,7 +45,13 @@ intro
    \sin (fx * 60m) * sin (fy * 60.05m) * fx * fy * 10db => blue;\n"
 
 main :: IO ()
-main = mainWidgetWithHead headElement $ do
+main = do
+  ac <- getGlobalAudioContext
+  audioWorkletAddModule ac "MusicW-audioWorklets.js"
+  mainWidgetWithHead headElement bodyElement
+
+bodyElement :: MonadWidget t m => m ()
+bodyElement = do
 
   let attrs = fromList [("class","canvas"),("style",T.pack $ "z-index: -1;"), ("width","1920"), ("height","1080")]
   canvas <- liftM (uncheckedCastTo HTMLCanvasElement .  _element_raw . fst) $ elAttr' "canvas" attrs $ return ()

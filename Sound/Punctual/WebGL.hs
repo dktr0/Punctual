@@ -99,7 +99,6 @@ makeProgram glCtx vShader fShader = do
   attachShader glCtx program vShader
   attachShader glCtx program fShader
   linkProgram glCtx program
-  putStrLn "post-link"
   success <- linkStatus glCtx program
   log <- getProgramInfoLog glCtx program
   when (success == 0) $ throwIO $ userError $ "exception linking program: " ++ fromJSString log
@@ -208,7 +207,7 @@ foreign import javascript unsafe
 evaluatePunctualWebGL :: PunctualWebGL -> (UTCTime,Double) -> Evaluation -> IO PunctualWebGL
 evaluatePunctualWebGL st tempo e = do
   let shaderSrc = fragmentShader (prevExpressions st) tempo e
-  putStrLn $ "new shader source: " ++ show shaderSrc
+  -- putStrLn $ "new shader source: " ++ show shaderSrc
   st' <- updateFragmentShader st shaderSrc
   return $ st' { prevExpressions = fst e }
 
