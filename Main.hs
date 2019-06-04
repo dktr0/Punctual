@@ -47,7 +47,7 @@ intro
 main :: IO ()
 main = do
   ac <- getGlobalAudioContext
-  audioWorkletAddModule ac "MusicW-audioWorklets.js"
+  addWorklets ac
   mainWidgetWithHead headElement bodyElement
 
 bodyElement :: MonadWidget t m => m ()
