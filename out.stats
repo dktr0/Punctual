@@ -10,8 +10,8 @@ ghcjs-base-0.2.0.0-9S78kHf48akI7mNMWJpBY2:8666
 ghcjs-dom-jsffi-0.9.2.0-DM4gL69JpRG1iaCIaPpq2i:104608
 ghcjs-prim-0.1.0.0-ECGW2Q1ZRP7Dy2ZoZg69QN:11075
 integer-gmp:             86262
-main:                    879446
-musicw-0.0.0.1-8V78JxRArMCKgNKXgH2V8o:165112
+main:                    880162
+musicw-0.0.0.1-8V78JxRArMCKgNKXgH2V8o:168993
 parsec-3.1.11-IepkJMHb6GnAd2DA0H1wvP:478120
 primitive-0.6.2.0-BJ716eYPRyJ24Cm9G9EwcW:814
 ref-tf-0.4.0.1-3X9FRDpwnPIIns11GQIBrx:1286
@@ -155,7 +155,7 @@ integer-gmp
     GHC.Integer.Type:                   86262
 
 main
-    Main:                               105791
+    Main:                               106507
     Sound.Punctual.Evaluation:          3182
     Sound.Punctual.Extent:              17057
     Sound.Punctual.FragmentShader:      91045
@@ -169,11 +169,11 @@ main
 
 musicw-0.0.0.1-8V78JxRArMCKgNKXgH2V8o
     Sound.MusicW.AudioContext:          11054
-    Sound.MusicW.Node:                  69470
+    Sound.MusicW.Node:                  64279
     Sound.MusicW.Synth:                 30909
-    Sound.MusicW.SynthDef:              49782
+    Sound.MusicW.SynthDef:              42014
     Sound.MusicW.Transformations:       3113
-    Sound.MusicW.Worklets:              784
+    Sound.MusicW.Worklets:              17624
 
 parsec-3.1.11-IepkJMHb6GnAd2DA0H1wvP
     Text.Parsec.Char:                   20837
@@ -252,5 +252,5 @@ transformers-0.5.2.0-CfOBsj4K77MED7rnYcpLrN
 
 
 
-packed metadata: 925357
+packed metadata: 926216
 
