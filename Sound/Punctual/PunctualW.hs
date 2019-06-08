@@ -3,7 +3,7 @@ module Sound.Punctual.PunctualW where
 -- This module provides an implementation of Punctual using MusicW as an underlying synthesis library
 
 import Control.Monad (when)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class
 import Control.Concurrent
 import Data.Time
 import Data.Maybe
@@ -72,7 +72,7 @@ addSynth dest startTime xfadeStart xfadeEnd expr = do
   newNode <- W.nodeRefToNode newNodeRef newSynth
   return (newSynth,newNode)
 
-deleteSynth :: AudioIO m => UTCTime -> UTCTime -> UTCTime -> (Synth m, W.Node) -> m ()
+deleteSynth :: MonadIO m => UTCTime -> UTCTime -> UTCTime -> (Synth m, W.Node) -> m ()
 deleteSynth evalTime xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
   let xfadeStart' = W.utcTimeToDouble xfadeStart
   let xfadeEnd' = W.utcTimeToDouble xfadeEnd
@@ -85,9 +85,6 @@ deleteSynth evalTime xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
     threadDelay microseconds
     W.disconnectSynth prevSynth
   return ()
-
-
-
 
 
 -- every expression, when converted to a SynthDef, has a Gain node as its final node,
@@ -201,4 +198,3 @@ graphToSynthDef (NotEqual x y) = do
   x' <- graphToSynthDef x
   y' <- graphToSynthDef y
   W.notEqualWorklet x' y'
-
