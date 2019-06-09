@@ -146,6 +146,10 @@ simpleGraph = choice [
     reserved "fy" >> return Fy,
     reserved "px" >> return Px,
     reserved "py" >> return Py,
+    (reserved "cpsmidi" >> return CpsMidi) <*> graphArgument,
+    (reserved "midicps" >> return MidiCps) <*> graphArgument,
+    (reserved "dbamp" >> return DbAmp) <*> graphArgument,
+    (reserved "ampdb" >> return AmpDb) <*> graphArgument,
     (reserved "point" >> return point) <*> graphArgument <*> graphArgument,
     (reserved "hline" >> return hline) <*> graphArgument,
     (reserved "vline" >> return vline) <*> graphArgument,
@@ -264,7 +268,14 @@ mixGraph = do
   mixGraphs <$> brackets (commaSep graphParser)
 
 multiGraph :: GenParser Char a Graph
-multiGraph = brackets (commaSep graphParser) >>= return . Multi
+multiGraph = choice [
+  try $ multiGraph' >>= (\x -> reserved "db" >> return (DbAmp x)),
+  try $ multiGraph' >>= (\x -> reserved "m" >> return (MidiCps x)),
+  multiGraph'
+  ]
+
+multiGraph' :: GenParser Char a Graph
+multiGraph' = brackets (commaSep graphParser) >>= return . Multi
 
 functions :: GenParser Char a Graph
 functions = choice [

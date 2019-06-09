@@ -25,7 +25,11 @@ data Graph =
   LessThan Graph Graph |
   LessThanOrEqual Graph Graph |
   Equal Graph Graph |
-  NotEqual Graph Graph
+  NotEqual Graph Graph |
+  MidiCps Graph |
+  CpsMidi Graph |
+  DbAmp Graph |
+  AmpDb Graph
   deriving (Show,Eq)
 
 expandMultis :: Graph -> [Graph]
@@ -47,6 +51,10 @@ expandMultis (LessThan x y) = expandWith LessThan x y
 expandMultis (LessThanOrEqual x y) = expandWith LessThanOrEqual x y
 expandMultis (Equal x y) = expandWith Equal x y
 expandMultis (NotEqual x y) = expandWith NotEqual x y
+expandMultis (MidiCps x) = fmap MidiCps (expandMultis x)
+expandMultis (CpsMidi x) = fmap CpsMidi (expandMultis x)
+expandMultis (DbAmp x) = fmap DbAmp (expandMultis x)
+expandMultis (AmpDb x) = fmap AmpDb (expandMultis x)
 expandMultis x = [x] -- everything else should, by definition, be a one-channel signal
 
 mixIfMulti :: Graph -> Graph

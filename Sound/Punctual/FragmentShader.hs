@@ -40,6 +40,10 @@ graphToFloat' (LessThan x y) = "float(" ++ graphToFloat' x ++ "<" ++ graphToFloa
 graphToFloat' (LessThanOrEqual x y) = "float(" ++ graphToFloat' x ++ "<=" ++ graphToFloat' y ++ ")"
 graphToFloat' (Equal x y) = "float(" ++ graphToFloat' x ++ "==" ++ graphToFloat' y ++ ")"
 graphToFloat' (NotEqual x y) = "float(" ++ graphToFloat' x ++ "!=" ++ graphToFloat' y ++ ")"
+graphToFloat' (MidiCps x) = "midicps(" ++ graphToFloat' x ++ ")"
+graphToFloat' (CpsMidi x) = "cpsmidi(" ++ graphToFloat' x ++ ")"
+graphToFloat' (DbAmp x) = "dbamp(" ++ graphToFloat' x ++ ")"
+graphToFloat' (AmpDb x) = "ampdb(" ++ graphToFloat' x ++ ")"
 
 unaryShaderFunction :: String -> String -> String
 unaryShaderFunction f x = f ++ "(" ++ x ++ ")"
@@ -64,6 +68,10 @@ header
    \float tri(float f) { float p = phasor(f); return p < 0.5 ? p*4.-1. : 1.-((p-0.5)*4.) ;}\
    \float saw(float f) { return phasor(f)*2.-1.;}\
    \float sqr(float f) { float p = phasor(f); return p < 0.5 ? -1. : 1.;}\
+   \float midicps(float x) { return 440. * pow(2.,(x-69.)/12.); }\
+   \float cpsmidi(float x) { return 69. + (12. * log2(x/440.)); }\
+   \float dbamp(float x) { return pow(10.,x/20.); }\
+   \float ampdb(float x) { return 20. * log(x) / log(10.); }\
    \float xFadeNew(float t1,float t2) { if (t>t2) return 1.; if (t<t1) return 0.; return ((t-t1)/(t2-t1));}\
    \float xFadeOld(float t1,float t2) { return 1.-xFadeNew(t1,t2);}"
 

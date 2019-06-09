@@ -198,3 +198,8 @@ graphToSynthDef (NotEqual x y) = do
   x' <- graphToSynthDef x
   y' <- graphToSynthDef y
   W.notEqualWorklet x' y'
+
+graphToSynthDef (MidiCps x) = graphToSynthDef x >>= W.midiCpsWorklet
+graphToSynthDef (CpsMidi x) = graphToSynthDef x >>= W.cpsMidiWorklet
+graphToSynthDef (DbAmp x) = graphToSynthDef x >>= W.dbAmpWorklet
+graphToSynthDef (AmpDb x) = graphToSynthDef x >>= W.ampDbWorklet
