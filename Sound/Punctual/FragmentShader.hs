@@ -44,6 +44,7 @@ graphToFloat' (MidiCps x) = "midicps(" ++ graphToFloat' x ++ ")"
 graphToFloat' (CpsMidi x) = "cpsmidi(" ++ graphToFloat' x ++ ")"
 graphToFloat' (DbAmp x) = "dbamp(" ++ graphToFloat' x ++ ")"
 graphToFloat' (AmpDb x) = "ampdb(" ++ graphToFloat' x ++ ")"
+graphToFloat' (Abs x) = "abs(" ++ graphToFloat' x ++ ")"
 
 unaryShaderFunction :: String -> String -> String
 unaryShaderFunction f x = f ++ "(" ++ x ++ ")"

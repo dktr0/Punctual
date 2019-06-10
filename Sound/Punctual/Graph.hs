@@ -29,7 +29,8 @@ data Graph =
   MidiCps Graph |
   CpsMidi Graph |
   DbAmp Graph |
-  AmpDb Graph
+  AmpDb Graph |
+  Abs Graph
   deriving (Show,Eq)
 
 expandMultis :: Graph -> [Graph]
@@ -55,6 +56,7 @@ expandMultis (MidiCps x) = fmap MidiCps (expandMultis x)
 expandMultis (CpsMidi x) = fmap CpsMidi (expandMultis x)
 expandMultis (DbAmp x) = fmap DbAmp (expandMultis x)
 expandMultis (AmpDb x) = fmap AmpDb (expandMultis x)
+expandMultis (Abs x) = fmap Abs (expandMultis x)
 expandMultis x = [x] -- everything else should, by definition, be a one-channel signal
 
 mixIfMulti :: Graph -> Graph

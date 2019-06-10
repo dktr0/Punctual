@@ -172,7 +172,10 @@ graphToSynthDef (Product x y) = do
   graphToSynthDef y >>= W.param W.Gain m
   return m
 
-graphToSynthDef (Division x y) = W.constantSource 0 -- placeholder
+graphToSynthDef (Division x y) = do
+  x' <- graphToSynthDef x
+  y' <- graphToSynthDef y
+  W.safeDivideWorklet x' y'
 
 graphToSynthDef (GreaterThan x y) = do
   x' <- graphToSynthDef x
@@ -203,3 +206,4 @@ graphToSynthDef (MidiCps x) = graphToSynthDef x >>= W.midiCpsWorklet
 graphToSynthDef (CpsMidi x) = graphToSynthDef x >>= W.cpsMidiWorklet
 graphToSynthDef (DbAmp x) = graphToSynthDef x >>= W.dbAmpWorklet
 graphToSynthDef (AmpDb x) = graphToSynthDef x >>= W.ampDbWorklet
+graphToSynthDef (Abs x) = graphToSynthDef x >>= W.absWorklet
