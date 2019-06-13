@@ -14,6 +14,19 @@ import Sound.MusicW.AudioContext (utcTimeToDouble)
 graphToFloat :: Graph -> String
 graphToFloat = graphToFloat' . mixGraphs . expandMultis
 
+graphToVec3 :: Graph -> String
+graphToVec3 x = "vec3(" ++ r ++ "," ++ g ++ "," ++ b ++ ")"
+  where
+    x' = fmap graphToFloat' $ expandMultis x -- :: [String]
+    r | length x' ==0 = "0."
+      | otherwise = x'!!0
+    g | length x' ==0 = "0."
+      | length x' ==1 = x'!!0
+      | otherwise = x'!!1
+    b | length x' ==0 = "0."
+      | length x' <3 = x'!!0
+      | otherwise = x'!!2
+
 graphToFloat' :: Graph -> String
 graphToFloat' (Multi _) = error "internal error: graphToFloat' should only be used after multi-channel expansion"
 graphToFloat' EmptyGraph = "0."
@@ -52,6 +65,9 @@ unaryShaderFunction f x = f ++ "(" ++ x ++ ")"
 expressionToFloat :: Expression -> String
 expressionToFloat (Expression (Definition _ _ _ g) _) = graphToFloat g
 
+expressionToVec3 :: Expression -> String
+expressionToVec3 (Expression (Definition _ _ _ g) _) = graphToVec3 g
+
 defaultFragmentShader :: JSString
 defaultFragmentShader = toJSString $ header ++ "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"
 
@@ -80,28 +96,36 @@ targetToVariableName :: Target' -> String
 targetToVariableName (Named s) = "_named_" ++ s;
 targetToVariableName (Anon i) = "_anon_" ++ (show i);
 
+isVec3 :: Expression -> Bool
+isVec3 x = output x == NamedOutput "rgb"
+
 continuingTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> (Target',Expression) -> String
-continuingTarget tempo evalTime (_,newExpr) (target',oldExpr) = oldVariable ++ newVariable ++ oldAndNew
+continuingTarget tempo evalTime (newTarget,newExpr) (target',oldExpr) = oldVariable ++ newVariable ++ oldAndNew
   where
     (t1,t2) = expressionToTimes tempo evalTime newExpr
     n = targetToVariableName target'
-    oldVariable = "float _old" ++ n ++ "=" ++ expressionToFloat oldExpr ++ "*" ++ xFadeOld t1 t2 ++ ";\n"
-    newVariable = "float _new" ++ n ++ "=" ++ expressionToFloat newExpr ++ "*" ++ xFadeNew t1 t2 ++ ";\n"
-    oldAndNew = "float " ++ n ++ "=_old" ++ n ++ "+_new" ++ n ++ ";\n"
+    oldVariable | isVec3 newExpr = "vec3 _old" ++ n ++ "=" ++ expressionToVec3 oldExpr ++ "*" ++ xFadeOld t1 t2 ++ ";\n"
+                | otherwise = "float _old" ++ n ++ "=" ++ expressionToFloat oldExpr ++ "*" ++ xFadeOld t1 t2 ++ ";\n"
+    newVariable | isVec3 newExpr = "vec3 _new" ++ n ++ "=" ++ expressionToVec3 newExpr ++ "*" ++ xFadeNew t1 t2 ++ ";\n"
+                | otherwise = "float _new" ++ n ++ "=" ++ expressionToFloat newExpr ++ "*" ++ xFadeNew t1 t2 ++ ";\n"
+    oldAndNew | isVec3 newExpr = "vec3 " ++ n ++ "=_old" ++ n ++ "+_new" ++ n ++ ";\n"
+              | otherwise = "float " ++ n ++ "=_old" ++ n ++ "+_new" ++ n ++ ";\n"
 
 discontinuedTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> String
 discontinuedTarget tempo evalTime (target',oldExpr) = oldVariable
   where
     (t1,t2) = (evalTime,addUTCTime 0.5 evalTime) -- 0.5 sec
     n = targetToVariableName target'
-    oldVariable = "float " ++ n ++ "=" ++ expressionToFloat oldExpr ++ "*" ++ xFadeOld t1 t2 ++ ";\n"
+    oldVariable | isVec3 oldExpr = "vec3 " ++ n ++ "=" ++ expressionToVec3 oldExpr ++ "*" ++ xFadeOld t1 t2 ++ ";\n"
+                | otherwise = "float " ++ n ++ "=" ++ expressionToFloat oldExpr ++ "*" ++ xFadeOld t1 t2 ++ ";\n"
 
 addedTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> String
 addedTarget tempo evalTime (target',newExpr) = newVariable
   where
     (t1,t2) = expressionToTimes tempo evalTime newExpr
     n = targetToVariableName target'
-    newVariable = "float " ++ n ++ "=" ++ expressionToFloat newExpr ++ "*" ++ xFadeNew t1 t2 ++ ";\n"
+    newVariable | isVec3 newExpr = "vec3 " ++ n ++ "=" ++ expressionToVec3 newExpr ++ "*" ++ xFadeNew t1 t2 ++ ";\n"
+                | otherwise = "float " ++ n ++ "=" ++ expressionToFloat newExpr ++ "*" ++ xFadeNew t1 t2 ++ ";\n"
 
 xFadeOld :: UTCTime -> UTCTime -> String
 xFadeOld t1 t2 = "xFadeOld(" ++ show (utcTimeToDouble t1) ++ "," ++ show (utcTimeToDouble t2) ++ ")"
@@ -130,15 +154,18 @@ fragmentShader xs0 tempo e@(xs1,t) = toJSString $ header ++ "void main() {\n" ++
     greenExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "green") $ elems allExprs
     blueExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "blue") $ elems allExprs
     alphaExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "alpha") $ elems allExprs
+    rgbExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "rgb") $ elems allExprs
     redVars = intercalate "+" $ (["0."] ++) $ fmap (targetToVariableName . fst) redExprs
     greenVars = intercalate "+" $ (["0."] ++) $ fmap (targetToVariableName . fst) greenExprs
     blueVars = intercalate "+" $ (["0."] ++) $ fmap (targetToVariableName . fst) blueExprs
     alphaVars = if length alphaExprs == 0 then "1." else
       intercalate "+" $ fmap (targetToVariableName . fst) alphaExprs
+    rgbVars = intercalate "+" $ (["vec3(0.)"] ++) $ fmap (targetToVariableName . fst) rgbExprs
     red = "float red = " ++ redVars ++ ";\n"
     green = "float green = " ++ greenVars ++ ";\n"
     blue = "float blue = " ++ blueVars ++ ";\n"
     alpha = "float alpha = " ++ alphaVars ++ ";\n"
-    allOutputs = red ++ green ++ blue ++ alpha
+    rgb = "vec3 rgb = " ++ rgbVars ++ "+vec3(red,green,blue);\n"
+    allOutputs = red ++ green ++ blue ++ alpha ++ rgb
     --
-    glFragColor = "gl_FragColor = vec4(red,green,blue,alpha);\n"
+    glFragColor = "gl_FragColor = vec4(rgb,alpha);\n"

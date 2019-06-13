@@ -46,8 +46,7 @@ intro
 
 main :: IO ()
 main = do
-  ac <- getGlobalAudioContext
-  addWorklets ac
+  getGlobalAudioContext >>= addWorklets
   mainWidgetWithHead headElement bodyElement
 
 bodyElement :: MonadWidget t m => m ()
@@ -80,7 +79,6 @@ bodyElement = do
 punctualReflex :: MonadWidget t m => MVar PunctualWebGL -> Event t [Expression] -> m ()
 punctualReflex mv exprs = mdo
   ac <- liftAudioIO $ audioContext
---  liftIO $ audioWorkletAddModule ac "MusicW-audioWorklets.js"
   dest <- liftAudioIO $ createDestination
   t0 <- liftAudioIO $ audioUTCTime
   let initialPunctualW = emptyPunctualW ac dest t0
