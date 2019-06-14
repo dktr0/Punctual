@@ -225,7 +225,10 @@ modulatedRange = do
   (a,b) <- rangeParser
   reservedOp ":"
   m <- graphParser
-  return $ Sum (average a b) (Product (Product (difference b a) (Constant 0.5)) m)
+  return $ modulatedRangeGraph a b m
+
+modulatedRangeGraph :: Graph -> Graph -> Graph -> Graph
+modulatedRangeGraph low high mod = Sum (average low high) (Product (Product (difference high low) (Constant 0.5)) mod)
 
 average :: Graph -> Graph -> Graph
 average x y = Product (Sum x y) (Constant 0.5)
