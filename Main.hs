@@ -81,7 +81,7 @@ punctualReflex mv exprs = mdo
   ac <- liftAudioIO $ audioContext
   dest <- liftAudioIO $ createDestination
   t0 <- liftAudioIO $ audioUTCTime
-  let initialPunctualW = emptyPunctualW ac dest t0
+  let initialPunctualW = emptyPunctualW ac dest 2 t0 -- hard coded stereo for now
   evals <- performEvent $ fmap (liftIO . evaluationNow) exprs
   -- audio
   let f pW e = liftAudioIO $ updatePunctualW pW (t0,0.5) e

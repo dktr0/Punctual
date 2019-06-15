@@ -19,15 +19,17 @@ data PunctualW m = PunctualW {
   punctualAudioContext :: AudioContext,
   punctualDestination :: Node,
   punctualState :: PunctualState,
-  prevSynthsNodes :: Map Target' (Synth m,Node)
+  prevSynthsNodes :: Map Target' (Synth m,Node),
+  punctualChannels :: Int
   }
 
-emptyPunctualW :: AudioIO m => AudioContext -> Node -> UTCTime -> PunctualW m
-emptyPunctualW ac dest t = PunctualW {
+emptyPunctualW :: AudioIO m => AudioContext -> Node -> Int -> UTCTime -> PunctualW m
+emptyPunctualW ac dest nchnls t = PunctualW {
   punctualAudioContext = ac,
   punctualDestination = dest,
   punctualState = emptyPunctualState t,
-  prevSynthsNodes = empty
+  prevSynthsNodes = empty,
+  punctualChannels = nchnls
   }
 
 updatePunctualW :: AudioIO m => PunctualW m -> (UTCTime,Double) -> Evaluation -> m (PunctualW m)
@@ -93,46 +95,63 @@ deleteSynth evalTime xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
 -- of things.
 
 expressionToSynthDef:: AudioIO m => Expression -> SynthDef m NodeRef
-expressionToSynthDef (Expression _ NoOutput) = W.constantSource 0 >>= W.gain 0
-expressionToSynthDef (Expression _ (NamedOutput _)) = W.constantSource 0 >>= W.gain 0
-expressionToSynthDef (Expression d (PannedOutput p)) = definitionToSynthDef d >>= W.equalPowerPan p >>= W.gain 0
+expressionToSynthDef (Expression d (NamedOutput "splay")) = definitionToSynthDef d >>= W.splay 2 >>= W.gain 0
+expressionToSynthDef (Expression d (PannedOutput p)) = definitionToMonoSynthDef d >>= W.equalPowerPan p >>= W.gain 0
+expressionToSynthDef _ = W.constantSource 0 >>= W.gain 0
 
-definitionToSynthDef:: AudioIO m => Definition -> SynthDef m NodeRef
-definitionToSynthDef (Definition _ _ _ g) = graphToMonoSynthDef g
+definitionToSynthDef:: AudioIO m => Definition -> SynthDef m [NodeRef]
+definitionToSynthDef (Definition _ _ _ g) = mapM graphToSynthDef $ expandMultis g
+
+definitionToMonoSynthDef:: AudioIO m => Definition -> SynthDef m NodeRef
+definitionToMonoSynthDef (Definition _ _ _ g) = graphToMonoSynthDef g
 
 graphToMonoSynthDef :: AudioIO m => Graph -> SynthDef m NodeRef
 graphToMonoSynthDef = graphToSynthDef . mixGraphs . expandMultis
 
+
 graphToSynthDef :: AudioIO m => Graph -> SynthDef m NodeRef
 graphToSynthDef (Multi _) = error "internal error: graphToSynthDef should only be used post multi-channel expansion"
+
 graphToSynthDef EmptyGraph = W.constantSource 0
+
 graphToSynthDef (Constant x) = W.constantSource x
+
 graphToSynthDef Noise = W.constantSource 0 -- placeholder
+
 graphToSynthDef Pink = W.constantSource 0 -- placeholder
+
 graphToSynthDef Fx = W.constantSource 1
+
 graphToSynthDef Fy = W.constantSource 1
+
 graphToSynthDef Px = W.constantSource 0
+
 graphToSynthDef Py = W.constantSource 0
+
 graphToSynthDef (Sine (Constant x)) = W.oscillator W.Sine x
 graphToSynthDef (Sine x) = do
   s <- W.oscillator W.Sine 0
   graphToSynthDef x >>= W.param W.Frequency s
   return s
+
 graphToSynthDef (Tri (Constant x)) = W.oscillator W.Triangle x
 graphToSynthDef (Tri x) = do
   s <- W.oscillator W.Triangle 0
   graphToSynthDef x >>= W.param W.Frequency s
   return s
+
 graphToSynthDef (Saw (Constant x)) = W.oscillator W.Sawtooth x
 graphToSynthDef (Saw x) = do
   s <- W.oscillator W.Sawtooth 0
   graphToSynthDef x >>= W.param W.Frequency s
   return s
+
 graphToSynthDef (Square (Constant x)) = W.oscillator W.Square x
 graphToSynthDef (Square x) = do
   s <- W.oscillator W.Square 0
   graphToSynthDef x >>= W.param W.Frequency s
   return s
+
 graphToSynthDef (LPF i (Constant f) (Constant q)) = graphToSynthDef i >>= W.biquadFilter (W.LowPass f q)
 graphToSynthDef (LPF i (Constant f) q) = do
   x <- graphToSynthDef i >>= W.biquadFilter (W.LowPass f 0)
@@ -147,6 +166,7 @@ graphToSynthDef (LPF i f q) = do
   graphToSynthDef f >>= W.param W.Frequency x
   graphToSynthDef q >>= W.param W.Q x
   return x
+
 graphToSynthDef (HPF i (Constant f) (Constant q)) = graphToSynthDef i >>= W.biquadFilter (W.HighPass f q)
 graphToSynthDef (HPF i (Constant f) q) = do
   x <- graphToSynthDef i >>= W.biquadFilter (W.HighPass f 0)
@@ -161,9 +181,12 @@ graphToSynthDef (HPF i f q) = do
   graphToSynthDef f >>= W.param W.Frequency x
   graphToSynthDef q >>= W.param W.Q x
   return x
+
 graphToSynthDef (FromTarget x) = W.constantSource 0 -- placeholder
+
 graphToSynthDef (Sum (Constant x) (Constant y)) = graphToSynthDef (Constant $ x+y)
 graphToSynthDef (Sum x y) = W.mixSynthDefs $ fmap graphToSynthDef [x,y]
+
 graphToSynthDef (Product (Constant x) (Constant y)) = graphToSynthDef (Constant $ x*y)
 graphToSynthDef (Product x (Constant y)) = graphToSynthDef x >>= W.gain y
 graphToSynthDef (Product (Constant x) y) = graphToSynthDef y >>= W.gain x
@@ -181,29 +204,38 @@ graphToSynthDef (GreaterThan x y) = do
   x' <- graphToSynthDef x
   y' <- graphToSynthDef y
   W.greaterThanWorklet x' y'
+
 graphToSynthDef (GreaterThanOrEqual x y) = do
   x' <- graphToSynthDef x
   y' <- graphToSynthDef y
   W.greaterThanOrEqualWorklet x' y'
+
 graphToSynthDef (LessThan x y) = do
   x' <- graphToSynthDef x
   y' <- graphToSynthDef y
   W.lessThanWorklet x' y'
+
 graphToSynthDef (LessThanOrEqual x y) = do
   x' <- graphToSynthDef x
   y' <- graphToSynthDef y
   W.lessThanOrEqualWorklet x' y'
+
 graphToSynthDef (Equal x y) = do
   x' <- graphToSynthDef x
   y' <- graphToSynthDef y
   W.equalWorklet x' y'
+
 graphToSynthDef (NotEqual x y) = do
   x' <- graphToSynthDef x
   y' <- graphToSynthDef y
   W.notEqualWorklet x' y'
 
 graphToSynthDef (MidiCps x) = graphToSynthDef x >>= W.midiCpsWorklet
+
 graphToSynthDef (CpsMidi x) = graphToSynthDef x >>= W.cpsMidiWorklet
+
 graphToSynthDef (DbAmp x) = graphToSynthDef x >>= W.dbAmpWorklet
+
 graphToSynthDef (AmpDb x) = graphToSynthDef x >>= W.ampDbWorklet
+
 graphToSynthDef (Abs x) = graphToSynthDef x >>= W.absWorklet

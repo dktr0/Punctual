@@ -85,17 +85,12 @@ outputParser = choice [
   try $ reservedOp "=>" >> reserved "left" >> return (PannedOutput 0),
   try $ reservedOp "=>" >> reserved "right" >> return (PannedOutput 1),
   try $ reservedOp "=>" >> reserved "centre" >> return (PannedOutput 0.5),
-  try $ reservedOp "=>" >> reserved "x" >> return (NamedOutput "x"),
-  try $ reservedOp "=>" >> reserved "y" >> return (NamedOutput "y"),
+  try $ reservedOp "=>" >> reserved "splay" >> return (NamedOutput "splay"),
   try $ reservedOp "=>" >> reserved "red" >> return (NamedOutput "red"),
   try $ reservedOp "=>" >> reserved "green" >> return (NamedOutput "green"),
   try $ reservedOp "=>" >> reserved "blue" >> return (NamedOutput "blue"),
   try $ reservedOp "=>" >> reserved "alpha" >> return (NamedOutput "alpha"),
   try $ reservedOp "=>" >> reserved "rgb" >> return (NamedOutput "rgb"),
-  try $ reservedOp "=>" >> reserved "clear" >> return (NamedOutput "clear"),
-  try $ reservedOp "=>" >> reserved "width" >> return (NamedOutput "width"),
-  try $ reservedOp "=>" >> reserved "height" >> return (NamedOutput "height"),
-  try $ reservedOp "=>" >> return (PannedOutput 0.5),
   return NoOutput
   ]
 
