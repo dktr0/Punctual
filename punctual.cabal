@@ -17,16 +17,15 @@ Library
   hs-source-dirs:    .
   Build-Depends:     base, parsec, time, mtl, musicw, containers, ghcjs-base, ghcjs-dom-jsffi
   GHC-Options:       -Wall -fwarn-tabs -fno-warn-unused-do-bind
-  Exposed-modules:   Sound.Punctual.PunctualW
+  Exposed-modules:   Sound.Punctual.Graph
+                     Sound.Punctual.Extent
                      Sound.Punctual.Types
                      Sound.Punctual.Evaluation
                      Sound.Punctual.Parser
-                     Sound.Punctual.Sample
-                     Sound.Punctual.Graph
-                     Sound.Punctual.Extent
-                     Sound.Punctual.Token
+                     Sound.Punctual.PunctualState
                      Sound.Punctual.WebGL
-  other-modules:
+                     Sound.Punctual.PunctualW
+  other-modules:     Sound.Punctual.Token
   default-language:  Haskell2010
 
 executable punctual

@@ -17,9 +17,9 @@ import GHCJS.Marshal.Pure
 import Data.Time
 import Data.Maybe
 
-import Sound.Punctual.FragmentShader
-import Sound.Punctual.Evaluation
 import Sound.Punctual.Types
+import Sound.Punctual.Evaluation
+import Sound.Punctual.FragmentShader
 
 foreign import javascript unsafe
   "$1.getContext('webgl')"

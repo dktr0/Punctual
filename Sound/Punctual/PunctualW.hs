@@ -12,6 +12,7 @@ import Data.Map.Strict
 import Sound.Punctual.Graph
 import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
+import Sound.Punctual.PunctualState
 import Sound.MusicW (AudioIO,SynthDef,Synth,AudioContext,Node,NodeRef)
 import qualified Sound.MusicW as W
 
