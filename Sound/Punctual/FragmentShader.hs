@@ -17,15 +17,19 @@ graphToFloat = graphToFloat' . mixGraphs . expandMultis
 graphToVec3 :: Graph -> String
 graphToVec3 x = "vec3(" ++ r ++ "," ++ g ++ "," ++ b ++ ")"
   where
-    x' = fmap graphToFloat' $ expandMultis x -- :: [String]
-    r | length x' ==0 = "0."
-      | otherwise = x'!!0
-    g | length x' ==0 = "0."
-      | length x' ==1 = x'!!0
-      | otherwise = x'!!1
-    b | length x' ==0 = "0."
-      | length x' <3 = x'!!0
-      | otherwise = x'!!2
+    x' = cycleVec3 $ fmap graphToFloat' $ expandMultis x -- :: [String]
+    reds = fmap (\(x,_,_) -> x) x'
+    greens = fmap (\(_,x,_) -> x) x'
+    blues = fmap (\(_,_,x) -> x) x'
+    r = intercalate "+" $ ["0."] ++ reds
+    g = intercalate "+" $ ["0."] ++ greens
+    b = intercalate "+" $ ["0."] ++ blues
+
+cycleVec3 :: [String] -> [(String,String,String)]
+cycleVec3 [] = []
+cycleVec3 (r:g:b:xs) = (r,g,b):cycleVec3 xs
+cycleVec3 (r:g:[]) = [(r,g,r)]
+cycleVec3 (r:[]) = [(r,r,r)] 
 
 graphToFloat' :: Graph -> String
 graphToFloat' (Multi _) = error "internal error: graphToFloat' should only be used after multi-channel expansion"
