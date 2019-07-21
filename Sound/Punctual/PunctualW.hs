@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Sound.Punctual.PunctualW where
 
 -- This module provides an implementation of Punctual using MusicW as an underlying synthesis library

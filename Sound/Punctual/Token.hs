@@ -1,9 +1,13 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Sound.Punctual.Token where
 
-import Text.ParserCombinators.Parsec
-import qualified Text.ParserCombinators.Parsec.Token as P
+import Data.Text
+import Text.Parsec
+import Text.Parsec.Text
+import qualified Text.Parsec.Token as P
+import Control.Monad.Identity (Identity)
 
-tokenParser :: P.TokenParser a
+tokenParser :: P.GenTokenParser Text () Identity
 tokenParser = P.makeTokenParser $ P.LanguageDef {
   P.commentStart = "{-",
   P.commentEnd = "-}",
@@ -50,7 +54,7 @@ semiSep1 = P.semiSep1 tokenParser
 commaSep = P.commaSep tokenParser
 commaSep1 = P.commaSep1 tokenParser
 
-double :: GenParser Char a Double
+double :: Parser Double
 double = choice [
   try $ parens double,
   symbol "-" >> double >>= return . (* (-1)),

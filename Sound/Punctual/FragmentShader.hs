@@ -1,40 +1,43 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Sound.Punctual.FragmentShader (fragmentShader,defaultFragmentShader) where
 
-import Data.List (intercalate)
 import Data.Map.Strict
 import Data.Time
-import GHCJS.Types
-import GHCJS.DOM.Types
+import Data.Text (Text)
+import qualified Data.Text as T
+import Data.Semigroup ((<>))
+import TextShow
 
 import Sound.Punctual.Graph
 import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
 import Sound.MusicW.AudioContext (utcTimeToDouble)
 
-graphToFloat :: Graph -> String
+graphToFloat :: Graph -> Text
 graphToFloat = graphToFloat' . mixGraphs . expandMultis
 
-graphToVec3 :: Graph -> String
-graphToVec3 x = "vec3(" ++ r ++ "," ++ g ++ "," ++ b ++ ")"
+graphToVec3 :: Graph -> Text
+graphToVec3 x = "vec3(" <> r <> "," <> g <> "," <> b <> ")"
   where
-    x' = cycleVec3 $ fmap graphToFloat' $ expandMultis x -- :: [String]
-    reds = fmap (\(x,_,_) -> x) x'
-    greens = fmap (\(_,x,_) -> x) x'
-    blues = fmap (\(_,_,x) -> x) x'
-    r = intercalate "+" $ ["0."] ++ reds
-    g = intercalate "+" $ ["0."] ++ greens
-    b = intercalate "+" $ ["0."] ++ blues
+    x' = cycleVec3 $ fmap graphToFloat' $ expandMultis x -- :: [Text]
+    reds = fmap (\(y,_,_) -> y) x'
+    greens = fmap (\(_,y,_) -> y) x'
+    blues = fmap (\(_,_,y) -> y) x'
+    r = T.intercalate "+" $ ["0."] <> reds
+    g = T.intercalate "+" $ ["0."] <> greens
+    b = T.intercalate "+" $ ["0."] <> blues
 
-cycleVec3 :: [String] -> [(String,String,String)]
+cycleVec3 :: [a] -> [(a,a,a)]
 cycleVec3 [] = []
 cycleVec3 (r:g:b:xs) = (r,g,b):cycleVec3 xs
 cycleVec3 (r:g:[]) = [(r,g,r)]
-cycleVec3 (r:[]) = [(r,r,r)] 
+cycleVec3 (r:[]) = [(r,r,r)]
 
-graphToFloat' :: Graph -> String
+graphToFloat' :: Graph -> Text
 graphToFloat' (Multi _) = error "internal error: graphToFloat' should only be used after multi-channel expansion"
 graphToFloat' EmptyGraph = "0."
-graphToFloat' (Constant x) = show x
+graphToFloat' (Constant x) = showt x
 graphToFloat' Noise = "0." -- placeholder
 graphToFloat' Pink = "0." -- placeholder
 graphToFloat' Fx = "fx()"
@@ -48,34 +51,34 @@ graphToFloat' (Square x) = unaryShaderFunction "sqr" (graphToFloat' x)
 graphToFloat' (LPF i f q) = graphToFloat' i -- placeholder, doesn't filter yet
 graphToFloat' (HPF i f q) = graphToFloat' i -- placeholder, doesn't filter yet
 graphToFloat' (FromTarget x) = "0." -- placeholder
-graphToFloat' (Sum x y) = "(" ++ graphToFloat' x ++ "+" ++ graphToFloat' y ++ ")"
-graphToFloat' (Product x y) = "(" ++ graphToFloat' x ++ "*" ++ graphToFloat' y ++ ")"
-graphToFloat' (Division x y) = "(" ++ graphToFloat' x ++ "/" ++ graphToFloat' y ++ ")"
-graphToFloat' (GreaterThan x y) = "float(" ++ graphToFloat' x ++ ">" ++ graphToFloat' y ++ ")"
-graphToFloat' (GreaterThanOrEqual x y) = "float(" ++ graphToFloat' x ++ ">=" ++ graphToFloat' y ++ ")"
-graphToFloat' (LessThan x y) = "float(" ++ graphToFloat' x ++ "<" ++ graphToFloat' y ++ ")"
-graphToFloat' (LessThanOrEqual x y) = "float(" ++ graphToFloat' x ++ "<=" ++ graphToFloat' y ++ ")"
-graphToFloat' (Equal x y) = "float(" ++ graphToFloat' x ++ "==" ++ graphToFloat' y ++ ")"
-graphToFloat' (NotEqual x y) = "float(" ++ graphToFloat' x ++ "!=" ++ graphToFloat' y ++ ")"
-graphToFloat' (MidiCps x) = "midicps(" ++ graphToFloat' x ++ ")"
-graphToFloat' (CpsMidi x) = "cpsmidi(" ++ graphToFloat' x ++ ")"
-graphToFloat' (DbAmp x) = "dbamp(" ++ graphToFloat' x ++ ")"
-graphToFloat' (AmpDb x) = "ampdb(" ++ graphToFloat' x ++ ")"
-graphToFloat' (Abs x) = "abs(" ++ graphToFloat' x ++ ")"
+graphToFloat' (Sum x y) = "(" <> graphToFloat' x <> "+" <> graphToFloat' y <> ")"
+graphToFloat' (Product x y) = "(" <> graphToFloat' x <> "*" <> graphToFloat' y <> ")"
+graphToFloat' (Division x y) = "(" <> graphToFloat' x <> "/" <> graphToFloat' y <> ")"
+graphToFloat' (GreaterThan x y) = "float(" <> graphToFloat' x <> ">" <> graphToFloat' y <> ")"
+graphToFloat' (GreaterThanOrEqual x y) = "float(" <> graphToFloat' x <> ">=" <> graphToFloat' y <> ")"
+graphToFloat' (LessThan x y) = "float(" <> graphToFloat' x <> "<" <> graphToFloat' y <> ")"
+graphToFloat' (LessThanOrEqual x y) = "float(" <> graphToFloat' x <> "<=" <> graphToFloat' y <> ")"
+graphToFloat' (Equal x y) = "float(" <> graphToFloat' x <> "==" <> graphToFloat' y <> ")"
+graphToFloat' (NotEqual x y) = "float(" <> graphToFloat' x <> "!=" <> graphToFloat' y <> ")"
+graphToFloat' (MidiCps x) = "midicps(" <> graphToFloat' x <> ")"
+graphToFloat' (CpsMidi x) = "cpsmidi(" <> graphToFloat' x <> ")"
+graphToFloat' (DbAmp x) = "dbamp(" <> graphToFloat' x <> ")"
+graphToFloat' (AmpDb x) = "ampdb(" <> graphToFloat' x <> ")"
+graphToFloat' (Abs x) = "abs(" <> graphToFloat' x <> ")"
 
-unaryShaderFunction :: String -> String -> String
-unaryShaderFunction f x = f ++ "(" ++ x ++ ")"
+unaryShaderFunction :: Text -> Text -> Text
+unaryShaderFunction f x = f <> "(" <> x <> ")"
 
-expressionToFloat :: Expression -> String
+expressionToFloat :: Expression -> Text
 expressionToFloat (Expression (Definition _ _ _ g) _) = graphToFloat g
 
-expressionToVec3 :: Expression -> String
+expressionToVec3 :: Expression -> Text
 expressionToVec3 (Expression (Definition _ _ _ g) _) = graphToVec3 g
 
-defaultFragmentShader :: JSString
-defaultFragmentShader = toJSString $ header ++ "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"
+defaultFragmentShader :: Text
+defaultFragmentShader = header <> "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"
 
-header :: String
+header :: Text
 header
  = "precision mediump float;\
    \uniform float t;\
@@ -96,49 +99,49 @@ header
    \float xFadeNew(float t1,float t2) { if (t>t2) return 1.; if (t<t1) return 0.; return ((t-t1)/(t2-t1));}\
    \float xFadeOld(float t1,float t2) { return 1.-xFadeNew(t1,t2);}"
 
-targetToVariableName :: Target' -> String
-targetToVariableName (Named s) = "_named_" ++ s;
-targetToVariableName (Anon i) = "_anon_" ++ (show i);
+targetToVariableName :: Target' -> Text
+targetToVariableName (Named s) = "_named_" <> s;
+targetToVariableName (Anon i) = "_anon_" <> (showt i);
 
 isVec3 :: Expression -> Bool
 isVec3 x = output x == NamedOutput "rgb"
 
-continuingTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> (Target',Expression) -> String
-continuingTarget tempo evalTime (newTarget,newExpr) (target',oldExpr) = oldVariable ++ newVariable ++ oldAndNew
+continuingTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> (Target',Expression) -> Text
+continuingTarget tempo evalTime (newTarget,newExpr) (target',oldExpr) = oldVariable <> newVariable <> oldAndNew
   where
     (t1,t2) = expressionToTimes tempo evalTime newExpr
     n = targetToVariableName target'
-    oldVariable | isVec3 newExpr = "vec3 _old" ++ n ++ "=" ++ expressionToVec3 oldExpr ++ "*" ++ xFadeOld t1 t2 ++ ";\n"
-                | otherwise = "float _old" ++ n ++ "=" ++ expressionToFloat oldExpr ++ "*" ++ xFadeOld t1 t2 ++ ";\n"
-    newVariable | isVec3 newExpr = "vec3 _new" ++ n ++ "=" ++ expressionToVec3 newExpr ++ "*" ++ xFadeNew t1 t2 ++ ";\n"
-                | otherwise = "float _new" ++ n ++ "=" ++ expressionToFloat newExpr ++ "*" ++ xFadeNew t1 t2 ++ ";\n"
-    oldAndNew | isVec3 newExpr = "vec3 " ++ n ++ "=_old" ++ n ++ "+_new" ++ n ++ ";\n"
-              | otherwise = "float " ++ n ++ "=_old" ++ n ++ "+_new" ++ n ++ ";\n"
+    oldVariable | isVec3 newExpr = "vec3 _old" <> n <> "=" <> expressionToVec3 oldExpr <> "*" <> xFadeOld t1 t2 <> ";\n"
+                | otherwise = "float _old" <> n <> "=" <> expressionToFloat oldExpr <> "*" <> xFadeOld t1 t2 <> ";\n"
+    newVariable | isVec3 newExpr = "vec3 _new" <> n <> "=" <> expressionToVec3 newExpr <> "*" <> xFadeNew t1 t2 <> ";\n"
+                | otherwise = "float _new" <> n <> "=" <> expressionToFloat newExpr <> "*" <> xFadeNew t1 t2 <> ";\n"
+    oldAndNew | isVec3 newExpr = "vec3 " <> n <> "=_old" <> n <> "+_new" <> n <> ";\n"
+              | otherwise = "float " <> n <> "=_old" <> n <> "+_new" <> n <> ";\n"
 
-discontinuedTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> String
+discontinuedTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> Text
 discontinuedTarget tempo evalTime (target',oldExpr) = oldVariable
   where
     (t1,t2) = (evalTime,addUTCTime 0.5 evalTime) -- 0.5 sec
     n = targetToVariableName target'
-    oldVariable | isVec3 oldExpr = "vec3 " ++ n ++ "=" ++ expressionToVec3 oldExpr ++ "*" ++ xFadeOld t1 t2 ++ ";\n"
-                | otherwise = "float " ++ n ++ "=" ++ expressionToFloat oldExpr ++ "*" ++ xFadeOld t1 t2 ++ ";\n"
+    oldVariable | isVec3 oldExpr = "vec3 " <> n <> "=" <> expressionToVec3 oldExpr <> "*" <> xFadeOld t1 t2 <> ";\n"
+                | otherwise = "float " <> n <> "=" <> expressionToFloat oldExpr <> "*" <> xFadeOld t1 t2 <> ";\n"
 
-addedTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> String
+addedTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> Text
 addedTarget tempo evalTime (target',newExpr) = newVariable
   where
     (t1,t2) = expressionToTimes tempo evalTime newExpr
     n = targetToVariableName target'
-    newVariable | isVec3 newExpr = "vec3 " ++ n ++ "=" ++ expressionToVec3 newExpr ++ "*" ++ xFadeNew t1 t2 ++ ";\n"
-                | otherwise = "float " ++ n ++ "=" ++ expressionToFloat newExpr ++ "*" ++ xFadeNew t1 t2 ++ ";\n"
+    newVariable | isVec3 newExpr = "vec3 " <> n <> "=" <> expressionToVec3 newExpr <> "*" <> xFadeNew t1 t2 <> ";\n"
+                | otherwise = "float " <> n <> "=" <> expressionToFloat newExpr <> "*" <> xFadeNew t1 t2 <> ";\n"
 
-xFadeOld :: UTCTime -> UTCTime -> String
-xFadeOld t1 t2 = "xFadeOld(" ++ show (utcTimeToDouble t1) ++ "," ++ show (utcTimeToDouble t2) ++ ")"
+xFadeOld :: UTCTime -> UTCTime -> Text
+xFadeOld t1 t2 = "xFadeOld(" <> showt (utcTimeToDouble t1) <> "," <> showt (utcTimeToDouble t2) <> ")"
 
-xFadeNew :: UTCTime -> UTCTime -> String
-xFadeNew t1 t2 = "xFadeNew(" ++ show (utcTimeToDouble t1) ++ "," ++ show (utcTimeToDouble t2) ++ ")"
+xFadeNew :: UTCTime -> UTCTime -> Text
+xFadeNew t1 t2 = "xFadeNew(" <> showt (utcTimeToDouble t1) <> "," <> showt (utcTimeToDouble t2) <> ")"
 
-fragmentShader :: [Expression] -> (UTCTime,Double) -> Evaluation -> JSString
-fragmentShader xs0 tempo e@(xs1,t) = toJSString $ header ++ "void main() {\n" ++ allTargets ++ allOutputs ++ glFragColor ++ "}"
+fragmentShader :: [Expression] -> (UTCTime,Double) -> Evaluation -> Text
+fragmentShader xs0 tempo e@(xs1,t) = header <> "void main() {\n" <> allTargets <> allOutputs <> glFragColor <> "}"
   where
     evalTime = addUTCTime 0.2 t
     -- generate maps of previous, current and all relevant expressions :: Map Target' (Target',Expression)
@@ -146,30 +149,30 @@ fragmentShader xs0 tempo e@(xs1,t) = toJSString $ header ++ "void main() {\n" ++
     newExprs = mapWithKey (\k a -> (k,a)) $ listOfExpressionsToMap xs1
     allExprs = union newExprs oldExprs
     -- using the maps in oldExprs and newExprs, generate GLSL shader code for each target, with crossfades
-    continuing = intersectionWith (continuingTarget tempo evalTime) newExprs oldExprs -- Map Target' String
-    continuing' = concat $ elems continuing -- String
-    discontinued = fmap (discontinuedTarget tempo evalTime) $ difference oldExprs newExprs -- Map Target' String
-    discontinued' = concat $ elems discontinued -- String
-    added = fmap (addedTarget tempo evalTime) $ difference newExprs oldExprs -- Map Target' String
-    added' = concat $ elems added
-    allTargets = continuing' ++ discontinued' ++ added'
+    continuing = intersectionWith (continuingTarget tempo evalTime) newExprs oldExprs -- Map Target' Text
+    continuing' = T.concat $ elems continuing -- Text
+    discontinued = fmap (discontinuedTarget tempo evalTime) $ difference oldExprs newExprs -- Map Target' Text
+    discontinued' = T.concat $ elems discontinued -- Text
+    added = fmap (addedTarget tempo evalTime) $ difference newExprs oldExprs -- Map Target' Text
+    added' = T.concat $ elems added
+    allTargets = continuing' <> discontinued' <> added'
     --
     redExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "red") $ elems allExprs
     greenExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "green") $ elems allExprs
     blueExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "blue") $ elems allExprs
     alphaExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "alpha") $ elems allExprs
     rgbExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "rgb") $ elems allExprs
-    redVars = intercalate "+" $ (["0."] ++) $ fmap (targetToVariableName . fst) redExprs
-    greenVars = intercalate "+" $ (["0."] ++) $ fmap (targetToVariableName . fst) greenExprs
-    blueVars = intercalate "+" $ (["0."] ++) $ fmap (targetToVariableName . fst) blueExprs
+    redVars = T.intercalate "+" $ (["0."] <>) $ fmap (targetToVariableName . fst) redExprs
+    greenVars = T.intercalate "+" $ (["0."] <>) $ fmap (targetToVariableName . fst) greenExprs
+    blueVars = T.intercalate "+" $ (["0."] <>) $ fmap (targetToVariableName . fst) blueExprs
     alphaVars = if length alphaExprs == 0 then "1." else
-      intercalate "+" $ fmap (targetToVariableName . fst) alphaExprs
-    rgbVars = intercalate "+" $ (["vec3(0.)"] ++) $ fmap (targetToVariableName . fst) rgbExprs
-    red = "float red = " ++ redVars ++ ";\n"
-    green = "float green = " ++ greenVars ++ ";\n"
-    blue = "float blue = " ++ blueVars ++ ";\n"
-    alpha = "float alpha = " ++ alphaVars ++ ";\n"
-    rgb = "vec3 rgb = " ++ rgbVars ++ "+vec3(red,green,blue);\n"
-    allOutputs = red ++ green ++ blue ++ alpha ++ rgb
+      T.intercalate "+" $ fmap (targetToVariableName . fst) alphaExprs
+    rgbVars = T.intercalate "+" $ (["vec3(0.)"] <>) $ fmap (targetToVariableName . fst) rgbExprs
+    red = "float red = " <> redVars <> ";\n"
+    green = "float green = " <> greenVars <> ";\n"
+    blue = "float blue = " <> blueVars <> ";\n"
+    alpha = "float alpha = " <> alphaVars <> ";\n"
+    rgb = "vec3 rgb = " <> rgbVars <> "+vec3(red,green,blue);\n"
+    allOutputs = red <> green <> blue <> alpha <> rgb
     --
     glFragColor = "gl_FragColor = vec4(rgb,alpha);\n"

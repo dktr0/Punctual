@@ -1,26 +1,27 @@
 module Sound.Punctual.Extent where
 
-import Text.ParserCombinators.Parsec
+import Text.Parsec
+import Text.Parsec.Text
 import Sound.Punctual.Token
 
 type Extent = Double
 
-extent :: GenParser Char a Extent
+extent :: Parser Extent
 extent = choice $ fmap try [extentDb,extentPercent,extentMidi,double]
 
-extentDb :: GenParser Char a Extent
+extentDb :: Parser Extent
 extentDb = do
   x <- double
   reserved "db"
   return $ dbamp x
 
-extentPercent :: GenParser Char a Extent
+extentPercent :: Parser Extent
 extentPercent = do
   x <- double
   reservedOp "%"
   return $ x / 100
 
-extentMidi :: GenParser Char a Extent
+extentMidi :: Parser Extent
 extentMidi = do
   x <- double
   reserved "m"

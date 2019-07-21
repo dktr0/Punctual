@@ -1,12 +1,17 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Sound.Punctual.Tests where
+
+import Data.Text (Text)
+import Text.Parsec
+import Text.Parsec.Text
+import Test.HUnit
 
 import Sound.Punctual.Graph
 import Sound.Punctual.Types
 import Sound.Punctual.Parser
-import Text.ParserCombinators.Parsec
-import Test.HUnit
 
-t :: String -> Either ParseError Expression -> Test
+t :: Text -> Either ParseError Expression -> Test
 t x y = x ~: (runPunctualParser x) ~?= (fmap (\z -> [z]) y)
 
 tests = TestList [

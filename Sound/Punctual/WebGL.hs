@@ -12,10 +12,13 @@ module Sound.Punctual.WebGL
 import Control.Monad
 import Control.Exception
 import GHCJS.Types
-import GHCJS.DOM.Types
+import GHCJS.DOM.Types hiding (Text)
 import GHCJS.Marshal.Pure
 import Data.Time
 import Data.Maybe
+import Data.Semigroup ((<>))
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
@@ -35,7 +38,7 @@ foreign import javascript unsafe
 
 foreign import javascript unsafe
   "$1.shaderSource($2,$3);"
-  shaderSource :: WebGLRenderingContext -> WebGLShader -> JSString -> IO ()
+  shaderSource :: WebGLRenderingContext -> WebGLShader -> Text -> IO ()
 
 foreign import javascript unsafe
   "$1.compileShader($2);"
@@ -47,26 +50,26 @@ foreign import javascript unsafe
 
 foreign import javascript unsafe
   "$1.getShaderInfoLog($2)"
-  getShaderInfoLog :: WebGLRenderingContext -> WebGLShader -> IO JSString
+  getShaderInfoLog :: WebGLRenderingContext -> WebGLShader -> IO Text
 
-makeVertexShader :: WebGLRenderingContext -> JSString -> IO WebGLShader
+makeVertexShader :: WebGLRenderingContext -> Text -> IO WebGLShader
 makeVertexShader glCtx srcCode = do
   shader <- createVertexShader glCtx
   shaderSource glCtx shader srcCode
   compileShader glCtx shader
   success <- compileStatus glCtx shader
   log <- getShaderInfoLog glCtx shader
-  when (success == 0) $ throwIO $ userError $ "exception making vertex shader: " ++ fromJSString log
+  when (success == 0) $ throwIO $ userError $ "exception making vertex shader: " <> T.unpack log
   return shader
 
-makeFragmentShader :: WebGLRenderingContext -> JSString -> IO WebGLShader
+makeFragmentShader :: WebGLRenderingContext -> Text -> IO WebGLShader
 makeFragmentShader glCtx srcCode = do
   shader <- createFragmentShader glCtx
   shaderSource glCtx shader srcCode
   compileShader glCtx shader
   success <- compileStatus glCtx shader
   log <- getShaderInfoLog glCtx shader
-  when (success == 0) $ throwIO $ userError $ "exception making fragment shader: " ++ fromJSString log
+  when (success == 0) $ throwIO $ userError $ "exception making fragment shader: " <> T.unpack log
   return shader
 
 foreign import javascript unsafe
@@ -87,7 +90,7 @@ foreign import javascript unsafe
 
 foreign import javascript unsafe
   "$1.getProgramInfoLog($2)"
-  getProgramInfoLog :: WebGLRenderingContext -> WebGLProgram -> IO JSString
+  getProgramInfoLog :: WebGLRenderingContext -> WebGLProgram -> IO Text
 
 foreign import javascript unsafe
   "$1.useProgram($2);"
@@ -101,16 +104,16 @@ makeProgram glCtx vShader fShader = do
   linkProgram glCtx program
   success <- linkStatus glCtx program
   log <- getProgramInfoLog glCtx program
-  when (success == 0) $ throwIO $ userError $ "exception linking program: " ++ fromJSString log
+  when (success == 0) $ throwIO $ userError $ "exception linking program: " <> T.unpack log
   useProgram glCtx program
   return program
 
-defaultVertexShader :: JSString
+defaultVertexShader :: Text
 defaultVertexShader = "attribute vec4 p; void main() { gl_Position = p; }"
 
 foreign import javascript unsafe
   "$1.getAttribLocation($2,$3)"
-  getAttribLocation :: WebGLRenderingContext -> WebGLProgram -> JSString -> IO Int
+  getAttribLocation :: WebGLRenderingContext -> WebGLProgram -> Text -> IO Int
 
 foreign import javascript unsafe
   "$1.createBuffer()"
@@ -135,8 +138,8 @@ data PunctualWebGLContext = PunctualWebGLContext {
 -- a subsequent evaluation).
 data PunctualWebGL = PunctualWebGL {
   context :: Maybe PunctualWebGLContext,
-  vShaderSrc :: JSString,
-  fShaderSrc :: JSString,
+  vShaderSrc :: Text,
+  fShaderSrc :: Text,
   prevExpressions :: [Expression]
   }
 
@@ -175,7 +178,7 @@ updateRenderingContext s (Just canvas) = do
     }
   return $ s { context = Just newContext }
 
-updateFragmentShader :: PunctualWebGL -> JSString -> IO PunctualWebGL
+updateFragmentShader :: PunctualWebGL -> Text -> IO PunctualWebGL
 updateFragmentShader st src | isNothing (context st) = return $ st { fShaderSrc = src }
 updateFragmentShader st src | otherwise = do
   let oldCtx = fromJust $ context st
@@ -198,7 +201,7 @@ updateFragmentShader st src | otherwise = do
 
 foreign import javascript unsafe
   "$1.getUniformLocation($2,$3)"
-  getUniformLocation :: WebGLRenderingContext -> WebGLProgram -> JSString -> IO WebGLUniformLocation
+  getUniformLocation :: WebGLRenderingContext -> WebGLProgram -> Text -> IO WebGLUniformLocation
 
 foreign import javascript unsafe
   "$1.bufferData($1.ARRAY_BUFFER,new Float32Array([-1,1,-1,-1,1,1,1,-1]),$1.STATIC_DRAW);"

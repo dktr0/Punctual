@@ -1,5 +1,7 @@
 module Sound.Punctual.Graph where
 
+import Data.Text (Text)
+
 data Graph =
   EmptyGraph |
   Constant Double |
@@ -16,7 +18,7 @@ data Graph =
   Square Graph |
   LPF Graph Graph Graph |
   HPF Graph Graph Graph |
-  FromTarget String |
+  FromTarget Text |
   Product Graph Graph |
   Sum Graph Graph |
   Division Graph Graph |

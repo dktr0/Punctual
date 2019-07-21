@@ -68,8 +68,8 @@ bodyElement = do
       let keyPressWasShiftEnter ke = (keShift ke == True) && (keKeyCode ke == 13)
       if keyPressWasShiftEnter y then (preventDefault >> return True) else return False
     let evalEvent = ffilter (==True) e'
-    let evaled = tagDyn (_textArea_value code) evalEvent
-    return $ fmap (runPunctualParser . unpack) evaled
+    let evaled = tagPromptlyDyn (_textArea_value code) evalEvent
+    return $ fmap runPunctualParser evaled
 
   punctualReflex mv $ fmapMaybe (either (const Nothing) Just) parsed
   let errors = fmapMaybe (either (Just . show) (Just . const "")) parsed
@@ -85,7 +85,7 @@ punctualReflex mv exprs = mdo
   evals <- performEvent $ fmap (liftIO . evaluationNow) exprs
   -- audio
   let f pW e = liftAudioIO $ updatePunctualW pW (t0,0.5) e
-  newPunctualW <- performEvent $ attachDynWith f currentPunctualW evals
+  newPunctualW <- performEvent $ attachPromptlyDynWith f currentPunctualW evals
   currentPunctualW <- holdDyn initialPunctualW newPunctualW
   -- video
   performEvent $ fmap (liftIO . evaluatePunctualWebGL' (t0,0.5) mv) evals -- *** note: tempo hard-coded here
