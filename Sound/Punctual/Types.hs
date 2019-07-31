@@ -5,6 +5,7 @@ module Sound.Punctual.Types where
 import Data.Time
 import Data.Map.Strict
 import Data.Text (Text)
+import Sound.MusicW.AudioContext (AudioTime)
 
 import Sound.Punctual.Extent
 import Sound.Punctual.Graph
@@ -13,26 +14,26 @@ data Duration = Seconds Double | Cycles Double deriving (Show,Eq)
 
 data DefTime = After Duration | Quant Double Duration deriving (Show,Eq)
 
-calculateT1 :: (UTCTime,Double) -> UTCTime -> DefTime -> UTCTime
-calculateT1 _ evalTime (After (Seconds t)) = addUTCTime (realToFrac t) evalTime
-calculateT1 (_,cps) evalTime (After (Cycles t)) = addUTCTime (realToFrac $ t/cps) evalTime
-calculateT1 (t0,cps) evalTime (Quant n (Seconds t)) = addUTCTime (realToFrac t) nextBoundary
+calculateT1 :: (AudioTime,Double) -> AudioTime -> DefTime -> AudioTime
+calculateT1 _ evalTime (After (Seconds t)) = t + evalTime
+calculateT1 (_,cps) evalTime (After (Cycles t)) = (t/(realToFrac cps)) + evalTime
+calculateT1 (t0,cps) evalTime (Quant n (Seconds t)) = t + nextBoundary
   where
-    sinceBeat0 = diffUTCTime evalTime t0
+    sinceBeat0 = evalTime - t0
     minimumT1inQuants = sinceBeat0 * (realToFrac $ cps/n)
     beat0toBoundary = fromIntegral (floor minimumT1inQuants + 1 :: Integer) * (realToFrac $ n/cps)
-    nextBoundary = addUTCTime beat0toBoundary t0
-calculateT1 (t0,cps) evalTime (Quant n (Cycles t)) = addUTCTime (realToFrac $ t/cps)  nextBoundary
+    nextBoundary = beat0toBoundary + t0
+calculateT1 (t0,cps) evalTime (Quant n (Cycles t)) = (t/(realToFrac cps)) + nextBoundary
   where
-    sinceBeat0 = diffUTCTime evalTime t0
+    sinceBeat0 = evalTime - t0
     minimumT1inQuants = sinceBeat0 * (realToFrac $ cps/n)
     beat0toBoundary = fromIntegral (floor minimumT1inQuants + 1 :: Integer) * (realToFrac $ n/cps)
-    nextBoundary = addUTCTime beat0toBoundary t0
+    nextBoundary = beat0toBoundary + t0
 
 data Transition = DefaultCrossFade | CrossFade Duration | HoldPhase deriving (Show, Eq)
 
 -- note: returned value represents half of total xfade duration
-transitionToXfade :: Double -> Transition -> NominalDiffTime
+transitionToXfade :: Double -> Transition -> AudioTime
 transitionToXfade _ DefaultCrossFade = 0.25
 transitionToXfade _ (CrossFade (Seconds x)) = realToFrac x
 transitionToXfade cps (CrossFade (Cycles x)) = (realToFrac $ x/cps)
@@ -78,14 +79,14 @@ listOfExpressionsToMap xs = fromList $ namedExprs ++ anonymousExprs
     namedExprs = fmap (\e -> (Named $ explicitTargetOfDefinition $ definition e,e)) $ Prelude.filter (definitionIsExplicitlyNamed . definition) xs
     anonymousExprs = zipWith (\e n -> (Anon n,e)) (Prelude.filter ((not . definitionIsExplicitlyNamed) . definition) xs) [0..]
 
-expressionToTimes :: (UTCTime,Double) -> UTCTime -> Expression -> (UTCTime,UTCTime)
+expressionToTimes :: (AudioTime,Double) -> AudioTime -> Expression -> (AudioTime,AudioTime)
 expressionToTimes tempo evalTime x = definitionToTimes tempo evalTime (definition x)
 
-definitionToTimes :: (UTCTime,Double) -> UTCTime -> Definition -> (UTCTime,UTCTime)
+definitionToTimes :: (AudioTime,Double) -> AudioTime -> Definition -> (AudioTime,AudioTime)
 definitionToTimes tempo evalTime x = defTimeAndTransitionToTimes tempo evalTime (defTime x) (transition x)
 
-defTimeAndTransitionToTimes :: (UTCTime,Double) -> UTCTime -> DefTime -> Transition -> (UTCTime,UTCTime)
+defTimeAndTransitionToTimes :: (AudioTime,Double) -> AudioTime -> DefTime -> Transition -> (AudioTime,AudioTime)
 defTimeAndTransitionToTimes tempo@(_,cps) evalTime dt tr = (t1,t2)
   where
     t1 = calculateT1 tempo evalTime dt
-    t2 = addUTCTime (transitionToXfade cps tr) t1
+    t2 = (transitionToXfade cps tr) + t1

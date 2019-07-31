@@ -10,6 +10,7 @@ import Control.Concurrent
 import Data.Time
 import Data.Maybe
 import Data.Map.Strict
+import Sound.MusicW.AudioContext (AudioTime)
 
 import Sound.Punctual.Graph
 import Sound.Punctual.Types
@@ -26,7 +27,7 @@ data PunctualW m = PunctualW {
   punctualChannels :: Int
   }
 
-emptyPunctualW :: AudioIO m => AudioContext -> Node -> Int -> UTCTime -> PunctualW m
+emptyPunctualW :: AudioIO m => AudioContext -> Node -> Int -> AudioTime -> PunctualW m
 emptyPunctualW ac dest nchnls t = PunctualW {
   punctualAudioContext = ac,
   punctualDestination = dest,
@@ -35,13 +36,12 @@ emptyPunctualW ac dest nchnls t = PunctualW {
   punctualChannels = nchnls
   }
 
-updatePunctualW :: AudioIO m => PunctualW m -> (UTCTime,Double) -> Evaluation -> m (PunctualW m)
+updatePunctualW :: AudioIO m => PunctualW m -> (AudioTime,Double) -> Evaluation -> m (PunctualW m)
 updatePunctualW s tempo e@(xs,t) = do
-  let evalTime = addUTCTime 0.2 t
-  -- liftIO $ putStrLn $ "evalTime=" ++ show evalTime
+  let evalTime = t + 0.2
   let dest = punctualDestination s
   let exprs = listOfExpressionsToMap xs -- Map Target' Expression
-  mapM_ (deleteSynth evalTime evalTime (addUTCTime 0.050 evalTime)) $ difference (prevSynthsNodes s) exprs -- delete synths no longer present
+  mapM_ (deleteSynth evalTime evalTime (0.050 + evalTime)) $ difference (prevSynthsNodes s) exprs -- delete synths no longer present
   addedSynthsNodes <- mapM (addNewSynth dest tempo evalTime) $ difference exprs (prevSynthsNodes s) -- add synths newly present
   let continuingSynthsNodes = intersection (prevSynthsNodes s) exprs
   updatedSynthsNodes <- sequence $ intersectionWith (updateSynth dest tempo evalTime) continuingSynthsNodes exprs
@@ -49,25 +49,22 @@ updatePunctualW s tempo e@(xs,t) = do
   let newState = updatePunctualState (punctualState s) e
   return $ s { punctualState = newState, prevSynthsNodes = newSynthsNodes }
 
-addNewSynth :: AudioIO m => W.Node -> (UTCTime,Double) -> UTCTime -> Expression -> m (Synth m, W.Node)
+addNewSynth :: AudioIO m => W.Node -> (AudioTime,Double) -> AudioTime -> Expression -> m (Synth m, W.Node)
 addNewSynth dest tempo evalTime expr = do
   let (xfadeStart,xfadeEnd) = expressionToTimes tempo evalTime expr
-  -- liftIO $ putStrLn $ "addNewSynth evalTime=" ++ show evalTime ++ " xfadeStart=" ++ show xfadeStart ++ " xfadeEnd=" ++ show xfadeEnd
   addSynth dest xfadeStart xfadeStart xfadeEnd expr
 
-updateSynth :: AudioIO m => W.Node -> (UTCTime,Double) -> UTCTime -> (Synth m, W.Node) -> Expression -> m (Synth m, W.Node)
+updateSynth :: AudioIO m => W.Node -> (AudioTime,Double) -> AudioTime -> (Synth m, W.Node) -> Expression -> m (Synth m, W.Node)
 updateSynth dest tempo evalTime prevSynthNode expr = do
   let (xfadeStart,xfadeEnd) = expressionToTimes tempo evalTime expr
-  -- liftIO $ putStrLn $ "updateSynth evalTime=" ++ show evalTime ++ " xfadeStart=" ++ show xfadeStart ++ " xfadeEnd=" ++ show xfadeEnd
   deleteSynth evalTime xfadeStart xfadeEnd prevSynthNode
   addSynth dest xfadeStart xfadeStart xfadeEnd expr
 
-addSynth :: AudioIO m => W.Node -> UTCTime -> UTCTime -> UTCTime -> Expression -> m (Synth m, W.Node)
+addSynth :: AudioIO m => W.Node -> AudioTime -> AudioTime -> AudioTime -> Expression -> m (Synth m, W.Node)
 addSynth dest startTime xfadeStart xfadeEnd expr = do
-  let startTime' = W.utcTimeToDouble startTime
-  let xfadeStart' = realToFrac $ diffUTCTime xfadeStart startTime
-  let xfadeEnd' = realToFrac $ diffUTCTime xfadeEnd startTime
-  (newNodeRef,newSynth) <- W.playSynth dest startTime' $ do
+  let xfadeStart' = xfadeStart - startTime
+  let xfadeEnd' = xfadeEnd - startTime
+  (newNodeRef,newSynth) <- W.playSynth dest startTime $ do
     gainNode <- expressionToSynthDef expr
     W.setParam W.Gain 0.0 0.0 gainNode
     W.setParam W.Gain 0.0 xfadeStart' gainNode
@@ -77,14 +74,12 @@ addSynth dest startTime xfadeStart xfadeEnd expr = do
   newNode <- W.nodeRefToNode newNodeRef newSynth
   return (newSynth,newNode)
 
-deleteSynth :: MonadIO m => UTCTime -> UTCTime -> UTCTime -> (Synth m, W.Node) -> m ()
+deleteSynth :: MonadIO m => AudioTime -> AudioTime -> AudioTime -> (Synth m, W.Node) -> m ()
 deleteSynth evalTime xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
-  let xfadeStart' = W.utcTimeToDouble xfadeStart
-  let xfadeEnd' = W.utcTimeToDouble xfadeEnd
-  W.setValueAtTime prevGainNode W.Gain 1.0 xfadeStart'
-  W.linearRampToValueAtTime prevGainNode W.Gain 0.0 xfadeEnd'
-  W.stopSynth xfadeEnd' prevSynth
-  let microseconds = ceiling $ (diffUTCTime xfadeEnd evalTime + 0.3) * 1000000
+  W.setValueAtTime prevGainNode W.Gain 1.0 xfadeStart
+  W.linearRampToValueAtTime prevGainNode W.Gain 0.0 xfadeEnd
+  W.stopSynth xfadeEnd prevSynth
+  let microseconds = ceiling $ (xfadeEnd - evalTime + 0.3) * 1000000
   --  ^ = kill synth 100ms after fade out, assuming evalTime is 200ms in future
   liftIO $ forkIO $ do
     threadDelay microseconds

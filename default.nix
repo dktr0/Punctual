@@ -24,11 +24,14 @@ with pkgs.haskell.lib;
   overrides = self: super: {
     #       lens = self.callHackage "lens" "4.15.4" {}; # saving this example in case we need it later
 
+    base-compat-batteries = dontCheck super.base-compat-batteries;
+    text-show = dontCheck super.text-show;
+
     musicw = dontHaddock (self.callCabal2nix "musicw" (pkgs.fetchFromGitHub {
       owner = "dktr0";
       repo = "musicw";
-      rev = "a318186cb1b4ff8157fec21244940385d1f32edf";
-      sha256 = "0n9shl9blygyfvqwrkcwjh44jvzcv0hdrlrb8gr20v7sjhwix083";
+      rev = "a50915a2732c573e51f9c53d2941612a58161202";
+      sha256 = "135kn6scgbhfzrhbr33m5lbgii6fm0s8s7ikxi8s57x2nb81wskb";
       }) {});
 
     reflex-dom-contrib = dontHaddock (self.callCabal2nix "reflex-dom-contrib" (pkgs.fetchFromGitHub {

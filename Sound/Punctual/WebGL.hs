@@ -19,6 +19,7 @@ import Data.Maybe
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
+import Sound.MusicW.AudioContext (AudioTime)
 
 import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
@@ -207,10 +208,9 @@ foreign import javascript unsafe
   "$1.bufferData($1.ARRAY_BUFFER,new Float32Array([-1,1,-1,-1,1,1,1,-1]),$1.STATIC_DRAW);"
   bufferDataArrayStatic :: WebGLRenderingContext -> IO ()
 
-evaluatePunctualWebGL :: PunctualWebGL -> (UTCTime,Double) -> Evaluation -> IO PunctualWebGL
+evaluatePunctualWebGL :: PunctualWebGL -> (AudioTime,Double) -> Evaluation -> IO PunctualWebGL
 evaluatePunctualWebGL st tempo e = do
   let shaderSrc = fragmentShader (prevExpressions st) tempo e
-  -- putStrLn $ "new shader source: " ++ show shaderSrc
   st' <- updateFragmentShader st shaderSrc
   return $ st' { prevExpressions = fst e }
 
@@ -218,7 +218,7 @@ foreign import javascript unsafe
   "$1.bindBuffer($1.ARRAY_BUFFER,$2);"
   bindBufferArray :: WebGLRenderingContext -> WebGLBuffer -> IO ()
 
-drawFrame :: Double -> PunctualWebGL -> IO ()
+drawFrame :: AudioTime -> PunctualWebGL -> IO ()
 drawFrame t st | isNothing (context st) = return ()
 drawFrame t st | otherwise = do
   let ctx = fromJust (context st)
@@ -227,7 +227,7 @@ drawFrame t st | otherwise = do
   defaultBlendFunc glCtx
 --  clearColor glCtx 0.0 0.0 0.0 1.0 -- probably should comment this out
 --  clearColorBuffer glCtx -- probably should comment this out
-  uniform1f glCtx (tLocation ctx) t
+  uniform1f glCtx (tLocation ctx) (realToFrac t)
   uniform2f glCtx (resLocation ctx) 1920 1080
   drawArraysTriangleStrip glCtx 0 4
 

@@ -8,11 +8,11 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Semigroup ((<>))
 import TextShow
+import Sound.MusicW.AudioContext (AudioTime)
 
 import Sound.Punctual.Graph
 import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
-import Sound.MusicW.AudioContext (utcTimeToDouble)
 
 graphToFloat :: Graph -> Text
 graphToFloat = graphToFloat' . mixGraphs . expandMultis
@@ -106,7 +106,7 @@ targetToVariableName (Anon i) = "_anon_" <> (showt i);
 isVec3 :: Expression -> Bool
 isVec3 x = output x == NamedOutput "rgb"
 
-continuingTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> (Target',Expression) -> Text
+continuingTarget :: (AudioTime,Double) -> AudioTime -> (Target',Expression) -> (Target',Expression) -> Text
 continuingTarget tempo evalTime (newTarget,newExpr) (target',oldExpr) = oldVariable <> newVariable <> oldAndNew
   where
     (t1,t2) = expressionToTimes tempo evalTime newExpr
@@ -118,15 +118,15 @@ continuingTarget tempo evalTime (newTarget,newExpr) (target',oldExpr) = oldVaria
     oldAndNew | isVec3 newExpr = "vec3 " <> n <> "=_old" <> n <> "+_new" <> n <> ";\n"
               | otherwise = "float " <> n <> "=_old" <> n <> "+_new" <> n <> ";\n"
 
-discontinuedTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> Text
+discontinuedTarget :: (AudioTime,Double) -> AudioTime -> (Target',Expression) -> Text
 discontinuedTarget tempo evalTime (target',oldExpr) = oldVariable
   where
-    (t1,t2) = (evalTime,addUTCTime 0.5 evalTime) -- 0.5 sec
+    (t1,t2) = (evalTime,0.5 + evalTime) -- 0.5 sec
     n = targetToVariableName target'
     oldVariable | isVec3 oldExpr = "vec3 " <> n <> "=" <> expressionToVec3 oldExpr <> "*" <> xFadeOld t1 t2 <> ";\n"
                 | otherwise = "float " <> n <> "=" <> expressionToFloat oldExpr <> "*" <> xFadeOld t1 t2 <> ";\n"
 
-addedTarget :: (UTCTime,Double) -> UTCTime -> (Target',Expression) -> Text
+addedTarget :: (AudioTime,Double) -> AudioTime -> (Target',Expression) -> Text
 addedTarget tempo evalTime (target',newExpr) = newVariable
   where
     (t1,t2) = expressionToTimes tempo evalTime newExpr
@@ -134,16 +134,16 @@ addedTarget tempo evalTime (target',newExpr) = newVariable
     newVariable | isVec3 newExpr = "vec3 " <> n <> "=" <> expressionToVec3 newExpr <> "*" <> xFadeNew t1 t2 <> ";\n"
                 | otherwise = "float " <> n <> "=" <> expressionToFloat newExpr <> "*" <> xFadeNew t1 t2 <> ";\n"
 
-xFadeOld :: UTCTime -> UTCTime -> Text
-xFadeOld t1 t2 = "xFadeOld(" <> showt (utcTimeToDouble t1) <> "," <> showt (utcTimeToDouble t2) <> ")"
+xFadeOld :: AudioTime -> AudioTime -> Text
+xFadeOld t1 t2 = "xFadeOld(" <> showt t1 <> "," <> showt t2 <> ")"
 
-xFadeNew :: UTCTime -> UTCTime -> Text
-xFadeNew t1 t2 = "xFadeNew(" <> showt (utcTimeToDouble t1) <> "," <> showt (utcTimeToDouble t2) <> ")"
+xFadeNew :: AudioTime -> AudioTime -> Text
+xFadeNew t1 t2 = "xFadeNew(" <> showt t1 <> "," <> showt t2 <> ")"
 
-fragmentShader :: [Expression] -> (UTCTime,Double) -> Evaluation -> Text
+fragmentShader :: [Expression] -> (AudioTime,Double) -> Evaluation -> Text
 fragmentShader xs0 tempo e@(xs1,t) = header <> "void main() {\n" <> allTargets <> allOutputs <> glFragColor <> "}"
   where
-    evalTime = addUTCTime 0.2 t
+    evalTime = 0.2 + t
     -- generate maps of previous, current and all relevant expressions :: Map Target' (Target',Expression)
     oldExprs = mapWithKey (\k a -> (k,a)) $ listOfExpressionsToMap xs0
     newExprs = mapWithKey (\k a -> (k,a)) $ listOfExpressionsToMap xs1
