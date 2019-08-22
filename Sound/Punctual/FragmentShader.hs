@@ -10,7 +10,7 @@ import Data.Semigroup ((<>))
 import TextShow
 import Sound.MusicW.AudioContext (AudioTime)
 
-import Sound.Punctual.Graph
+import Sound.Punctual.Graph hiding (difference)
 import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
 
@@ -66,6 +66,7 @@ graphToFloat' (CpsMidi x) = "cpsmidi(" <> graphToFloat' x <> ")"
 graphToFloat' (DbAmp x) = "dbamp(" <> graphToFloat' x <> ")"
 graphToFloat' (AmpDb x) = "ampdb(" <> graphToFloat' x <> ")"
 graphToFloat' (Abs x) = "abs(" <> graphToFloat' x <> ")"
+graphToFloat' (Sqrt x) = "sqrt(" <> graphToFloat' x <> ")"
 
 unaryShaderFunction :: Text -> Text -> Text
 unaryShaderFunction f x = f <> "(" <> x <> ")"

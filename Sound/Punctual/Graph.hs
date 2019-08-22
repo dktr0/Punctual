@@ -33,8 +33,23 @@ data Graph =
   CpsMidi Graph |
   DbAmp Graph |
   AmpDb Graph |
-  Abs Graph
+  Abs Graph |
+  Sqrt Graph
   deriving (Show,Eq)
+
+instance Num Graph where
+  x + y = Sum x y
+  x * y = Product x y
+  negate x = Product x (Constant (-1))
+  abs x = Abs x
+  signum x = (GreaterThan x 0) + (LessThan x 0 * (-1))
+  fromInteger x = Constant $ fromInteger x
+
+instance Fractional Graph where
+  x / y = Division x y
+  fromRational x = Constant $ fromRational x
+
+-- Multi-channel expansion:
 
 expandMultis :: Graph -> [Graph]
 expandMultis (Multi []) = [EmptyGraph]
@@ -61,6 +76,7 @@ expandMultis (CpsMidi x) = fmap CpsMidi (expandMultis x)
 expandMultis (DbAmp x) = fmap DbAmp (expandMultis x)
 expandMultis (AmpDb x) = fmap AmpDb (expandMultis x)
 expandMultis (Abs x) = fmap Abs (expandMultis x)
+expandMultis (Sqrt x) = fmap Sqrt (expandMultis x)
 expandMultis x = [x] -- everything else should, by definition, be a one-channel signal
 
 mixIfMulti :: Graph -> Graph
@@ -93,3 +109,66 @@ expandWith3 f x y z = zipWith3 f x'' y'' z''
     x'' = take n (cycle x')
     y'' = take n (cycle y')
     z'' = take n (cycle z')
+
+
+-- Miscellaneous functions over Graphs:
+
+bipolar :: Graph -> Graph
+bipolar x = x * 2 - 1
+
+unipolar :: Graph -> Graph
+unipolar x = x * 0.5 + 0.5
+
+mean :: Graph -> Graph -> Graph
+mean x y = (x + y) * 0.5
+
+linlin :: Graph -> Graph -> Graph -> Graph -> Graph -> Graph
+linlin min1 max1 min2 max2 x = min2 + (outputRange * proportion)
+  where
+    inputRange = max1 - min1
+    outputRange = max2 - min2
+    proportion = Division (x - min1) inputRange
+
+modulatedRangeGraph :: Graph -> Graph -> Graph -> Graph
+modulatedRangeGraph low high m = (mean low high) + ((high - low) * 0.5 * m)
+
+rect :: Graph -> Graph -> Graph -> Graph -> Graph
+rect x y w h = Product inHrange inVrange
+  where
+    x0 = Sum x (Product w (Constant (-0.5)))
+    x1 = Sum x (Product w (Constant (0.5)))
+    y0 = Sum y (Product h (Constant (-0.5)))
+    y1 = Sum y (Product h (Constant (0.5)))
+    inHrange = Product (GreaterThanOrEqual Fx x0) (LessThanOrEqual Fx x1)
+    inVrange = Product (GreaterThanOrEqual Fy y0) (LessThanOrEqual Fy y1)
+
+point :: Graph -> Graph -> Graph
+point x y = Product inHrange inVrange
+  where
+    x0 = Sum x (Product Px (Constant (-0.5)))
+    x1 = Sum x (Product Px (Constant (0.5)))
+    y0 = Sum y (Product Py (Constant (-0.5)))
+    y1 = Sum y (Product Py (Constant (0.5)))
+    inHrange = Product (GreaterThanOrEqual Fx x0) (LessThanOrEqual Fx x1)
+    inVrange = Product (GreaterThanOrEqual Fy y0) (LessThanOrEqual Fy y1)
+
+hline :: Graph -> Graph
+hline y = Product (GreaterThanOrEqual Fy y0) (LessThanOrEqual Fy y1)
+  where
+    y0 = Sum y (Product Py (Constant (-0.5)))
+    y1 = Sum y (Product Py (Constant (0.5)))
+
+vline :: Graph -> Graph
+vline x = Product (GreaterThanOrEqual Fx x0) (LessThanOrEqual Fx x1)
+  where
+    x0 = Sum x (Product Px (Constant (-0.5)))
+    x1 = Sum x (Product Px (Constant (0.5)))
+
+squared :: Graph -> Graph
+squared x = Product x x
+
+distance :: Graph -> Graph -> Graph -> Graph -> Graph
+distance x1 y1 x2 y2 = Sqrt (squared (x2-x1) + squared (y2-y1))
+
+circle :: Graph -> Graph -> Graph -> Graph
+circle x y r = LessThanOrEqual (distance x y Fx Fy) r

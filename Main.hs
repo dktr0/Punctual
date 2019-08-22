@@ -51,6 +51,7 @@ main = do
 
 bodyElement :: MonadWidget t m => m ()
 bodyElement = do
+  liftIO $ putStrLn "Punctual standalone"
 
   let attrs = fromList [("class","canvas"),("style",T.pack $ "z-index: -1;"), ("width","1920"), ("height","1080")]
   canvas <- liftM (uncheckedCastTo HTMLCanvasElement .  _element_raw . fst) $ elAttr' "canvas" attrs $ return ()
@@ -72,6 +73,8 @@ bodyElement = do
     return $ fmap runPunctualParser evaled
 
   punctualReflex mv $ fmapMaybe (either (const Nothing) Just) parsed
+  let errorsForConsole = fmapMaybe (either (Just . show) (const Nothing)) parsed
+  performEvent_ $ fmap (liftIO . putStrLn) errorsForConsole
   let errors = fmapMaybe (either (Just . show) (Just . const "")) parsed
   status <- holdDyn "" $ fmap (pack . show) errors
   dynText status

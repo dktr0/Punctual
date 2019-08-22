@@ -12,7 +12,7 @@ import Data.Maybe
 import Data.Map.Strict
 import Sound.MusicW.AudioContext (AudioTime)
 
-import Sound.Punctual.Graph
+import Sound.Punctual.Graph hiding (difference)
 import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
 import Sound.Punctual.PunctualState
@@ -238,3 +238,5 @@ graphToSynthDef (DbAmp x) = graphToSynthDef x >>= W.dbAmpWorklet
 graphToSynthDef (AmpDb x) = graphToSynthDef x >>= W.ampDbWorklet
 
 graphToSynthDef (Abs x) = graphToSynthDef x >>= W.absWorklet
+
+graphToSynthDef (Sqrt x) = graphToSynthDef x >>= W.sqrtWorklet
