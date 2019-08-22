@@ -133,6 +133,7 @@ simpleGraph = choice [
     reserved "fy" >> return Fy,
     reserved "px" >> return Px,
     reserved "py" >> return Py,
+    (reserved "mix" >> return Mix) <*> graphArgument,
     (reserved "abs" >> return Abs) <*> graphArgument,
     (reserved "cpsmidi" >> return CpsMidi) <*> graphArgument,
     (reserved "midicps" >> return MidiCps) <*> graphArgument,

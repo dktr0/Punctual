@@ -6,6 +6,7 @@ data Graph =
   EmptyGraph |
   Constant Double |
   Multi [Graph] |
+  Mix Graph |
   Noise |
   Pink |
   Fx |
@@ -38,6 +39,7 @@ data Graph =
 expandMultis :: Graph -> [Graph]
 expandMultis (Multi []) = [EmptyGraph]
 expandMultis (Multi xs) = fmap mixIfMulti xs
+expandMultis (Mix x) = [mixGraphs $ expandMultis x]
 expandMultis (Sine x) = fmap Sine (expandMultis x)
 expandMultis (Tri x) = fmap Tri (expandMultis x)
 expandMultis (Saw x) = fmap Saw (expandMultis x)

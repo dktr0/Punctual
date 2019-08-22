@@ -35,7 +35,8 @@ cycleVec3 (r:g:[]) = [(r,g,r)]
 cycleVec3 (r:[]) = [(r,r,r)]
 
 graphToFloat' :: Graph -> Text
-graphToFloat' (Multi _) = error "internal error: graphToFloat' should only be used after multi-channel expansion"
+graphToFloat' (Multi _) = error "internal error: graphToFloat' should only be used after multi-channel expansion (can't handle Multi)"
+graphToFloat' (Mix _) = error "internal error: graphToFloat' should only be used after multi-channel expansion (can't handle Mix)"
 graphToFloat' EmptyGraph = "0."
 graphToFloat' (Constant x) = showt x
 graphToFloat' Noise = "0." -- placeholder
