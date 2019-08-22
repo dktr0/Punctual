@@ -80,7 +80,7 @@ punctualReflex :: MonadWidget t m => MVar PunctualWebGL -> Event t [Expression] 
 punctualReflex mv exprs = mdo
   ac <- liftAudioIO $ audioContext
   dest <- liftAudioIO $ createDestination
-  t0 <- liftAudioIO $ audioUTCTime
+  t0 <- liftAudioIO $ audioTime
   let initialPunctualW = emptyPunctualW ac dest 2 t0 -- hard coded stereo for now
   evals <- performEvent $ fmap (liftIO . evaluationNow) exprs
   -- audio
@@ -91,7 +91,7 @@ punctualReflex mv exprs = mdo
   performEvent $ fmap (liftIO . evaluatePunctualWebGL' (t0,0.5) mv) evals -- *** note: tempo hard-coded here
   return ()
 
-evaluatePunctualWebGL' :: (UTCTime,Double) -> MVar PunctualWebGL -> Evaluation -> IO ()
+evaluatePunctualWebGL' :: (AudioTime,Double) -> MVar PunctualWebGL -> Evaluation -> IO ()
 evaluatePunctualWebGL' t mv e = do
   x <- takeMVar mv
   y <- evaluatePunctualWebGL x t e
@@ -99,7 +99,7 @@ evaluatePunctualWebGL' t mv e = do
 
 evaluationNow :: [Expression] -> IO Evaluation
 evaluationNow exprs = do
-  t <- liftAudioIO $ audioUTCTime
+  t <- liftAudioIO $ audioTime
   return (exprs,t)
 
 requestAnimationFrame :: MVar PunctualWebGL -> IO ()

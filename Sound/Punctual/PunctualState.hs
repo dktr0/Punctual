@@ -1,6 +1,6 @@
 module Sound.Punctual.PunctualState where
 
-import Data.Time
+import Sound.MusicW.AudioContext (AudioTime)
 
 import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
@@ -9,10 +9,10 @@ import Sound.Punctual.Phasor
 
 data PunctualState = PunctualState {
   expressions :: [Expression],
-  startTime :: UTCTime
+  startTime :: AudioTime
   }
 
-emptyPunctualState :: UTCTime -> PunctualState
+emptyPunctualState :: AudioTime -> PunctualState
 emptyPunctualState t = PunctualState {
   expressions = [],
   startTime = t
@@ -23,4 +23,3 @@ updatePunctualState s e = s {
   expressions = fst e,
   startTime = snd e
   }
-
