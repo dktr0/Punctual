@@ -64,6 +64,8 @@ squared [graph] -- returns graph * graph (the graph, squared)
 
 sqrt [graph] -- returns the square root of the graph
 
+mono [graph] -- takes multi-channel graphs down to a single channel by summing/mixing
+
 ## Punctual Graph Functions Specialised for Graphics
 
 These functions are specialized for graphics. However, they are still valid in
