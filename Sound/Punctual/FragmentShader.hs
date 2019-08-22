@@ -15,7 +15,7 @@ import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
 
 graphToFloat :: Graph -> Text
-graphToFloat = graphToFloat' . mixGraphs . expandMultis
+graphToFloat = graphToFloat' . graphsToMono . expandMultis
 
 graphToVec3 :: Graph -> Text
 graphToVec3 x = "vec3(" <> r <> "," <> g <> "," <> b <> ")"
@@ -36,7 +36,7 @@ cycleVec3 (r:[]) = [(r,r,r)]
 
 graphToFloat' :: Graph -> Text
 graphToFloat' (Multi _) = error "internal error: graphToFloat' should only be used after multi-channel expansion (can't handle Multi)"
-graphToFloat' (Mix _) = error "internal error: graphToFloat' should only be used after multi-channel expansion (can't handle Mix)"
+graphToFloat' (Mono _) = error "internal error: graphToFloat' should only be used after multi-channel expansion (can't handle Mono)"
 graphToFloat' EmptyGraph = "0."
 graphToFloat' (Constant x) = showt x
 graphToFloat' Noise = "0." -- placeholder

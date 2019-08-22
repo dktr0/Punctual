@@ -6,7 +6,7 @@ data Graph =
   EmptyGraph |
   Constant Double |
   Multi [Graph] |
-  Mix Graph |
+  Mono Graph |
   Noise |
   Pink |
   Fx |
@@ -54,7 +54,7 @@ instance Fractional Graph where
 expandMultis :: Graph -> [Graph]
 expandMultis (Multi []) = [EmptyGraph]
 expandMultis (Multi xs) = fmap mixIfMulti xs
-expandMultis (Mix x) = [mixGraphs $ expandMultis x]
+expandMultis (Mono x) = [graphsToMono $ expandMultis x]
 expandMultis (Sine x) = fmap Sine (expandMultis x)
 expandMultis (Tri x) = fmap Tri (expandMultis x)
 expandMultis (Saw x) = fmap Saw (expandMultis x)
@@ -80,11 +80,11 @@ expandMultis (Sqrt x) = fmap Sqrt (expandMultis x)
 expandMultis x = [x] -- everything else should, by definition, be a one-channel signal
 
 mixIfMulti :: Graph -> Graph
-mixIfMulti (Multi xs) = mixGraphs xs
+mixIfMulti (Multi xs) = graphsToMono xs
 mixIfMulti x = x
 
-mixGraphs :: [Graph] -> Graph
-mixGraphs xs = foldl Sum EmptyGraph xs
+graphsToMono :: [Graph] -> Graph
+graphsToMono xs = foldl Sum EmptyGraph xs
 
 -- Like zipWith... input graphs are multi-channel expanded, then cycled to the
 -- length of whichever one of them is longest, then pairwise combined with the
@@ -167,8 +167,8 @@ vline x = Product (GreaterThanOrEqual Fx x0) (LessThanOrEqual Fx x1)
 squared :: Graph -> Graph
 squared x = Product x x
 
-distance :: Graph -> Graph -> Graph -> Graph -> Graph
-distance x1 y1 x2 y2 = Sqrt (squared (x2-x1) + squared (y2-y1))
+distance :: Graph -> Graph -> Graph
+distance x y = Sqrt (squared (Fx-x) + squared (Fy-y))
 
 circle :: Graph -> Graph -> Graph -> Graph
-circle x y r = LessThanOrEqual (distance x y Fx Fy) r
+circle x y r = LessThanOrEqual (distance x y) r

@@ -58,6 +58,12 @@ bipolar [graph] -- input is rescaled as if input range was unipolar (0,1) and ou
 
 [centre] +- [percent]% : [input] -- bipolar (-1,1) input rescaled to range centre +- percent
 
+mean [graph] [graph] -- returns the mean/average of its two inputs
+
+squared [graph] -- returns graph * graph (the graph, squared)
+
+sqrt [graph] -- returns the square root of the graph
+
 ## Punctual Graph Functions Specialised for Graphics
 
 These functions are specialized for graphics. However, they are still valid in
@@ -70,6 +76,10 @@ fy -- the position of the current fragment along the y-axis from bottom (-1) to 
 px -- a nominal value for the width of a pixel
 
 py -- a nominal value for the height of a pixel
+
+distance [x] [y] -- the distance from specified position to current fragment
+
+circle [x] [y] [r] -- returns 1 when current fragment within a circle at x and y with radius r
 
 point [x] [y] -- returns 1 when current fragment is within a pixel of x and y, 0 otherwise
 

@@ -104,12 +104,12 @@ definitionToMonoSynthDef:: AudioIO m => Definition -> SynthDef m NodeRef
 definitionToMonoSynthDef (Definition _ _ _ g) = graphToMonoSynthDef g
 
 graphToMonoSynthDef :: AudioIO m => Graph -> SynthDef m NodeRef
-graphToMonoSynthDef = graphToSynthDef . mixGraphs . expandMultis
+graphToMonoSynthDef = graphToSynthDef . graphsToMono . expandMultis
 
 
 graphToSynthDef :: AudioIO m => Graph -> SynthDef m NodeRef
 graphToSynthDef (Multi _) = error "internal error: graphToSynthDef should only be used post multi-channel expansion (can't handle Multi)"
-graphToSynthDef (Mix _) = error "internal error: graphToSynthDef should only be used post multi-channel expansion (can't handle Mix)"
+graphToSynthDef (Mono _) = error "internal error: graphToSynthDef should only be used post multi-channel expansion (can't handle Mono)"
 
 graphToSynthDef EmptyGraph = W.constantSource 0
 
