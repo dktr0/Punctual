@@ -3,12 +3,9 @@ module Sound.Punctual.Graph where
 import Data.Text (Text)
 
 data Graph =
-  EmptyGraph |
   Constant Double |
   Multi [Graph] |
   Mono Graph |
-  Noise |
-  Pink |
   Fx |
   Fy |
   Px |
@@ -52,7 +49,7 @@ instance Fractional Graph where
 -- Multi-channel expansion:
 
 expandMultis :: Graph -> [Graph]
-expandMultis (Multi []) = [EmptyGraph]
+expandMultis (Multi []) = [] -- ? will this cause problems ?
 expandMultis (Multi xs) = fmap mixIfMulti xs
 expandMultis (Mono x) = [graphsToMono $ expandMultis x]
 expandMultis (Sine x) = fmap Sine (expandMultis x)
@@ -84,7 +81,7 @@ mixIfMulti (Multi xs) = graphsToMono xs
 mixIfMulti x = x
 
 graphsToMono :: [Graph] -> Graph
-graphsToMono xs = foldl Sum EmptyGraph xs
+graphsToMono xs = foldl Sum (Constant 0) xs -- ** TODO: eliminate unnecessary extra node here
 
 -- Like zipWith... input graphs are multi-channel expanded, then cycled to the
 -- length of whichever one of them is longest, then pairwise combined with the
@@ -127,7 +124,7 @@ linlin min1 max1 min2 max2 x = min2 + (outputRange * proportion)
   where
     inputRange = max1 - min1
     outputRange = max2 - min2
-    proportion = Division (x - min1) inputRange
+    proportion = (x - min1) / inputRange
 
 modulatedRangeGraph :: Graph -> Graph -> Graph -> Graph
 modulatedRangeGraph low high m = (mean low high) + ((high - low) * 0.5 * m)

@@ -2,13 +2,12 @@ module Sound.Punctual.PunctualState where
 
 import Sound.MusicW.AudioContext (AudioTime)
 
-import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
 import Sound.Punctual.Graph
 import Sound.Punctual.Phasor
 
-data PunctualState = PunctualState {
-  expressions :: [Expression],
+data ProgramState = ProgramState {
+   :: [Expression],
   startTime :: AudioTime
   }
 

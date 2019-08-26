@@ -1,16 +1,44 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Sound.Punctual.Parser (runPunctualParser) where
+module Sound.Punctual.Parser (runParser) where
 
 import Data.Text (Text)
 import qualified Data.Text as T
-import Text.Parsec
+import Text.Parsec hiding (runParser)
 import Text.Parsec.Text
+import Data.IntMap.Strict
 
 import Sound.Punctual.Token
 import Sound.Punctual.Extent
+import Sound.Punctual.Duration
+import Sound.Punctual.DefTime
+import Sound.Punctual.Transition
 import Sound.Punctual.Graph
-import Sound.Punctual.Types
+import Sound.Punctual.Target
+import Sound.Punctual.Definition
+import Sound.Punctual.Program
+
+
+extent :: Parser Extent
+extent = choice $ fmap try [extentDb,extentPercent,extentMidi,double]
+
+extentDb :: Parser Extent
+extentDb = do
+  x <- double
+  reserved "db"
+  return $ dbamp x
+
+extentPercent :: Parser Extent
+extentPercent = do
+  x <- double
+  reservedOp "%"
+  return $ x / 100
+
+extentMidi :: Parser Extent
+extentMidi = do
+  x <- double
+  reserved "m"
+  return $ midicps x
 
 duration :: Parser Duration
 duration = choice $ fmap try [seconds,milliseconds,cycles]
@@ -64,39 +92,42 @@ transitionParser = choice [
 
 definitionParser :: Parser Definition
 definitionParser = do
-  a <- option Anonymous $ (Explicit . T.pack <$> identifier)
-  b <- option (Quant 1 (Seconds 0)) defTimeParser
-  c <- option DefaultCrossFade  transitionParser
-  d <- graphParser
+  a <- option (Quant 1 (Seconds 0)) defTimeParser
+  b <- option DefaultCrossFade  transitionParser
+  c <- graphParser
+  d <- targetsParser
   return $ Definition a b c d
 
-outputParser :: Parser Output
-outputParser = choice [
-  try $ reservedOp "=>" >> (PannedOutput <$> extent),
-  try $ reservedOp "=>" >> reserved "left" >> return (PannedOutput 0),
-  try $ reservedOp "=>" >> reserved "right" >> return (PannedOutput 1),
-  try $ reservedOp "=>" >> reserved "centre" >> return (PannedOutput 0.5),
-  try $ reservedOp "=>" >> reserved "splay" >> return (NamedOutput "splay"),
-  try $ reservedOp "=>" >> reserved "red" >> return (NamedOutput "red"),
-  try $ reservedOp "=>" >> reserved "green" >> return (NamedOutput "green"),
-  try $ reservedOp "=>" >> reserved "blue" >> return (NamedOutput "blue"),
-  try $ reservedOp "=>" >> reserved "alpha" >> return (NamedOutput "alpha"),
-  try $ reservedOp "=>" >> reserved "rgb" >> return (NamedOutput "rgb"),
-  return NoOutput
+targetsParser :: Parser [Target]
+targetsParser = choice [
+  reservedOp "=>" >> targetParser `sepBy` reservedOp "," ,
+  return []
   ]
 
-expression :: Parser Expression
-expression = Expression <$> definitionParser <*> outputParser
+targetParser :: Parser Target
+targetParser = choice [
+  Panned <$> extent,
+  reserved "left" >> return (Panned 0),
+  reserved "right" >> return (Panned 1),
+  reserved "centre" >> return (Panned 0.5),
+  reserved "splay" >> return Splay,
+  reserved "red" >> return Red,
+  reserved "green" >> return Green,
+  reserved "blue" >> return Blue,
+  reserved "alpha" >> return Alpha,
+  reserved "rgb" >> return RGB,
+  identifier >>= return . NamedTarget . T.pack
+  ]
 
-punctualParser :: Parser [Expression]
-punctualParser = do
+programParser :: Parser Program
+programParser = do
   whiteSpace
-  x <- expression `sepBy` reservedOp ";"
+  x <- definitionParser `sepBy` reservedOp ";"
   eof
-  return x
+  return $ fromList $ zip [0..] x
 
-runPunctualParser :: Text -> Either ParseError [Expression]
-runPunctualParser = parse punctualParser ""
+runParser :: Text -> Either ParseError Program
+runParser = parse programParser ""
 
 graphParser :: Parser Graph
 graphParser = sumOfGraphs <|> return EmptyGraph
@@ -140,8 +171,6 @@ graphArgument = choice [
 
 functionsWithoutArguments :: Parser Graph
 functionsWithoutArguments = choice [
-  reserved "noise" >> return Noise,
-  reserved "pink" >> return Pink,
   reserved "fx" >> return Fx,
   reserved "fy" >> return Fy,
   reserved "px" >> return Px,
@@ -150,8 +179,7 @@ functionsWithoutArguments = choice [
 
 functionsWithArguments :: Parser Graph
 functionsWithArguments = choice [
-  (reserved "bipolar" >> return bipolar) <*> graphArgument,
-  (reserved "unipolar" >> return unipolar) <*> graphArgument,
+  -- Graph constructors
   Sine <$> (reserved "sin" >> graphArgument),
   Tri <$> (reserved "tri" >> graphArgument),
   Saw <$> (reserved "saw" >> graphArgument),
@@ -164,9 +192,12 @@ functionsWithArguments = choice [
   (reserved "midicps" >> return MidiCps) <*> graphArgument,
   (reserved "dbamp" >> return DbAmp) <*> graphArgument,
   (reserved "ampdb" >> return AmpDb) <*> graphArgument,
+  (reserved "sqrt" >> return Sqrt) <*> graphArgument,
+  -- "synthetic" functions (ie. those that are not graph constructors)
+  (reserved "bipolar" >> return bipolar) <*> graphArgument,
+  (reserved "unipolar" >> return unipolar) <*> graphArgument,
   (reserved "mean" >> return mean) <*> graphArgument <*> graphArgument,
   (reserved "squared" >> return squared) <*> graphArgument,
-  (reserved "sqrt" >> return Sqrt) <*> graphArgument,
   (reserved "distance" >> return distance) <*> graphArgument <*> graphArgument,
   (reserved "circle" >> return circle) <*> graphArgument <*> graphArgument <*> graphArgument,
   (reserved "point" >> return point) <*> graphArgument <*> graphArgument,

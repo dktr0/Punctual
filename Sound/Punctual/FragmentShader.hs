@@ -37,18 +37,15 @@ cycleVec3 (r:[]) = [(r,r,r)]
 graphToFloat' :: Graph -> Text
 graphToFloat' (Multi _) = error "internal error: graphToFloat' should only be used after multi-channel expansion (can't handle Multi)"
 graphToFloat' (Mono _) = error "internal error: graphToFloat' should only be used after multi-channel expansion (can't handle Mono)"
-graphToFloat' EmptyGraph = "0."
 graphToFloat' (Constant x) = showt x
-graphToFloat' Noise = "0." -- placeholder
-graphToFloat' Pink = "0." -- placeholder
 graphToFloat' Fx = "fx()"
 graphToFloat' Fy = "fy()"
 graphToFloat' Px = "10./1920."
 graphToFloat' Py = "10./1080."
-graphToFloat' (Sine x) = unaryShaderFunction "sin_" (graphToFloat' x)
-graphToFloat' (Tri x) = unaryShaderFunction "tri" (graphToFloat' x)
-graphToFloat' (Saw x) = unaryShaderFunction "saw" (graphToFloat' x)
-graphToFloat' (Square x) = unaryShaderFunction "sqr" (graphToFloat' x)
+graphToFloat' (Sine x) = unaryShaderFunction "sin_" x
+graphToFloat' (Tri x) = unaryShaderFunction "tri" x
+graphToFloat' (Saw x) = unaryShaderFunction "saw" x
+graphToFloat' (Square x) = unaryShaderFunction "sqr" x
 graphToFloat' (LPF i f q) = graphToFloat' i -- placeholder, doesn't filter yet
 graphToFloat' (HPF i f q) = graphToFloat' i -- placeholder, doesn't filter yet
 graphToFloat' (FromTarget x) = "0." -- placeholder
@@ -61,21 +58,21 @@ graphToFloat' (LessThan x y) = "float(" <> graphToFloat' x <> "<" <> graphToFloa
 graphToFloat' (LessThanOrEqual x y) = "float(" <> graphToFloat' x <> "<=" <> graphToFloat' y <> ")"
 graphToFloat' (Equal x y) = "float(" <> graphToFloat' x <> "==" <> graphToFloat' y <> ")"
 graphToFloat' (NotEqual x y) = "float(" <> graphToFloat' x <> "!=" <> graphToFloat' y <> ")"
-graphToFloat' (MidiCps x) = "midicps(" <> graphToFloat' x <> ")"
-graphToFloat' (CpsMidi x) = "cpsmidi(" <> graphToFloat' x <> ")"
-graphToFloat' (DbAmp x) = "dbamp(" <> graphToFloat' x <> ")"
-graphToFloat' (AmpDb x) = "ampdb(" <> graphToFloat' x <> ")"
-graphToFloat' (Abs x) = "abs(" <> graphToFloat' x <> ")"
-graphToFloat' (Sqrt x) = "sqrt(" <> graphToFloat' x <> ")"
+graphToFloat' (MidiCps x) = unaryShaderFunction "midicps" x
+graphToFloat' (CpsMidi x) = unaryShaderFunction "cpsmidi" x
+graphToFloat' (DbAmp x) = unaryShaderFunction "dbamp" x
+graphToFloat' (AmpDb x) = unaryShaderFunction "ampdb" x
+graphToFloat' (Abs x) = unaryShaderFunction "abs" x
+graphToFloat' (Sqrt x) = unaryShaderFunction "sqrt" x
 
-unaryShaderFunction :: Text -> Text -> Text
-unaryShaderFunction f x = f <> "(" <> x <> ")"
+unaryShaderFunction :: Text -> Graph -> Text
+unaryShaderFunction f x = f <> "(" <> graphToFloat' x <> ")"
 
-expressionToFloat :: Expression -> Text
-expressionToFloat (Expression (Definition _ _ _ g) _) = graphToFloat g
+definitionToFloat :: Definition -> Text
+definitionToFloat = graphToFloat . graph
 
-expressionToVec3 :: Expression -> Text
-expressionToVec3 (Expression (Definition _ _ _ g) _) = graphToVec3 g
+definitionToVec3 :: Definition -> Text
+definitionToVec3 = graphToVec3 . graph
 
 defaultFragmentShader :: Text
 defaultFragmentShader = header <> "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"
