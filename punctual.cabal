@@ -17,12 +17,17 @@ Library
   hs-source-dirs:    .
   Build-Depends:     base, parsec, time, mtl, musicw, containers, ghcjs-base, ghcjs-dom-jsffi, text, text-show
   GHC-Options:       -Wall -fwarn-tabs -fno-warn-unused-do-bind
-  Exposed-modules:   Sound.Punctual.Graph
-                     Sound.Punctual.Extent
-                     Sound.Punctual.Types
-                     Sound.Punctual.Evaluation
+  Exposed-modules:   Sound.Punctual.Extent
+                     Sound.Punctual.AudioTime
+                     Sound.Punctual.Duration
+                     Sound.Punctual.DefTime
+                     Sound.Punctual.Transition
+                     Sound.Punctual.Graph
+                     Sound.Punctual.Target
+                     Sound.Punctual.Definition
+                     Sound.Punctual.Program
                      Sound.Punctual.Parser
-                     Sound.Punctual.PunctualState
+                     Sound.Punctual.Evaluation
                      Sound.Punctual.WebGL
                      Sound.Punctual.PunctualW
   other-modules:     Sound.Punctual.Token

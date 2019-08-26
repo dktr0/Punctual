@@ -11,7 +11,6 @@ import TextShow
 import Sound.MusicW.AudioContext (AudioTime)
 
 import Sound.Punctual.Graph hiding (difference)
-import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
 
 graphToFloat :: Graph -> Text
