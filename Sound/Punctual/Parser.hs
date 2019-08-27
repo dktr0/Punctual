@@ -103,8 +103,8 @@ graphParser = sumOfGraphs <|> return EmptyGraph
 
 sumOfGraphs :: Parser Graph
 sumOfGraphs = chainl1 comparisonOfGraphs $ choice [
-  reservedOp "+" >> return Sum,
-  reservedOp "-" >> return (\x y -> Sum x (Product y (Constant (-1))))
+  reservedOp "+" >> return (+),
+  reservedOp "-" >> return (-)
   ]
 
 comparisonOfGraphs :: Parser Graph
@@ -125,9 +125,9 @@ productOfGraphs = chainl1 simpleGraph $ choice [
 
 simpleGraph :: Parser Graph
 simpleGraph = choice [
-  graphArgument,
   try $ modulatedRange,
-  functionsWithArguments
+  functionsWithArguments,
+  graphArgument
   ]
 
 graphArgument :: Parser Graph
