@@ -10,7 +10,7 @@ ghcjs-base-0.2.0.0-1zqNn6nIHQdAmmILf3TTxp:10909
 ghcjs-dom-jsffi-0.9.2.0-GnWNSjUvOFlLG3HjZwWTpH:150144
 ghcjs-prim-0.1.1.0-A1JdvSlggG4AS5cM95oali:7877
 integer-gmp:             6227
-main:                    1195898
+main:                    1195673
 musicw-0.0.0.1-JhD8dhhx4aVD1v3D7ewytk:217033
 parsec-3.1.13.0-Dmv2Jl3VhX660iuPm9hH4:442309
 primitive-0.6.3.0-EN7G6bIUziYESvlw7SsQBc:1286
@@ -160,7 +160,7 @@ main
     Sound.Punctual.Evaluation:          10917
     Sound.Punctual.Extent:              526813
     Sound.Punctual.FragmentShader:      92860
-    Sound.Punctual.Graph:               159287
+    Sound.Punctual.Graph:               159062
     Sound.Punctual.Parser:              556
     Sound.Punctual.Phasor:              1347
     Sound.Punctual.PunctualState:       145803
@@ -262,5 +262,5 @@ transformers-0.5.5.0-8ZjexgxxdBLH8OWn8CZkwx
 
 
 
-packed metadata: 1250893
+packed metadata: 1250617
 
