@@ -97,6 +97,10 @@ foreign import javascript unsafe
   "$1.useProgram($2);"
   useProgram :: WebGLRenderingContext -> WebGLProgram -> IO ()
 
+foreign import javascript unsafe
+  "$1.deleteProgram($2);"
+  deleteProgram :: WebGLRenderingContext -> WebGLProgram -> IO ()
+
 makeProgram :: WebGLRenderingContext -> WebGLShader -> WebGLShader -> IO WebGLProgram
 makeProgram glCtx vShader fShader = do
   program <- createProgram glCtx
@@ -177,6 +181,8 @@ updateRenderingContext s (Just canvas) = do
     tLocation = t,
     resLocation  = res
     }
+  flip (maybe (return ())) (context s) $ \c -> do
+    deleteProgram glCtx $ shaderProgram c
   return $ s { context = Just newContext }
 
 updateFragmentShader :: PunctualWebGL -> Text -> IO PunctualWebGL
