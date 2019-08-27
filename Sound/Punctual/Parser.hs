@@ -157,6 +157,7 @@ productOfGraphs = chainl1 simpleGraph $ choice [
 simpleGraph :: Parser Graph
 simpleGraph = choice [
   try $ modulatedRange,
+  try $ multiSeries,
   functionsWithArguments,
   graphArgument
   ]
@@ -224,7 +225,7 @@ rangeParser = choice [
     return (x - y', x + y'),
   try $ do
     x <- graphArgument
-    reservedOp ".."
+    reservedOp "->"
     y <- graphArgument
     return (x,y),
   try $ do
@@ -241,3 +242,10 @@ multiGraph = choice [
 
 multiGraph' :: Parser Graph
 multiGraph' = brackets (commaSep graphParser) >>= return . Multi
+
+multiSeries :: Parser Graph
+multiSeries = do
+  x <- fromIntegral <$> integer
+  reservedOp ".."
+  y <- fromIntegral <$> integer
+  return $ Multi $ fmap Constant [x .. y]
