@@ -76,7 +76,7 @@ sin 57m * -40 db; -- much quieter
 Note in the last few example aboves that the 57m "associates" with the "sin" rather
 than with the * -40 db - so we get a 440 Hz sine wave whose output is then made quieter
 by being multiplied by -40 dB. If instead we wanted to multiply the number used as the
-frequency of the oscillator we'd used brackets like this:
+frequency of the oscillator we'd use brackets like this:
 
 ```
 sin (57m * 0.5); -- frequency is half of the frequency corresponding to 57m
