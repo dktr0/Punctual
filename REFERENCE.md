@@ -26,6 +26,8 @@ hpf [input] [freq] [ratio] -- highpass filter at specified filter and bandwidth-
 
 [graph] - [graph] -- subtraction
 
+[graph] ** [graph] -- exponentiation, ie. x to the power of y
+
 [graph] > [graph] -- greater than (1 = true, 0 = false)
 
 [graph] >= [graph] -- greater than or equal (1 = true, 0 = false)
