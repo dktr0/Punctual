@@ -6,7 +6,10 @@ import Control.Monad.Trans
 import Reflex.Dom hiding (getKeyEvent,preventDefault)
 import Reflex.Dom.Contrib.KeyEvent
 import Data.Time.Clock
-import Data.Text as T
+import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
+import TextShow
 import Control.Concurrent.MVar
 import Control.Concurrent
 import Data.Map.Strict
@@ -76,7 +79,7 @@ bodyElement = do
   let errorsForConsole = fmapMaybe (either (Just . show) (const Nothing)) parsed
   performEvent_ $ fmap (liftIO . putStrLn) errorsForConsole
   let errors = fmapMaybe (either (Just . show) (Just . const "")) parsed
-  status <- holdDyn "" $ fmap (pack . show) errors
+  status <- holdDyn "" $ fmap (T.pack . show) errors
   dynText status
 
 punctualReflex :: MonadWidget t m => MVar PunctualWebGL -> Event t [Expression] -> m ()
@@ -91,14 +94,14 @@ punctualReflex mv exprs = mdo
   newPunctualW <- performEvent $ attachPromptlyDynWith f currentPunctualW evals
   currentPunctualW <- holdDyn initialPunctualW newPunctualW
   -- video
-  performEvent $ fmap (liftIO . evaluatePunctualWebGL' (t0,0.5) mv) evals -- *** note: tempo hard-coded here
+  performEvent_ $ fmap (liftIO . evaluatePunctualWebGL' (t0,0.5) mv) evals -- *** note: tempo hard-coded here
   return ()
 
 evaluatePunctualWebGL' :: (AudioTime,Double) -> MVar PunctualWebGL -> Evaluation -> IO ()
 evaluatePunctualWebGL' t mv e = do
-  x <- takeMVar mv
+  x <- readMVar mv
   y <- evaluatePunctualWebGL x t e
-  putMVar mv y
+  void $ swapMVar mv y
 
 evaluationNow :: [Expression] -> IO Evaluation
 evaluationNow exprs = do
@@ -107,13 +110,12 @@ evaluationNow exprs = do
 
 requestAnimationFrame :: MVar PunctualWebGL -> IO ()
 requestAnimationFrame mv = do
-  inAnimationFrame ThrowWouldBlock $ redrawCanvas mv
+  inAnimationFrame ContinueAsync $ redrawCanvas mv
   return ()
 
 redrawCanvas :: MVar PunctualWebGL -> Double -> IO ()
-redrawCanvas mv _ = synchronously $ do
-  st <- takeMVar mv
+redrawCanvas mv _ = do
+  st <- readMVar mv
   t1 <- liftAudioIO $ audioTime
   drawFrame t1 st
-  putMVar mv st
   requestAnimationFrame mv
