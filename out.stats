@@ -5,13 +5,13 @@ bytestring-0.10.8.2-ACj33vFBMyeAi499Z0Sdp2:113757
 containers-0.5.11.0-GhhPXbBZ8rf1WBQjAVqqMW:205367
 dependent-map-0.3-HBhEbY5FCUc6hzkBfBbKk3:54916
 dependent-sum-0.6-D4k1vsGvu3b60V0SWowvB9:13049
-ghc-prim:                73642
+ghc-prim:                74124
 ghcjs-base-0.2.0.0-1zqNn6nIHQdAmmILf3TTxp:10909
 ghcjs-dom-jsffi-0.9.2.0-GnWNSjUvOFlLG3HjZwWTpH:150144
 ghcjs-prim-0.1.1.0-A1JdvSlggG4AS5cM95oali:7877
 integer-gmp:             6227
-main:                    1205695
-musicw-0.0.0.1-JhD8dhhx4aVD1v3D7ewytk:217033
+main:                    1223248
+musicw-0.0.0.1-JhD8dhhx4aVD1v3D7ewytk:220769
 parsec-3.1.13.0-Dmv2Jl3VhX660iuPm9hH4:442309
 primitive-0.6.3.0-EN7G6bIUziYESvlw7SsQBc:1286
 ref-tf-0.4.0.1-I3N9TyOnTSb5BoggGxOx1D:208
@@ -22,7 +22,7 @@ text-1.2.3.0-DJtdEqIKOtKIC6lWl5JFOu:37668
 text-show-3.7.4-LkqVpLXCfzAFWucd0OcYxa:153499
 these-0.7.4-LWj22MgUWve1mxJaoKypsU:856
 time-1.8.0.2-Lhd9BoYe3x1KWpRmjMWWzh:12040
-transformers-0.5.5.0-8ZjexgxxdBLH8OWn8CZkwx:114854
+transformers-0.5.5.0-8ZjexgxxdBLH8OWn8CZkwx:111722
 
 
 code size per module:
@@ -123,7 +123,7 @@ ghc-prim
     GHC.Classes:                        139
     GHC.IntWord64:                      3052
     GHC.Tuple:                          4226
-    GHC.Types:                          48775
+    GHC.Types:                          49257
 
 ghcjs-base-0.2.0.0-1zqNn6nIHQdAmmILf3TTxp
     Data.JSString:                      1506
@@ -158,23 +158,23 @@ integer-gmp
 main
     Main:                               1951
     Sound.Punctual.Evaluation:          10917
-    Sound.Punctual.Extent:              526813
-    Sound.Punctual.FragmentShader:      92860
-    Sound.Punctual.Graph:               167315
+    Sound.Punctual.Extent:              538917
+    Sound.Punctual.FragmentShader:      96019
+    Sound.Punctual.Graph:               168406
     Sound.Punctual.Parser:              556
     Sound.Punctual.Phasor:              1347
-    Sound.Punctual.PunctualState:       145803
-    Sound.Punctual.PunctualW:           28318
+    Sound.Punctual.PunctualState:       146859
+    Sound.Punctual.PunctualW:           28461
     Sound.Punctual.Token:               131105
     Sound.Punctual.Types:               22261
     Sound.Punctual.WebGL:               76449
 
 musicw-0.0.0.1-JhD8dhhx4aVD1v3D7ewytk
     Sound.MusicW.AudioContext:          75639
-    Sound.MusicW.Node:                  32109
-    Sound.MusicW.Synth:                 39497
-    Sound.MusicW.SynthDef:              26686
-    Sound.MusicW.Transformations:       21054
+    Sound.MusicW.Node:                  32521
+    Sound.MusicW.Synth:                 42145
+    Sound.MusicW.SynthDef:              26572
+    Sound.MusicW.Transformations:       21844
     Sound.MusicW.Worklets:              22048
 
 parsec-3.1.13.0-Dmv2Jl3VhX660iuPm9hH4
@@ -258,9 +258,9 @@ time-1.8.0.2-Lhd9BoYe3x1KWpRmjMWWzh
 transformers-0.5.5.0-8ZjexgxxdBLH8OWn8CZkwx
     Control.Monad.Trans.Reader:         2476
     Control.Monad.Trans.State.Lazy:     7154
-    Control.Monad.Trans.State.Strict:   105224
+    Control.Monad.Trans.State.Strict:   102092
 
 
 
-packed metadata: 1253831
+packed metadata: 1255856
 
