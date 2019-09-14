@@ -67,6 +67,7 @@ graphToFloat' (DbAmp x) = "dbamp(" <> graphToFloat' x <> ")"
 graphToFloat' (AmpDb x) = "ampdb(" <> graphToFloat' x <> ")"
 graphToFloat' (Abs x) = "abs(" <> graphToFloat' x <> ")"
 graphToFloat' (Sqrt x) = "sqrt(" <> graphToFloat' x <> ")"
+graphToFloat' (Pow x y) = "pow(" <> graphToFloat' x <> "," <> graphToFloat' y <> ")"
 
 unaryShaderFunction :: Text -> Text -> Text
 unaryShaderFunction f x = f <> "(" <> x <> ")"

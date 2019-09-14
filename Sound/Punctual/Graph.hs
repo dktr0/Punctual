@@ -34,7 +34,8 @@ data Graph =
   DbAmp Graph |
   AmpDb Graph |
   Abs Graph |
-  Sqrt Graph
+  Sqrt Graph |
+  Pow Graph Graph
   deriving (Show,Eq)
 
 instance Num Graph where
@@ -77,6 +78,7 @@ expandMultis (DbAmp x) = fmap DbAmp (expandMultis x)
 expandMultis (AmpDb x) = fmap AmpDb (expandMultis x)
 expandMultis (Abs x) = fmap Abs (expandMultis x)
 expandMultis (Sqrt x) = fmap Sqrt (expandMultis x)
+expandMultis (Pow x y) = expandWith Pow x y
 expandMultis x = [x] -- everything else should, by definition, be a one-channel signal
 
 mixIfMulti :: Graph -> Graph

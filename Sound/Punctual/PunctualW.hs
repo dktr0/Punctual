@@ -240,3 +240,8 @@ graphToSynthDef (AmpDb x) = graphToSynthDef x >>= W.ampDbWorklet
 graphToSynthDef (Abs x) = graphToSynthDef x >>= W.absWorklet
 
 graphToSynthDef (Sqrt x) = graphToSynthDef x >>= W.sqrtWorklet
+
+graphToSynthDef (Pow x y) = do
+  x' <- graphToSynthDef x
+  y' <- graphToSynthDef y
+  W.powWorklet x' y'

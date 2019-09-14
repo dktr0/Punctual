@@ -119,6 +119,7 @@ comparisonOfGraphs = chainl1 productOfGraphs $ choice [
 
 productOfGraphs :: Parser Graph
 productOfGraphs = chainl1 simpleGraph $ choice [
+  reservedOp "**" >> return Pow,
   reservedOp "*" >> return Product,
   reservedOp "/" >> return Division
   ]
