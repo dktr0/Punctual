@@ -175,7 +175,10 @@ functionsWithArguments = choice [
   (reserved "hline" >> return hline) <*> graphArgument,
   (reserved "vline" >> return vline) <*> graphArgument,
   (reserved "linlin" >> return linlin) <*> graphArgument <*> graphArgument <*> graphArgument <*> graphArgument <*> graphArgument,
-  (reserved "rect" >> return rect) <*> graphArgument <*> graphArgument <*> graphArgument <*> graphArgument
+  (reserved "rect" >> return rect) <*> graphArgument <*> graphArgument <*> graphArgument <*> graphArgument,
+  (reserved "texr" >> return TexR) <*> graphArgument <*> graphArgument,
+  (reserved "texg" >> return TexG) <*> graphArgument <*> graphArgument,
+  (reserved "texb" >> return TexB) <*> graphArgument <*> graphArgument
   ]
 
 modulatedRange :: Parser Graph

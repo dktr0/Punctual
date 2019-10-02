@@ -13,6 +13,9 @@ data Graph =
   Fy |
   Px |
   Py |
+  TexR Graph Graph |
+  TexG Graph Graph |
+  TexB Graph Graph |
   Sine Graph |
   Tri Graph |
   Saw Graph |
@@ -64,6 +67,9 @@ expandMultis (LPF i f q) = expandWith3 LPF i f q
 expandMultis (HPF i f q) = expandWith3 HPF i f q
 expandMultis (FromTarget x) = [Constant 0] -- placeholder
 expandMultis (Product x y) = expandWith Product x y
+expandMultis (TexR x y) = expandWith TexR x y
+expandMultis (TexG x y) = expandWith TexG x y
+expandMultis (TexB x y) = expandWith TexB x y
 expandMultis (Sum x y) = expandWith Sum x y
 expandMultis (Division x y) = expandWith Division x y
 expandMultis (GreaterThan x y) = expandWith GreaterThan x y

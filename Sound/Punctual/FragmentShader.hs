@@ -45,6 +45,9 @@ graphToFloat' Fx = "fx()"
 graphToFloat' Fy = "fy()"
 graphToFloat' Px = "10./1920."
 graphToFloat' Py = "10./1080."
+graphToFloat' (TexR x y) = "texture2D(tex0,vec2(" <> graphToFloat' x <> "," <> graphToFloat' y <> ")).r"
+graphToFloat' (TexG x y) = "texture2D(tex0,vec2(" <> graphToFloat' x <> "," <> graphToFloat' y <> ")).g"
+graphToFloat' (TexB x y) = "texture2D(tex0,vec2(" <> graphToFloat' x <> "," <> graphToFloat' y <> ")).b"
 graphToFloat' (Sine x) = unaryShaderFunction "sin_" (graphToFloat' x)
 graphToFloat' (Tri x) = unaryShaderFunction "tri" (graphToFloat' x)
 graphToFloat' (Saw x) = unaryShaderFunction "saw" (graphToFloat' x)
@@ -86,6 +89,7 @@ header
  = "precision mediump float;\
    \uniform float t;\
    \uniform lowp vec2 res;\
+   \uniform sampler2D tex0;\
    \float bipolar(float x) { return x * 2. - 1.; }\
    \float unipolar(float x) { return (x + 1.) * 0.5; }\
    \float fx() { return bipolar(gl_FragCoord.x / res.x); }\

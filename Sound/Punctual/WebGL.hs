@@ -25,6 +25,25 @@ import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
 import Sound.Punctual.FragmentShader
 
+foreign import javascript safe
+  "$r = $1.createTexture();\
+  \var image = new Image();\
+  \image.onload = function() {\
+     \$1.bindTexture($1.TEXTURE_2D, $r);\
+     \$1.texImage2D($1.TEXTURE_2D, 0, $1.RGBA, $1.RGBA, $1.UNSIGNED_BYTE, image);\
+     \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_WRAP_S, $1.CLAMP_TO_EDGE);\
+     \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_WRAP_T, $1.CLAMP_TO_EDGE);\
+     \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_MIN_FILTER, $1.LINEAR);\
+     \};\
+   \image.src = $2;"
+   loadTexture :: WebGLRenderingContext -> Text -> IO WebGLTexture
+
+foreign import javascript unsafe
+  "$1.activeTexture($1.TEXTURE0);\
+  \$1.bindTexture($1.TEXTURE_2D,$2);\
+  \$1.uniform1i($3,0);"
+  bindTex0 :: WebGLRenderingContext -> WebGLTexture -> WebGLUniformLocation -> IO ()
+
 foreign import javascript unsafe
   "$1.getContext('webgl')"
   getWebGLRenderingContext :: HTMLCanvasElement -> IO WebGLRenderingContext
@@ -133,7 +152,9 @@ data PunctualWebGLContext = PunctualWebGLContext {
   shaderProgram :: WebGLProgram,
   drawingBuffer :: WebGLBuffer,
   tLocation :: WebGLUniformLocation,
-  resLocation :: WebGLUniformLocation
+  resLocation :: WebGLUniformLocation,
+  tex0Location :: WebGLUniformLocation,
+  tex0Texture :: WebGLTexture
   }
 
 -- a PunctualWebGl might have a a PunctualWebGLContext (eg. if there is indeed
@@ -172,6 +193,9 @@ updateRenderingContext s (Just canvas) = do
   enableVertexAttribArray glCtx p
   t <- getUniformLocation glCtx program "t"
   res <- getUniformLocation glCtx program "res"
+  tex0l <- getUniformLocation glCtx program "tex0"
+  tex0t <- loadTexture glCtx "chiptunes-crop.png"
+  bindTex0 glCtx tex0t tex0l
   let newContext = PunctualWebGLContext {
     renderingContext = glCtx,
     vShader = v,
@@ -179,7 +203,9 @@ updateRenderingContext s (Just canvas) = do
     drawingBuffer = b,
     shaderProgram = program,
     tLocation = t,
-    resLocation  = res
+    resLocation  = res,
+    tex0Location = tex0l,
+    tex0Texture = tex0t
     }
   flip (maybe (return ())) (context s) $ \c -> do
     deleteProgram glCtx $ shaderProgram c
@@ -198,11 +224,14 @@ updateFragmentShader st src | otherwise = do
   enableVertexAttribArray glCtx p
   t <- getUniformLocation glCtx program "t"
   res <- getUniformLocation glCtx program "res"
+  tex0l <- getUniformLocation glCtx program "tex0"
+  bindTex0 glCtx (tex0Texture oldCtx) tex0l
   let newContext = oldCtx {
     fShader = f,
     shaderProgram = program,
     tLocation = t,
-    resLocation = res
+    resLocation = res,
+    tex0Location = tex0l
   }
   return $ st { context = Just newContext, fShaderSrc = src }
 
