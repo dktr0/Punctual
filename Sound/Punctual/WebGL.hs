@@ -45,6 +45,24 @@ foreign import javascript unsafe
   bindTex0 :: WebGLRenderingContext -> WebGLTexture -> WebGLUniformLocation -> IO ()
 
 foreign import javascript unsafe
+  "$1.activeTexture($1.TEXTURE1);\
+  \$1.bindTexture($1.TEXTURE_2D,$2);\
+  \$1.uniform1i($3,1);"
+  bindTex1 :: WebGLRenderingContext -> WebGLTexture -> WebGLUniformLocation -> IO ()
+
+foreign import javascript unsafe
+  "$1.activeTexture($1.TEXTURE2);\
+  \$1.bindTexture($1.TEXTURE_2D,$2);\
+  \$1.uniform1i($3,2);"
+  bindTex2 :: WebGLRenderingContext -> WebGLTexture -> WebGLUniformLocation -> IO ()
+
+foreign import javascript unsafe
+  "$1.activeTexture($1.TEXTURE3);\
+  \$1.bindTexture($1.TEXTURE_2D,$2);\
+  \$1.uniform1i($3,3);"
+  bindTex3 :: WebGLRenderingContext -> WebGLTexture -> WebGLUniformLocation -> IO ()
+
+foreign import javascript unsafe
   "$1.getContext('webgl')"
   getWebGLRenderingContext :: HTMLCanvasElement -> IO WebGLRenderingContext
 
@@ -154,7 +172,16 @@ data PunctualWebGLContext = PunctualWebGLContext {
   tLocation :: WebGLUniformLocation,
   resLocation :: WebGLUniformLocation,
   tex0Location :: WebGLUniformLocation,
-  tex0Texture :: WebGLTexture
+  tex1Location :: WebGLUniformLocation,
+  tex2Location :: WebGLUniformLocation,
+  tex3Location :: WebGLUniformLocation,
+  tex0Texture :: WebGLTexture,
+  tex1Texture :: WebGLTexture,
+  tex2Texture :: WebGLTexture,
+  tex3Texture :: WebGLTexture,
+  loLocation :: WebGLUniformLocation,
+  midLocation :: WebGLUniformLocation,
+  hiLocation :: WebGLUniformLocation
   }
 
 -- a PunctualWebGl might have a a PunctualWebGLContext (eg. if there is indeed
@@ -194,8 +221,20 @@ updateRenderingContext s (Just canvas) = do
   t <- getUniformLocation glCtx program "t"
   res <- getUniformLocation glCtx program "res"
   tex0l <- getUniformLocation glCtx program "tex0"
-  tex0t <- loadTexture glCtx "chiptunes-crop.png"
+  tex1l <- getUniformLocation glCtx program "tex1"
+  tex2l <- getUniformLocation glCtx program "tex2"
+  tex3l <- getUniformLocation glCtx program "tex3"
+  tex0t <- loadTexture glCtx "tex0.jpg"
+  tex1t <- loadTexture glCtx "tex1.jpg"
+  tex2t <- loadTexture glCtx "tex2.jpg"
+  tex3t <- loadTexture glCtx "tex3.jpg"
   bindTex0 glCtx tex0t tex0l
+  bindTex1 glCtx tex1t tex1l
+  bindTex2 glCtx tex2t tex2l
+  bindTex3 glCtx tex3t tex3l
+  loL <- getUniformLocation glCtx program "lo"
+  midL <- getUniformLocation glCtx program "mid"
+  hiL <- getUniformLocation glCtx program "hi"
   let newContext = PunctualWebGLContext {
     renderingContext = glCtx,
     vShader = v,
@@ -205,7 +244,16 @@ updateRenderingContext s (Just canvas) = do
     tLocation = t,
     resLocation  = res,
     tex0Location = tex0l,
-    tex0Texture = tex0t
+    tex1Location = tex1l,
+    tex2Location = tex2l,
+    tex3Location = tex3l,
+    tex0Texture = tex0t,
+    tex1Texture = tex1t,
+    tex2Texture = tex2t,
+    tex3Texture = tex3t,
+    loLocation = loL,
+    midLocation = midL,
+    hiLocation = hiL
     }
   flip (maybe (return ())) (context s) $ \c -> do
     deleteProgram glCtx $ shaderProgram c
@@ -225,13 +273,28 @@ updateFragmentShader st src | otherwise = do
   t <- getUniformLocation glCtx program "t"
   res <- getUniformLocation glCtx program "res"
   tex0l <- getUniformLocation glCtx program "tex0"
+  tex1l <- getUniformLocation glCtx program "tex1"
+  tex2l <- getUniformLocation glCtx program "tex2"
+  tex3l <- getUniformLocation glCtx program "tex3"
   bindTex0 glCtx (tex0Texture oldCtx) tex0l
+  bindTex1 glCtx (tex1Texture oldCtx) tex1l
+  bindTex2 glCtx (tex2Texture oldCtx) tex2l
+  bindTex3 glCtx (tex3Texture oldCtx) tex3l
+  loL <- getUniformLocation glCtx program "lo"
+  midL <- getUniformLocation glCtx program "mid"
+  hiL <- getUniformLocation glCtx program "hi"
   let newContext = oldCtx {
     fShader = f,
     shaderProgram = program,
     tLocation = t,
     resLocation = res,
-    tex0Location = tex0l
+    tex0Location = tex0l,
+    tex1Location = tex1l,
+    tex2Location = tex2l,
+    tex3Location = tex3l,
+    loLocation = loL,
+    midLocation = midL,
+    hiLocation = hiL
   }
   return $ st { context = Just newContext, fShaderSrc = src }
 
@@ -253,9 +316,9 @@ foreign import javascript unsafe
   "$1.bindBuffer($1.ARRAY_BUFFER,$2);"
   bindBufferArray :: WebGLRenderingContext -> WebGLBuffer -> IO ()
 
-drawFrame :: AudioTime -> PunctualWebGL -> IO ()
-drawFrame t st | isNothing (context st) = return ()
-drawFrame t st | otherwise = do
+drawFrame :: (AudioTime,Double,Double,Double) -> PunctualWebGL -> IO ()
+drawFrame (t,lo,mid,hi) st | isNothing (context st) = return ()
+drawFrame (t,lo,mid,hi) st | otherwise = do
   let ctx = fromJust (context st)
   let glCtx = renderingContext ctx
   useProgram glCtx $ shaderProgram ctx
@@ -264,6 +327,9 @@ drawFrame t st | otherwise = do
 --  clearColorBuffer glCtx -- probably should comment this out
   uniform1f glCtx (tLocation ctx) (realToFrac t)
   uniform2f glCtx (resLocation ctx) 1920 1080
+  uniform1f glCtx (loLocation ctx) lo
+  uniform1f glCtx (midLocation ctx) mid
+  uniform1f glCtx (hiLocation ctx) hi
   drawArraysTriangleStrip glCtx 0 4
 
 foreign import javascript unsafe

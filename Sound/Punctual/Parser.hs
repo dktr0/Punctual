@@ -147,7 +147,10 @@ functionsWithoutArguments = choice [
   reserved "fx" >> return Fx,
   reserved "fy" >> return Fy,
   reserved "px" >> return Px,
-  reserved "py" >> return Py
+  reserved "py" >> return Py,
+  reserved "lo" >> return Lo,
+  reserved "mid" >> return Mid,
+  reserved "hi" >> return Hi
   ]
 
 functionsWithArguments :: Parser Graph
@@ -176,9 +179,10 @@ functionsWithArguments = choice [
   (reserved "vline" >> return vline) <*> graphArgument,
   (reserved "linlin" >> return linlin) <*> graphArgument <*> graphArgument <*> graphArgument <*> graphArgument <*> graphArgument,
   (reserved "rect" >> return rect) <*> graphArgument <*> graphArgument <*> graphArgument <*> graphArgument,
-  (reserved "texr" >> return TexR) <*> graphArgument <*> graphArgument,
-  (reserved "texg" >> return TexG) <*> graphArgument <*> graphArgument,
-  (reserved "texb" >> return TexB) <*> graphArgument <*> graphArgument
+  (reserved "texr" >> return TexR) <*> graphArgument <*> graphArgument <*> graphArgument,
+  (reserved "texg" >> return TexG) <*> graphArgument <*> graphArgument <*> graphArgument,
+  (reserved "texb" >> return TexB) <*> graphArgument <*> graphArgument <*> graphArgument,
+  (reserved "tex" >> return tex) <*> graphArgument <*> graphArgument <*> graphArgument
   ]
 
 modulatedRange :: Parser Graph

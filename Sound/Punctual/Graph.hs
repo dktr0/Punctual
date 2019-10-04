@@ -13,9 +13,10 @@ data Graph =
   Fy |
   Px |
   Py |
-  TexR Graph Graph |
-  TexG Graph Graph |
-  TexB Graph Graph |
+  TexR Graph Graph Graph |
+  TexG Graph Graph Graph |
+  TexB Graph Graph Graph |
+  Lo | Mid | Hi |
   Sine Graph |
   Tri Graph |
   Saw Graph |
@@ -57,7 +58,8 @@ instance Fractional Graph where
 
 expandMultis :: Graph -> [Graph]
 expandMultis (Multi []) = [EmptyGraph]
-expandMultis (Multi xs) = fmap mixIfMulti xs
+-- expandMultis (Multi xs) = fmap mixIfMulti xs
+expandMultis (Multi xs) = fmap graphsToMono $ fmap expandMultis xs
 expandMultis (Mono x) = [graphsToMono $ expandMultis x]
 expandMultis (Sine x) = fmap Sine (expandMultis x)
 expandMultis (Tri x) = fmap Tri (expandMultis x)
@@ -67,9 +69,9 @@ expandMultis (LPF i f q) = expandWith3 LPF i f q
 expandMultis (HPF i f q) = expandWith3 HPF i f q
 expandMultis (FromTarget x) = [Constant 0] -- placeholder
 expandMultis (Product x y) = expandWith Product x y
-expandMultis (TexR x y) = expandWith TexR x y
-expandMultis (TexG x y) = expandWith TexG x y
-expandMultis (TexB x y) = expandWith TexB x y
+expandMultis (TexR n x y) = expandWith3 TexR n x y
+expandMultis (TexG n x y) = expandWith3 TexG n x y
+expandMultis (TexB n x y) = expandWith3 TexB n x y
 expandMultis (Sum x y) = expandWith Sum x y
 expandMultis (Division x y) = expandWith Division x y
 expandMultis (GreaterThan x y) = expandWith GreaterThan x y
@@ -87,11 +89,13 @@ expandMultis (Sqrt x) = fmap Sqrt (expandMultis x)
 expandMultis (Pow x y) = expandWith Pow x y
 expandMultis x = [x] -- everything else should, by definition, be a one-channel signal
 
-mixIfMulti :: Graph -> Graph
-mixIfMulti (Multi xs) = graphsToMono xs
-mixIfMulti x = x
+-- mixIfMulti :: Graph -> Graph
+-- mixIfMulti (Multi xs) = graphsToMono xs
+-- mixIfMulti x = x
 
 graphsToMono :: [Graph] -> Graph
+graphsToMono [] = EmptyGraph
+graphsToMono (x:[]) = x
 graphsToMono xs = foldl Sum EmptyGraph xs
 
 -- Like zipWith... input graphs are multi-channel expanded, then cycled to the
@@ -120,6 +124,9 @@ expandWith3 f x y z = zipWith3 f x'' y'' z''
 
 
 -- Miscellaneous functions over Graphs:
+
+tex :: Graph -> Graph -> Graph -> Graph
+tex n x y = Multi [TexR n x y,TexG n x y,TexB n x y]
 
 bipolar :: Graph -> Graph
 bipolar x = x * 2 - 1

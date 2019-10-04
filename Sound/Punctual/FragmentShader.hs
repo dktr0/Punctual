@@ -45,9 +45,12 @@ graphToFloat' Fx = "fx()"
 graphToFloat' Fy = "fy()"
 graphToFloat' Px = "10./1920."
 graphToFloat' Py = "10./1080."
-graphToFloat' (TexR x y) = "texture2D(tex0,vec2(" <> graphToFloat' x <> "," <> graphToFloat' y <> ")).r"
-graphToFloat' (TexG x y) = "texture2D(tex0,vec2(" <> graphToFloat' x <> "," <> graphToFloat' y <> ")).g"
-graphToFloat' (TexB x y) = "texture2D(tex0,vec2(" <> graphToFloat' x <> "," <> graphToFloat' y <> ")).b"
+graphToFloat' (TexR n x y) = "tex(" <> graphToFloat' n <> "," <> graphToFloat' x <> "," <> graphToFloat' y <> ").r"
+graphToFloat' (TexG n x y) = "tex(" <> graphToFloat' n <> "," <> graphToFloat' x <> "," <> graphToFloat' y <> ").g"
+graphToFloat' (TexB n x y) = "tex(" <> graphToFloat' n <> "," <> graphToFloat' x <> "," <> graphToFloat' y <> ").b"
+graphToFloat' Lo = "lo"
+graphToFloat' Mid = "mid"
+graphToFloat' Hi = "hi"
 graphToFloat' (Sine x) = unaryShaderFunction "sin_" (graphToFloat' x)
 graphToFloat' (Tri x) = unaryShaderFunction "tri" (graphToFloat' x)
 graphToFloat' (Saw x) = unaryShaderFunction "saw" (graphToFloat' x)
@@ -90,8 +93,21 @@ header
    \uniform float t;\
    \uniform lowp vec2 res;\
    \uniform sampler2D tex0;\
+   \uniform sampler2D tex1;\
+   \uniform sampler2D tex2;\
+   \uniform sampler2D tex3;\
+   \uniform float lo;\
+   \uniform float mid;\
+   \uniform float hi;\
    \float bipolar(float x) { return x * 2. - 1.; }\
    \float unipolar(float x) { return (x + 1.) * 0.5; }\
+   \float prox1(float x,float y) { return max(1.-abs(x-y),0.); }\
+   \vec4 tex(float n,float x,float y) {\
+   \ return\
+   \  (texture2D(tex0,vec2(unipolar(x),unipolar(y*-1.)))*prox1(n,0.))+\
+   \  (texture2D(tex1,vec2(unipolar(x),unipolar(y*-1.)))*prox1(n,1.))+\
+   \  (texture2D(tex2,vec2(unipolar(x),unipolar(y*-1.)))*prox1(n,2.))+\
+   \  (texture2D(tex3,vec2(unipolar(x),unipolar(y*-1.)))*prox1(n,3.));}\
    \float fx() { return bipolar(gl_FragCoord.x / res.x); }\
    \float fy() { return bipolar(gl_FragCoord.y / res.y); }\
    \float sin_(float f) { return sin(f*3.14159265*2.*t);}\

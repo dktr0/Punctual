@@ -127,9 +127,14 @@ graphToSynthDef Px = W.constantSource 0
 
 graphToSynthDef Py = W.constantSource 0
 
-graphToSynthDef (TexR _ _) = W.constantSource 0
-graphToSynthDef (TexG _ _) = W.constantSource 0
-graphToSynthDef (TexB _ _) = W.constantSource 0
+graphToSynthDef (TexR _ _ _) = W.constantSource 0
+graphToSynthDef (TexG _ _ _) = W.constantSource 0
+graphToSynthDef (TexB _ _ _) = W.constantSource 0
+
+-- for now, audio analysis not available in audio graphs
+graphToSynthDef Lo = W.constantSource 0
+graphToSynthDef Mid = W.constantSource 0
+graphToSynthDef Hi = W.constantSource 0
 
 graphToSynthDef (Sine (Constant x)) = W.oscillator W.Sine x
 graphToSynthDef (Sine x) = do
