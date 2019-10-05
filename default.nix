@@ -1,8 +1,8 @@
-{ reflex-commit ? "716879f16d53c93766e7ed9af17416fccb2edfe1" }:
+{ reflex-commit ? "9e306f72ed0dbcdccce30a4ba0eb37aa03cf91e3" }:
 
 let reflex-platform = builtins.fetchTarball "https://github.com/reflex-frp/reflex-platform/archive/${reflex-commit}.tar.gz"; in
 
-(import reflex-platform {}).project ({ pkgs, ghc8_4, ... }:
+(import reflex-platform {}).project ({ pkgs, ... }:
 
 with pkgs.haskell.lib;
 
@@ -37,8 +37,8 @@ with pkgs.haskell.lib;
     reflex-dom-contrib = dontHaddock (self.callCabal2nix "reflex-dom-contrib" (pkgs.fetchFromGitHub {
       owner = "reflex-frp";
       repo = "reflex-dom-contrib";
-      rev = "796a3f0fa1ff59cbad97c918983355b46c3b6aa0";
-      sha256 = "0aqj7xm97mwxhhpcrx58bbg3hhn12jrzk13lf4zhpk2rrjw6yvmc";
+      rev = "b9e2965dff062a4e13140f66d487362a34fe58b3";
+      sha256 = "1aa045mr82hdzzd8qlqhfrycgyhd29lad8rf7vsqykly9axpl52a";
       }) {});
 
   };
