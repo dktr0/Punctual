@@ -30,8 +30,8 @@ with pkgs.haskell.lib;
     musicw = dontHaddock (self.callCabal2nix "musicw" (pkgs.fetchFromGitHub {
       owner = "dktr0";
       repo = "musicw";
-      rev = "f8915f856d75bafc3e8853e5c95b9145c7742598";
-      sha256 = "0fmqi4bblik0y2j5pazh3k6qa40vanwrbr7zahi1hcxc0vcfxz33";
+      rev = "2237851926f8018cbab6750f085286f51445c20f";
+      sha256 = "1yfdz4ga77n1w2qfj6cdpqa5h2iw1351ms9d50iznhngpahw0ad4";
       }) {});
 
     reflex-dom-contrib = dontHaddock (self.callCabal2nix "reflex-dom-contrib" (pkgs.fetchFromGitHub {
