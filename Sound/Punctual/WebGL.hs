@@ -20,6 +20,7 @@ import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
 import Sound.MusicW.AudioContext (AudioTime)
+import Data.IntMap.Strict
 
 import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
@@ -139,13 +140,13 @@ data PunctualWebGLContext = PunctualWebGLContext {
 -- a PunctualWebGl might have a a PunctualWebGLContext (eg. if there is indeed
 -- a canvas on which everything can be run) but regardless it keeps track of the
 -- most recent, calculated source code of shader programs as well as the previously
--- evaluated expressions (in order to be able to generate suitable crossfades in
+-- evaluated Program (in order to be able to generate suitable crossfades in
 -- a subsequent evaluation).
 data PunctualWebGL = PunctualWebGL {
   context :: Maybe PunctualWebGLContext,
   vShaderSrc :: Text,
   fShaderSrc :: Text,
-  prevExpressions :: [Expression]
+  prevProgram :: Program
   }
 
 emptyPunctualWebGL :: PunctualWebGL
@@ -153,7 +154,7 @@ emptyPunctualWebGL = PunctualWebGL {
   context = Nothing,
   vShaderSrc = defaultVertexShader,
   fShaderSrc = defaultFragmentShader,
-  prevExpressions = []
+  prevProgram = empty
   }
 
 updateRenderingContext :: PunctualWebGL -> Maybe HTMLCanvasElement -> IO PunctualWebGL
@@ -182,7 +183,7 @@ updateRenderingContext s (Just canvas) = do
     resLocation  = res
     }
   flip (maybe (return ())) (context s) $ \c -> do
-    deleteProgram glCtx $ shaderProgram c    
+    deleteProgram glCtx $ shaderProgram c
   return $ s { context = Just newContext }
 
 updateFragmentShader :: PunctualWebGL -> Text -> IO PunctualWebGL
@@ -216,9 +217,9 @@ foreign import javascript unsafe
 
 evaluatePunctualWebGL :: PunctualWebGL -> (AudioTime,Double) -> Evaluation -> IO PunctualWebGL
 evaluatePunctualWebGL st tempo e = do
-  let shaderSrc = fragmentShader (prevExpressions st) tempo e
+  let shaderSrc = fragmentShader (prevProgram st) tempo e
   st' <- updateFragmentShader st shaderSrc
-  return $ st' { prevExpressions = fst e }
+  return $ st' { prevProgram = fst e }
 
 foreign import javascript unsafe
   "$1.bindBuffer($1.ARRAY_BUFFER,$2);"
