@@ -128,6 +128,9 @@ expandWith3 f x y z = zipWith3 f x'' y'' z''
 tex :: Graph -> Graph -> Graph -> Graph
 tex n x y = Multi [TexR n x y,TexG n x y,TexB n x y]
 
+fb :: Graph
+fb = tex 0 Fx Fy
+
 bipolar :: Graph -> Graph
 bipolar x = x * 2 - 1
 

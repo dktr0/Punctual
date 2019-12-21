@@ -75,7 +75,7 @@ bodyElement = do
     let evaled = tagPromptlyDyn (_textArea_value code) evalEvent
     return $ fmap runPunctualParser evaled
 
-  punctualReflex mv $ fmapMaybe (either (const Nothing) Just) parsed 
+  punctualReflex mv $ fmapMaybe (either (const Nothing) Just) parsed
   let errorsForConsole = fmapMaybe (either (Just . show) (const Nothing)) parsed
   performEvent_ $ fmap (liftIO . putStrLn) errorsForConsole
   let errors = fmapMaybe (either (Just . show) (Just . const "")) parsed
@@ -112,9 +112,7 @@ punctualReflex mv exprs = mdo
   gain <- liftAudioIO $ createGain (dbamp (-10))
   comp <- liftAudioIO $ createCompressor (-20) 3 4 0.050 0.1
   analyser <- liftAudioIO $ createAnalyser 512 0.5
-  liftIO $ T.putStrLn "about to allocate array"
   array <- liftIO $ arrayForAnalysis analyser
-  liftIO $ T.putStrLn "array allocated"
   dest <- liftAudioIO $ createDestination
   connectNodes gain comp
   connectNodes comp analyser
@@ -152,11 +150,12 @@ requestAnimationFrame mv analyser array = do
 
 redrawCanvas :: MVar PunctualWebGL -> Node -> JSVal -> Double -> IO ()
 redrawCanvas mv analyser array _ = do
-  st <- readMVar mv
   t1 <- liftAudioIO $ audioTime
   getByteFrequencyData analyser array
   lo <- getLo array
   mid <- getMid array
   hi <- getHi array
-  drawFrame (t1,lo,mid,hi) st
+  st <- takeMVar mv
+  st' <- drawFrame (t1,lo,mid,hi) st
+  putMVar mv st'
   requestAnimationFrame mv analyser array

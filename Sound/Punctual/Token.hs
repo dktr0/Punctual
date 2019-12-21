@@ -21,7 +21,7 @@ tokenParser = P.makeTokenParser $ P.LanguageDef {
   "lpf","hpf","mono","x","y","red","green","blue","alpha","clear","width","height",
   "left","right","centre","bipolar","unipolar","linlin","rect","px","py","m","abs","splay",
   "point","hline","vline","rgb","mean","squared","sqrt","circle","distance","lo","mid","hi",
-  "texr","texg","texb","tex"],
+  "texr","texg","texb","tex","fb"],
   P.reservedOpNames = ["+","*","/",":","@","<>","~","=","%",";","+-","..","=>","==","!=","<",">","<=",">=","->","**"],
   P.caseSensitive = False
   }

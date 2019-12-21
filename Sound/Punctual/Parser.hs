@@ -150,7 +150,8 @@ functionsWithoutArguments = choice [
   reserved "py" >> return Py,
   reserved "lo" >> return Lo,
   reserved "mid" >> return Mid,
-  reserved "hi" >> return Hi
+  reserved "hi" >> return Hi,
+  reserved "fb" >> return fb
   ]
 
 functionsWithArguments :: Parser Graph

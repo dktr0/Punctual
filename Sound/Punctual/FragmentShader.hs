@@ -104,10 +104,10 @@ header
    \float prox1(float x,float y) { return max(1.-abs(x-y),0.); }\
    \vec4 tex(float n,float x,float y) {\
    \ return\
-   \  (texture2D(tex0,vec2(unipolar(x),unipolar(y*-1.)))*prox1(n,0.))+\
-   \  (texture2D(tex1,vec2(unipolar(x),unipolar(y*-1.)))*prox1(n,1.))+\
-   \  (texture2D(tex2,vec2(unipolar(x),unipolar(y*-1.)))*prox1(n,2.))+\
-   \  (texture2D(tex3,vec2(unipolar(x),unipolar(y*-1.)))*prox1(n,3.));}\
+   \  (texture2D(tex0,vec2(unipolar(x),unipolar(y)))*prox1(n,0.))+\
+   \  (texture2D(tex1,vec2(unipolar(x),unipolar(y)))*prox1(n,1.))+\
+   \  (texture2D(tex2,vec2(unipolar(x),unipolar(y)))*prox1(n,2.))+\
+   \  (texture2D(tex3,vec2(unipolar(x),unipolar(y)))*prox1(n,3.));}\
    \float fx() { return bipolar(gl_FragCoord.x / res.x); }\
    \float fy() { return bipolar(gl_FragCoord.y / res.y); }\
    \float sin_(float f) { return sin(f*3.14159265*2.*t);}\
