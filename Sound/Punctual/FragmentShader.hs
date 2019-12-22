@@ -120,14 +120,20 @@ header
    \float dbamp(float x) { return pow(10.,x/20.); }\
    \float ampdb(float x) { return 20. * log(x) / log(10.); }\
    \float xFadeNew(float t1,float t2) { if (t>t2) return 1.; if (t<t1) return 0.; return ((t-t1)/(t2-t1));}\
-   \float xFadeOld(float t1,float t2) { return 1.-xFadeNew(t1,t2);}"
+   \float xFadeOld(float t1,float t2) { return 1.-xFadeNew(t1,t2);}\
+   \vec3 hsv2rgb(vec3 c) {\
+   \  vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\
+   \  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\
+   \  return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\
+   \}"
+   -- thanks to http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl for the hsv2rgb algorithm!
 
 targetToVariableName :: Target' -> Text
 targetToVariableName (Named s) = "_named_" <> s;
 targetToVariableName (Anon i) = "_anon_" <> (showt i);
 
 isVec3 :: Expression -> Bool
-isVec3 x = output x == NamedOutput "rgb"
+isVec3 x = (output x == NamedOutput "rgb") || (output x == NamedOutput "hsv")
 
 continuingTarget :: (AudioTime,Double) -> AudioTime -> (Target',Expression) -> (Target',Expression) -> Text
 continuingTarget tempo evalTime (newTarget,newExpr) (target',oldExpr) = oldVariable <> newVariable <> oldAndNew
@@ -185,17 +191,20 @@ fragmentShader xs0 tempo e@(xs1,t) = header <> "void main() {\n" <> allTargets <
     blueExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "blue") $ elems allExprs
     alphaExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "alpha") $ elems allExprs
     rgbExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "rgb") $ elems allExprs
+    hsvExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "hsv") $ elems allExprs
     redVars = T.intercalate "+" $ (["0."] <>) $ fmap (targetToVariableName . fst) redExprs
     greenVars = T.intercalate "+" $ (["0."] <>) $ fmap (targetToVariableName . fst) greenExprs
     blueVars = T.intercalate "+" $ (["0."] <>) $ fmap (targetToVariableName . fst) blueExprs
     alphaVars = if length alphaExprs == 0 then "1." else
       T.intercalate "+" $ fmap (targetToVariableName . fst) alphaExprs
     rgbVars = T.intercalate "+" $ (["vec3(0.)"] <>) $ fmap (targetToVariableName . fst) rgbExprs
+    hsvVars = T.intercalate "+" $ (["vec3(0.)"] <>) $ fmap (targetToVariableName . fst) hsvExprs
     red = "float red = " <> redVars <> ";\n"
     green = "float green = " <> greenVars <> ";\n"
     blue = "float blue = " <> blueVars <> ";\n"
     alpha = "float alpha = " <> alphaVars <> ";\n"
-    rgb = "vec3 rgb = " <> rgbVars <> "+vec3(red,green,blue);\n"
-    allOutputs = red <> green <> blue <> alpha <> rgb
+    hsv = "vec3 hsv = hsv2rgb(" <> hsvVars <> ");\n"
+    rgb = "vec3 rgb = " <> rgbVars <> "+vec3(red,green,blue)+hsv;\n"
+    allOutputs = red <> green <> blue <> alpha <> hsv <> rgb
     --
     glFragColor = "gl_FragColor = vec4(rgb,alpha);\n"

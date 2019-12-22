@@ -19,6 +19,7 @@ import Data.Maybe
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import Sound.MusicW.AudioContext (AudioTime)
 
 import Sound.Punctual.Types
@@ -337,6 +338,7 @@ updateRenderingContext s (Just canvas) = do
 updateFragmentShader :: PunctualWebGL -> Text -> IO PunctualWebGL
 updateFragmentShader st src | isNothing (context st) = return $ st { fShaderSrc = src }
 updateFragmentShader st src | otherwise = do
+  -- T.putStrLn $ "new fragment shader: " <> src
   let oldCtx = fromJust $ context st
   let glCtx = renderingContext oldCtx
   f <- makeFragmentShader glCtx src

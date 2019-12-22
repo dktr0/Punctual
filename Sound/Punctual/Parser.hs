@@ -82,6 +82,7 @@ outputParser = choice [
   try $ reservedOp "=>" >> reserved "blue" >> return (NamedOutput "blue"),
   try $ reservedOp "=>" >> reserved "alpha" >> return (NamedOutput "alpha"),
   try $ reservedOp "=>" >> reserved "rgb" >> return (NamedOutput "rgb"),
+  try $ reservedOp "=>" >> reserved "hsv" >> return (NamedOutput "hsv"),
   return NoOutput
   ]
 
