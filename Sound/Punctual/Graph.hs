@@ -39,7 +39,10 @@ data Graph =
   AmpDb Graph |
   Abs Graph |
   Sqrt Graph |
-  Pow Graph Graph
+  Pow Graph Graph |
+  Floor Graph |
+  Fract Graph |
+  Clip Graph Graph Graph
   deriving (Show,Eq)
 
 instance Num Graph where
@@ -87,6 +90,9 @@ expandMultis (AmpDb x) = fmap AmpDb (expandMultis x)
 expandMultis (Abs x) = fmap Abs (expandMultis x)
 expandMultis (Sqrt x) = fmap Sqrt (expandMultis x)
 expandMultis (Pow x y) = expandWith Pow x y
+expandMultis (Floor x) = fmap Floor (expandMultis x)
+expandMultis (Fract x) = fmap Fract (expandMultis x)
+expandMultis (Clip x y z) = expandWith3 Clip x y z
 expandMultis x = [x] -- everything else should, by definition, be a one-channel signal
 
 -- mixIfMulti :: Graph -> Graph

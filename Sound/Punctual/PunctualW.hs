@@ -254,3 +254,13 @@ graphToSynthDef (Pow x y) = do
   x' <- graphToSynthDef x
   y' <- graphToSynthDef y
   W.powWorklet x' y'
+
+graphToSynthDef (Floor x) = graphToSynthDef x >>= W.floorWorklet
+
+graphToSynthDef (Fract x) = graphToSynthDef x >>= W.fractWorklet
+
+graphToSynthDef (Clip x y z) = do
+  x' <- graphToSynthDef x
+  y' <- graphToSynthDef y
+  z' <- graphToSynthDef z
+  W.clipWorklet x' y' z'

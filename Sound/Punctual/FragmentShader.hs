@@ -74,6 +74,9 @@ graphToFloat' (AmpDb x) = "ampdb(" <> graphToFloat' x <> ")"
 graphToFloat' (Abs x) = "abs(" <> graphToFloat' x <> ")"
 graphToFloat' (Sqrt x) = "sqrt(" <> graphToFloat' x <> ")"
 graphToFloat' (Pow x y) = "pow(" <> graphToFloat' x <> "," <> graphToFloat' y <> ")"
+graphToFloat' (Floor x) = "floor(" <> graphToFloat' x <> ")"
+graphToFloat' (Fract x) = "fract(" <> graphToFloat' x <> ")"
+graphToFloat' (Clip x y z) = "clamp(" <> graphToFloat' z <> "," <> graphToFloat' x <> "," <> graphToFloat' y <> ")"
 
 unaryShaderFunction :: Text -> Text -> Text
 unaryShaderFunction f x = f <> "(" <> x <> ")"

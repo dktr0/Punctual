@@ -25,13 +25,14 @@ with pkgs.haskell.lib;
     #       lens = self.callHackage "lens" "4.15.4" {}; # saving this example in case we need it later
 
     base-compat-batteries = dontCheck super.base-compat-batteries;
+
     text-show = dontCheck super.text-show;
 
     musicw = dontHaddock (self.callCabal2nix "musicw" (pkgs.fetchFromGitHub {
       owner = "dktr0";
       repo = "musicw";
-      rev = "2237851926f8018cbab6750f085286f51445c20f";
-      sha256 = "1yfdz4ga77n1w2qfj6cdpqa5h2iw1351ms9d50iznhngpahw0ad4";
+      sha256 = "0vl6kamccf11pk7fd2jb8pdh88rynppgym40z55bafafyihk09na";
+      rev = "05c9bdd016a7777510aef8b3c05626f6e2223b7d";
       }) {});
 
     reflex-dom-contrib = dontHaddock (self.callCabal2nix "reflex-dom-contrib" (pkgs.fetchFromGitHub {
@@ -39,6 +40,13 @@ with pkgs.haskell.lib;
       repo = "reflex-dom-contrib";
       rev = "b9e2965dff062a4e13140f66d487362a34fe58b3";
       sha256 = "1aa045mr82hdzzd8qlqhfrycgyhd29lad8rf7vsqykly9axpl52a";
+      }) {});
+
+    haskellish = dontHaddock (self.callCabal2nix "haskellish" (pkgs.fetchFromGitHub {
+      owner = "dktr0";
+      repo = "Haskellish";
+      rev = "08b46f830e2c8ba29fb0b3abce8af848834bd8f8";
+      sha256 = "0kkyyab96hwbbf4cd1fmy5y9a1g1wj3mkb18p090nmw9ib1fm6bb";
       }) {});
 
   };
