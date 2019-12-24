@@ -62,25 +62,31 @@ bodyElement = do
   mv <- liftIO $ newMVar initialPunctualWebGL
   -- liftIO $ forkIO $ requestAnimationFrame mv -- moved inside punctualReflex
 
-  parsed <- elClass "div" "editor" $ do
-    -- elClass "div" "title" $ text "Punctual" -- title just as comment in editor maybe?
-    let textAttrs = constDyn $ fromList [("class","editorArea"),("rows","999")]
-    code <- elClass "div" "editorDiv" $ textArea $ def & textAreaConfig_attributes .~ textAttrs & textAreaConfig_initialValue .~ intro
-    let e = _textArea_element code
-    e' <- wrapDomEvent (e) (onEventName Keypress) $ do
-      y <- getKeyEvent
-      let keyPressWasShiftEnter ke = (keShift ke == True) && (keKeyCode ke == 13)
-      if keyPressWasShiftEnter y then (preventDefault >> return True) else return False
-    let evalEvent = ffilter (==True) e'
-    let evaled = tagPromptlyDyn (_textArea_value code) evalEvent
-    return $ fmap runPunctualParser evaled
+  elClass "div" "editorAndStatus" $ do
+    parsed <- do
+      let textAttrs = constDyn $ fromList [("class","editorArea"){- ,("rows","999") -}]
+      code <- elClass "div" "editor" $ textArea $ def & textAreaConfig_attributes .~ textAttrs & textAreaConfig_initialValue .~ intro
+      let e = _textArea_element code
+      e' <- wrapDomEvent (e) (onEventName Keypress) $ do
+        y <- getKeyEvent
+        let keyPressWasShiftEnter ke = (keShift ke == True) && (keKeyCode ke == 13)
+        if keyPressWasShiftEnter y then (preventDefault >> return True) else return False
+      let evalEvent = ffilter (==True) e'
+      let evaled = tagPromptlyDyn (_textArea_value code) evalEvent
+      return $ fmap runPunctualParser evaled
 
-  punctualReflex mv $ fmapMaybe (either (const Nothing) Just) parsed
-  let errorsForConsole = fmapMaybe (either (Just . show) (const Nothing)) parsed
-  performEvent_ $ fmap (liftIO . putStrLn) errorsForConsole
-  let errors = fmapMaybe (either (Just . show) (Just . const "")) parsed
-  status <- holdDyn "" $ fmap (T.pack . show) errors
-  dynText status
+    punctualReflex mv $ fmapMaybe (either (const Nothing) Just) parsed
+    let errorsForConsole = fmapMaybe (either (Just . show) (const Nothing)) parsed
+    performEvent_ $ fmap (liftIO . putStrLn) errorsForConsole
+    let errors = fmapMaybe (either (Just . show) (Just . const "")) parsed
+    status <- holdDyn "" $ fmap (T.pack . show) errors
+    -- dynText status
+
+    elClass "div" "status" $ do
+      elClass "div" "errors" $ do
+        text "39 audio nodes, fragment shader 2048 chars" -- left aligned
+      elClass "div" "fps" $ do
+        text "60 FPS" -- right aligned
 
 
 foreign import javascript unsafe
