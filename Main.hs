@@ -18,6 +18,7 @@ import GHCJS.DOM.Types (HTMLCanvasElement(..),uncheckedCastTo,JSVal)
 import JavaScript.Web.AnimationFrame
 import GHCJS.Concurrent
 import GHCJS.DOM.EventM
+import Data.Bool
 
 import Sound.Punctual.Types hiding ((>>))
 import Sound.Punctual.Evaluation
@@ -26,6 +27,7 @@ import Sound.Punctual.PunctualW
 import Sound.Punctual.WebGL
 import Sound.MusicW
 import Sound.MusicW.AudioContext
+import Sound.Punctual.MovingAverage
 
 headElement :: MonadWidget t m => m ()
 headElement = do
@@ -63,30 +65,31 @@ bodyElement = do
   -- liftIO $ forkIO $ requestAnimationFrame mv -- moved inside punctualReflex
 
   elClass "div" "editorAndStatus" $ do
-    parsed <- do
+    (parsed,statusVisible) <- do
       let textAttrs = constDyn $ fromList [("class","editorArea"){- ,("rows","999") -}]
       code <- elClass "div" "editor" $ textArea $ def & textAreaConfig_attributes .~ textAttrs & textAreaConfig_initialValue .~ intro
       let e = _textArea_element code
       e' <- wrapDomEvent (e) (onEventName Keypress) $ do
         y <- getKeyEvent
-        let keyPressWasShiftEnter ke = (keShift ke == True) && (keKeyCode ke == 13)
-        if keyPressWasShiftEnter y then (preventDefault >> return True) else return False
-      let evalEvent = ffilter (==True) e'
-      let evaled = tagPromptlyDyn (_textArea_value code) evalEvent
-      return $ fmap runPunctualParser evaled
+        let f ke | (keShift ke == True) && (keCtrl ke == False) && (keKeyCode ke == 13) = 1 -- shift-Enter
+                 | (keShift ke == True) && (keCtrl ke == True) && (keKeyCode ke == 19) = 2 --ctrl-shift-S
+                 | otherwise = 0
+        if (f y /= 0) then (preventDefault >> return (f y)) else return 0
+      let evaled = tagPromptlyDyn (_textArea_value code) $ ffilter (==1) e'
+      shStatus <- toggle True $ ffilter (==2) e'
+      return (fmap runPunctualParser evaled,shStatus)
 
-    punctualReflex mv $ fmapMaybe (either (const Nothing) Just) parsed
+    dFps <- punctualReflex mv $ fmapMaybe (either (const Nothing) Just) parsed
     let errorsForConsole = fmapMaybe (either (Just . show) (const Nothing)) parsed
     performEvent_ $ fmap (liftIO . putStrLn) errorsForConsole
     let errors = fmapMaybe (either (Just . show) (Just . const "")) parsed
-    status <- holdDyn "" $ fmap (T.pack . show) errors
-    -- dynText status
+    status <- holdDyn "" $ fmap T.pack errors
 
-    elClass "div" "status" $ do
-      elClass "div" "errors" $ do
-        text "39 audio nodes, fragment shader 2048 chars" -- left aligned
+    hideableDiv statusVisible "status" $ do
+      elClass "div" "errors" $ dynText status
       elClass "div" "fps" $ do
-        text "60 FPS" -- right aligned
+        let fpsText = fmap ((<> " FPS") . showt . (round :: Double -> Int)) dFps
+        dynText fpsText
 
 
 foreign import javascript unsafe
@@ -110,7 +113,7 @@ foreign import javascript unsafe
   getHi :: JSVal -> IO Double
 
 
-punctualReflex :: MonadWidget t m => MVar PunctualWebGL -> Event t [Expression] -> m ()
+punctualReflex :: MonadWidget t m => MVar PunctualWebGL -> Event t [Expression] -> m (Dynamic t Double)
 punctualReflex mv exprs = mdo
   ac <- liftAudioIO $ audioContext
 
@@ -125,7 +128,10 @@ punctualReflex mv exprs = mdo
   connectNodes comp dest
   liftIO $ T.putStrLn "audio output/analysis network created and connected"
 
-  liftIO $ forkIO $ requestAnimationFrame mv analyser array
+  t1system <- liftIO $ getCurrentTime
+  mFps <- liftIO $ newMVar $ newAverage 60
+  dFps <- pollFPS mFps
+  liftIO $ forkIO $ requestAnimationFrame t1system mFps mv analyser array
 
   t0 <- liftAudioIO $ audioTime
   let initialPunctualW = emptyPunctualW ac gain 2 t0 -- hard coded stereo for now
@@ -136,7 +142,7 @@ punctualReflex mv exprs = mdo
   currentPunctualW <- holdDyn initialPunctualW newPunctualW
   -- video
   performEvent_ $ fmap (liftIO . evaluatePunctualWebGL' (t0,0.5) mv) evals -- *** note: tempo hard-coded here
-  return ()
+  return dFps
 
 evaluatePunctualWebGL' :: (AudioTime,Double) -> MVar PunctualWebGL -> Evaluation -> IO ()
 evaluatePunctualWebGL' t mv e = do
@@ -149,13 +155,17 @@ evaluationNow exprs = do
   t <- liftAudioIO $ audioTime
   return (exprs,t)
 
-requestAnimationFrame :: MVar PunctualWebGL -> Node -> JSVal -> IO ()
-requestAnimationFrame mv analyser array = do
-  inAnimationFrame ContinueAsync $ redrawCanvas mv analyser array
+requestAnimationFrame :: UTCTime -> MVar MovingAverage -> MVar PunctualWebGL -> Node -> JSVal -> IO ()
+requestAnimationFrame tPrev mFps mv analyser array = do
+  inAnimationFrame ContinueAsync $ redrawCanvas tPrev mFps mv analyser array
   return ()
 
-redrawCanvas :: MVar PunctualWebGL -> Node -> JSVal -> Double -> IO ()
-redrawCanvas mv analyser array _ = do
+redrawCanvas :: UTCTime -> MVar MovingAverage -> MVar PunctualWebGL -> Node -> JSVal -> Double -> IO ()
+redrawCanvas tPrev mFps mv analyser array _ = do
+  t1system <- getCurrentTime
+  let tDiff = diffUTCTime t1system tPrev
+  fps <- takeMVar mFps
+  putMVar mFps $ updateAverage fps $ 1 / realToFrac tDiff
   t1 <- liftAudioIO $ audioTime
   getByteFrequencyData analyser array
   lo <- getLo array
@@ -164,4 +174,17 @@ redrawCanvas mv analyser array _ = do
   st <- takeMVar mv
   st' <- drawFrame (t1,lo,mid,hi) st
   putMVar mv st'
-  requestAnimationFrame mv analyser array
+  requestAnimationFrame t1system mFps mv analyser array
+
+pollFPS :: MonadWidget t m => MVar MovingAverage -> m (Dynamic t Double)
+pollFPS mFps = do
+  now <- liftIO $ getCurrentTime
+  ticks <- tickLossy (0.204::NominalDiffTime) now
+  newFps <- performEvent $ fmap (liftIO . const (readMVar mFps)) ticks
+  let newFps' = fmap getAverage newFps
+  holdDyn 0 newFps'
+
+hideableDiv :: MonadWidget t m => Dynamic t Bool -> Text -> m a -> m a
+hideableDiv isVisible cssClass childWidget = do
+  let attrs = fmap (bool (fromList [("hidden","true"),("class",cssClass)]) (Data.Map.Strict.singleton "class" cssClass)) isVisible
+  elDynAttr "div" attrs childWidget
