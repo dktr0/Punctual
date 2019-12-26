@@ -61,17 +61,41 @@ explicitTargetOfDefinition :: Definition -> Text
 explicitTargetOfDefinition (Definition (Explicit x) _ _ _) = x
 explicitTargetOfDefinition _ = ""
 
--- sine 440 => 0.5   -- centre panned
--- sine 440 => 50%   -- the same thing another way
--- sine 440 =>      -- the same thing yet another way
--- a <> sine 440 => left -- something can be routed to a target and to an output
-
 data Output = NoOutput | PannedOutput Extent | NamedOutput Text deriving (Show,Eq)
 
 data Expression = Expression {
   definition :: Definition,
   output :: Output
   } deriving (Show,Eq)
+
+expressionFromGraph :: Graph -> Expression
+expressionFromGraph g = Expression {
+  definition = Definition {
+    target = Anonymous,
+    defTime = Quant 1.0 (Seconds 0.0),
+    transition = DefaultCrossFade,
+    graph = g
+    },
+  output = NoOutput
+  }
+
+(<>) :: Expression -> Duration -> Expression
+e <> d = e {
+  definition = (definition e) {
+    transition = CrossFade d
+    }
+  }
+
+(@@) :: Expression -> DefTime -> Expression
+e @@ d = e {
+  definition = (definition e) {
+    defTime = d
+    }
+  }
+
+(>>) :: Expression -> Output -> Expression
+e >> o = e { output = o }
+
 
 listOfExpressionsToMap :: [Expression] -> Map Target' Expression
 listOfExpressionsToMap xs = fromList $ namedExprs ++ anonymousExprs

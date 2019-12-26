@@ -156,6 +156,9 @@ linlin min1 max1 min2 max2 x = min2 + (outputRange * proportion)
 modulatedRangeGraph :: Graph -> Graph -> Graph -> Graph
 modulatedRangeGraph low high m = (mean low high) + ((high - low) * 0.5 * m)
 
+(+-) :: Graph -> Graph -> Graph -> Graph
+a +- b = modulatedRangeGraph (a - (a*b)) (a + (a*b))
+
 rect :: Graph -> Graph -> Graph -> Graph -> Graph
 rect x y w h = Product inHrange inVrange
   where

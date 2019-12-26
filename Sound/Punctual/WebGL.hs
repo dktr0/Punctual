@@ -22,7 +22,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Sound.MusicW.AudioContext (AudioTime)
 
-import Sound.Punctual.Types
+import Sound.Punctual.Types hiding ((<>))
 import Sound.Punctual.Evaluation
 import Sound.Punctual.FragmentShader
 

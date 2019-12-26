@@ -19,7 +19,7 @@ import JavaScript.Web.AnimationFrame
 import GHCJS.Concurrent
 import GHCJS.DOM.EventM
 
-import Sound.Punctual.Types
+import Sound.Punctual.Types hiding ((>>))
 import Sound.Punctual.Evaluation
 import Sound.Punctual.Parser
 import Sound.Punctual.PunctualW

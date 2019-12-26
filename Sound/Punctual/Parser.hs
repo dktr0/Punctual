@@ -4,145 +4,88 @@ module Sound.Punctual.Parser (runPunctualParser) where
 
 import Data.Text (Text)
 import qualified Data.Text as T
-import Text.Parsec
-import Text.Parsec.Text
+import Data.Foldable (asum)
+import Language.Haskell.Exts
+import Language.Haskellish
 
-import Sound.Punctual.Token
-import Sound.Punctual.Extent
-import Sound.Punctual.Graph
-import Sound.Punctual.Types
+import Sound.Punctual.Extent as P
+import Sound.Punctual.Graph as P
+import qualified Sound.Punctual.Types as P
 
-duration :: Parser Duration
-duration = choice $ fmap try [seconds,milliseconds,cycles]
+runPunctualParser :: Text -> Either String [P.Expression]
+runPunctualParser t = (f . parseExp) $ ( "do {" ++ (T.unpack t) ++ "}" )
+  where
+    f (ParseOk x) = runHaskellish punctualParser x
+    f (ParseFailed l s) = Left s
 
-seconds :: Parser Duration
-seconds = do
-  x <- double
-  reserved "s"
-  return $ Seconds x
+punctualParser :: Haskellish [P.Expression]
+punctualParser = listOfDoStatements expression
 
-milliseconds :: Parser Duration
-milliseconds = do
-  x <- double
-  reserved "ms"
-  return $ Seconds (x/1000.0)
-
-cycles :: Parser Duration
-cycles = do
-  x <- double
-  reserved "c"
-  return $ Cycles x
-
-cyclesInQuant :: Parser Double
-cyclesInQuant = do
-  x <- double
-  reserved "c"
-  return x
-
-defTimeParser :: Parser DefTime
-defTimeParser = reservedOp "@" >> choice [
-  try $ quant,
-  try $ cyclesInQuant >>= \n -> return (Quant n (Seconds 0.0)),
-  try $ seconds >>= return . After,
-  try $ milliseconds >>= return . After
+expression :: Haskellish P.Expression
+expression = asum [
+  duration_expression <*> duration,
+  defTime_expression <*> defTime,
+  output_expression <*> output,
+  P.expressionFromGraph <$> graph
   ]
 
-quant :: Parser DefTime
-quant = do
-  x <- cyclesInQuant
-  reservedOp "+"
-  y <- duration
-  return $ Quant x y
+duration_expression :: Haskellish (P.Duration -> P.Expression)
+duration_expression = expression_duration_expression <*> expression
 
-transitionParser :: Parser Transition
-transitionParser = choice [
-  reservedOp "<>" >> return DefaultCrossFade,
-  reservedOp "~" >> return HoldPhase,
-  reservedOp "=" >> return (CrossFade (Seconds 0.0)),
-  CrossFade <$> angles duration
+defTime_expression :: Haskellish (P.DefTime -> P.Expression)
+defTime_expression = expression_defTime_expression <*> expression
+
+output_expression :: Haskellish (P.Output -> P.Expression)
+output_expression = expression_output_expression <*> expression
+
+expression_duration_expression :: Haskellish (P.Expression -> P.Duration -> P.Expression)
+expression_duration_expression = reserved "<>" >> return (P.<>)
+
+expression_defTime_expression :: Haskellish (P.Expression -> P.DefTime -> P.Expression)
+expression_defTime_expression = reserved "@@" >> return (P.@@)
+
+expression_output_expression :: Haskellish (P.Expression -> P.Output -> P.Expression)
+expression_output_expression = reserved ">>" >> return (P.>>)
+
+double :: Haskellish Double
+double = asum [
+  realToFrac <$> rationalOrInteger
+  -- *** TODO *** add MIDI and db notations here
   ]
 
-definitionParser :: Parser Definition
-definitionParser = do
-  a <- option Anonymous $ (Explicit . T.pack <$> identifier)
-  b <- option (Quant 1 (Seconds 0)) defTimeParser
-  c <- option DefaultCrossFade  transitionParser
-  d <- graphParser
-  return $ Definition a b c d
-
-outputParser :: Parser Output
-outputParser = choice [
-  try $ reservedOp "=>" >> (PannedOutput <$> extent),
-  try $ reservedOp "=>" >> reserved "left" >> return (PannedOutput 0),
-  try $ reservedOp "=>" >> reserved "right" >> return (PannedOutput 1),
-  try $ reservedOp "=>" >> reserved "centre" >> return (PannedOutput 0.5),
-  try $ reservedOp "=>" >> reserved "splay" >> return (NamedOutput "splay"),
-  try $ reservedOp "=>" >> reserved "red" >> return (NamedOutput "red"),
-  try $ reservedOp "=>" >> reserved "green" >> return (NamedOutput "green"),
-  try $ reservedOp "=>" >> reserved "blue" >> return (NamedOutput "blue"),
-  try $ reservedOp "=>" >> reserved "alpha" >> return (NamedOutput "alpha"),
-  try $ reservedOp "=>" >> reserved "rgb" >> return (NamedOutput "rgb"),
-  try $ reservedOp "=>" >> reserved "hsv" >> return (NamedOutput "hsv"),
-  return NoOutput
+duration :: Haskellish P.Duration
+duration = asum [
+  P.Seconds <$> double
+  -- *** TODO *** add seconds, milliseconds and cycles notations here
   ]
 
-expression :: Parser Expression
-expression = Expression <$> definitionParser <*> outputParser
-
-punctualParser :: Parser [Expression]
-punctualParser = do
-  whiteSpace
-  x <- expression `sepBy` reservedOp ";"
-  eof
-  return x
-
-runPunctualParser :: Text -> Either ParseError [Expression]
-runPunctualParser = parse punctualParser ""
-
-graphParser :: Parser Graph
-graphParser = sumOfGraphs <|> return EmptyGraph
-
-sumOfGraphs :: Parser Graph
-sumOfGraphs = chainl1 comparisonOfGraphs $ choice [
-  reservedOp "+" >> return (+),
-  reservedOp "-" >> return (-)
+defTime :: Haskellish P.DefTime
+defTime = asum [
+  (\(x,y) -> P.Quant x y) <$> Language.Haskellish.tuple double duration,
+  P.After <$> duration
   ]
 
-comparisonOfGraphs :: Parser Graph
-comparisonOfGraphs = chainl1 productOfGraphs $ choice [
-  reservedOp ">" >> return GreaterThan,
-  reservedOp "<" >> return LessThan,
-  reservedOp ">=" >> return GreaterThanOrEqual,
-  reservedOp "<=" >> return LessThanOrEqual,
-  reservedOp "==" >> return Equal,
-  reservedOp "!=" >> return NotEqual
+output :: Haskellish P.Output
+output = asum [
+  (P.PannedOutput . realToFrac) <$> rationalOrInteger,
+  reserved "left" >> return (P.PannedOutput 0),
+  reserved "right" >> return (P.PannedOutput 1),
+  reserved "centre" >> return (P.PannedOutput 0.5),
+  reserved "splay" >> return (P.NamedOutput "splay"),
+  reserved "red" >> return (P.NamedOutput "red"),
+  reserved "green" >> return (P.NamedOutput "green"),
+  reserved "blue" >> return (P.NamedOutput "blue"),
+  reserved "alpha" >> return (P.NamedOutput "alpha"),
+  reserved "rgb" >> return (P.NamedOutput "rgb"),
+  reserved "hsv" >> return (P.NamedOutput "hsv")
   ]
 
-productOfGraphs :: Parser Graph
-productOfGraphs = chainl1 simpleGraph $ choice [
-  reservedOp "**" >> return Pow,
-  reservedOp "*" >> return Product,
-  reservedOp "/" >> return Division
-  ]
-
-simpleGraph :: Parser Graph
-simpleGraph = choice [
-  try $ modulatedRange,
-  try $ multiSeries,
-  functionsWithArguments,
-  graphArgument
-  ]
-
-graphArgument :: Parser Graph
-graphArgument = choice [
-  try $ parens graphParser,
-  multiGraph,
-  Constant <$> try extent,
-  functionsWithoutArguments
-  ]
-
-functionsWithoutArguments :: Parser Graph
-functionsWithoutArguments = choice [
+graph :: Haskellish Graph
+graph = asum [
+  (Constant . realToFrac) <$> rational,
+  (Constant . fromIntegral) <$> integer,
+  Multi <$> list graph,
+  multiSeries,
   reserved "noise" >> return Noise,
   reserved "pink" >> return Pink,
   reserved "fx" >> return Fx,
@@ -152,82 +95,80 @@ functionsWithoutArguments = choice [
   reserved "lo" >> return Lo,
   reserved "mid" >> return Mid,
   reserved "hi" >> return Hi,
-  reserved "fb" >> return fb
+  reserved "fb" >> return fb,
+  graph2 <*> graph
   ]
 
-functionsWithArguments :: Parser Graph
-functionsWithArguments = choice [
-  (reserved "bipolar" >> return bipolar) <*> graphArgument,
-  (reserved "unipolar" >> return unipolar) <*> graphArgument,
-  Sine <$> (reserved "sin" >> graphArgument),
-  Tri <$> (reserved "tri" >> graphArgument),
-  Saw <$> (reserved "saw" >> graphArgument),
-  Square <$> (reserved "sqr" >> graphArgument),
-  (reserved "lpf" >> return LPF) <*> graphArgument <*> graphArgument <*> graphArgument,
-  (reserved "hpf" >> return HPF) <*> graphArgument <*> graphArgument <*> graphArgument,
-  (reserved "mono" >> return Mono) <*> graphArgument,
-  (reserved "abs" >> return Abs) <*> graphArgument,
-  (reserved "cpsmidi" >> return CpsMidi) <*> graphArgument,
-  (reserved "midicps" >> return MidiCps) <*> graphArgument,
-  (reserved "dbamp" >> return DbAmp) <*> graphArgument,
-  (reserved "ampdb" >> return AmpDb) <*> graphArgument,
-  (reserved "mean" >> return mean) <*> graphArgument <*> graphArgument,
-  (reserved "squared" >> return squared) <*> graphArgument,
-  (reserved "sqrt" >> return Sqrt) <*> graphArgument,
-  (reserved "distance" >> return distance) <*> graphArgument <*> graphArgument,
-  (reserved "circle" >> return circle) <*> graphArgument <*> graphArgument <*> graphArgument,
-  (reserved "point" >> return point) <*> graphArgument <*> graphArgument,
-  (reserved "hline" >> return hline) <*> graphArgument,
-  (reserved "vline" >> return vline) <*> graphArgument,
-  (reserved "linlin" >> return linlin) <*> graphArgument <*> graphArgument <*> graphArgument <*> graphArgument <*> graphArgument,
-  (reserved "rect" >> return rect) <*> graphArgument <*> graphArgument <*> graphArgument <*> graphArgument,
-  (reserved "texr" >> return TexR) <*> graphArgument <*> graphArgument <*> graphArgument,
-  (reserved "texg" >> return TexG) <*> graphArgument <*> graphArgument <*> graphArgument,
-  (reserved "texb" >> return TexB) <*> graphArgument <*> graphArgument <*> graphArgument,
-  (reserved "tex" >> return tex) <*> graphArgument <*> graphArgument <*> graphArgument,
-  (reserved "floor" >> return Floor) <*> graphArgument,
-  (reserved "fract" >> return Fract) <*> graphArgument,
-  (reserved "clip" >> return Clip) <*> graphArgument <*> graphArgument <*> graphArgument
+graph2 :: Haskellish (Graph -> Graph)
+graph2 = asum [
+  reserved "bipolar" >> return bipolar,
+  reserved "unipolar" >> return unipolar,
+  reserved "sin" >> return Sine,
+  reserved "tri" >> return Tri,
+  reserved "saw" >> return Saw,
+  reserved "sqr" >> return Square,
+  reserved "mono" >> return Mono,
+  reserved "abs" >> return Abs,
+  reserved "cpsmidi" >> return CpsMidi,
+  reserved "midicps" >> return MidiCps,
+  reserved "dbamp" >> return DbAmp,
+  reserved "ampdb" >> return AmpDb,
+  reserved "squared" >> return squared,
+  reserved "sqrt" >> return Sqrt,
+  reserved "hline" >> return hline,
+  reserved "vline" >> return vline,
+  reserved "floor" >> return Floor,
+  reserved "fract" >> return Fract,
+  graph3 <*> graph
   ]
 
-modulatedRange :: Parser Graph
-modulatedRange = do
-  (a,b) <- rangeParser
-  reservedOp ":"
-  m <- graphParser
-  return $ modulatedRangeGraph a b m
-
-rangeParser :: Parser (Graph,Graph)
-rangeParser = choice [
-  try $ do
-    x <- graphArgument
-    reservedOp "+-"
-    y <- graphArgument
-    let y' = Product x y
-    return (x - y', x + y'),
-  try $ do
-    x <- graphArgument
-    reservedOp "->"
-    y <- graphArgument
-    return (x,y),
-  try $ do
-    x <- graphArgument
-    return (Constant 0,x)
+graph3 :: Haskellish (Graph -> Graph -> Graph)
+graph3 = asum [
+  reserved "+" >> return (+),
+  reserved "-" >> return (-),
+  reserved ">" >> return GreaterThan,
+  reserved "<" >> return LessThan,
+  reserved ">=" >> return GreaterThanOrEqual,
+  reserved "<=" >> return LessThanOrEqual,
+  reserved "==" >> return Equal,
+  reserved "!=" >> return NotEqual,
+  reserved "**" >> return Pow,
+  reserved "*" >> return Product,
+  reserved "/" >> return Division,
+  reserved "mean" >> return mean,
+  reserved "distance" >> return distance,
+  reserved "point" >> return point,
+  graph4 <*> graph
   ]
 
-multiGraph :: Parser Graph
-multiGraph = choice [
-  try $ multiGraph' >>= (\x -> reserved "db" >> return (DbAmp x)),
-  try $ multiGraph' >>= (\x -> reserved "m" >> return (MidiCps x)),
-  multiGraph'
+graph4 :: Haskellish (Graph -> Graph -> Graph -> Graph)
+graph4 = asum [
+  reserved "lpf" >> return LPF,
+  reserved "hpf" >> return HPF,
+  reserved "circle" >> return circle,
+  reserved "texr" >> return TexR,
+  reserved "texg" >> return TexG,
+  reserved "texb" >> return TexB,
+  reserved "tex" >> return tex,
+  reserved "clip" >> return Clip,
+  reserved "->" >> return modulatedRangeGraph,
+  reserved "+-" >> return (P.+-),
+  graph5 <*> graph
   ]
 
-multiGraph' :: Parser Graph
-multiGraph' = brackets (commaSep graphParser) >>= return . Multi
+graph5 :: Haskellish (Graph -> Graph -> Graph -> Graph -> Graph)
+graph5 = asum [
+  reserved "rect" >> return rect,
+  graph6 <*> graph
+  ]
 
-multiSeries :: Parser Graph
-multiSeries = do
-  x <- fromIntegral <$> integer
-  reservedOp ".."
-  y <- fromIntegral <$> integer
-  return $ Multi $ fmap Constant [x .. y]
+graph6 :: Haskellish (Graph -> Graph -> Graph -> Graph -> Graph -> Graph)
+graph6 = asum [
+  reserved "linlin" >> return linlin
+  ]
+
+multiSeries :: Haskellish Graph
+multiSeries = (reserved "..." >> return f) <*> i <*> i
+  where
+    f x y = Multi $ fmap Constant [x .. y]
+    i = fromIntegral <$> integer
