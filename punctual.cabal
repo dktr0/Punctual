@@ -25,7 +25,7 @@ Library
       ghcjs-dom-jsffi,
       text,
       text-show,
-      haskellish >= 0.1.1,
+      haskellish >= 0.1.2,
       haskell-src-exts >= 1.21.0
   GHC-Options:       -Wall -fwarn-tabs -fno-warn-unused-do-bind
   Exposed-modules:   Sound.Punctual.Graph
@@ -56,6 +56,6 @@ executable punctual
       reflex-dom-contrib,
       text,
       text-show,
-      haskellish >= 0.1.1,
+      haskellish >= 0.1.2,
       haskell-src-exts >= 1.21.0
   default-language:  Haskell2010

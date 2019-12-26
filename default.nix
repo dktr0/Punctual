@@ -45,8 +45,8 @@ with pkgs.haskell.lib;
     haskellish = dontHaddock (self.callCabal2nix "haskellish" (pkgs.fetchFromGitHub {
       owner = "dktr0";
       repo = "Haskellish";
-      rev = "08b46f830e2c8ba29fb0b3abce8af848834bd8f8";
-      sha256 = "0kkyyab96hwbbf4cd1fmy5y9a1g1wj3mkb18p090nmw9ib1fm6bb";
+      sha256 = "0n2926g62j6cjy1fmb6s2zx4lwc24mrica03cplh9ahh9gfwgfwx";
+      rev = "41caf3c9eeb4847643dce307bdcdab3bf1accf17";
       }) {});
 
   };

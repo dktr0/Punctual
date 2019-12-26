@@ -7,18 +7,61 @@ import qualified Data.Text as T
 import Data.Foldable (asum)
 import Language.Haskell.Exts
 import Language.Haskellish
+import Sound.MusicW as W (midicps,dbamp)
 
 import Sound.Punctual.Graph as P
 import qualified Sound.Punctual.Types as P
 
 runPunctualParser :: Text -> Either String [P.Expression]
-runPunctualParser t = (f . parseExp) $ ( "do {" ++ (T.unpack t) ++ "}" )
+runPunctualParser = f . parseWithMode m . ('[':) . (++ "]") . T.unpack . (T.replace ";" ",")
   where
     f (ParseOk x) = runHaskellish punctualParser x
     f (ParseFailed l s) = Left s
+    m = defaultParseMode {
+      fixities = Just [
+        Fixity (AssocRight ()) 9 (UnQual () (Symbol () ".")),
+        Fixity (AssocLeft ()) 9 (UnQual () (Symbol () "!!")),
+        Fixity (AssocRight ()) 8 (UnQual () (Symbol () "^")),
+        Fixity (AssocRight ()) 8 (UnQual () (Symbol () "^^")),
+        Fixity (AssocRight ()) 8 (UnQual () (Symbol () "**")),
+        Fixity (AssocLeft ()) 7 (UnQual () (Symbol () "*")),
+        Fixity (AssocLeft ()) 7 (UnQual () (Symbol () "/")),
+        Fixity (AssocLeft ()) 7 (UnQual () (Ident () "quot")),
+        Fixity (AssocLeft ()) 7 (UnQual () (Ident () "rem")),
+        Fixity (AssocLeft ()) 7 (UnQual () (Ident () "div")),
+        Fixity (AssocLeft ()) 7 (UnQual () (Ident () "mod")),
+        Fixity (AssocLeft ()) 6 (UnQual () (Symbol () "+")),
+        Fixity (AssocLeft ()) 6 (UnQual () (Symbol () "-")),
+        Fixity (AssocRight ()) 5 (UnQual () (Symbol () ":")),
+        Fixity (AssocRight ()) 5 (UnQual () (Symbol () "++")),
+        Fixity (AssocNone ()) 4 (UnQual () (Symbol () "==")),
+        Fixity (AssocNone ()) 4 (UnQual () (Symbol () "/=")),
+        Fixity (AssocNone ()) 4 (UnQual () (Symbol () "<")),
+        Fixity (AssocNone ()) 4 (UnQual () (Symbol () "<=")),
+        Fixity (AssocNone ()) 4 (UnQual () (Symbol () ">=")),
+        Fixity (AssocNone ()) 4 (UnQual () (Symbol () ">")),
+        Fixity (AssocNone ()) 4 (UnQual () (Ident () "elem")),
+        Fixity (AssocNone ()) 4 (UnQual () (Ident () "notElem")),
+        Fixity (AssocLeft ()) 4 (UnQual () (Symbol () "<$>")),
+        Fixity (AssocLeft ()) 4 (UnQual () (Symbol () "<$")),
+        Fixity (AssocLeft ()) 4 (UnQual () (Symbol () "<*>")),
+        Fixity (AssocLeft ()) 4 (UnQual () (Symbol () "<*")),
+        Fixity (AssocLeft ()) 4 (UnQual () (Symbol () "*>")),
+        Fixity (AssocRight ()) 3 (UnQual () (Symbol () "&&")),
+        Fixity (AssocRight ()) 2 (UnQual () (Symbol () "||")),
+        Fixity (AssocLeft ()) 0 (UnQual () (Symbol () ">>")), -- modified from Haskell default (1) to have equal priority to ops below...
+        Fixity (AssocLeft ()) 1 (UnQual () (Symbol () ">>=")),
+        Fixity (AssocRight ()) 1 (UnQual () (Symbol () "=<<")),
+        Fixity (AssocRight ()) 1 (UnQual () (Symbol () "$")), -- is 0 in Haskell, changed to 1 to have less priority than ops below...
+        Fixity (AssocRight ()) 0 (UnQual () (Symbol () "$!")),
+        Fixity (AssocRight ()) 0 (UnQual () (Ident () "seq")), -- this line and above are fixities from defaultParseMode
+        Fixity (AssocLeft ()) 0 (UnQual () (Symbol () "<>")), -- this line and below are fixities defined for Punctual's purposes...
+        Fixity (AssocLeft ()) 0 (UnQual () (Symbol () "@@"))
+        ]
+    }
 
 punctualParser :: Haskellish [P.Expression]
-punctualParser = listOfDoStatements expression
+punctualParser = list expression
 
 expression :: Haskellish P.Expression
 expression = asum [
@@ -48,14 +91,17 @@ expression_output_expression = reserved ">>" >> return (P.>>)
 
 double :: Haskellish Double
 double = asum [
-  realToFrac <$> rationalOrInteger
-  -- *** TODO *** add MIDI and db notations here
+  realToFrac <$> rationalOrInteger,
+  reverseApplication double (reserved "m" >> return W.midicps),
+  reverseApplication double (reserved "db" >> return W.dbamp)
   ]
 
 duration :: Haskellish P.Duration
 duration = asum [
-  P.Seconds <$> double
-  -- *** TODO *** add seconds, milliseconds and cycles notations here
+  P.Seconds <$> double,
+  reverseApplication double (reserved "s" >> return P.Seconds),
+  reverseApplication double (reserved "ms" >> return (\x -> P.Seconds $ x/1000.0)),
+  reverseApplication double (reserved "c" >> return P.Cycles)
   ]
 
 defTime :: Haskellish P.DefTime
@@ -81,6 +127,8 @@ output = asum [
 
 graph :: Haskellish Graph
 graph = asum [
+  reverseApplication graph (reserved "m" >> return MidiCps),
+  reverseApplication graph (reserved "db" >> return DbAmp),
   (Constant . realToFrac) <$> rational,
   (Constant . fromIntegral) <$> integer,
   Multi <$> list graph,
@@ -150,7 +198,7 @@ graph4 = asum [
   reserved "texb" >> return TexB,
   reserved "tex" >> return tex,
   reserved "clip" >> return Clip,
-  reserved "->" >> return modulatedRangeGraph,
+  reserved "~~" >> return modulatedRangeGraph,
   reserved "+-" >> return (P.+-),
   graph5 <*> graph
   ]
