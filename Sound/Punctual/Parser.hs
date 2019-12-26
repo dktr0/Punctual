@@ -8,7 +8,6 @@ import Data.Foldable (asum)
 import Language.Haskell.Exts
 import Language.Haskellish
 
-import Sound.Punctual.Extent as P
 import Sound.Punctual.Graph as P
 import qualified Sound.Punctual.Types as P
 

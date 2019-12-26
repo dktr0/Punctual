@@ -7,8 +7,9 @@ import Data.Map.Strict
 import Data.Text (Text)
 import Sound.MusicW.AudioContext (AudioTime)
 
-import Sound.Punctual.Extent
 import Sound.Punctual.Graph
+
+type Extent = Double
 
 data Duration = Seconds Double | Cycles Double deriving (Show,Eq)
 
