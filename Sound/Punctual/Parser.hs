@@ -162,8 +162,6 @@ graph2 = asum [
   reserved "ampdb" >> return AmpDb,
   reserved "squared" >> return squared,
   reserved "sqrt" >> return Sqrt,
-  reserved "hline" >> return hline,
-  reserved "vline" >> return vline,
   reserved "floor" >> return Floor,
   reserved "fract" >> return Fract,
   graph3 <*> graph
@@ -185,6 +183,8 @@ graph3 = asum [
   reserved "mean" >> return mean,
   reserved "distance" >> return distance,
   reserved "point" >> return point,
+  reserved "hline" >> return hline,
+  reserved "vline" >> return vline,
   graph4 <*> graph
   ]
 
@@ -198,6 +198,7 @@ graph4 = asum [
   reserved "texb" >> return TexB,
   reserved "tex" >> return tex,
   reserved "clip" >> return Clip,
+  reserved "between" >> return between,
   reserved "~~" >> return modulatedRangeGraph,
   reserved "+-" >> return (P.+-),
   graph5 <*> graph
@@ -211,7 +212,9 @@ graph5 = asum [
 
 graph6 :: Haskellish (Graph -> Graph -> Graph -> Graph -> Graph -> Graph)
 graph6 = asum [
-  reserved "linlin" >> return linlin
+  reserved "linlin" >> return linlin,
+  reserved "iline" >> return iline,
+  reserved "line" >> return line
   ]
 
 multiSeries :: Haskellish Graph

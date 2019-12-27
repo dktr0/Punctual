@@ -179,17 +179,36 @@ point x y = Product inHrange inVrange
     inHrange = Product (GreaterThanOrEqual Fx x0) (LessThanOrEqual Fx x1)
     inVrange = Product (GreaterThanOrEqual Fy y0) (LessThanOrEqual Fy y1)
 
-hline :: Graph -> Graph
-hline y = Product (GreaterThanOrEqual Fy y0) (LessThanOrEqual Fy y1)
+hline :: Graph -> Graph -> Graph
+hline y w = Product (GreaterThanOrEqual Fy y0) (LessThanOrEqual Fy y1)
   where
-    y0 = Sum y (Product Py (Constant (-0.5)))
-    y1 = Sum y (Product Py (Constant (0.5)))
+    y0 = Sum y (Product w (Constant (-0.5)))
+    y1 = Sum y (Product w (Constant (0.5)))
 
-vline :: Graph -> Graph
-vline x = Product (GreaterThanOrEqual Fx x0) (LessThanOrEqual Fx x1)
+vline :: Graph -> Graph -> Graph
+vline x w = Product (GreaterThanOrEqual Fx x0) (LessThanOrEqual Fx x1)
   where
-    x0 = Sum x (Product Px (Constant (-0.5)))
-    x1 = Sum x (Product Px (Constant (0.5)))
+    x0 = Sum x (Product w (Constant (-0.5)))
+    x1 = Sum x (Product w (Constant (0.5)))
+
+iline :: Graph -> Graph -> Graph -> Graph -> Graph -> Graph
+iline x1 y1 x2 y2 w = LessThan d w * notVorH + isVertical * vline x1 w + isHorizontal * hline y1 w
+  where
+    isVertical = Equal x2 x1 -- LessThan (Abs (x2-x1)) 0.002
+    isHorizontal = Equal y2 y1
+    notVorH = LessThan (isVertical+isHorizontal) 1
+    d = abs( (y2-y1)*Fx - (x2-x1)*Fy + x2*y1 - y2*x1 ) / Sqrt ( squared (x2-x1) + squared (y2-y1))
+
+line :: Graph -> Graph -> Graph -> Graph -> Graph -> Graph
+line x1 y1 x2 y2 w = iline x1 y1 x2 y2 w * mask
+  where
+    isVertical = Equal x1 x2
+    notVertical = 1 - isVertical
+    mask = (isVertical * between y1 y2 Fy) + (notVertical * between x1 x2 Fx * between y1 y2 Fy)
+
+between :: Graph -> Graph -> Graph -> Graph
+between r1 r2 x = (GreaterThan r2 r1) * (GreaterThan x r1) * (LessThan x r2) +
+                  (GreaterThan r1 r2) * (GreaterThan x r2) * (LessThan x r1)
 
 squared :: Graph -> Graph
 squared x = Product x x
