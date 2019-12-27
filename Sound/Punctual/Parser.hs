@@ -148,8 +148,8 @@ graph = asum [
 
 graph2 :: Haskellish (Graph -> Graph)
 graph2 = asum [
-  reserved "bipolar" >> return bipolar,
-  reserved "unipolar" >> return unipolar,
+  reserved "bipolar" >> return Bipolar,
+  reserved "unipolar" >> return Unipolar,
   reserved "sin" >> return Sine,
   reserved "tri" >> return Tri,
   reserved "saw" >> return Saw,
@@ -160,7 +160,6 @@ graph2 = asum [
   reserved "midicps" >> return MidiCps,
   reserved "dbamp" >> return DbAmp,
   reserved "ampdb" >> return AmpDb,
-  reserved "squared" >> return squared,
   reserved "sqrt" >> return Sqrt,
   reserved "floor" >> return Floor,
   reserved "fract" >> return Fract,
@@ -180,11 +179,11 @@ graph3 = asum [
   reserved "**" >> return Pow,
   reserved "*" >> return Product,
   reserved "/" >> return Division,
-  reserved "mean" >> return mean,
-  reserved "distance" >> return distance,
-  reserved "point" >> return point,
-  reserved "hline" >> return hline,
-  reserved "vline" >> return vline,
+  reserved "mean" >> return Mean,
+  reserved "distance" >> return Distance,
+  reserved "point" >> return Point,
+  reserved "hline" >> return HLine,
+  reserved "vline" >> return VLine,
   graph4 <*> graph
   ]
 
@@ -192,13 +191,13 @@ graph4 :: Haskellish (Graph -> Graph -> Graph -> Graph)
 graph4 = asum [
   reserved "lpf" >> return LPF,
   reserved "hpf" >> return HPF,
-  reserved "circle" >> return circle,
+  reserved "circle" >> return Circle,
   reserved "texr" >> return TexR,
   reserved "texg" >> return TexG,
   reserved "texb" >> return TexB,
   reserved "tex" >> return tex,
   reserved "clip" >> return Clip,
-  reserved "between" >> return between,
+  reserved "between" >> return Between,
   reserved "~~" >> return modulatedRangeGraph,
   reserved "+-" >> return (P.+-),
   graph5 <*> graph
@@ -206,15 +205,15 @@ graph4 = asum [
 
 graph5 :: Haskellish (Graph -> Graph -> Graph -> Graph -> Graph)
 graph5 = asum [
-  reserved "rect" >> return rect,
+  reserved "rect" >> return Rect,
   graph6 <*> graph
   ]
 
 graph6 :: Haskellish (Graph -> Graph -> Graph -> Graph -> Graph -> Graph)
 graph6 = asum [
-  reserved "linlin" >> return linlin,
-  reserved "iline" >> return iline,
-  reserved "line" >> return line
+  reserved "linlin" >> return LinLin,
+  reserved "iline" >> return ILine,
+  reserved "line" >> return Line
   ]
 
 multiSeries :: Haskellish Graph

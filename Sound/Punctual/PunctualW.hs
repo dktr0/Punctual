@@ -136,24 +136,31 @@ graphToSynthDef Lo = W.constantSource 0
 graphToSynthDef Mid = W.constantSource 0
 graphToSynthDef Hi = W.constantSource 0
 
+graphToSynthDef (Bipolar x) = graphToSynthDef $ x * 2 - 1
+graphToSynthDef (Unipolar x) = graphToSynthDef $ x * 0.5 + 0.5
+
+graphToSynthDef (Sine (MidiCps (Constant x))) = W.oscillator W.Sine $ W.midicps x
 graphToSynthDef (Sine (Constant x)) = W.oscillator W.Sine x
 graphToSynthDef (Sine x) = do
   s <- W.oscillator W.Sine 0
   graphToSynthDef x >>= W.param W.Frequency s
   return s
 
+graphToSynthDef (Tri (MidiCps (Constant x))) = W.oscillator W.Triangle $ W.midicps x
 graphToSynthDef (Tri (Constant x)) = W.oscillator W.Triangle x
 graphToSynthDef (Tri x) = do
   s <- W.oscillator W.Triangle 0
   graphToSynthDef x >>= W.param W.Frequency s
   return s
 
+graphToSynthDef (Saw (MidiCps (Constant x))) = W.oscillator W.Sawtooth $ W.midicps x
 graphToSynthDef (Saw (Constant x)) = W.oscillator W.Sawtooth x
 graphToSynthDef (Saw x) = do
   s <- W.oscillator W.Sawtooth 0
   graphToSynthDef x >>= W.param W.Frequency s
   return s
 
+graphToSynthDef (Square (MidiCps (Constant x))) = W.oscillator W.Square $ W.midicps x
 graphToSynthDef (Square (Constant x)) = W.oscillator W.Square x
 graphToSynthDef (Square x) = do
   s <- W.oscillator W.Square 0
@@ -196,12 +203,16 @@ graphToSynthDef (Sum (Constant x) (Constant y)) = graphToSynthDef (Constant $ x+
 graphToSynthDef (Sum x y) = W.mixSynthDefs $ fmap graphToSynthDef [x,y]
 
 graphToSynthDef (Product (Constant x) (Constant y)) = graphToSynthDef (Constant $ x*y)
+graphToSynthDef (Product x (DbAmp (Constant y))) = graphToSynthDef x >>= W.gain (W.dbamp y)
+graphToSynthDef (Product (DbAmp (Constant x)) y) = graphToSynthDef y >>= W.gain (W.dbamp x) 
 graphToSynthDef (Product x (Constant y)) = graphToSynthDef x >>= W.gain y
 graphToSynthDef (Product (Constant x) y) = graphToSynthDef y >>= W.gain x
 graphToSynthDef (Product x y) = do
   m <- graphToSynthDef x >>= W.gain 0.0
   graphToSynthDef y >>= W.param W.Gain m
   return m
+
+graphToSynthDef (Mean x y) = graphToSynthDef $ (x + y) * 0.5
 
 graphToSynthDef (Division x y) = do
   x' <- graphToSynthDef x
@@ -238,10 +249,17 @@ graphToSynthDef (NotEqual x y) = do
   y' <- graphToSynthDef y
   W.notEqualWorklet x' y'
 
+graphToSynthDef (Rect _ _ _ _) = W.constantSource 0
+graphToSynthDef (Point _ _) = W.constantSource 0
+graphToSynthDef (Circle _ _ _) = W.constantSource 0
+graphToSynthDef (Distance _ _) = W.constantSource 0
+
+graphToSynthDef (MidiCps (Constant x)) = W.constantSource $ W.midicps x
 graphToSynthDef (MidiCps x) = graphToSynthDef x >>= W.midiCpsWorklet
 
 graphToSynthDef (CpsMidi x) = graphToSynthDef x >>= W.cpsMidiWorklet
 
+graphToSynthDef (DbAmp (Constant x)) = W.constantSource $ W.dbamp x
 graphToSynthDef (DbAmp x) = graphToSynthDef x >>= W.dbAmpWorklet
 
 graphToSynthDef (AmpDb x) = graphToSynthDef x >>= W.ampDbWorklet
@@ -264,3 +282,18 @@ graphToSynthDef (Clip x y z) = do
   y' <- graphToSynthDef y
   z' <- graphToSynthDef z
   W.clipWorklet x' y' z'
+
+graphToSynthDef (Between r1 r2 x) = graphToSynthDef g
+  where g = (GreaterThan r2 r1) * (GreaterThan x r1) * (LessThan x r2) +
+            (GreaterThan r1 r2) * (GreaterThan x r2) * (LessThan x r1)
+
+graphToSynthDef (VLine _ _) = W.constantSource 0
+graphToSynthDef (HLine _ _) = W.constantSource 0
+graphToSynthDef (ILine _ _ _ _ _) = W.constantSource 0
+graphToSynthDef (Line _ _ _ _ _) = W.constantSource 0
+
+graphToSynthDef (LinLin min1 max1 min2 max2 x) = graphToSynthDef $ min2 + outputRange * proportion
+  where
+    inputRange = max1 - min1
+    outputRange = max2 - min2
+    proportion = Division (x - min1) inputRange

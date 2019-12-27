@@ -51,6 +51,8 @@ graphToFloat' (TexB n x y) = "tex(" <> graphToFloat' n <> "," <> graphToFloat' x
 graphToFloat' Lo = "lo"
 graphToFloat' Mid = "mid"
 graphToFloat' Hi = "hi"
+graphToFloat' (Bipolar x) = unaryShaderFunction "bipolar" (graphToFloat' x)
+graphToFloat' (Unipolar x) = unaryShaderFunction "unipolar" (graphToFloat' x)
 graphToFloat' (Sine x) = unaryShaderFunction "sin_" (graphToFloat' x)
 graphToFloat' (Tri x) = unaryShaderFunction "tri" (graphToFloat' x)
 graphToFloat' (Saw x) = unaryShaderFunction "saw" (graphToFloat' x)
@@ -59,6 +61,7 @@ graphToFloat' (LPF i f q) = graphToFloat' i -- placeholder, doesn't filter yet
 graphToFloat' (HPF i f q) = graphToFloat' i -- placeholder, doesn't filter yet
 graphToFloat' (FromTarget x) = "0." -- placeholder
 graphToFloat' (Sum x y) = "(" <> graphToFloat' x <> "+" <> graphToFloat' y <> ")"
+graphToFloat' (Mean x y) = "((" <> graphToFloat' x <> "+" <> graphToFloat' y <> ")*0.5)"
 graphToFloat' (Product x y) = "(" <> graphToFloat' x <> "*" <> graphToFloat' y <> ")"
 graphToFloat' (Division x y) = "(" <> graphToFloat' x <> "/" <> graphToFloat' y <> ")"
 graphToFloat' (GreaterThan x y) = "float(" <> graphToFloat' x <> ">" <> graphToFloat' y <> ")"
@@ -67,6 +70,10 @@ graphToFloat' (LessThan x y) = "float(" <> graphToFloat' x <> "<" <> graphToFloa
 graphToFloat' (LessThanOrEqual x y) = "float(" <> graphToFloat' x <> "<=" <> graphToFloat' y <> ")"
 graphToFloat' (Equal x y) = "float(" <> graphToFloat' x <> "==" <> graphToFloat' y <> ")"
 graphToFloat' (NotEqual x y) = "float(" <> graphToFloat' x <> "!=" <> graphToFloat' y <> ")"
+graphToFloat' (Rect x y w h) = "rect(" <> graphToFloat' x <> "," <> graphToFloat' y <> "," <> graphToFloat' w <> "," <> graphToFloat' h <> ")"
+graphToFloat' (Circle x y r) = "circle(" <> graphToFloat' x <> "," <> graphToFloat' y <> "," <> graphToFloat' r <> ")"
+graphToFloat' (Point x y) = "point(" <> graphToFloat' x <> "," <> graphToFloat' y <> ")"
+graphToFloat' (Distance x y) = "distance(vec2(" <> graphToFloat' x <> "," <> graphToFloat' y <> "),vec2(fx(),fy()))"
 graphToFloat' (MidiCps x) = "midicps(" <> graphToFloat' x <> ")"
 graphToFloat' (CpsMidi x) = "cpsmidi(" <> graphToFloat' x <> ")"
 graphToFloat' (DbAmp x) = "dbamp(" <> graphToFloat' x <> ")"
@@ -77,6 +84,12 @@ graphToFloat' (Pow x y) = "pow(" <> graphToFloat' x <> "," <> graphToFloat' y <>
 graphToFloat' (Floor x) = "floor(" <> graphToFloat' x <> ")"
 graphToFloat' (Fract x) = "fract(" <> graphToFloat' x <> ")"
 graphToFloat' (Clip x y z) = "clamp(" <> graphToFloat' z <> "," <> graphToFloat' x <> "," <> graphToFloat' y <> ")"
+graphToFloat' (Between r1 r2 x) = "between(" <> graphToFloat' r1 <> "," <> graphToFloat' r2 <> "," <> graphToFloat' x <> ")"
+graphToFloat' (VLine x w) = "vline(" <> graphToFloat' x <> "," <> graphToFloat' w <> ")"
+graphToFloat' (HLine x w) = "hline(" <> graphToFloat' x <> "," <> graphToFloat' w <> ")"
+graphToFloat' (ILine x1 y1 x2 y2 w) = "iline(" <> graphToFloat' x1 <> "," <> graphToFloat' y1 <> "," <> graphToFloat' x2 <> "," <> graphToFloat' y2 <> "," <> graphToFloat' w <> ")"
+graphToFloat' (Line x1 y1 x2 y2 w) = "line(" <> graphToFloat' x1 <> "," <> graphToFloat' y1 <> "," <> graphToFloat' x2 <> "," <> graphToFloat' y2 <> "," <> graphToFloat' w <> ")"
+graphToFloat' (LinLin min1 max1 min2 max2 x) = "linlin(" <> graphToFloat' min1 <> "," <> graphToFloat' max1 <> "," <> graphToFloat' min2 <> "," <> graphToFloat' max2 <> "," <> graphToFloat' x <> ")"
 
 unaryShaderFunction :: Text -> Text -> Text
 unaryShaderFunction f x = f <> "(" <> x <> ")"
@@ -128,8 +141,39 @@ header
    \  vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\
    \  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\
    \  return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\
-   \}"
-   -- thanks to http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl for the hsv2rgb algorithm!
+   \}\
+   \float vline(float x,float w) { if(abs(fx()-x)<w) return 1.; else return 0.;}\
+   \float hline(float y,float w) { if(abs(fy()-y)<w) return 1.; else return 0.;}\
+   \float iline(float x1,float y1,float x2,float y2,float w) {\
+   \  if(x2 == x1) return vline(x1,w);\
+   \  if(y2 == y1) return hline(y1,w);\
+   \  float d = abs((y2-y1)*fx()-(x2-x1)*fy()+x2*y1-y2*x1)/sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));\
+   \  if(d<w) return 1.; else return 0.;\
+   \}\
+   \float between(float r1,float r2,float x) {\
+   \ if(r2>=r1 && x>=r1 && x<=r2) return 1.;\
+   \ if(r1>=r2 && x>=r2 && x<=r1) return 1.;\
+   \ return 0.;\
+   \}\
+   \float line(float x1,float y1,float x2,float y2,float w) {\
+   \ float m;\
+   \ if(x1 == x2) m = between(y1,y2,fy());\
+   \ else m = between(x1,x2,fx())*between(y1,y2,fy());\
+   \ return m*iline(x1,y1,x2,y2,w);\
+   \}\
+   \float linlin(float min1,float max1,float min2,float max2,float x) {\
+   \ return min2+((max2-min2)*(x-min1)/(max1-min1));\
+   \}\
+   \float rect(float x,float y,float w,float h) {\
+   \ float x1 = x + (w*-0.5);\
+   \ float x2 = x + (w*0.5);\
+   \ float y1 = y + (h*-0.5);\
+   \ float y2 = y + (h*0.5);\
+   \ return between(x1,x2,fx())*between(y1,y2,fy());\
+   \}\
+   \float circle(float x,float y,float r) { if(distance(vec2(x,y),vec2(fx(),fy()))<r)return 1.; else return 0.;}\
+   \float point(float x,float y) { return circle(x,y,0.002); }"
+   -- thanks to http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl for the hsv2rgb algorithm above!
 
 targetToVariableName :: Target' -> Text
 targetToVariableName (Named s) = "_named_" <> s;
