@@ -183,32 +183,44 @@ isVec3 :: Expression -> Bool
 isVec3 x = (output x == NamedOutput "rgb") || (output x == NamedOutput "hsv")
 
 continuingTarget :: (AudioTime,Double) -> AudioTime -> (Target',Expression) -> (Target',Expression) -> Text
-continuingTarget tempo evalTime (newTarget,newExpr) (target',oldExpr) = oldVariable <> newVariable <> oldAndNew
+continuingTarget tempo evalTime (newTarget,newExpr) (target',oldExpr) = line1 <> line2 <> line3 <> line4
   where
+    typeText | isVec3 newExpr = "vec3"
+             | otherwise = "float"
+    varName = targetToVariableName target'
+    line1 = typeText <> " " <> varName <> ";\n"
     (t1,t2) = expressionToTimes tempo evalTime newExpr
-    n = targetToVariableName target'
-    oldVariable | isVec3 newExpr = "vec3 _old" <> n <> "=" <> expressionToVec3 oldExpr <> "*" <> xFadeOld t1 t2 <> ";\n"
-                | otherwise = "float _old" <> n <> "=" <> expressionToFloat oldExpr <> "*" <> xFadeOld t1 t2 <> ";\n"
-    newVariable | isVec3 newExpr = "vec3 _new" <> n <> "=" <> expressionToVec3 newExpr <> "*" <> xFadeNew t1 t2 <> ";\n"
-                | otherwise = "float _new" <> n <> "=" <> expressionToFloat newExpr <> "*" <> xFadeNew t1 t2 <> ";\n"
-    oldAndNew | isVec3 newExpr = "vec3 " <> n <> "=_old" <> n <> "+_new" <> n <> ";\n"
-              | otherwise = "float " <> n <> "=_old" <> n <> "+_new" <> n <> ";\n"
+    oldText | isVec3 newExpr = expressionToVec3 oldExpr
+            | otherwise = expressionToFloat oldExpr
+    newText | isVec3 newExpr = expressionToVec3 newExpr
+            | otherwise = expressionToFloat newExpr
+    line2 = "if(t<" <> showt t1 <> ")" <> varName <> "=" <> oldText <> ";\n"
+    line3 = "else if(t>" <> showt t2 <> ")" <> varName <> "=" <> newText <> ";\n"
+    line4 = "else " <> varName <> "=" <> oldText <> "*" <> xFadeOld t1 t2 <> "+" <> newText <> "*" <> xFadeNew t1 t2 <> ";\n"
 
 discontinuedTarget :: (AudioTime,Double) -> AudioTime -> (Target',Expression) -> Text
-discontinuedTarget tempo evalTime (target',oldExpr) = oldVariable
+discontinuedTarget tempo evalTime (target',oldExpr) = line1 <> line2 <> line3
   where
+    varName = targetToVariableName target'
+    line1 | isVec3 oldExpr = "vec3 " <> varName <> "=vec3(0.);\n"
+          | otherwise = "float " <> varName <> "=0.;\n"
     (t1,t2) = (evalTime,0.5 + evalTime) -- 0.5 sec
-    n = targetToVariableName target'
-    oldVariable | isVec3 oldExpr = "vec3 " <> n <> "=" <> expressionToVec3 oldExpr <> "*" <> xFadeOld t1 t2 <> ";\n"
-                | otherwise = "float " <> n <> "=" <> expressionToFloat oldExpr <> "*" <> xFadeOld t1 t2 <> ";\n"
+    oldText | isVec3 oldExpr = expressionToVec3 oldExpr
+            | otherwise = expressionToFloat oldExpr
+    line2 = "if(t<" <> showt t1 <> ")" <> varName <> "=" <> oldText <> ";\n"
+    line3 = "else if(t<=" <> showt t2 <> ")" <> varName <> "=" <> oldText <> "*" <> xFadeOld t1 t2 <> ";\n"
 
 addedTarget :: (AudioTime,Double) -> AudioTime -> (Target',Expression) -> Text
-addedTarget tempo evalTime (target',newExpr) = newVariable
+addedTarget tempo evalTime (target',newExpr) = line1 <> line2 <> line3
   where
+    varName = targetToVariableName target'
+    line1 | isVec3 newExpr = "vec3 " <> varName <> "=vec3(0.);\n"
+          | otherwise = "float " <> varName <> "=0.;\n"
     (t1,t2) = expressionToTimes tempo evalTime newExpr
-    n = targetToVariableName target'
-    newVariable | isVec3 newExpr = "vec3 " <> n <> "=" <> expressionToVec3 newExpr <> "*" <> xFadeNew t1 t2 <> ";\n"
-                | otherwise = "float " <> n <> "=" <> expressionToFloat newExpr <> "*" <> xFadeNew t1 t2 <> ";\n"
+    newText | isVec3 newExpr = expressionToVec3 newExpr
+            | otherwise = expressionToFloat newExpr
+    line2 = "if(t>=" <> showt t2 <> ")" <> varName <> "=" <> newText <> ";\n"
+    line3 = "else if(t>" <> showt t1 <> ")" <> varName <> "=" <> newText <> "*" <> xFadeNew t1 t2 <> ";\n"
 
 xFadeOld :: AudioTime -> AudioTime -> Text
 xFadeOld t1 t2 = "xFadeOld(" <> showt t1 <> "," <> showt t2 <> ")"
