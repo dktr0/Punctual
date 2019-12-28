@@ -9,7 +9,7 @@ import Control.Monad.IO.Class
 import Control.Concurrent
 import Data.Time
 import Data.Maybe
-import Data.Map.Strict
+import Data.Map.Strict as Map
 import Sound.MusicW.AudioContext (AudioTime)
 
 import Sound.Punctual.Graph hiding (difference)
@@ -36,11 +36,16 @@ emptyPunctualW ac dest nchnls t = PunctualW {
   punctualChannels = nchnls
   }
 
+expressionHasAudioTarget :: Expression -> Bool
+expressionHasAudioTarget (Expression _ (NamedOutput "splay")) = True
+expressionHasAudioTarget (Expression _ (PannedOutput _)) = True
+expressionHasAudioTarget _ = False
+
 updatePunctualW :: AudioIO m => PunctualW m -> (AudioTime,Double) -> Evaluation -> m (PunctualW m)
 updatePunctualW s tempo e@(xs,t) = do
   let evalTime = t + 0.2
   let dest = punctualDestination s
-  let exprs = listOfExpressionsToMap xs -- Map Target' Expression
+  let exprs = Map.filter expressionHasAudioTarget $ listOfExpressionsToMap xs -- Map Target' Expression
   mapM_ (deleteSynth evalTime evalTime (0.050 + evalTime)) $ difference (prevSynthsNodes s) exprs -- delete synths no longer present
   addedSynthsNodes <- mapM (addNewSynth dest tempo evalTime) $ difference exprs (prevSynthsNodes s) -- add synths newly present
   let continuingSynthsNodes = intersection (prevSynthsNodes s) exprs
@@ -204,7 +209,7 @@ graphToSynthDef (Sum x y) = W.mixSynthDefs $ fmap graphToSynthDef [x,y]
 
 graphToSynthDef (Product (Constant x) (Constant y)) = graphToSynthDef (Constant $ x*y)
 graphToSynthDef (Product x (DbAmp (Constant y))) = graphToSynthDef x >>= W.gain (W.dbamp y)
-graphToSynthDef (Product (DbAmp (Constant x)) y) = graphToSynthDef y >>= W.gain (W.dbamp x) 
+graphToSynthDef (Product (DbAmp (Constant x)) y) = graphToSynthDef y >>= W.gain (W.dbamp x)
 graphToSynthDef (Product x (Constant y)) = graphToSynthDef x >>= W.gain y
 graphToSynthDef (Product (Constant x) y) = graphToSynthDef y >>= W.gain x
 graphToSynthDef (Product x y) = do
