@@ -218,6 +218,8 @@ graphToSynthDef (Product x y) = do
   return m
 
 graphToSynthDef (Mean x y) = graphToSynthDef $ (x + y) * 0.5
+graphToSynthDef (Max x y) = graphToSynthDef $ (GreaterThanOrEqual x y * x) + (LessThan x y * y)
+graphToSynthDef (Min x y) = graphToSynthDef $ (GreaterThanOrEqual x y * y) + (LessThan x y * x)
 
 graphToSynthDef (Division x y) = do
   x' <- graphToSynthDef x
