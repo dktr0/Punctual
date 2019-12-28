@@ -30,6 +30,8 @@ data Graph =
   Product Graph Graph |
   Sum Graph Graph |
   Mean Graph Graph |
+  Max Graph Graph |
+  Min Graph Graph |
   Division Graph Graph |
   GreaterThan Graph Graph |
   GreaterThanOrEqual Graph Graph |
@@ -93,6 +95,8 @@ expandMultis (TexG n x y) = expandWith3 TexG n x y
 expandMultis (TexB n x y) = expandWith3 TexB n x y
 expandMultis (Sum x y) = expandWith Sum x y
 expandMultis (Mean x y) = expandWith Mean x y
+expandMultis (Max x y) = expandWith Max x y
+expandMultis (Min x y) = expandWith Min x y
 expandMultis (Division x y) = expandWith Division x y
 expandMultis (GreaterThan x y) = expandWith GreaterThan x y
 expandMultis (GreaterThanOrEqual x y) = expandWith GreaterThanOrEqual x y
@@ -184,8 +188,8 @@ expandWith5 f a b c d e = zipWith5 f a'' b'' c'' d'' e''
 tex :: Graph -> Graph -> Graph -> Graph
 tex n x y = Multi [TexR n x y,TexG n x y,TexB n x y]
 
-fb :: Graph
-fb = tex 0 Fx Fy
+fb :: Graph -> Graph -> Graph
+fb x y = tex 0 x y
 
 modulatedRangeGraph :: Graph -> Graph -> Graph -> Graph
 modulatedRangeGraph low high m = LinLin (-1) (1) low high m

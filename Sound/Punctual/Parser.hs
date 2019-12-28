@@ -142,7 +142,6 @@ graph = asum [
   reserved "lo" >> return Lo,
   reserved "mid" >> return Mid,
   reserved "hi" >> return Hi,
-  reserved "fb" >> return fb,
   graph2 <*> graph
   ]
 
@@ -180,10 +179,13 @@ graph3 = asum [
   reserved "*" >> return Product,
   reserved "/" >> return Division,
   reserved "mean" >> return Mean,
+  reserved "min" >> return Min,
+  reserved "max" >> return Max,
   reserved "distance" >> return Distance,
   reserved "point" >> return Point,
   reserved "hline" >> return HLine,
   reserved "vline" >> return VLine,
+  reserved "fb" >> return fb,
   graph4 <*> graph
   ]
 
