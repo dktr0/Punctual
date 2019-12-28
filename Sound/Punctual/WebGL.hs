@@ -95,21 +95,8 @@ foreign import javascript unsafe
   "$1.getContext('webgl')"
   getWebGLRenderingContext :: HTMLCanvasElement -> IO WebGLRenderingContext
 
-foreign import javascript unsafe
-  "$1.createShader($1.VERTEX_SHADER)"
-  createVertexShader :: WebGLRenderingContext -> IO WebGLShader
 
-foreign import javascript unsafe
-  "$1.createShader($1.FRAGMENT_SHADER)"
-  createFragmentShader :: WebGLRenderingContext -> IO WebGLShader
 
-foreign import javascript unsafe
-  "$1.shaderSource($2,$3);"
-  shaderSource :: WebGLRenderingContext -> WebGLShader -> Text -> IO ()
-
-foreign import javascript unsafe
-  "$1.compileShader($2);"
-  compileShader :: WebGLRenderingContext -> WebGLShader -> IO ()
 
 foreign import javascript unsafe
   "$1.getShaderParameter($2,$1.COMPILE_STATUS)"
@@ -139,33 +126,15 @@ makeFragmentShader glCtx srcCode = do
   when (success == 0) $ throwIO $ userError $ "exception making fragment shader: " <> T.unpack log
   return shader
 
-foreign import javascript unsafe
-  "$1.createProgram()"
-  createProgram :: WebGLRenderingContext -> IO WebGLProgram
 
-foreign import javascript unsafe
-  "$1.attachShader($2,$3);"
-  attachShader :: WebGLRenderingContext -> WebGLProgram -> WebGLShader -> IO ()
 
-foreign import javascript unsafe
-  "$1.linkProgram($2);"
-  linkProgram :: WebGLRenderingContext -> WebGLProgram -> IO ()
 
-foreign import javascript unsafe
-  "$1.getProgramParameter($2,$1.LINK_STATUS)"
-  linkStatus :: WebGLRenderingContext -> WebGLProgram -> IO Int
 
 foreign import javascript unsafe
   "$1.getProgramInfoLog($2)"
   getProgramInfoLog :: WebGLRenderingContext -> WebGLProgram -> IO Text
 
-foreign import javascript unsafe
-  "$1.useProgram($2);"
-  useProgram :: WebGLRenderingContext -> WebGLProgram -> IO ()
 
-foreign import javascript unsafe
-  "$1.deleteProgram($2);"
-  deleteProgram :: WebGLRenderingContext -> WebGLProgram -> IO ()
 
 makeProgram :: WebGLRenderingContext -> WebGLShader -> WebGLShader -> IO WebGLProgram
 makeProgram glCtx vShader fShader = do
