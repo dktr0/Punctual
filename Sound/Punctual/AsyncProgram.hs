@@ -13,6 +13,9 @@ import GHCJS.DOM.Types hiding (Text)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
+import Data.Map.Strict as Map
+import Control.Monad
+import Data.Maybe
 
 import Sound.Punctual.GL
 
@@ -20,15 +23,17 @@ data AsyncProgram = AsyncProgram {
   nextProgram :: Maybe WebGLProgram,
   nextVertexShader :: Maybe WebGLShader,
   nextFragmentShader :: Maybe WebGLShader,
-  activeProgram :: Maybe WebGLProgram
+  activeProgram :: Maybe WebGLProgram,
+  uniformsMap :: Map Text WebGLUniformLocation
   }
 
-newAsyncProgram :: GL AsyncProgram
-newAsyncProgram c = return $ AsyncProgram {
+emptyAsyncProgram :: AsyncProgram
+emptyAsyncProgram = AsyncProgram {
   nextProgram = Nothing,
   nextVertexShader = Nothing,
   nextFragmentShader = Nothing,
-  activeProgram = Nothing
+  activeProgram = Nothing,
+  uniformsMap = empty
   }
 
 updateAsyncProgram :: AsyncProgram -> Text -> Text -> GL AsyncProgram
@@ -44,40 +49,43 @@ updateAsyncProgram a vSrc fSrc = do
   compileShader f
   linkProgram p
   return $ a {
-    nextProgram = p,
-    nextVertexShader = v,
-    nextFragmentShader = f
+    nextProgram = Just p,
+    nextVertexShader = Just v,
+    nextFragmentShader = Just f
   }
 
 -- returns true if a new program is going to be used for the first time
 -- eg. to indicate the new uniform/attrib locations exist
-useAsyncProgram :: AsyncProgram -> GL (Bool,AsyncProgram)
-useAsyncProgram a = do
+useAsyncProgram :: AsyncProgram -> [Text] -> GL (Bool,AsyncProgram)
+useAsyncProgram a uniformNames = do
   -- first check if we have an updated program that might be ready
-  (newProgramUsed,a') <- if (isNothing $ nextProgram a) then (return (False,a)) else do
+  (newProgramUsed,a'') <- if (isNothing $ nextProgram a) then (return (False,a)) else do
     let nextProgram' = fromJust $ nextProgram a
-    
-    ls <-
+    ls <- linkStatus nextProgram'
     case ls of
-      0 ->
+      0 -> return (False,a) -- new program not ready or compile/link failed
+      1 -> do -- compile/link of new program succeeded, so make it the active program and query location of uniforms
+        newUniformsMap <- mapM (getUniformLocation nextProgram') $ fromList $ fmap (\x -> (x,x)) uniformNames
+        deleteShader $ fromJust $ nextVertexShader a
+        deleteShader $ fromJust $ nextFragmentShader a
+        when (isJust $ activeProgram a) $ deleteProgram $ fromJust $ activeProgram a
+        let a' = a {
+          activeProgram = Just nextProgram',
+          nextProgram = Nothing,
+          nextVertexShader = Nothing,
+          nextFragmentShader = Nothing,
+          uniformsMap = newUniformsMap
+        }
+        return (True,a')
+  when (isJust $ activeProgram a'') $ useProgram $ fromJust $ activeProgram a''
+  return (newProgramUsed,a'')
 
-      otherwise ->
+uniform1fAsync :: AsyncProgram -> Text -> Double -> GL ()
+uniform1fAsync a n v = do
+  let loc = Map.lookup n $ uniformsMap a
+  when (isJust loc) $ uniform1f (fromJust loc) v
 
-    -- three cases to consider:
-    -- 1. if compilation/linking is still in progress, do nothing
-
-    -- 2. if compilation/linking fails
-    deleteProgram nextProgram' -- ? not clear if we can also delete the two shaders in this case?
-    update so that nextProgram,nextFragmentShader, and nextVertexShader are all Nothing
-
-    -- 2. if compilation/linking succeeds
-    deleteShader $ fromJust $ nextVertexShader a
-    deleteShader $ fromJust $ nextFragmentShader a
-    when (isJust $ activeProgram a) $ deleteProgram $
-    update so that activeProgram is nextProgram
-    update so that nextProgram,nextFragmentShader, and nextVertexShader are all Nothing
-    return (newProgramUsed,a')
-
-
-  when (isJust $ activeProgram a) $ useProgram $ fromJust $ activeProgram a
-  return (newProgramUsed,a')
+uniform2fAsync :: AsyncProgram -> Text -> Double -> Double -> GL ()
+uniform2fAsync a n v1 v2 = do
+  let loc = Map.lookup n $ uniformsMap a
+  when (isJust loc) $ uniform2f (fromJust loc) v1 v2

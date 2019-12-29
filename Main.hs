@@ -14,7 +14,7 @@ import Control.Concurrent.MVar
 import Control.Concurrent
 import Data.Map.Strict
 import Control.Monad
-import GHCJS.DOM.Types (HTMLCanvasElement(..),uncheckedCastTo,JSVal)
+import GHCJS.DOM.Types (HTMLCanvasElement(..),uncheckedCastTo,JSVal,WebGLRenderingContext)
 import JavaScript.Web.AnimationFrame
 import GHCJS.Concurrent
 import GHCJS.DOM.EventM
@@ -28,6 +28,7 @@ import Sound.Punctual.WebGL
 import Sound.MusicW
 import Sound.MusicW.AudioContext
 import Sound.Punctual.MovingAverage
+import Sound.Punctual.GL
 
 headElement :: MonadWidget t m => m ()
 headElement = do
@@ -60,9 +61,6 @@ bodyElement = do
 
   let attrs = fromList [("class","canvas"),("style",T.pack $ "z-index: -1;"), ("width","1920"), ("height","1080")]
   canvas <- liftM (uncheckedCastTo HTMLCanvasElement .  _element_raw . fst) $ elAttr' "canvas" attrs $ return ()
-  initialPunctualWebGL <- liftIO $ updateRenderingContext emptyPunctualWebGL (Just canvas)
-  mv <- liftIO $ newMVar initialPunctualWebGL
-  -- liftIO $ forkIO $ requestAnimationFrame mv -- moved inside punctualReflex
 
   elClass "div" "editorAndStatus" $ do
     (parsed,statusVisible) <- do
@@ -79,7 +77,7 @@ bodyElement = do
       shStatus <- toggle True $ ffilter (==2) e'
       return (fmap runPunctualParser evaled,shStatus)
 
-    dFps <- punctualReflex mv $ fmapMaybe (either (const Nothing) Just) parsed
+    dFps <- punctualReflex canvas $ fmapMaybe (either (const Nothing) Just) parsed
     let errorsForConsole = fmapMaybe (either (Just . show) (const Nothing)) parsed
     performEvent_ $ fmap (liftIO . putStrLn) errorsForConsole
     let errors = fmapMaybe (either (Just . show) (Just . const "")) parsed
@@ -113,9 +111,12 @@ foreign import javascript unsafe
   getHi :: JSVal -> IO Double
 
 
-punctualReflex :: MonadWidget t m => MVar PunctualWebGL -> Event t [Expression] -> m (Dynamic t Double)
-punctualReflex mv exprs = mdo
+punctualReflex :: MonadWidget t m => HTMLCanvasElement -> Event t [Expression] -> m (Dynamic t Double)
+punctualReflex canvas exprs = mdo
   ac <- liftAudioIO $ audioContext
+  glCtx <- liftIO $ getWebGLRenderingContext canvas
+  initialPunctualWebGL <- liftIO $ newPunctualWebGL glCtx
+  mv <- liftIO $ newMVar initialPunctualWebGL
 
   -- create audio output and analysis network
   gain <- liftAudioIO $ createGain (dbamp (-10))
@@ -131,7 +132,7 @@ punctualReflex mv exprs = mdo
   t1system <- liftIO $ getCurrentTime
   mFps <- liftIO $ newMVar $ newAverage 60
   dFps <- pollFPS mFps
-  liftIO $ forkIO $ requestAnimationFrame t1system mFps mv analyser array
+  liftIO $ forkIO $ requestAnimationFrame glCtx t1system mFps mv analyser array
 
   t0 <- liftAudioIO $ audioTime
   let initialPunctualW = emptyPunctualW ac gain 2 t0 -- hard coded stereo for now
@@ -141,13 +142,13 @@ punctualReflex mv exprs = mdo
   newPunctualW <- performEvent $ attachPromptlyDynWith f currentPunctualW evals
   currentPunctualW <- holdDyn initialPunctualW newPunctualW
   -- video
-  performEvent_ $ fmap (liftIO . evaluatePunctualWebGL' (t0,0.5) mv) evals -- *** note: tempo hard-coded here
+  performEvent_ $ fmap (liftIO . evaluatePunctualWebGL' glCtx (t0,0.5) mv) evals -- *** note: tempo hard-coded here
   return dFps
 
-evaluatePunctualWebGL' :: (AudioTime,Double) -> MVar PunctualWebGL -> Evaluation -> IO ()
-evaluatePunctualWebGL' t mv e = do
+evaluatePunctualWebGL' :: WebGLRenderingContext -> (AudioTime,Double) -> MVar PunctualWebGL -> Evaluation -> IO ()
+evaluatePunctualWebGL' glCtx t mv e = do
   x <- readMVar mv
-  y <- evaluatePunctualWebGL x t e
+  y <- evaluatePunctualWebGL glCtx x t e
   void $ swapMVar mv y
 
 evaluationNow :: [Expression] -> IO Evaluation
@@ -155,13 +156,13 @@ evaluationNow exprs = do
   t <- liftAudioIO $ audioTime
   return (exprs,t)
 
-requestAnimationFrame :: UTCTime -> MVar MovingAverage -> MVar PunctualWebGL -> Node -> JSVal -> IO ()
-requestAnimationFrame tPrev mFps mv analyser array = do
-  inAnimationFrame ContinueAsync $ redrawCanvas tPrev mFps mv analyser array
+requestAnimationFrame :: WebGLRenderingContext -> UTCTime -> MVar MovingAverage -> MVar PunctualWebGL -> Node -> JSVal -> IO ()
+requestAnimationFrame glCtx tPrev mFps mv analyser array = do
+  inAnimationFrame ContinueAsync $ redrawCanvas glCtx tPrev mFps mv analyser array
   return ()
 
-redrawCanvas :: UTCTime -> MVar MovingAverage -> MVar PunctualWebGL -> Node -> JSVal -> Double -> IO ()
-redrawCanvas tPrev mFps mv analyser array _ = do
+redrawCanvas :: WebGLRenderingContext -> UTCTime -> MVar MovingAverage -> MVar PunctualWebGL -> Node -> JSVal -> Double -> IO ()
+redrawCanvas glCtx tPrev mFps mv analyser array _ = do
   t1system <- getCurrentTime
   let tDiff = diffUTCTime t1system tPrev
   fps <- takeMVar mFps
@@ -172,9 +173,9 @@ redrawCanvas tPrev mFps mv analyser array _ = do
   mid <- getMid array
   hi <- getHi array
   st <- takeMVar mv
-  st' <- drawFrame (t1,lo,mid,hi) st
+  st' <- drawFrame glCtx (t1,lo,mid,hi) st
   putMVar mv st'
-  requestAnimationFrame t1system mFps mv analyser array
+  requestAnimationFrame glCtx t1system mFps mv analyser array
 
 pollFPS :: MonadWidget t m => MVar MovingAverage -> m (Dynamic t Double)
 pollFPS mFps = do

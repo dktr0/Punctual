@@ -1,15 +1,14 @@
 {-# LANGUAGE JavaScriptFFI, OverloadedStrings #-}
 
 module Sound.Punctual.WebGL
-  (PunctualWebGL(..),
-  emptyPunctualWebGL,
-  updateRenderingContext,
-  updateFragmentShader,
+  (PunctualWebGL,
+  newPunctualWebGL,
   evaluatePunctualWebGL,
   drawFrame)
   where
 
 import Control.Monad
+import Control.Monad.IO.Class (liftIO)
 import Control.Exception
 import GHCJS.Types
 import GHCJS.DOM.Types hiding (Text)
@@ -21,38 +20,70 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Sound.MusicW.AudioContext (AudioTime)
+import Data.Map.Strict
 
 import Sound.Punctual.Types hiding ((<>))
 import Sound.Punctual.Evaluation
 import Sound.Punctual.FragmentShader
+import Sound.Punctual.GL
+import Sound.Punctual.AsyncProgram
 
-foreign import javascript safe
-  "$1.createFramebuffer()"
-  createFramebuffer :: WebGLRenderingContext -> IO WebGLFramebuffer
 
-foreign import javascript safe
-  "$1.createTexture()"
-  createTexture :: WebGLRenderingContext -> IO WebGLTexture
+data PunctualWebGL = PunctualWebGL {
+  triangleStrip :: WebGLBuffer,
+  tex0Texture :: WebGLTexture,
+  tex1Texture :: WebGLTexture,
+  tex2Texture :: WebGLTexture,
+  tex3Texture :: WebGLTexture,
+  fb0 :: (WebGLFramebuffer,WebGLTexture),
+  fb1 :: (WebGLFramebuffer,WebGLTexture),
+  pingPong :: Bool,
+  mainProgram :: AsyncProgram,
+  postProgram :: AsyncProgram,
+  prevExpressions :: [Expression]
+  }
 
-foreign import javascript safe
-  "$1.bindTexture($1.TEXTURE_2D, $3);\
-  \$1.texImage2D($1.TEXTURE_2D, 0, $1.RGBA, $4, $5, 0, $1.RGBA, $1.UNSIGNED_BYTE, null);\
-  \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_WRAP_S, $1.CLAMP_TO_EDGE);\
-  \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_WRAP_T, $1.CLAMP_TO_EDGE);\
-  \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_MAG_FILTER, $1.NEAREST);\
-  \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_MIN_FILTER, $1.NEAREST);\
-  \$1.bindFramebuffer($1.FRAMEBUFFER, $2);\
-  \$1.framebufferTexture2D($1.FRAMEBUFFER, $1.COLOR_ATTACHMENT0, $1.TEXTURE_2D, $3, 0);\
-  \$1.bindTexture($1.TEXTURE_2D, null);\
-  \$1.bindFramebuffer($1.FRAMEBUFFER, null);"
-  configureFrameBufferTexture :: WebGLRenderingContext -> WebGLFramebuffer -> WebGLTexture -> Int -> Int -> IO ()
+newPunctualWebGL :: WebGLRenderingContext -> IO PunctualWebGL
+newPunctualWebGL glCtx = runGL glCtx $ do
+  defaultBlendFunc
+  unpackFlipY
+  -- create a buffer representing default triangle strip used by main and "post" programs
+  ts <- createBuffer
+  bindBufferArray ts
+  liftIO $ bufferDataArrayStatic glCtx
+  -- load textures
+  tex0t <- loadTexture "tex0.jpg"
+  tex1t <- loadTexture "tex1.jpg"
+  tex2t <- loadTexture "tex2.jpg"
+  tex3t <- loadTexture "tex3.jpg"
+  -- create two framebuffers to ping-pong between as backbuffer/feedback
+  frameBuffer0 <- makeFrameBufferTexture 1920 1080
+  frameBuffer1 <- makeFrameBufferTexture 1920 1080
+  -- asynchronously compile/link the main and "post" programs
+  mp <- updateAsyncProgram emptyAsyncProgram defaultVertexShader defaultFragmentShader
+  pp <- updateAsyncProgram emptyAsyncProgram defaultVertexShader postFragmentShaderSrc
+  return $ PunctualWebGL {
+    triangleStrip = ts,
+    tex0Texture = tex0t,
+    tex1Texture = tex1t,
+    tex2Texture = tex2t,
+    tex3Texture = tex3t,
+    fb0 = frameBuffer0,
+    fb1 = frameBuffer1,
+    pingPong = False,
+    mainProgram = mp,
+    postProgram = pp,
+    prevExpressions = []
+  }
 
-makeFrameBufferTexture :: WebGLRenderingContext -> Int -> Int -> IO (WebGLFramebuffer,WebGLTexture)
-makeFrameBufferTexture gl w h = do
-  fb <- createFramebuffer gl
-  t <- createTexture gl
-  configureFrameBufferTexture gl fb t w h
-  return (fb,t)
+foreign import javascript unsafe
+  "$1.bufferData($1.ARRAY_BUFFER,new Float32Array([-1,1,-1,-1,1,1,1,-1]),$1.STATIC_DRAW);"
+  bufferDataArrayStatic :: WebGLRenderingContext -> IO ()
+
+loadTexture :: Text -> GL WebGLTexture
+loadTexture t = do
+  ctx <- gl
+  liftIO $ _loadTexture ctx t
 
 foreign import javascript safe
   "$r = $1.createTexture();\
@@ -65,148 +96,35 @@ foreign import javascript safe
      \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_MIN_FILTER, $1.LINEAR);\
      \};\
    \image.src = $2;"
-   loadTexture :: WebGLRenderingContext -> Text -> IO WebGLTexture
+   _loadTexture :: WebGLRenderingContext -> Text -> IO WebGLTexture
 
-foreign import javascript unsafe
-  "$1.activeTexture($1.TEXTURE0);\
-  \$1.bindTexture($1.TEXTURE_2D,$2);\
-  \$1.uniform1i($3,0);"
-  bindTex0 :: WebGLRenderingContext -> WebGLTexture -> WebGLUniformLocation -> IO ()
+configureFrameBufferTexture :: WebGLFramebuffer -> WebGLTexture -> Int -> Int -> GL ()
+configureFrameBufferTexture fb t w h = do
+  ctx <- gl
+  liftIO $ _configureFrameBufferTexture ctx fb t w h
 
-foreign import javascript unsafe
-  "$1.activeTexture($1.TEXTURE1);\
-  \$1.bindTexture($1.TEXTURE_2D,$2);\
-  \$1.uniform1i($3,1);"
-  bindTex1 :: WebGLRenderingContext -> WebGLTexture -> WebGLUniformLocation -> IO ()
+foreign import javascript safe
+  "$1.bindTexture($1.TEXTURE_2D, $3);\
+  \$1.texImage2D($1.TEXTURE_2D, 0, $1.RGBA, $4, $5, 0, $1.RGBA, $1.UNSIGNED_BYTE, null);\
+  \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_WRAP_S, $1.CLAMP_TO_EDGE);\
+  \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_WRAP_T, $1.CLAMP_TO_EDGE);\
+  \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_MAG_FILTER, $1.NEAREST);\
+  \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_MIN_FILTER, $1.NEAREST);\
+  \$1.bindFramebuffer($1.FRAMEBUFFER, $2);\
+  \$1.framebufferTexture2D($1.FRAMEBUFFER, $1.COLOR_ATTACHMENT0, $1.TEXTURE_2D, $3, 0);\
+  \$1.bindTexture($1.TEXTURE_2D, null);\
+  \$1.bindFramebuffer($1.FRAMEBUFFER, null);"
+  _configureFrameBufferTexture :: WebGLRenderingContext -> WebGLFramebuffer -> WebGLTexture -> Int -> Int -> IO ()
 
-foreign import javascript unsafe
-  "$1.activeTexture($1.TEXTURE2);\
-  \$1.bindTexture($1.TEXTURE_2D,$2);\
-  \$1.uniform1i($3,2);"
-  bindTex2 :: WebGLRenderingContext -> WebGLTexture -> WebGLUniformLocation -> IO ()
-
-foreign import javascript unsafe
-  "$1.activeTexture($1.TEXTURE3);\
-  \$1.bindTexture($1.TEXTURE_2D,$2);\
-  \$1.uniform1i($3,3);"
-  bindTex3 :: WebGLRenderingContext -> WebGLTexture -> WebGLUniformLocation -> IO ()
-
-foreign import javascript unsafe
-  "$1.getContext('webgl')"
-  getWebGLRenderingContext :: HTMLCanvasElement -> IO WebGLRenderingContext
-
-
-
-
-foreign import javascript unsafe
-  "$1.getShaderParameter($2,$1.COMPILE_STATUS)"
-  compileStatus :: WebGLRenderingContext -> WebGLShader -> IO Int
-
-foreign import javascript unsafe
-  "$1.getShaderInfoLog($2)"
-  getShaderInfoLog :: WebGLRenderingContext -> WebGLShader -> IO Text
-
-makeVertexShader :: WebGLRenderingContext -> Text -> IO WebGLShader
-makeVertexShader glCtx srcCode = do
-  shader <- createVertexShader glCtx
-  shaderSource glCtx shader srcCode
-  compileShader glCtx shader
-  success <- compileStatus glCtx shader
-  log <- getShaderInfoLog glCtx shader
-  when (success == 0) $ throwIO $ userError $ "exception making vertex shader: " <> T.unpack log
-  return shader
-
-makeFragmentShader :: WebGLRenderingContext -> Text -> IO WebGLShader
-makeFragmentShader glCtx srcCode = do
-  shader <- createFragmentShader glCtx
-  shaderSource glCtx shader srcCode
-  compileShader glCtx shader
-  success <- compileStatus glCtx shader
-  log <- getShaderInfoLog glCtx shader
-  when (success == 0) $ throwIO $ userError $ "exception making fragment shader: " <> T.unpack log
-  return shader
-
-
-
-
-
-foreign import javascript unsafe
-  "$1.getProgramInfoLog($2)"
-  getProgramInfoLog :: WebGLRenderingContext -> WebGLProgram -> IO Text
-
-
-
-makeProgram :: WebGLRenderingContext -> WebGLShader -> WebGLShader -> IO WebGLProgram
-makeProgram glCtx vShader fShader = do
-  program <- createProgram glCtx
-  attachShader glCtx program vShader
-  attachShader glCtx program fShader
-  linkProgram glCtx program
-  success <- linkStatus glCtx program
-  log <- getProgramInfoLog glCtx program
-  when (success == 0) $ throwIO $ userError $ "exception linking program: " <> T.unpack log
-  useProgram glCtx program
-  return program
+makeFrameBufferTexture :: Int -> Int -> GL (WebGLFramebuffer,WebGLTexture)
+makeFrameBufferTexture w h = do
+  fb <- createFramebuffer
+  t <- createTexture
+  configureFrameBufferTexture fb t w h
+  return (fb,t)
 
 defaultVertexShader :: Text
 defaultVertexShader = "attribute vec4 p; void main() { gl_Position = p; }"
-
-foreign import javascript unsafe
-  "$1.getAttribLocation($2,$3)"
-  getAttribLocation :: WebGLRenderingContext -> WebGLProgram -> Text -> IO Int
-
-foreign import javascript unsafe
-  "$1.createBuffer()"
-  createBuffer :: WebGLRenderingContext -> IO WebGLBuffer
-
--- a PunctualWebGLContext represents a valid WebGL rendering context together
--- with handles/locations for the most recently compiled/linked shader programs
-data PunctualWebGLContext = PunctualWebGLContext {
-  renderingContext :: WebGLRenderingContext,
-  vShader :: WebGLShader,
-  fShader :: WebGLShader,
-  shaderProgram :: WebGLProgram,
-  drawingBuffer :: WebGLBuffer,
-  tLocation :: WebGLUniformLocation,
-  resLocation :: WebGLUniformLocation,
-  tex0Location :: WebGLUniformLocation,
-  tex1Location :: WebGLUniformLocation,
-  tex2Location :: WebGLUniformLocation,
-  tex3Location :: WebGLUniformLocation,
-  tex0Texture :: WebGLTexture,
-  tex1Texture :: WebGLTexture,
-  tex2Texture :: WebGLTexture,
-  tex3Texture :: WebGLTexture,
-  loLocation :: WebGLUniformLocation,
-  midLocation :: WebGLUniformLocation,
-  hiLocation :: WebGLUniformLocation,
-  fb0 :: (WebGLFramebuffer,WebGLTexture),
-  fb1 :: (WebGLFramebuffer,WebGLTexture),
-  pingPong :: Bool,
-  postProgram :: WebGLProgram,
-  postResLocation :: WebGLUniformLocation,
-  postTexLocation :: WebGLUniformLocation
-  }
-
--- a PunctualWebGl might have a a PunctualWebGLContext (eg. if there is indeed
--- a canvas on which everything can be run) but regardless it keeps track of the
--- most recent, calculated source code of shader programs as well as the previously
--- evaluated expressions (in order to be able to generate suitable crossfades in
--- a subsequent evaluation).
-data PunctualWebGL = PunctualWebGL {
-  context :: Maybe PunctualWebGLContext,
-  vShaderSrc :: Text,
-  fShaderSrc :: Text,
-  prevExpressions :: [Expression]
-  }
-
-emptyPunctualWebGL :: PunctualWebGL
-emptyPunctualWebGL = PunctualWebGL {
-  context = Nothing,
-  vShaderSrc = defaultVertexShader,
-  fShaderSrc = defaultFragmentShader,
-  prevExpressions = []
-  }
 
 postFragmentShaderSrc :: Text
 postFragmentShaderSrc =
@@ -218,237 +136,86 @@ postFragmentShaderSrc =
   \  gl_FragColor = texture2D(tex,uv);\
   \}"
 
-setupPostProgram :: WebGLRenderingContext -> WebGLBuffer -> IO (WebGLProgram,WebGLUniformLocation,WebGLUniformLocation)
-setupPostProgram gl b = do
-  v <- makeVertexShader gl defaultVertexShader
-  f <- makeFragmentShader gl postFragmentShaderSrc
-  prog <- makeProgram gl v f
-  resLoc <- getUniformLocation gl prog "res"
-  texLoc <- getUniformLocation gl prog "tex"
-  pLoc <- getAttribLocation gl prog "p"
-  bindBufferArray gl b
-  vertexAttribPointer gl pLoc
-  enableVertexAttribArray gl pLoc
-  return (prog,resLoc,texLoc)
 
-foreign import javascript unsafe
-  "$1.pixelStorei($1.UNPACK_FLIP_Y_WEBGL, true)"
-  unpackFlipY :: WebGLRenderingContext -> IO ()
-
-updateRenderingContext :: PunctualWebGL -> Maybe HTMLCanvasElement -> IO PunctualWebGL
-updateRenderingContext s Nothing = return $ s { context = Nothing }
-updateRenderingContext s (Just canvas) = do
-  glCtx <- getWebGLRenderingContext canvas
-  unpackFlipY glCtx
-  -- create a buffer representing a triangle strip covering the screen
-  -- (used by both the "main" and "post" programs)
-  b <- createBuffer glCtx
-  bindBufferArray glCtx b
-  bufferDataArrayStatic glCtx
-  -- setup the "post" program that transfers framebuffers to display
-  (pp,ppRes,ppTex) <- setupPostProgram glCtx b
-  -- setup the "main" program that writes to a framebuffer
-  v <- makeVertexShader glCtx (vShaderSrc s)
-  f <- makeFragmentShader glCtx (fShaderSrc s)
-  program <- makeProgram glCtx v f
-  p <- getAttribLocation glCtx program "p"
-  bindBufferArray glCtx b
-  vertexAttribPointer glCtx p
-  enableVertexAttribArray glCtx p
-  t <- getUniformLocation glCtx program "t"
-  res <- getUniformLocation glCtx program "res"
-  tex0l <- getUniformLocation glCtx program "tex0"
-  tex1l <- getUniformLocation glCtx program "tex1"
-  tex2l <- getUniformLocation glCtx program "tex2"
-  tex3l <- getUniformLocation glCtx program "tex3"
-  tex0t <- loadTexture glCtx "tex0.jpg"
-  tex1t <- loadTexture glCtx "tex1.jpg"
-  tex2t <- loadTexture glCtx "tex2.jpg"
-  tex3t <- loadTexture glCtx "tex3.jpg"
-  bindTex0 glCtx tex0t tex0l
-  bindTex1 glCtx tex1t tex1l
-  bindTex2 glCtx tex2t tex2l
-  bindTex3 glCtx tex3t tex3l
-  loL <- getUniformLocation glCtx program "lo"
-  midL <- getUniformLocation glCtx program "mid"
-  hiL <- getUniformLocation glCtx program "hi"
-  frameBuffer0 <- makeFrameBufferTexture glCtx 1920 1080
-  frameBuffer1 <- makeFrameBufferTexture glCtx 1920 1080
-  let newContext = PunctualWebGLContext {
-    renderingContext = glCtx,
-    vShader = v,
-    fShader = f,
-    drawingBuffer = b,
-    shaderProgram = program,
-    tLocation = t,
-    resLocation  = res,
-    tex0Location = tex0l,
-    tex1Location = tex1l,
-    tex2Location = tex2l,
-    tex3Location = tex3l,
-    tex0Texture = tex0t,
-    tex1Texture = tex1t,
-    tex2Texture = tex2t,
-    tex3Texture = tex3t,
-    loLocation = loL,
-    midLocation = midL,
-    hiLocation = hiL,
-    fb0 = frameBuffer0,
-    fb1 = frameBuffer1,
-    pingPong = False,
-    postProgram = pp,
-    postResLocation = ppRes,
-    postTexLocation = ppTex
-    }
-  flip (maybe (return ())) (context s) $ \c -> do
-    deleteProgram glCtx $ shaderProgram c
-  return $ s { context = Just newContext }
-
-updateFragmentShader :: PunctualWebGL -> Text -> IO PunctualWebGL
-updateFragmentShader st src | isNothing (context st) = return $ st { fShaderSrc = src }
-updateFragmentShader st src | otherwise = do
-  -- T.putStrLn $ "new fragment shader: " <> src
-  let oldCtx = fromJust $ context st
-  let glCtx = renderingContext oldCtx
-  f <- makeFragmentShader glCtx src
-  program <- makeProgram glCtx (vShader oldCtx) f
-  p <- getAttribLocation glCtx program "p"
-  bindBufferArray glCtx (drawingBuffer oldCtx)
-  vertexAttribPointer glCtx p
-  enableVertexAttribArray glCtx p
-  t <- getUniformLocation glCtx program "t"
-  res <- getUniformLocation glCtx program "res"
-  tex0l <- getUniformLocation glCtx program "tex0"
-  tex1l <- getUniformLocation glCtx program "tex1"
-  tex2l <- getUniformLocation glCtx program "tex2"
-  tex3l <- getUniformLocation glCtx program "tex3"
-  bindTex0 glCtx (tex0Texture oldCtx) tex0l
-  bindTex1 glCtx (tex1Texture oldCtx) tex1l
-  bindTex2 glCtx (tex2Texture oldCtx) tex2l
-  bindTex3 glCtx (tex3Texture oldCtx) tex3l
-  loL <- getUniformLocation glCtx program "lo"
-  midL <- getUniformLocation glCtx program "mid"
-  hiL <- getUniformLocation glCtx program "hi"
-  let newContext = oldCtx {
-    fShader = f,
-    shaderProgram = program,
-    tLocation = t,
-    resLocation = res,
-    tex0Location = tex0l,
-    tex1Location = tex1l,
-    tex2Location = tex2l,
-    tex3Location = tex3l,
-    loLocation = loL,
-    midLocation = midL,
-    hiLocation = hiL
-  }
-  return $ st { context = Just newContext, fShaderSrc = src }
-
-foreign import javascript unsafe
-  "$1.getUniformLocation($2,$3)"
-  getUniformLocation :: WebGLRenderingContext -> WebGLProgram -> Text -> IO WebGLUniformLocation
-
-foreign import javascript unsafe
-  "$1.bufferData($1.ARRAY_BUFFER,new Float32Array([-1,1,-1,-1,1,1,1,-1]),$1.STATIC_DRAW);"
-  bufferDataArrayStatic :: WebGLRenderingContext -> IO ()
-
-evaluatePunctualWebGL :: PunctualWebGL -> (AudioTime,Double) -> Evaluation -> IO PunctualWebGL
-evaluatePunctualWebGL st tempo e = do
-  let shaderSrc = fragmentShader (prevExpressions st) tempo e
-  st' <- updateFragmentShader st shaderSrc
-  return $ st' { prevExpressions = fst e }
-
-foreign import javascript unsafe
-  "$1.bindBuffer($1.ARRAY_BUFFER,$2);"
-  bindBufferArray :: WebGLRenderingContext -> WebGLBuffer -> IO ()
-
-foreign import javascript unsafe "$1.activeTexture($1.TEXTURE0)" activeTexture0 :: WebGLRenderingContext -> IO ()
-foreign import javascript unsafe "$1.activeTexture($1.TEXTURE1)" activeTexture1 :: WebGLRenderingContext -> IO ()
-foreign import javascript unsafe "$1.activeTexture($1.TEXTURE2)" activeTexture2 :: WebGLRenderingContext -> IO ()
-foreign import javascript unsafe "$1.activeTexture($1.TEXTURE3)" activeTexture3 :: WebGLRenderingContext -> IO ()
-foreign import javascript unsafe "$1.activeTexture($1.TEXTURE4)" activeTexture4 :: WebGLRenderingContext -> IO ()
-foreign import javascript unsafe "$1.activeTexture($1.TEXTURE5)" activeTexture5 :: WebGLRenderingContext -> IO ()
-foreign import javascript unsafe "$1.activeTexture($1.TEXTURE6)" activeTexture6 :: WebGLRenderingContext -> IO ()
-foreign import javascript unsafe "$1.activeTexture($1.TEXTURE7)" activeTexture7 :: WebGLRenderingContext -> IO ()
-
-foreign import javascript unsafe
-  "$1.bindTexture($1.TEXTURE_2D,$2);"
-  bindTexture2D :: WebGLRenderingContext -> WebGLTexture -> IO ()
-
-foreign import javascript unsafe
-  "$1.bindFramebuffer($1.FRAMEBUFFER,$2);"
-  bindFramebuffer :: WebGLRenderingContext -> WebGLFramebuffer -> IO ()
-
-foreign import javascript unsafe
-  "$1.bindFramebuffer($1.FRAMEBUFFER,null);"
-  bindFramebufferNull :: WebGLRenderingContext -> IO ()
+evaluatePunctualWebGL :: WebGLRenderingContext -> PunctualWebGL -> (AudioTime,Double) -> Evaluation -> IO PunctualWebGL
+evaluatePunctualWebGL glCtx st tempo e = runGL glCtx $ do
+  let newFragmentShader = fragmentShader (prevExpressions st) tempo e
+  mp <- updateAsyncProgram (mainProgram st) defaultVertexShader newFragmentShader
+  return $ st { prevExpressions = fst e, mainProgram = mp }
 
 
-pingPongFrameBuffers :: PunctualWebGLContext -> IO PunctualWebGLContext
-pingPongFrameBuffers c = do
-  let gl = renderingContext c
-  let p = pingPong c
-  let fb = if p then (fst $ fb0 c) else (fst $ fb1 c)
-  let t = if p then (snd $ fb1 c) else (snd $ fb0 c)
-  activeTexture0 gl
-  bindTexture2D gl t
-  bindFramebuffer gl fb
-  return $ c { pingPong = not p }
+drawFrame :: WebGLRenderingContext -> (AudioTime,Double,Double,Double) -> PunctualWebGL -> IO PunctualWebGL
+drawFrame glCtx (t,lo,mid,hi) st = runGL glCtx $ do
+  st' <- useMainProgram st
+  drawMainProgram (t,lo,mid,hi) st'
+  st'' <- usePostProgram st'
+  drawPostProgram st''
+  return $ st'' { pingPong = not (pingPong st'') }
 
-drawFrame :: (AudioTime,Double,Double,Double) -> PunctualWebGL -> IO PunctualWebGL
-drawFrame _ st | isNothing (context st) = return st
-drawFrame (t,lo,mid,hi) st | otherwise = do
-  let ctx = fromJust (context st)
-  let glCtx = renderingContext ctx
-  -- 1. run "main" program to
-  useProgram glCtx $ shaderProgram ctx
-  defaultBlendFunc glCtx
---  clearColor glCtx 0.0 0.0 0.0 1.0 -- probably should comment this out
---  clearColorBuffer glCtx -- probably should comment this out
-  uniform1f glCtx (tLocation ctx) (realToFrac t)
-  uniform2f glCtx (resLocation ctx) 1920 1080
-  uniform1f glCtx (loLocation ctx) lo
-  uniform1f glCtx (midLocation ctx) mid
-  uniform1f glCtx (hiLocation ctx) hi
-  newCtx <- pingPongFrameBuffers ctx
-  drawArraysTriangleStrip glCtx 0 4
-  -- 2. run "post" program to transfer from framebuffer to screen
-  useProgram glCtx $ postProgram ctx
-  let tPost = if (pingPong ctx) then (snd $ fb0 ctx) else (snd $ fb1 ctx)
-  bindTex0 glCtx tPost $ postTexLocation ctx
-  uniform2f glCtx (postResLocation ctx) 1920 1080
-  bindFramebufferNull glCtx
-  drawArraysTriangleStrip glCtx 0 4
-  return $ st { context = Just newCtx }
 
-foreign import javascript unsafe
-  "$1.enable($1.BLEND); $1.blendFunc($1.ONE, $1.ONE_MINUS_SRC_ALPHA);"
-  defaultBlendFunc :: WebGLRenderingContext -> IO ()
+useMainProgram :: PunctualWebGL -> GL PunctualWebGL
+useMainProgram st = do
+  let mainUniforms = ["t","res","tex0","tex1","tex2","tex3","lo","mid","hi"]
+  (newProgramReady,asyncProgram) <- useAsyncProgram (mainProgram st) mainUniforms
+  when newProgramReady $ do
+    let program = fromJust $ activeProgram asyncProgram
+    p <- getAttribLocation program "p"
+    bindBufferArray $ triangleStrip st
+    vertexAttribPointer p
+    enableVertexAttribArray p
+    uniform2fAsync asyncProgram "res" 1920 1080
+    -- bind textures to uniforms representing textures in the program
+    let uMap = uniformsMap asyncProgram
+    bindTex 0 (tex0Texture st) (uMap ! "tex0")
+    bindTex 1 (tex1Texture st) (uMap ! "tex1")
+    bindTex 2 (tex2Texture st) (uMap ! "tex2")
+    bindTex 3 (tex3Texture st) (uMap ! "tex3")
+  return $ st { mainProgram = asyncProgram }
 
-foreign import javascript unsafe
-  "$1.uniform1f($2,$3);"
-  uniform1f :: WebGLRenderingContext -> WebGLUniformLocation -> Double -> IO ()
+bindTex :: Int -> WebGLTexture -> WebGLUniformLocation -> GL ()
+bindTex n t loc = do
+  activeTexture n
+  bindTexture2D t
+  uniform1i loc n
 
-foreign import javascript unsafe
-  "$1.uniform2f($2,$3,$4);"
-  uniform2f :: WebGLRenderingContext -> WebGLUniformLocation -> Double -> Double -> IO ()
+drawMainProgram :: (AudioTime,Double,Double,Double) -> PunctualWebGL -> GL ()
+drawMainProgram (t,lo,mid,hi) st = when (isJust $ activeProgram $ mainProgram st) $ do
+  --  clearColor 0.0 0.0 0.0 1.0 -- probably should comment this back in?
+  --  clearColorBuffer -- probably should comment this back in?
+  let program = mainProgram st
+  uniform1fAsync program "t" (realToFrac t)
+  uniform1fAsync program "lo" lo
+  uniform1fAsync program "mid" mid
+  uniform1fAsync program "hi" hi
+  pingPongFrameBuffers st
+  drawArraysTriangleStrip 0 4
 
-foreign import javascript unsafe
-  "$1.clearColor($2,$3,$4,$5);"
-  clearColor :: WebGLRenderingContext -> Double -> Double -> Double -> Double -> IO ()
+pingPongFrameBuffers :: PunctualWebGL -> GL ()
+pingPongFrameBuffers st = do
+  let p = pingPong st
+  let fb = if p then (fst $ fb0 st) else (fst $ fb1 st)
+  let t = if p then (snd $ fb1 st) else (snd $ fb0 st)
+  activeTexture 0
+  bindTexture2D t
+  bindFramebuffer fb
 
-foreign import javascript unsafe
-  "$1.clear($1.COLOR_BUFFER_BIT);"
-  clearColorBuffer :: WebGLRenderingContext -> IO ()
+usePostProgram :: PunctualWebGL -> GL PunctualWebGL
+usePostProgram st = do
+  let postUniforms = ["res","tex"]
+  (newProgramReady,asyncProgram) <- useAsyncProgram (postProgram st) postUniforms
+  when newProgramReady $ do
+    let program = fromJust $ activeProgram asyncProgram
+    p <- getAttribLocation program "p"
+    bindBufferArray $ triangleStrip st
+    vertexAttribPointer p
+    enableVertexAttribArray p
+    uniform2fAsync asyncProgram "res" 1920 1080
+  return $ st { postProgram = asyncProgram }
 
-foreign import javascript unsafe
-  "$1.vertexAttribPointer($2,2,$1.FLOAT,false,0,0);"
-  vertexAttribPointer :: WebGLRenderingContext -> Int -> IO ()
-
-foreign import javascript unsafe
-  "$1.enableVertexAttribArray($2);"
-  enableVertexAttribArray :: WebGLRenderingContext -> Int -> IO ()
-
-foreign import javascript unsafe
-  "$1.drawArrays($1.TRIANGLE_STRIP,$2,$3);"
-  drawArraysTriangleStrip :: WebGLRenderingContext -> Int -> Int -> IO ()
+drawPostProgram :: PunctualWebGL -> GL ()
+drawPostProgram st = when (isJust $ activeProgram $ postProgram st) $ do
+  let tPost = if (pingPong st) then (snd $ fb0 st) else (snd $ fb1 st)
+  let loc =  (uniformsMap $ postProgram st) ! "tex"
+  bindTex 0 tPost loc
+  bindFramebufferNull
+  drawArraysTriangleStrip 0 4
