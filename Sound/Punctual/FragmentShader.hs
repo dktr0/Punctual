@@ -17,9 +17,9 @@ import Sound.Punctual.Evaluation
 graphToFloat :: Graph -> Builder
 graphToFloat = graphToFloat' . graphsToMono . expandMultis
 
-interspersePluses :: [Builder] -> Builder
-interspersePluses [] = "0."
-interspersePluses xs = Data.Foldable.foldr1 (\a b -> a <> "+" <> b) xs
+interspersePluses :: Builder -> [Builder] -> Builder
+interspersePluses zero [] = zero
+interspersePluses _ xs = Data.Foldable.foldr1 (\a b -> a <> "+" <> b) xs
 
 graphToVec3 :: Graph -> Builder
 graphToVec3 x = "vec3(" <> r <> "," <> g <> "," <> b <> ")"
@@ -28,9 +28,9 @@ graphToVec3 x = "vec3(" <> r <> "," <> g <> "," <> b <> ")"
     reds = fmap (\(y,_,_) -> y) x'
     greens = fmap (\(_,y,_) -> y) x'
     blues = fmap (\(_,_,y) -> y) x'
-    r = interspersePluses reds
-    g = interspersePluses greens
-    b = interspersePluses blues
+    r = interspersePluses "0." reds
+    g = interspersePluses "0." greens
+    b = interspersePluses "0." blues
 
 cycleVec3 :: [a] -> [(a,a,a)]
 cycleVec3 [] = []
@@ -257,12 +257,12 @@ fragmentShader xs0 tempo e@(xs1,t) = toText $ header <> "void main() {\n" <> all
     alphaExprs = fmap (targetToVariableName . fst) $ Prelude.filter (\(_,x) -> output x == NamedOutput "alpha") $ elems allExprs
     rgbExprs = fmap (targetToVariableName . fst) $ Prelude.filter (\(_,x) -> output x == NamedOutput "rgb") $ elems allExprs
     hsvExprs = fmap (targetToVariableName . fst) $ Prelude.filter (\(_,x) -> output x == NamedOutput "hsv") $ elems allExprs
-    redVars = interspersePluses redExprs
-    greenVars = interspersePluses greenExprs
-    blueVars = interspersePluses blueExprs
-    alphaVars = if length alphaExprs == 0 then "1." else interspersePluses alphaExprs
-    rgbVars = interspersePluses rgbExprs
-    hsvVars = interspersePluses hsvExprs
+    redVars = interspersePluses "0." redExprs
+    greenVars = interspersePluses "0." greenExprs
+    blueVars = interspersePluses "0." blueExprs
+    alphaVars = interspersePluses "1." alphaExprs
+    rgbVars = interspersePluses "vec3(0.,0.,0.)" rgbExprs
+    hsvVars = interspersePluses "vec3(0.,0.,0.)" hsvExprs
     red = "float red = " <> redVars <> ";\n"
     green = "float green = " <> greenVars <> ";\n"
     blue = "float blue = " <> blueVars <> ";\n"
