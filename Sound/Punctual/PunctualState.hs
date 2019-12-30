@@ -1,7 +1,5 @@
 module Sound.Punctual.PunctualState where
 
-import Sound.MusicW.AudioContext (AudioTime)
-
 import Sound.Punctual.Types
 import Sound.Punctual.Evaluation
 import Sound.Punctual.Graph

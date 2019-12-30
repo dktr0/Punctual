@@ -2,6 +2,7 @@
 
 module Main where
 
+import System.IO
 import Control.Monad.Trans
 import Reflex.Dom hiding (getKeyEvent,preventDefault)
 import Reflex.Dom.Contrib.KeyEvent
@@ -25,8 +26,8 @@ import Sound.Punctual.Evaluation
 import Sound.Punctual.Parser
 import Sound.Punctual.PunctualW
 import Sound.Punctual.WebGL
-import Sound.MusicW
-import Sound.MusicW.AudioContext
+import Sound.MusicW hiding (AudioTime)
+import Sound.MusicW.AudioContext hiding (AudioTime)
 import Sound.Punctual.MovingAverage
 import Sound.Punctual.GL
 
@@ -52,6 +53,7 @@ intro
 
 main :: IO ()
 main = do
+  hSetBuffering stdout LineBuffering
   getGlobalAudioContext >>= addWorklets
   mainWidgetWithHead headElement bodyElement
 
@@ -63,7 +65,7 @@ bodyElement = do
   canvas <- liftM (uncheckedCastTo HTMLCanvasElement .  _element_raw . fst) $ elAttr' "canvas" attrs $ return ()
 
   elClass "div" "editorAndStatus" $ do
-    (parsed,statusVisible) <- do
+    (evaled',statusVisible) <- do
       let textAttrs = constDyn $ fromList [("class","editorArea"){- ,("rows","999") -}]
       code <- elClass "div" "editor" $ textArea $ def & textAreaConfig_attributes .~ textAttrs & textAreaConfig_initialValue .~ intro
       let e = _textArea_element code
@@ -75,7 +77,9 @@ bodyElement = do
         if (f y /= 0) then (preventDefault >> return (f y)) else return 0
       let evaled = tagPromptlyDyn (_textArea_value code) $ ffilter (==1) e'
       shStatus <- toggle True $ ffilter (==2) e'
-      return (fmap runPunctualParser evaled,shStatus)
+      return (evaled,shStatus)
+
+    parsed <- performEvent $ fmap (liftIO . runPunctualParserIO) evaled'
 
     dFps <- punctualReflex canvas $ fmapMaybe (either (const Nothing) Just) parsed
     let errorsForConsole = fmapMaybe (either (Just . show) (const Nothing)) parsed
@@ -110,6 +114,13 @@ foreign import javascript unsafe
   "var acc=0; for(var x=40;x<256;x++) { acc=acc+$1[x] }; acc=acc/(216*256); $r = acc"
   getHi :: JSVal -> IO Double
 
+runPunctualParserIO :: Text -> IO (Either String [Expression])
+runPunctualParserIO t = do
+  t1 <- getCurrentTime
+  r <- return $! runPunctualParser t
+  t2 <- getCurrentTime
+  liftIO $ putStrLn $ " parse time: " ++ show (realToFrac (diffUTCTime t2 t1) :: Double)
+  return r
 
 punctualReflex :: MonadWidget t m => HTMLCanvasElement -> Event t [Expression] -> m (Dynamic t Double)
 punctualReflex canvas exprs = mdo

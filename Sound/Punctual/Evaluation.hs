@@ -2,7 +2,6 @@ module Sound.Punctual.Evaluation where
 
 import Data.Time
 import Data.Text (Text)
-import Sound.MusicW.AudioContext (AudioTime)
 
 import Sound.Punctual.Types
 import Sound.Punctual.Graph

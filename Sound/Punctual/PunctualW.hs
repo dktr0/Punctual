@@ -10,7 +10,6 @@ import Control.Concurrent
 import Data.Time
 import Data.Maybe
 import Data.Map.Strict as Map
-import Sound.MusicW.AudioContext (AudioTime)
 
 import Sound.Punctual.Graph hiding (difference)
 import Sound.Punctual.Types
@@ -43,6 +42,7 @@ expressionHasAudioTarget _ = False
 
 updatePunctualW :: AudioIO m => PunctualW m -> (AudioTime,Double) -> Evaluation -> m (PunctualW m)
 updatePunctualW s tempo e@(xs,t) = do
+  t1 <- liftIO $ getCurrentTime
   let evalTime = t + 0.2
   let dest = punctualDestination s
   let exprs = Map.filter expressionHasAudioTarget $ listOfExpressionsToMap xs -- Map Target' Expression
@@ -52,6 +52,8 @@ updatePunctualW s tempo e@(xs,t) = do
   updatedSynthsNodes <- sequence $ intersectionWith (updateSynth dest tempo evalTime) continuingSynthsNodes exprs
   let newSynthsNodes = union addedSynthsNodes updatedSynthsNodes
   let newState = updatePunctualState (punctualState s) e
+  t2 <- liftIO $ getCurrentTime
+  liftIO $ putStrLn $ " updatePunctualW (audio) t=" ++ show (realToFrac (diffUTCTime t2 t1) :: Double)
   return $ s { punctualState = newState, prevSynthsNodes = newSynthsNodes }
 
 addNewSynth :: AudioIO m => W.Node -> (AudioTime,Double) -> AudioTime -> Expression -> m (Synth m, W.Node)

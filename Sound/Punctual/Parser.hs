@@ -7,7 +7,6 @@ import qualified Data.Text as T
 import Data.Foldable (asum)
 import Language.Haskell.Exts
 import Language.Haskellish
-import Sound.MusicW as W (midicps,dbamp)
 
 import Sound.Punctual.Graph as P
 import qualified Sound.Punctual.Types as P
@@ -92,8 +91,8 @@ expression_output_expression = reserved ">>" >> return (P.>>)
 double :: Haskellish Double
 double = asum [
   realToFrac <$> rationalOrInteger,
-  reverseApplication double (reserved "m" >> return W.midicps),
-  reverseApplication double (reserved "db" >> return W.dbamp)
+  reverseApplication double (reserved "m" >> return midicps),
+  reverseApplication double (reserved "db" >> return dbamp)
   ]
 
 duration :: Haskellish P.Duration
@@ -223,3 +222,16 @@ multiSeries = (reserved "..." >> return f) <*> i <*> i
   where
     f x y = Multi $ fmap Constant [x .. y]
     i = fromIntegral <$> integer
+
+
+dbamp :: Double -> Double
+dbamp x = 10.0 ** (x / 20.0)
+
+ampdb :: Double -> Double
+ampdb x = 20.0 * (logBase 10 x)
+
+midicps :: Double -> Double
+midicps x = 440.0 * (2.0 ** ((x - 69.0) / 12.0))
+
+cpsmidi :: Double -> Double
+cpsmidi x = 69.0 + 12.0 * (logBase 2 (x / 440.0))

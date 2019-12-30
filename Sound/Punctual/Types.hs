@@ -1,19 +1,22 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, DeriveGeneric, DeriveAnyClass #-}
 
 module Sound.Punctual.Types where
 
 import Data.Time
 import Data.Map.Strict
 import Data.Text (Text)
-import Sound.MusicW.AudioContext (AudioTime)
+import GHC.Generics (Generic)
+import Control.DeepSeq
 
 import Sound.Punctual.Graph
 
+type AudioTime = Double
+
 type Extent = Double
 
-data Duration = Seconds Double | Cycles Double deriving (Show,Eq)
+data Duration = Seconds Double | Cycles Double deriving (Show,Eq,Generic,NFData)
 
-data DefTime = After Duration | Quant Double Duration deriving (Show,Eq)
+data DefTime = After Duration | Quant Double Duration deriving (Show,Eq,Generic,NFData)
 
 calculateT1 :: (AudioTime,Double) -> AudioTime -> DefTime -> AudioTime
 calculateT1 _ evalTime (After (Seconds t)) = t + evalTime
@@ -31,7 +34,7 @@ calculateT1 (t0,cps) evalTime (Quant n (Cycles t)) = (t/(realToFrac cps)) + next
     beat0toBoundary = fromIntegral (floor minimumT1inQuants + 1 :: Integer) * (realToFrac $ n/cps)
     nextBoundary = beat0toBoundary + t0
 
-data Transition = DefaultCrossFade | CrossFade Duration | HoldPhase deriving (Show, Eq)
+data Transition = DefaultCrossFade | CrossFade Duration | HoldPhase deriving (Show, Eq, Generic, NFData)
 
 -- note: returned value represents half of total xfade duration
 transitionToXfade :: Double -> Transition -> AudioTime
@@ -40,19 +43,19 @@ transitionToXfade _ (CrossFade (Seconds x)) = realToFrac x
 transitionToXfade cps (CrossFade (Cycles x)) = (realToFrac $ x/cps)
 transitionToXfade _ HoldPhase = 0.005
 
-data Target = Explicit Text | Anonymous deriving (Show,Eq,Ord)
+data Target = Explicit Text | Anonymous deriving (Show,Eq,Ord,Generic,NFData)
 
 -- *** the type Target' is like Target except that anonymous targets have a numerical index
 -- In the future we should replace Target with Target' (and expect the parser to provide a valid index)
 
-data Target' = Named Text | Anon Int deriving (Show,Eq,Ord)
+data Target' = Named Text | Anon Int deriving (Show,Eq,Ord,Generic,NFData)
 
 data Definition = Definition {
   target :: Target,
   defTime :: DefTime,
   transition :: Transition,
   graph :: Graph
-  } deriving (Show, Eq)
+  } deriving (Show, Eq, Generic, NFData)
 
 definitionIsExplicitlyNamed :: Definition -> Bool
 definitionIsExplicitlyNamed (Definition (Explicit _) _ _ _) = True
@@ -62,12 +65,12 @@ explicitTargetOfDefinition :: Definition -> Text
 explicitTargetOfDefinition (Definition (Explicit x) _ _ _) = x
 explicitTargetOfDefinition _ = ""
 
-data Output = NoOutput | PannedOutput Extent | NamedOutput Text deriving (Show,Eq)
+data Output = NoOutput | PannedOutput Extent | NamedOutput Text deriving (Show,Eq,Generic,NFData)
 
 data Expression = Expression {
   definition :: Definition,
   output :: Output
-  } deriving (Show,Eq)
+  } deriving (Show,Eq,Generic,NFData)
 
 expressionFromGraph :: Graph -> Expression
 expressionFromGraph g = Expression {

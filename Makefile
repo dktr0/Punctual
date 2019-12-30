@@ -6,7 +6,7 @@ build:
 	cp -f style.css punctual.jsexe/style.css
 
 devBuild:
-	cabal --ghcjs --builddir=dev-result new-build all --disable-library-profiling --disable-documentation
+	cabal --ghcjs --builddir=dev-result new-build all --disable-library-profiling --disable-documentation --ghcjs-options=-DGHCJS_GC_INTERVAL=60000
 	cp -Rf dev-result/build/x86_64-linux/ghcjs-8.6.0.1/punctual-0.0.0.1/x/punctual/build/punctual/punctual.jsexe .
 	cp -f style.css punctual.jsexe/style.css
 

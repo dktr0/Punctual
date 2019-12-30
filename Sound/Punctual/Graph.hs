@@ -1,7 +1,11 @@
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
+
 module Sound.Punctual.Graph where
 
 import Data.Text (Text)
 import Data.List
+import GHC.Generics (Generic)
+import Control.DeepSeq
 
 data Graph =
   EmptyGraph |
@@ -59,7 +63,7 @@ data Graph =
   ILine Graph Graph Graph Graph Graph |
   Line Graph Graph Graph Graph Graph |
   LinLin Graph Graph Graph Graph Graph
-  deriving (Show,Eq)
+  deriving (Show,Eq,Generic,NFData)
 
 instance Num Graph where
   x + y = Sum x y
@@ -77,7 +81,6 @@ instance Fractional Graph where
 
 expandMultis :: Graph -> [Graph]
 expandMultis (Multi []) = [EmptyGraph]
--- expandMultis (Multi xs) = fmap mixIfMulti xs
 expandMultis (Multi xs) = fmap graphsToMono $ fmap expandMultis xs
 expandMultis (Mono x) = [graphsToMono $ expandMultis x]
 expandMultis (Bipolar x) = fmap Bipolar $ expandMultis x
@@ -129,7 +132,7 @@ expandMultis x = [x] -- everything else should, by definition, be a one-channel 
 graphsToMono :: [Graph] -> Graph
 graphsToMono [] = EmptyGraph
 graphsToMono (x:[]) = x
-graphsToMono xs = foldl Sum EmptyGraph xs
+graphsToMono xs = foldl' Sum EmptyGraph xs
 
 -- Like zipWith... input graphs are multi-channel expanded, then cycled to the
 -- length of whichever one of them is longest, then pairwise combined with the

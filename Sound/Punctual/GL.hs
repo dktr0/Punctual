@@ -19,6 +19,13 @@ foreign import javascript unsafe
 gl :: GL WebGLRenderingContext
 gl = ask
 
+flush :: GL ()
+flush = gl >>= (liftIO . _flush)
+
+foreign import javascript unsafe
+  "$1.flush()"
+  _flush :: WebGLRenderingContext -> IO ()
+
 createProgram :: GL WebGLProgram
 createProgram = gl >>= (liftIO . _createProgram)
 

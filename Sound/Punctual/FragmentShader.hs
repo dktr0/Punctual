@@ -8,25 +8,29 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Semigroup ((<>))
 import TextShow
-import Sound.MusicW.AudioContext (AudioTime)
+import Data.Foldable
 
 import Sound.Punctual.Graph hiding (difference)
 import Sound.Punctual.Types hiding ((<>))
 import Sound.Punctual.Evaluation
 
-graphToFloat :: Graph -> Text
+graphToFloat :: Graph -> Builder
 graphToFloat = graphToFloat' . graphsToMono . expandMultis
 
-graphToVec3 :: Graph -> Text
+interspersePluses :: [Builder] -> Builder
+interspersePluses [] = "0."
+interspersePluses xs = Data.Foldable.foldr1 (\a b -> a <> "+" <> b) xs
+
+graphToVec3 :: Graph -> Builder
 graphToVec3 x = "vec3(" <> r <> "," <> g <> "," <> b <> ")"
   where
     x' = cycleVec3 $ fmap graphToFloat' $ expandMultis x -- :: [Text]
     reds = fmap (\(y,_,_) -> y) x'
     greens = fmap (\(_,y,_) -> y) x'
     blues = fmap (\(_,_,y) -> y) x'
-    r = T.intercalate "+" $ ["0."] <> reds
-    g = T.intercalate "+" $ ["0."] <> greens
-    b = T.intercalate "+" $ ["0."] <> blues
+    r = interspersePluses reds
+    g = interspersePluses greens
+    b = interspersePluses blues
 
 cycleVec3 :: [a] -> [(a,a,a)]
 cycleVec3 [] = []
@@ -34,11 +38,11 @@ cycleVec3 (r:g:b:xs) = (r,g,b):cycleVec3 xs
 cycleVec3 (r:g:[]) = [(r,g,r)]
 cycleVec3 (r:[]) = [(r,r,r)]
 
-graphToFloat' :: Graph -> Text
+graphToFloat' :: Graph -> Builder
 graphToFloat' (Multi _) = error "internal error: graphToFloat' should only be used after multi-channel expansion (can't handle Multi)"
 graphToFloat' (Mono _) = error "internal error: graphToFloat' should only be used after multi-channel expansion (can't handle Mono)"
 graphToFloat' EmptyGraph = "0."
-graphToFloat' (Constant x) = showt x
+graphToFloat' (Constant x) = showb x
 graphToFloat' Noise = "0." -- placeholder
 graphToFloat' Pink = "0." -- placeholder
 graphToFloat' Fx = "fx()"
@@ -93,19 +97,19 @@ graphToFloat' (ILine x1 y1 x2 y2 w) = "iline(" <> graphToFloat' x1 <> "," <> gra
 graphToFloat' (Line x1 y1 x2 y2 w) = "line(" <> graphToFloat' x1 <> "," <> graphToFloat' y1 <> "," <> graphToFloat' x2 <> "," <> graphToFloat' y2 <> "," <> graphToFloat' w <> ")"
 graphToFloat' (LinLin min1 max1 min2 max2 x) = "linlin(" <> graphToFloat' min1 <> "," <> graphToFloat' max1 <> "," <> graphToFloat' min2 <> "," <> graphToFloat' max2 <> "," <> graphToFloat' x <> ")"
 
-unaryShaderFunction :: Text -> Text -> Text
+unaryShaderFunction :: Builder -> Builder -> Builder
 unaryShaderFunction f x = f <> "(" <> x <> ")"
 
-expressionToFloat :: Expression -> Text
+expressionToFloat :: Expression -> Builder
 expressionToFloat (Expression (Definition _ _ _ g) _) = graphToFloat g
 
-expressionToVec3 :: Expression -> Text
+expressionToVec3 :: Expression -> Builder
 expressionToVec3 (Expression (Definition _ _ _ g) _) = graphToVec3 g
 
 defaultFragmentShader :: Text
-defaultFragmentShader = header <> "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"
+defaultFragmentShader = (toText header) <> "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"
 
-header :: Text
+header :: Builder
 header
  = "precision mediump float;\
    \uniform float t;\
@@ -177,14 +181,14 @@ header
    \float point(float x,float y) { return circle(x,y,0.002); }"
    -- thanks to http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl for the hsv2rgb algorithm above!
 
-targetToVariableName :: Target' -> Text
-targetToVariableName (Named s) = "_named_" <> s;
-targetToVariableName (Anon i) = "_anon_" <> (showt i);
+targetToVariableName :: Target' -> Builder
+targetToVariableName (Named s) = "_named_" <> fromText s;
+targetToVariableName (Anon i) = "_anon_" <> (showb i);
 
 isVec3 :: Expression -> Bool
 isVec3 x = (output x == NamedOutput "rgb") || (output x == NamedOutput "hsv")
 
-continuingTarget :: (AudioTime,Double) -> AudioTime -> (Target',Expression) -> (Target',Expression) -> Text
+continuingTarget :: (AudioTime,Double) -> AudioTime -> (Target',Expression) -> (Target',Expression) -> Builder
 continuingTarget tempo evalTime (newTarget,newExpr) (target',oldExpr) = line1 <> line2 <> line3 <> line4
   where
     typeText | isVec3 newExpr = "vec3"
@@ -196,11 +200,11 @@ continuingTarget tempo evalTime (newTarget,newExpr) (target',oldExpr) = line1 <>
             | otherwise = expressionToFloat oldExpr
     newText | isVec3 newExpr = expressionToVec3 newExpr
             | otherwise = expressionToFloat newExpr
-    line2 = "if(t<" <> showt t1 <> ")" <> varName <> "=" <> oldText <> ";\n"
-    line3 = "else if(t>" <> showt t2 <> ")" <> varName <> "=" <> newText <> ";\n"
+    line2 = "if(t<" <> showb t1 <> ")" <> varName <> "=" <> oldText <> ";\n"
+    line3 = "else if(t>" <> showb t2 <> ")" <> varName <> "=" <> newText <> ";\n"
     line4 = "else " <> varName <> "=" <> oldText <> "*" <> xFadeOld t1 t2 <> "+" <> newText <> "*" <> xFadeNew t1 t2 <> ";\n"
 
-discontinuedTarget :: (AudioTime,Double) -> AudioTime -> (Target',Expression) -> Text
+discontinuedTarget :: (AudioTime,Double) -> AudioTime -> (Target',Expression) -> Builder
 discontinuedTarget tempo evalTime (target',oldExpr) = line1 <> line2 <> line3
   where
     varName = targetToVariableName target'
@@ -209,10 +213,10 @@ discontinuedTarget tempo evalTime (target',oldExpr) = line1 <> line2 <> line3
     (t1,t2) = (evalTime,0.5 + evalTime) -- 0.5 sec
     oldText | isVec3 oldExpr = expressionToVec3 oldExpr
             | otherwise = expressionToFloat oldExpr
-    line2 = "if(t<" <> showt t1 <> ")" <> varName <> "=" <> oldText <> ";\n"
-    line3 = "else if(t<=" <> showt t2 <> ")" <> varName <> "=" <> oldText <> "*" <> xFadeOld t1 t2 <> ";\n"
+    line2 = "if(t<" <> showb t1 <> ")" <> varName <> "=" <> oldText <> ";\n"
+    line3 = "else if(t<=" <> showb t2 <> ")" <> varName <> "=" <> oldText <> "*" <> xFadeOld t1 t2 <> ";\n"
 
-addedTarget :: (AudioTime,Double) -> AudioTime -> (Target',Expression) -> Text
+addedTarget :: (AudioTime,Double) -> AudioTime -> (Target',Expression) -> Builder
 addedTarget tempo evalTime (target',newExpr) = line1 <> line2 <> line3
   where
     varName = targetToVariableName target'
@@ -221,17 +225,17 @@ addedTarget tempo evalTime (target',newExpr) = line1 <> line2 <> line3
     (t1,t2) = expressionToTimes tempo evalTime newExpr
     newText | isVec3 newExpr = expressionToVec3 newExpr
             | otherwise = expressionToFloat newExpr
-    line2 = "if(t>=" <> showt t2 <> ")" <> varName <> "=" <> newText <> ";\n"
-    line3 = "else if(t>" <> showt t1 <> ")" <> varName <> "=" <> newText <> "*" <> xFadeNew t1 t2 <> ";\n"
+    line2 = "if(t>=" <> showb t2 <> ")" <> varName <> "=" <> newText <> ";\n"
+    line3 = "else if(t>" <> showb t1 <> ")" <> varName <> "=" <> newText <> "*" <> xFadeNew t1 t2 <> ";\n"
 
-xFadeOld :: AudioTime -> AudioTime -> Text
-xFadeOld t1 t2 = "xFadeOld(" <> showt t1 <> "," <> showt t2 <> ")"
+xFadeOld :: AudioTime -> AudioTime -> Builder
+xFadeOld t1 t2 = "xFadeOld(" <> showb t1 <> "," <> showb t2 <> ")"
 
-xFadeNew :: AudioTime -> AudioTime -> Text
-xFadeNew t1 t2 = "xFadeNew(" <> showt t1 <> "," <> showt t2 <> ")"
+xFadeNew :: AudioTime -> AudioTime -> Builder
+xFadeNew t1 t2 = "xFadeNew(" <> showb t1 <> "," <> showb t2 <> ")"
 
 fragmentShader :: [Expression] -> (AudioTime,Double) -> Evaluation -> Text
-fragmentShader xs0 tempo e@(xs1,t) = header <> "void main() {\n" <> allTargets <> allOutputs <> glFragColor <> "}"
+fragmentShader xs0 tempo e@(xs1,t) = toText $ header <> "void main() {\n" <> allTargets <> allOutputs <> glFragColor <> "}"
   where
     evalTime = 0.2 + t
     -- generate maps of previous, current and all relevant expressions :: Map Target' (Target',Expression)
@@ -239,27 +243,26 @@ fragmentShader xs0 tempo e@(xs1,t) = header <> "void main() {\n" <> allTargets <
     newExprs = mapWithKey (\k a -> (k,a)) $ listOfExpressionsToMap xs1
     allExprs = union newExprs oldExprs
     -- using the maps in oldExprs and newExprs, generate GLSL shader code for each target, with crossfades
-    continuing = intersectionWith (continuingTarget tempo evalTime) newExprs oldExprs -- Map Target' Text
-    continuing' = T.concat $ elems continuing -- Text
-    discontinued = fmap (discontinuedTarget tempo evalTime) $ difference oldExprs newExprs -- Map Target' Text
-    discontinued' = T.concat $ elems discontinued -- Text
+    continuing = intersectionWith (continuingTarget tempo evalTime) newExprs oldExprs -- Map Target' Builder
+    continuing' = fold continuing -- Builder
+    discontinued = fmap (discontinuedTarget tempo evalTime) $ difference oldExprs newExprs -- Map Target' Builder
+    discontinued' = fold discontinued -- Builder
     added = fmap (addedTarget tempo evalTime) $ difference newExprs oldExprs -- Map Target' Text
-    added' = T.concat $ elems added
+    added' = fold added -- Builder
     allTargets = continuing' <> discontinued' <> added'
     --
-    redExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "red") $ elems allExprs
-    greenExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "green") $ elems allExprs
-    blueExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "blue") $ elems allExprs
-    alphaExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "alpha") $ elems allExprs
-    rgbExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "rgb") $ elems allExprs
-    hsvExprs = Prelude.filter (\(_,x) -> output x == NamedOutput "hsv") $ elems allExprs
-    redVars = T.intercalate "+" $ (["0."] <>) $ fmap (targetToVariableName . fst) redExprs
-    greenVars = T.intercalate "+" $ (["0."] <>) $ fmap (targetToVariableName . fst) greenExprs
-    blueVars = T.intercalate "+" $ (["0."] <>) $ fmap (targetToVariableName . fst) blueExprs
-    alphaVars = if length alphaExprs == 0 then "1." else
-      T.intercalate "+" $ fmap (targetToVariableName . fst) alphaExprs
-    rgbVars = T.intercalate "+" $ (["vec3(0.)"] <>) $ fmap (targetToVariableName . fst) rgbExprs
-    hsvVars = T.intercalate "+" $ (["vec3(0.)"] <>) $ fmap (targetToVariableName . fst) hsvExprs
+    redExprs = fmap (targetToVariableName . fst) $ Prelude.filter (\(_,x) -> output x == NamedOutput "red") $ elems allExprs
+    greenExprs = fmap (targetToVariableName . fst) $ Prelude.filter (\(_,x) -> output x == NamedOutput "green") $ elems allExprs
+    blueExprs = fmap (targetToVariableName . fst) $ Prelude.filter (\(_,x) -> output x == NamedOutput "blue") $ elems allExprs
+    alphaExprs = fmap (targetToVariableName . fst) $ Prelude.filter (\(_,x) -> output x == NamedOutput "alpha") $ elems allExprs
+    rgbExprs = fmap (targetToVariableName . fst) $ Prelude.filter (\(_,x) -> output x == NamedOutput "rgb") $ elems allExprs
+    hsvExprs = fmap (targetToVariableName . fst) $ Prelude.filter (\(_,x) -> output x == NamedOutput "hsv") $ elems allExprs
+    redVars = interspersePluses redExprs
+    greenVars = interspersePluses greenExprs
+    blueVars = interspersePluses blueExprs
+    alphaVars = if length alphaExprs == 0 then "1." else interspersePluses alphaExprs
+    rgbVars = interspersePluses rgbExprs
+    hsvVars = interspersePluses hsvExprs
     red = "float red = " <> redVars <> ";\n"
     green = "float green = " <> greenVars <> ";\n"
     blue = "float blue = " <> blueVars <> ";\n"

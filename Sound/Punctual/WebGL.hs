@@ -19,7 +19,6 @@ import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import Sound.MusicW.AudioContext (AudioTime)
 import Data.Map.Strict
 
 import Sound.Punctual.Types hiding ((<>))
@@ -139,7 +138,10 @@ postFragmentShaderSrc =
 
 evaluatePunctualWebGL :: WebGLRenderingContext -> PunctualWebGL -> (AudioTime,Double) -> Evaluation -> IO PunctualWebGL
 evaluatePunctualWebGL glCtx st tempo e = runGL glCtx $ do
-  let newFragmentShader = fragmentShader (prevExpressions st) tempo e
+  t1 <- liftIO $ getCurrentTime
+  newFragmentShader <- return $! fragmentShader (prevExpressions st) tempo e
+  t2 <- liftIO $ getCurrentTime
+  liftIO $ putStrLn $ "writing fragment shader t=" <> show (realToFrac (diffUTCTime t2 t1) :: Double)
   mp <- updateAsyncProgram (mainProgram st) defaultVertexShader newFragmentShader
   return $ st { prevExpressions = fst e, mainProgram = mp }
 
