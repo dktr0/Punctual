@@ -138,11 +138,8 @@ postFragmentShaderSrc =
 
 evaluatePunctualWebGL :: WebGLRenderingContext -> PunctualWebGL -> (AudioTime,Double) -> Evaluation -> IO PunctualWebGL
 evaluatePunctualWebGL glCtx st tempo e = runGL glCtx $ do
-  t1 <- liftIO $ getCurrentTime
-  newFragmentShader <- return $! fragmentShader (prevExpressions st) tempo e
-  t2 <- liftIO $ getCurrentTime
-  liftIO $ putStrLn $ "writing fragment shader t=" <> show (realToFrac (diffUTCTime t2 t1) :: Double)
-  mp <- updateAsyncProgram (mainProgram st) defaultVertexShader newFragmentShader
+  newFragmentShader <- logTime "write fragment shader" $ (return $! fragmentShader (prevExpressions st) tempo e)
+  mp <- logTime "updateAsyncProgram" $ updateAsyncProgram (mainProgram st) defaultVertexShader newFragmentShader
   return $ st { prevExpressions = fst e, mainProgram = mp }
 
 
@@ -159,7 +156,7 @@ useMainProgram :: PunctualWebGL -> GL PunctualWebGL
 useMainProgram st = do
   let mainUniforms = ["t","res","tex0","tex1","tex2","tex3","lo","mid","hi"]
   (newProgramReady,asyncProgram) <- useAsyncProgram (mainProgram st) mainUniforms
-  when newProgramReady $ do
+  when newProgramReady $ logTime "useMainProgram newProgramReady" $ do
     let program = fromJust $ activeProgram asyncProgram
     p <- getAttribLocation program "p"
     bindBufferArray $ triangleStrip st

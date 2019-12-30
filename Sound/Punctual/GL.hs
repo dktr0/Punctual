@@ -4,8 +4,20 @@ module Sound.Punctual.GL where
 
 import GHCJS.DOM.Types hiding (Text)
 import Data.Text (Text)
-import Control.Monad.IO.Class (liftIO)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
+import Control.Monad.IO.Class (liftIO,MonadIO)
 import Control.Monad.Trans.Reader
+import Data.Time
+import TextShow
+
+logTime :: MonadIO m => Text -> m a -> m a
+logTime l m = do
+  t1 <- liftIO $ getCurrentTime
+  a <- m
+  t2 <- liftIO $ getCurrentTime
+  liftIO $ T.putStrLn $ l <> " " <> showt (realToFrac (diffUTCTime t2 t1) :: Double)
+  return a
 
 type GL = ReaderT WebGLRenderingContext IO
 
