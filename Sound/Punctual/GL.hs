@@ -16,7 +16,7 @@ logTime l m = do
   t1 <- liftIO $ getCurrentTime
   a <- m
   t2 <- liftIO $ getCurrentTime
-  liftIO $ T.putStrLn $ l <> " " <> showt (realToFrac (diffUTCTime t2 t1) :: Double)
+  liftIO $ T.putStrLn $ l <> " " <> showt (round (diffUTCTime t2 t1 * 1000) :: Int) <> " ms"
   return a
 
 type GL = ReaderT WebGLRenderingContext IO

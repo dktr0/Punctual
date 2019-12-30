@@ -20,6 +20,8 @@ import JavaScript.Web.AnimationFrame
 import GHCJS.Concurrent
 import GHCJS.DOM.EventM
 import Data.Bool
+import Data.Maybe
+import Data.Either
 
 import Sound.Punctual.Types hiding ((>>),(<>))
 import Sound.Punctual.Evaluation
@@ -51,6 +53,7 @@ intro
    \fy * -1 => green;\n\
    \sin (fx * 60m) * sin (fy * 60.05m) * fx * fy * 10db => blue;\n"
 
+
 main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
@@ -60,12 +63,12 @@ main = do
 bodyElement :: MonadWidget t m => m ()
 bodyElement = do
   liftIO $ putStrLn "Punctual standalone"
-
   let attrs = fromList [("class","canvas"),("style",T.pack $ "z-index: -1;"), ("width","1920"), ("height","1080")]
   canvas <- liftM (uncheckedCastTo HTMLCanvasElement .  _element_raw . fst) $ elAttr' "canvas" attrs $ return ()
+  mv <- liftIO $ forkRenderThreads canvas
 
   elClass "div" "editorAndStatus" $ do
-    (evaled',statusVisible) <- do
+    statusVisible <- do
       let textAttrs = constDyn $ fromList [("class","editorArea"){- ,("rows","999") -}]
       code <- elClass "div" "editor" $ textArea $ def & textAreaConfig_attributes .~ textAttrs & textAreaConfig_initialValue .~ intro
       let e = _textArea_element code
@@ -77,20 +80,14 @@ bodyElement = do
         if (f y /= 0) then (preventDefault >> return (f y)) else return 0
       let evaled = tagPromptlyDyn (_textArea_value code) $ ffilter (==1) e'
       shStatus <- toggle True $ ffilter (==2) e'
-      return (evaled,shStatus)
-
-    parsed <- performEvent $ fmap (liftIO . runPunctualParserIO) evaled'
-
-    dFps <- punctualReflex canvas $ fmapMaybe (either (const Nothing) Just) parsed
-    let errorsForConsole = fmapMaybe (either (Just . show) (const Nothing)) parsed
-    performEvent_ $ fmap (liftIO . putStrLn) errorsForConsole
-    let errors = fmapMaybe (either (Just . show) (Just . const "")) parsed
-    status <- holdDyn "" $ fmap T.pack errors
+      performEvaluate mv evaled
+      return shStatus
 
     hideableDiv statusVisible "status" $ do
+      (status,fps) <- pollStatus mv
       elClass "div" "errors" $ dynText status
       elClass "div" "fps" $ do
-        let fpsText = fmap ((<> " FPS") . showt . (round :: Double -> Int)) dFps
+        let fpsText = fmap ((<> " FPS") . showt . (round :: Double -> Int)) fps
         dynText fpsText
 
 
@@ -114,89 +111,134 @@ foreign import javascript unsafe
   "var acc=0; for(var x=40;x<256;x++) { acc=acc+$1[x] }; acc=acc/(216*256); $r = acc"
   getHi :: JSVal -> IO Double
 
-runPunctualParserIO :: Text -> IO (Either String [Expression])
-runPunctualParserIO t = do
-  t1 <- getCurrentTime
-  r <- return $! runPunctualParser t
-  t2 <- getCurrentTime
-  liftIO $ putStrLn $ " parse time: " ++ show (realToFrac (diffUTCTime t2 t1) :: Double)
-  return r
 
-punctualReflex :: MonadWidget t m => HTMLCanvasElement -> Event t [Expression] -> m (Dynamic t Double)
-punctualReflex canvas exprs = mdo
-  ac <- liftAudioIO $ audioContext
-  glCtx <- liftIO $ getWebGLRenderingContext canvas
-  initialPunctualWebGL <- liftIO $ newPunctualWebGL glCtx
-  mv <- liftIO $ newMVar initialPunctualWebGL
+performEvaluate :: MonadWidget t m => MVar RenderState -> Event t Text -> m ()
+performEvaluate mv e = performEvent_ $ fmap (liftIO . f) e
+  where
+    f x = do
+      rs <- takeMVar mv
+      putMVar mv $ rs { toParse = Just x }
 
-  -- create audio output and analysis network
-  gain <- liftAudioIO $ createGain (dbamp (-10))
-  comp <- liftAudioIO $ createCompressor (-20) 3 4 0.050 0.1
-  analyser <- liftAudioIO $ createAnalyser 512 0.5
-  array <- liftIO $ arrayForAnalysis analyser
-  dest <- liftAudioIO $ createDestination
-  connectNodes gain comp
-  connectNodes comp analyser
-  connectNodes comp dest
-  liftIO $ T.putStrLn "audio output/analysis network created and connected"
-
-  t1system <- liftIO $ getCurrentTime
-  mFps <- liftIO $ newMVar $ newAverage 60
-  dFps <- pollFPS mFps
-  liftIO $ forkIO $ requestAnimationFrame glCtx t1system mFps mv analyser array
-
-  t0 <- liftAudioIO $ audioTime
-  let initialPunctualW = emptyPunctualW ac gain 2 t0 -- hard coded stereo for now
-  evals <- performEvent $ fmap (liftIO . evaluationNow) exprs
-  -- audio
-  let f pW e = liftAudioIO $ updatePunctualW pW (t0,0.5) e
-  newPunctualW <- performEvent $ attachPromptlyDynWith f currentPunctualW evals
-  currentPunctualW <- holdDyn initialPunctualW newPunctualW
-  -- video
-  performEvent_ $ fmap (liftIO . evaluatePunctualWebGL' glCtx (t0,0.5) mv) evals -- *** note: tempo hard-coded here
-  return dFps
-
-evaluatePunctualWebGL' :: WebGLRenderingContext -> (AudioTime,Double) -> MVar PunctualWebGL -> Evaluation -> IO ()
-evaluatePunctualWebGL' glCtx t mv e = do
-  x <- readMVar mv
-  y <- evaluatePunctualWebGL glCtx x t e
-  void $ swapMVar mv y
-
-evaluationNow :: [Expression] -> IO Evaluation
-evaluationNow exprs = do
-  t <- liftAudioIO $ audioTime
-  return (exprs,t)
-
-requestAnimationFrame :: WebGLRenderingContext -> UTCTime -> MVar MovingAverage -> MVar PunctualWebGL -> Node -> JSVal -> IO ()
-requestAnimationFrame glCtx tPrev mFps mv analyser array = do
-  inAnimationFrame ContinueAsync $ redrawCanvas glCtx tPrev mFps mv analyser array
-  return ()
-
-redrawCanvas :: WebGLRenderingContext -> UTCTime -> MVar MovingAverage -> MVar PunctualWebGL -> Node -> JSVal -> Double -> IO ()
-redrawCanvas glCtx tPrev mFps mv analyser array _ = do
-  t1system <- getCurrentTime
-  let tDiff = diffUTCTime t1system tPrev
-  fps <- takeMVar mFps
-  putMVar mFps $ updateAverage fps $ 1 / realToFrac tDiff
-  t1 <- liftAudioIO $ audioTime
-  getByteFrequencyData analyser array
-  lo <- getLo array
-  mid <- getMid array
-  hi <- getHi array
-  st <- takeMVar mv
-  st' <- drawFrame glCtx (t1,lo,mid,hi) st
-  putMVar mv st'
-  requestAnimationFrame glCtx t1system mFps mv analyser array
-
-pollFPS :: MonadWidget t m => MVar MovingAverage -> m (Dynamic t Double)
-pollFPS mFps = do
-  now <- liftIO $ getCurrentTime
-  ticks <- tickLossy (0.204::NominalDiffTime) now
-  newFps <- performEvent $ fmap (liftIO . const (readMVar mFps)) ticks
-  let newFps' = fmap getAverage newFps
-  holdDyn 0 newFps'
 
 hideableDiv :: MonadWidget t m => Dynamic t Bool -> Text -> m a -> m a
 hideableDiv isVisible cssClass childWidget = do
   let attrs = fmap (bool (fromList [("hidden","true"),("class",cssClass)]) (Data.Map.Strict.singleton "class" cssClass)) isVisible
   elDynAttr "div" attrs childWidget
+
+
+data RenderState = RenderState {
+  status :: Text,
+  toParse :: Maybe Text,
+  toUpdate :: Maybe Evaluation,
+  glCtx :: WebGLRenderingContext,
+  punctualW :: PunctualW AudioContextIO,
+  punctualWebGL :: PunctualWebGL,
+  fps :: MovingAverage,
+  analysisNode :: Node,
+  analysisArray :: JSVal,
+  t0 :: AudioTime,
+  tPrevAnimationFrame :: UTCTime
+}
+
+
+forkRenderThreads :: HTMLCanvasElement -> IO (MVar RenderState)
+forkRenderThreads canvas = do
+  -- create audio output and analysis network
+  gain <- liftAudioIO $ createGain (dbamp (-10))
+  comp <- liftAudioIO $ createCompressor (-20) 3 4 0.050 0.1
+  analyser <- liftAudioIO $ createAnalyser 512 0.5
+  array <- arrayForAnalysis analyser
+  dest <- liftAudioIO $ createDestination
+  connectNodes gain comp
+  connectNodes comp analyser
+  connectNodes comp dest
+  ac <- getGlobalAudioContext
+  t0audio <- liftAudioIO $ audioTime
+  let iW = emptyPunctualW ac gain 2 t0audio -- hard coded stereo for now
+  -- create PunctualWebGL for animation
+  glc <- getWebGLRenderingContext canvas
+  initialPunctualWebGL <- newPunctualWebGL glc
+  -- create an MVar for the render state, fork render threads, return the MVar
+  t0system <- getCurrentTime
+  mv <- newMVar $ RenderState {
+    status = "",
+    toParse = Nothing,
+    toUpdate = Nothing,
+    glCtx = glc,
+    punctualW = iW,
+    punctualWebGL = initialPunctualWebGL,
+    fps = newAverage 60,
+    analysisNode = analyser,
+    analysisArray = array,
+    t0 = t0audio,
+    tPrevAnimationFrame = t0system
+  }
+  forkIO $ mainRenderThread mv
+  forkIO $ void $ animationThread mv 0
+  T.putStrLn "mainRender and animation threads forked (startup complete)"
+  return mv
+
+
+mainRenderThread :: MVar RenderState -> IO ()
+mainRenderThread mv = do
+  rs <- takeMVar mv
+  rs' <- parseIfNecessary rs
+  rs'' <- updateIfNecessary rs'
+  putMVar mv rs''
+  threadDelay 200000
+  mainRenderThread mv
+
+parseIfNecessary :: RenderState -> IO RenderState
+parseIfNecessary rs = if (isNothing $ toParse rs) then return rs else do
+  let x = fromJust $ toParse rs
+  now <- liftAudioIO $ audioTime
+  p <- logTime "parse: " $ (return $! runPunctualParser x) -- Either String [Expression]
+  return $ rs {
+    toParse = Nothing,
+    toUpdate = either (const Nothing) (\y -> Just (y,now)) p,
+    status = either (T.pack) (const "") p
+  }
+
+updateIfNecessary :: RenderState -> IO RenderState
+updateIfNecessary rs = if (isNothing $ toUpdate rs) then return rs else do
+  let x = fromJust $ toUpdate rs
+  let t = (t0 rs, 0.5) -- hard-coded for now...
+  nW <- liftAudioIO $ updatePunctualW (punctualW rs) t x
+  nGL <- evaluatePunctualWebGL (glCtx rs) (punctualWebGL rs) t x
+  return $ rs {
+    toUpdate = Nothing,
+    punctualW = nW,
+    punctualWebGL = nGL
+  }
+
+animationThread :: MVar RenderState -> Double -> IO ()
+animationThread mv _ = do
+  rs <- takeMVar mv
+  t1system <- getCurrentTime
+  let tDiff = diffUTCTime t1system (tPrevAnimationFrame rs)
+  let newFps = updateAverage (fps rs) $ 1 / realToFrac tDiff
+  t1audio <- liftAudioIO $ audioTime
+  let aArray = analysisArray rs
+  getByteFrequencyData (analysisNode rs) aArray
+  lo <- getLo aArray
+  mid <- getMid aArray
+  hi <- getHi aArray
+  nGL <- drawFrame (glCtx rs) (t1audio,lo,mid,hi) (punctualWebGL rs)
+  putMVar mv $ rs {
+    tPrevAnimationFrame = t1system,
+    fps = newFps,
+    punctualWebGL = nGL
+  }
+  void $ inAnimationFrame ContinueAsync $ animationThread mv
+
+
+pollStatus :: MonadWidget t m => MVar RenderState -> m (Dynamic t Text, Dynamic t Double)
+pollStatus mv = do
+  now <- liftIO $ getCurrentTime
+  ticks <- tickLossy (0.204::NominalDiffTime) now
+  x <- performEvent $ ffor ticks $ \_ -> liftIO $ do
+    rs <- readMVar mv
+    return (status rs,getAverage $ fps rs)
+  dStatus <- holdDyn "" $ fmap fst x
+  dFPS <- holdDyn 0 $ fmap snd x
+  return (dStatus,dFPS)
