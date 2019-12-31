@@ -192,7 +192,7 @@ parseIfNecessary :: RenderState -> IO RenderState
 parseIfNecessary rs = if (isNothing $ toParse rs) then return rs else do
   let x = fromJust $ toParse rs
   now <- liftAudioIO $ audioTime
-  p <- logTime "parse: " $ (return $! runPunctualParser x) -- Either String [Expression]
+  p <- runPunctualParserTimed x
   return $ rs {
     toParse = Nothing,
     toUpdate = either (const Nothing) (\y -> Just (y,now)) p,

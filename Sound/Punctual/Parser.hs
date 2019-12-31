@@ -1,22 +1,47 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Sound.Punctual.Parser (runPunctualParser) where
+module Sound.Punctual.Parser (runPunctualParser,runPunctualParserTimed) where
 
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import Data.Foldable (asum)
 import Language.Haskell.Exts
 import Language.Haskellish
+import Data.Time
+import TextShow
 
 import Sound.Punctual.Graph as P
 import qualified Sound.Punctual.Types as P
 
-runPunctualParser :: Text -> Either String [P.Expression]
-runPunctualParser = f . parseWithMode m . ('[':) . (++ "]") . T.unpack . (T.replace ";" ",")
+runPunctualParserTimed :: Text -> IO (Either String [P.Expression])
+runPunctualParserTimed x = do
+  t1 <- getCurrentTime
+  a <- return $! preprocess x
+  t2 <- getCurrentTime
+  b <- return $! parseWithMode haskellSrcExtsParseMode a
+  t3 <- getCurrentTime
+  c <- return $! f b
+  t4 <- getCurrentTime
+  T.putStrLn $ "parse preprocess: " <> " " <> showt (round (diffUTCTime t2 t1 * 1000) :: Int) <> " ms"
+  T.putStrLn $ "parse parseWithMode: " <> " " <> showt (round (diffUTCTime t3 t2 * 1000) :: Int) <> " ms"
+  T.putStrLn $ "parse runHaskellish: " <> " " <> showt (round (diffUTCTime t4 t3 * 1000) :: Int) <> " ms"
+  T.putStrLn $ "parse (total): " <> " " <> showt (round (diffUTCTime t4 t1 * 1000) :: Int) <> " ms"
+  return c
   where
     f (ParseOk x) = runHaskellish punctualParser x
     f (ParseFailed l s) = Left s
-    m = defaultParseMode {
+
+preprocess :: Text -> String
+preprocess = ('[':) . (++ "]") . T.unpack . (T.replace ";" ",")
+
+runPunctualParser :: Text -> Either String [P.Expression]
+runPunctualParser = f . parseWithMode haskellSrcExtsParseMode . preprocess
+  where
+    f (ParseOk x) = runHaskellish punctualParser x
+    f (ParseFailed l s) = Left s
+
+haskellSrcExtsParseMode = defaultParseMode {
       fixities = Just [
         Fixity (AssocRight ()) 9 (UnQual () (Symbol () ".")),
         Fixity (AssocLeft ()) 9 (UnQual () (Symbol () "!!")),
