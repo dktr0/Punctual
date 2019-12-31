@@ -268,16 +268,23 @@ foreign import javascript unsafe
   "$3.uniform1i($1,$2);"
   _uniform1i :: WebGLUniformLocation -> Int -> WebGLRenderingContext -> IO ()
 
-{- unused???
-foreign import javascript unsafe
-  "$1.getShaderParameter($2,$1.COMPILE_STATUS)"
-  compileStatus :: WebGLRenderingContext -> WebGLShader -> IO Int
+getShaderInfoLog :: WebGLShader -> GL Text
+getShaderInfoLog s = gl >>= (liftIO . _getShaderInfoLog s)
 
 foreign import javascript unsafe
-  "$1.getShaderInfoLog($2)"
-  getShaderInfoLog :: WebGLRenderingContext -> WebGLShader -> IO Text
+  "$2.getShaderInfoLog($1)"
+  _getShaderInfoLog :: WebGLShader -> WebGLRenderingContext -> IO Text
+
+getShaderParameterCompileStatus :: WebGLShader -> GL Int
+getShaderParameterCompileStatus s = gl >>= (liftIO . _getShaderParameterCompileStatus s)
 
 foreign import javascript unsafe
-  "$1.getProgramInfoLog($2)"
-  getProgramInfoLog :: WebGLRenderingContext -> WebGLProgram -> IO Text
--}
+  "$2.getShaderParameter($1,$2.COMPILE_STATUS)"
+  _getShaderParameterCompileStatus :: WebGLShader -> WebGLRenderingContext -> IO Int
+
+getProgramInfoLog :: WebGLProgram -> GL Text
+getProgramInfoLog p = gl >>= (liftIO . _getProgramInfoLog p)
+
+foreign import javascript unsafe
+  "$2.getProgramInfoLog($1)"
+  _getProgramInfoLog :: WebGLProgram -> WebGLRenderingContext -> IO Text

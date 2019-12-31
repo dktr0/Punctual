@@ -71,20 +71,45 @@ useAsyncProgram a uniformNames = do
     let nextProgram' = fromJust $ nextProgram a
     ls <- logTime "linkStatus" $ linkStatus nextProgram'
     case ls of
-      0 -> return (False,a) -- compile/link failed
+      0 -> do -- link failed
+        liftIO $ T.putStrLn "***WEBGL LINK FAILED"
+        let vs = fromJust $ nextVertexShader a
+        let fs = fromJust $ nextFragmentShader a
+        vsStatus <- getShaderParameterCompileStatus vs
+        vsLog <- getShaderInfoLog vs
+        liftIO $ T.putStrLn $ " vertex shader status=" <> showt vsStatus <> " log: " <> vsLog
+        fsStatus <- getShaderParameterCompileStatus fs
+        fsLog <- getShaderInfoLog fs
+        liftIO $ T.putStrLn $ " fragment shader status=" <> showt fsStatus <> " log: " <> fsLog
+        pLog <- getProgramInfoLog nextProgram'
+        liftIO $ T.putStrLn $ " program log: " <> fsLog
+        return (False, a {
+          nextProgram = Nothing,
+          nextVertexShader = Nothing,
+          nextFragmentShader = Nothing
+        })
       1 -> logTime "query uniforms (etc)" $ do -- make new program the active program and query location of uniforms
+        let vs = fromJust $ nextVertexShader a
+        let fs = fromJust $ nextFragmentShader a
+        vsStatus <- getShaderParameterCompileStatus vs
+        vsLog <- getShaderInfoLog vs
+        liftIO $ T.putStrLn $ " vertex shader status=" <> showt vsStatus <> " log: " <> vsLog
+        fsStatus <- getShaderParameterCompileStatus fs
+        fsLog <- getShaderInfoLog fs
+        liftIO $ T.putStrLn $ " fragment shader status=" <> showt fsStatus <> " log: " <> fsLog
+        pLog <- getProgramInfoLog nextProgram'
+        liftIO $ T.putStrLn $ " program log: " <> fsLog
         newUniformsMap <- mapM (getUniformLocation nextProgram') $ fromList $ fmap (\x -> (x,x)) uniformNames
-        deleteShader $ fromJust $ nextVertexShader a
-        deleteShader $ fromJust $ nextFragmentShader a
+        deleteShader $ vs
+        deleteShader $ fs
         when (isJust $ activeProgram a) $ deleteProgram $ fromJust $ activeProgram a
-        let a' = a {
+        return (True, a {
           activeProgram = Just nextProgram',
           nextProgram = Nothing,
           nextVertexShader = Nothing,
           nextFragmentShader = Nothing,
           uniformsMap = newUniformsMap
-        }
-        return (True,a')
+        })
   when ((isJust $ activeProgram a'') && newProgramUsed) $ logTime "useProgram on new program" $ useProgram $ fromJust $ activeProgram a''
   when ((isJust $ activeProgram a'') && not newProgramUsed) $ useProgram $ fromJust $ activeProgram a''
   return (newProgramUsed,a'' { nextProgramCountDown = max 0 (nextProgramCountDown a'' -1) })
