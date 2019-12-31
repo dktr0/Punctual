@@ -47,12 +47,17 @@ intro
    \-- Chromium/Chrome browser required for full results\n\
    \-- Press Shift-Enter to (re)evaluate/activate code\n\
    \\n\
+   \mono (iline (sin (0.11*1...6)) (sin (0.08/1...6)) (sin (0.06/1...6)) (sin (0.04*1...6)) 0.002)\
+   \* [sin 0.11,0.5 ~~ 1 $ sin 0.12, 1] * (1 - rect 0 0.875 2 0.25) >> hsv <> 5;\n\
+   \0.98 * fb fx fy * (fb fx fy > 0.1) >> rgb"
+
+   {-
    \sin 60m * -10db => left;\n\
    \sin 60.05m * -10db => right;\n\
    \fx => red;\n\
    \fy * -1 => green;\n\
    \sin (fx * 60m) * sin (fy * 60.05m) * fx * fy * 10db => blue;\n"
-
+   -}
 
 main :: IO ()
 main = do

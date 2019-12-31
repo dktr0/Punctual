@@ -28,6 +28,8 @@ data AsyncProgram = AsyncProgram {
   nextFragmentShader :: Maybe WebGLShader,
   nextProgramCountDown :: Int,
   activeProgram :: Maybe WebGLProgram,
+  activeVertexShader :: Maybe WebGLShader,
+  activeFragmentShader :: Maybe WebGLShader,
   uniformsMap :: Map Text WebGLUniformLocation
   }
 
@@ -38,11 +40,17 @@ emptyAsyncProgram = AsyncProgram {
   nextFragmentShader = Nothing,
   nextProgramCountDown = 0,
   activeProgram = Nothing,
+  activeVertexShader = Nothing,
+  activeFragmentShader = Nothing,
   uniformsMap = empty
   }
 
 updateAsyncProgram :: AsyncProgram -> Text -> Text -> GL AsyncProgram
 updateAsyncProgram a vSrc fSrc = do
+  when (isJust $ nextProgram a) $ do
+    deleteProgram $ fromJust $ nextProgram a
+    deleteShader $ fromJust $ nextVertexShader a
+    deleteShader $ fromJust $ nextFragmentShader a
   p <- createProgram
   v <- createVertexShader
   attachShader p v
@@ -89,22 +97,15 @@ useAsyncProgram a uniformNames = do
           nextFragmentShader = Nothing
         })
       1 -> logTime "query uniforms (etc)" $ do -- make new program the active program and query location of uniforms
-        let vs = fromJust $ nextVertexShader a
-        let fs = fromJust $ nextFragmentShader a
-        vsStatus <- getShaderParameterCompileStatus vs
-        vsLog <- getShaderInfoLog vs
-        liftIO $ T.putStrLn $ " vertex shader status=" <> showt vsStatus <> " log: " <> vsLog
-        fsStatus <- getShaderParameterCompileStatus fs
-        fsLog <- getShaderInfoLog fs
-        liftIO $ T.putStrLn $ " fragment shader status=" <> showt fsStatus <> " log: " <> fsLog
-        pLog <- getProgramInfoLog nextProgram'
-        liftIO $ T.putStrLn $ " program log: " <> fsLog
         newUniformsMap <- mapM (getUniformLocation nextProgram') $ fromList $ fmap (\x -> (x,x)) uniformNames
-        deleteShader $ vs
-        deleteShader $ fs
-        when (isJust $ activeProgram a) $ deleteProgram $ fromJust $ activeProgram a
+        when (isJust $ activeProgram a) $ do
+          deleteProgram $ fromJust $ activeProgram a
+          deleteShader $ fromJust $ activeVertexShader a
+          deleteShader $ fromJust $ activeFragmentShader a
         return (True, a {
           activeProgram = Just nextProgram',
+          activeVertexShader = nextVertexShader a,
+          activeFragmentShader = nextFragmentShader a,
           nextProgram = Nothing,
           nextVertexShader = Nothing,
           nextFragmentShader = Nothing,
