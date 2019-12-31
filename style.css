@@ -9,14 +9,22 @@ body {
 	left: 0px;
 	top: 0px;
 	pointer-events: none;
+  z-index: 1;
+}
+
+.editorAndStatus {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  position: absolute;
+  left: 0px;
+  top: 0px;
 }
 
 .editor {
-  background-color: transparent;
-	width: 100%;
-}
-
-.editorDiv {
+  flex-grow: 1;
+  flex-direction: column;
   background-color: transparent;
 	width: 100%;
 }
@@ -32,4 +40,20 @@ body {
   overflow: hidden;
   box-shadow: none;
   outline: none;
+  font-size: 1em;
+}
+
+.status {
+  font-family: Inconsolata,Consolas,monospace;
+  width: 100%;
+  color: white;
+  font-size: 1em;
+}
+
+.errors {
+  float: left;
+}
+
+.fps {
+  float: right;
 }
