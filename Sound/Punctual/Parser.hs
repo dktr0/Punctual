@@ -14,28 +14,51 @@ import TextShow
 import Sound.Punctual.Graph as P
 import qualified Sound.Punctual.Types as P
 
-runPunctualParserTimed :: Text -> IO (Either String [P.Expression])
+
+runPunctualParserTimed :: Text -> IO (Either String P.Program)
 runPunctualParserTimed x = do
+  t0 <- getCurrentTime
+  (x',pragmas) <- return $! extractPragmas x
   t1 <- getCurrentTime
-  a <- return $! preprocess x
-  t2 <- getCurrentTime
-  b <- return $! parseWithMode haskellSrcExtsParseMode a
-  t3 <- getCurrentTime
-  c <- return $! f b
-  t4 <- getCurrentTime
-  -- T.putStrLn $ "parse preprocess: " <> " " <> showt (round (diffUTCTime t2 t1 * 1000) :: Int) <> " ms"
-  -- T.putStrLn $ "parse parseWithMode: " <> " " <> showt (round (diffUTCTime t3 t2 * 1000) :: Int) <> " ms"
-  -- T.putStrLn $ "parse runHaskellish: " <> " " <> showt (round (diffUTCTime t4 t3 * 1000) :: Int) <> " ms"
-  T.putStrLn $ "parse (total): " <> " " <> showt (round (diffUTCTime t4 t1 * 1000) :: Int) <> " ms"
-  return c
+  r <- if (elem "glsl" pragmas) then do
+    T.putStrLn $ "parse pragmas: " <> " " <> showt (round (diffUTCTime t1 t0 * 1000) :: Int) <> " ms"
+    return $ Right $ P.Program {
+      P.directGLSL = Just x',
+      P.expressions = []
+    }
+  else do
+    a <- return $! preprocess x'
+    t2 <- getCurrentTime
+    b <- return $! parseWithMode haskellSrcExtsParseMode a
+    t3 <- getCurrentTime
+    c <- return $! f b
+    t4 <- getCurrentTime
+    T.putStrLn $ "parse pragmas: " <> " " <> showt (round (diffUTCTime t1 t0 * 1000) :: Int) <> " ms"
+    T.putStrLn $ "parse preprocess: " <> " " <> showt (round (diffUTCTime t2 t1 * 1000) :: Int) <> " ms"
+    T.putStrLn $ "parse parseWithMode: " <> " " <> showt (round (diffUTCTime t3 t2 * 1000) :: Int) <> " ms"
+    T.putStrLn $ "parse runHaskellish: " <> " " <> showt (round (diffUTCTime t4 t3 * 1000) :: Int) <> " ms"
+    return c
+  tEnd <- getCurrentTime
+  T.putStrLn $ "parse (total): " <> " " <> showt (round (diffUTCTime tEnd t0 * 1000) :: Int) <> " ms"
+  return r
   where
     f (ParseOk x) = runHaskellish punctualParser x
     f (ParseFailed l s) = Left s
 
+extractPragmas :: Text -> (Text,[Text])
+extractPragmas t = (newText,pragmas)
+  where
+    f "#glsl" = (T.empty,["glsl"])
+    f x = (x,[])
+    xs = fmap f $ T.lines t
+    newText = T.unlines $ fmap fst xs
+    pragmas = concat $ fmap snd xs
+
 preprocess :: Text -> String
 preprocess = ('[':) . (++ "]") . T.unpack . (T.replace ";" ",")
 
-runPunctualParser :: Text -> Either String [P.Expression]
+-- TODO: rework this to include pragmas as well
+runPunctualParser :: Text -> Either String P.Program
 runPunctualParser = f . parseWithMode haskellSrcExtsParseMode . preprocess
   where
     f (ParseOk x) = runHaskellish punctualParser x
@@ -84,8 +107,13 @@ haskellSrcExtsParseMode = defaultParseMode {
         ]
     }
 
-punctualParser :: Haskellish [P.Expression]
-punctualParser = list expression
+punctualParser :: Haskellish P.Program
+punctualParser = do
+  xs <- list expression
+  return $ P.Program {
+    P.directGLSL = Nothing,
+    P.expressions = xs
+  }
 
 expression :: Haskellish P.Expression
 expression = asum [

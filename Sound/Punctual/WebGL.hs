@@ -39,7 +39,7 @@ data PunctualWebGL = PunctualWebGL {
   pingPong :: Bool,
   mainProgram :: AsyncProgram,
   postProgram :: AsyncProgram,
-  prevExpressions :: [Expression]
+  prevProgram :: Program -- note: this is a Punctual program, above two lines are GL AsyncPrograms so quite different...
   }
 
 newPunctualWebGL :: GLContext -> IO PunctualWebGL
@@ -73,7 +73,7 @@ newPunctualWebGL ctx = runGL ctx $ do
     pingPong = False,
     mainProgram = mp,
     postProgram = pp,
-    prevExpressions = []
+    prevProgram = emptyProgram
   }
 
 foreign import javascript unsafe
@@ -139,9 +139,10 @@ postFragmentShaderSrc =
 
 evaluatePunctualWebGL :: GLContext -> PunctualWebGL -> (AudioTime,Double) -> Evaluation -> IO PunctualWebGL
 evaluatePunctualWebGL ctx st tempo e = runGL ctx $ do
-  newFragmentShader <- logTime "write fragment shader" $ (return $! fragmentShader (prevExpressions st) tempo e)
+  let prevExpressions = expressions $ prevProgram st
+  newFragmentShader <- logTime "write fragment shader" $ (return $! fragmentShader prevExpressions tempo e)
   mp <- updateAsyncProgram (mainProgram st) defaultVertexShader newFragmentShader
-  return $ st { prevExpressions = fst e, mainProgram = mp }
+  return $ st { prevProgram = fst e, mainProgram = mp }
 
 
 drawFrame :: GLContext -> (AudioTime,Double,Double,Double) -> PunctualWebGL -> IO PunctualWebGL

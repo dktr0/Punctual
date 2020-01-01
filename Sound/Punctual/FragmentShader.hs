@@ -130,6 +130,7 @@ header
    \  (texture2D(tex1,vec2(unipolar(x),unipolar(y)))*prox1(n,1.))+\
    \  (texture2D(tex2,vec2(unipolar(x),unipolar(y)))*prox1(n,2.))+\
    \  (texture2D(tex3,vec2(unipolar(x),unipolar(y)))*prox1(n,3.));}\
+   \vec2 uv() { return vec2(gl_FragCoord.x / res.x, gl_FragCoord.y / res.y); }\
    \float fx() { return bipolar(gl_FragCoord.x / res.x); }\
    \float fy() { return bipolar(gl_FragCoord.y / res.y); }\
    \float sin_(float f) { return sin(f*3.14159265*2.*t);}\
@@ -235,7 +236,8 @@ xFadeNew :: AudioTime -> AudioTime -> Builder
 xFadeNew t1 t2 = "xFadeNew(" <> showb t1 <> "," <> showb t2 <> ")"
 
 fragmentShader :: [Expression] -> (AudioTime,Double) -> Evaluation -> Text
-fragmentShader xs0 tempo e@(xs1,t) = toText $ header <> "void main() {\n" <> allTargets <> allOutputs <> glFragColor <> "}"
+fragmentShader _ _ (Program (Just x) _,_) = toText header <> x
+fragmentShader xs0 tempo (Program Nothing xs1,t) = toText $ header <> "void main() {\n" <> allTargets <> allOutputs <> glFragColor <> "}"
   where
     evalTime = 0.2 + t
     -- generate maps of previous, current and all relevant expressions :: Map Target' (Target',Expression)

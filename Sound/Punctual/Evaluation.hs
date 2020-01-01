@@ -6,7 +6,7 @@ import Data.Text (Text)
 import Sound.Punctual.Types
 import Sound.Punctual.Graph
 
-type Evaluation = ([Expression],AudioTime)
+type Evaluation = (Program,AudioTime)
 
 findGraphsForOutput :: Text -> Evaluation -> [Graph]
-findGraphsForOutput outputName (xs,_) = fmap (graph . definition) $ filter ((==NamedOutput outputName) . output) xs
+findGraphsForOutput outputName (p,_) = fmap (graph . definition) $ filter ((==NamedOutput outputName) . output) $ expressions p

@@ -43,8 +43,9 @@ expressionHasAudioTarget (Expression _ (PannedOutput _)) = True
 expressionHasAudioTarget _ = False
 
 updatePunctualW :: PunctualW -> (AudioTime,Double) -> Evaluation -> W.AudioContextIO PunctualW
-updatePunctualW s tempo e@(xs,t) = do
+updatePunctualW s tempo e@(p,t) = do
   t1 <- liftIO $ getCurrentTime
+  let xs = expressions p
   let evalTime = t + 0.2
   let dest = punctualDestination s
   let exprs = Map.filter expressionHasAudioTarget $ listOfExpressionsToMap xs -- Map Target' Expression

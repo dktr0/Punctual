@@ -6,18 +6,18 @@ import Sound.Punctual.Graph
 import Sound.Punctual.Phasor
 
 data PunctualState = PunctualState {
-  expressions :: [Expression],
+  program :: Program,
   startTime :: AudioTime
   }
 
 emptyPunctualState :: AudioTime -> PunctualState
 emptyPunctualState t = PunctualState {
-  expressions = [],
+  program = Program { directGLSL = Nothing, expressions = []},
   startTime = t
   }
 
 updatePunctualState :: PunctualState -> Evaluation -> PunctualState
 updatePunctualState s e = s {
-  expressions = fst e,
+  program = fst e,
   startTime = snd e
   }

@@ -118,3 +118,14 @@ defTimeAndTransitionToTimes tempo@(_,cps) evalTime dt tr = (t1,t2)
   where
     t1 = calculateT1 tempo evalTime dt
     t2 = (transitionToXfade cps tr) + t1
+
+data Program = Program {
+  directGLSL :: Maybe Text,
+  expressions :: [Expression]
+}
+
+emptyProgram :: Program
+emptyProgram = Program {
+  directGLSL = Nothing,
+  expressions = []
+}
