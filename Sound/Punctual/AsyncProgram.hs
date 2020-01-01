@@ -30,7 +30,8 @@ data AsyncProgram = AsyncProgram {
   activeProgram :: Maybe WebGLProgram,
   activeVertexShader :: Maybe WebGLShader,
   activeFragmentShader :: Maybe WebGLShader,
-  uniformsMap :: Map Text WebGLUniformLocation
+  uniformsMap :: Map Text WebGLUniformLocation,
+  attribsMap :: Map Text Int
   }
 
 emptyAsyncProgram :: AsyncProgram
@@ -42,7 +43,8 @@ emptyAsyncProgram = AsyncProgram {
   activeProgram = Nothing,
   activeVertexShader = Nothing,
   activeFragmentShader = Nothing,
-  uniformsMap = empty
+  uniformsMap = empty,
+  attribsMap = empty
   }
 
 updateAsyncProgram :: AsyncProgram -> Text -> Text -> GL AsyncProgram
@@ -73,17 +75,24 @@ updateAsyncProgram a vSrc fSrc = do
 
 -- returns true if a new program is going to be used for the first time
 -- eg. to indicate the new uniform/attrib locations exist
-useAsyncProgram :: AsyncProgram -> [Text] -> GL (Bool,AsyncProgram)
-useAsyncProgram a uniformNames = do
+useAsyncProgram :: AsyncProgram -> [Text] -> [Text] -> GL (Bool,AsyncProgram)
+useAsyncProgram a uniformNames attribNames = do
   -- first check if we have an updated program that might be ready
   let countDown = nextProgramCountDown a
-  (newProgramUsed,a') <- if (isNothing (nextProgram a) || countDown > 0) then (return (False,a)) else do
+  if ((isNothing $ nextProgram a) || countDown > 0) then do
+    when (isJust $ activeProgram a) $ useProgram (fromJust (activeProgram a))
+    return (False,a {
+      nextProgramCountDown = max 0 (countDown - 1)
+    })
+  else do
     let nextProgram' = fromJust $ nextProgram a
     cs <- getProgramParameterCompletionStatus nextProgram'
     case cs of
-      False -> return (False,a)
+      False -> do
+        when (isJust $ activeProgram a) $ useProgram (fromJust (activeProgram a))
+        return (False,a)
       True -> do
-        ls <- logTime "linkStatus" $ linkStatus nextProgram'
+        ls <- linkStatus nextProgram'
         case ls of
           0 -> do -- link failed
             liftIO $ T.putStrLn "***WEBGL LINK FAILED"
@@ -97,17 +106,20 @@ useAsyncProgram a uniformNames = do
             liftIO $ T.putStrLn $ " fragment shader status=" <> showt fsStatus <> " log: " <> fsLog
             pLog <- getProgramInfoLog nextProgram'
             liftIO $ T.putStrLn $ " program log: " <> fsLog
+            when (isJust $ activeProgram a) $ useProgram (fromJust (activeProgram a))
             return (False, a {
               nextProgram = Nothing,
               nextVertexShader = Nothing,
               nextFragmentShader = Nothing
             })
-          1 -> logTime "query uniforms (etc)" $ do -- make new program the active program and query location of uniforms
-            newUniformsMap <- mapM (getUniformLocation nextProgram') $ fromList $ fmap (\x -> (x,x)) uniformNames
+          1 -> do -- delete old program, use new program, query inform locations
             when (isJust $ activeProgram a) $ do
               deleteProgram $ fromJust $ activeProgram a
               deleteShader $ fromJust $ activeVertexShader a
               deleteShader $ fromJust $ activeFragmentShader a
+            useProgram nextProgram'
+            newUniformsMap <- mapM (getUniformLocation nextProgram') $ fromList $ fmap (\x -> (x,x)) uniformNames
+            newAttribsMap <- mapM (getAttribLocation nextProgram') $ fromList $ fmap (\x -> (x,x)) attribNames
             return (True, a {
               activeProgram = Just nextProgram',
               activeVertexShader = nextVertexShader a,
@@ -117,16 +129,13 @@ useAsyncProgram a uniformNames = do
               nextFragmentShader = Nothing,
               uniformsMap = newUniformsMap
             })
-  when ((isJust $ activeProgram a') && newProgramUsed) $ logTime "useProgram on new program" $ useProgram $ fromJust $ activeProgram a'
-  when ((isJust $ activeProgram a') && not newProgramUsed) $ useProgram $ fromJust $ activeProgram a'
-  return (newProgramUsed,a' { nextProgramCountDown = max 0 (nextProgramCountDown a' -1) })
 
 uniform1fAsync :: AsyncProgram -> Text -> Double -> GL ()
 uniform1fAsync a n v = do
   let loc = Map.lookup n $ uniformsMap a
-  when (isJust loc) $ uniform1f (fromJust loc) v
+  maybe (error "*** uniform not found in map ***") (\x -> uniform1f x v) loc
 
 uniform2fAsync :: AsyncProgram -> Text -> Double -> Double -> GL ()
 uniform2fAsync a n v1 v2 = do
   let loc = Map.lookup n $ uniformsMap a
-  when (isJust loc) $ uniform2f (fromJust loc) v1 v2
+  maybe (error "*** uniform not found in map ***") (\x -> uniform2f x v1 v2) loc

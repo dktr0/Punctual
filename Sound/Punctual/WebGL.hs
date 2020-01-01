@@ -140,7 +140,7 @@ postFragmentShaderSrc =
 evaluatePunctualWebGL :: GLContext -> PunctualWebGL -> (AudioTime,Double) -> Evaluation -> IO PunctualWebGL
 evaluatePunctualWebGL ctx st tempo e = runGL ctx $ do
   newFragmentShader <- logTime "write fragment shader" $ (return $! fragmentShader (prevExpressions st) tempo e)
-  mp <- logTime "updateAsyncProgram" $ updateAsyncProgram (mainProgram st) defaultVertexShader newFragmentShader
+  mp <- updateAsyncProgram (mainProgram st) defaultVertexShader newFragmentShader
   return $ st { prevExpressions = fst e, mainProgram = mp }
 
 
@@ -156,8 +156,9 @@ drawFrame ctx (t,lo,mid,hi) st = runGL ctx $ do
 useMainProgram :: PunctualWebGL -> GL PunctualWebGL
 useMainProgram st = do
   let mainUniforms = ["t","res","tex0","tex1","tex2","tex3","lo","mid","hi"]
-  (newProgramReady,asyncProgram) <- useAsyncProgram (mainProgram st) mainUniforms
-  when newProgramReady $ logTime "useMainProgram newProgramReady" $ do
+  let mainAttribs = ["p"]
+  (newProgramReady,asyncProgram) <- useAsyncProgram (mainProgram st) mainUniforms mainAttribs
+  when newProgramReady $ do
     let program = fromJust $ activeProgram asyncProgram
     p <- getAttribLocation program "p"
     bindBufferArray $ triangleStrip st
@@ -202,7 +203,8 @@ pingPongFrameBuffers st = do
 usePostProgram :: PunctualWebGL -> GL PunctualWebGL
 usePostProgram st = do
   let postUniforms = ["res","tex"]
-  (newProgramReady,asyncProgram) <- useAsyncProgram (postProgram st) postUniforms
+  let postAttribs = ["p"]
+  (newProgramReady,asyncProgram) <- useAsyncProgram (postProgram st) postUniforms postAttribs
   when newProgramReady $ do
     let program = fromJust $ activeProgram asyncProgram
     p <- getAttribLocation program "p"

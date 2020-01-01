@@ -136,7 +136,7 @@ data RenderState = RenderState {
   toParse :: Maybe Text,
   toUpdate :: Maybe Evaluation,
   glCtx :: GLContext,
-  punctualW :: PunctualW AudioContextIO,
+  punctualW :: PunctualW,
   punctualWebGL :: PunctualWebGL,
   fps :: MovingAverage,
   analysisNode :: Node,

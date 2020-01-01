@@ -18,21 +18,23 @@ import Sound.Punctual.PunctualState
 import Sound.MusicW (AudioIO,SynthDef,Synth,AudioContext,Node,NodeRef)
 import qualified Sound.MusicW as W
 
-data PunctualW m = PunctualW {
+data PunctualW = PunctualW {
   punctualAudioContext :: AudioContext,
   punctualDestination :: Node,
   punctualState :: PunctualState,
-  prevSynthsNodes :: Map Target' (Synth m,Node),
-  punctualChannels :: Int
+  prevSynthsNodes :: Map Target' (Synth W.AudioContextIO, Node),
+  punctualChannels :: Int,
+  silentSynthLaunched :: Bool
   }
 
-emptyPunctualW :: AudioIO m => AudioContext -> Node -> Int -> AudioTime -> PunctualW m
+emptyPunctualW :: AudioContext -> Node -> Int -> AudioTime -> PunctualW
 emptyPunctualW ac dest nchnls t = PunctualW {
   punctualAudioContext = ac,
   punctualDestination = dest,
   punctualState = emptyPunctualState t,
   prevSynthsNodes = empty,
-  punctualChannels = nchnls
+  punctualChannels = nchnls,
+  silentSynthLaunched = False
   }
 
 expressionHasAudioTarget :: Expression -> Bool
@@ -40,7 +42,7 @@ expressionHasAudioTarget (Expression _ (NamedOutput "splay")) = True
 expressionHasAudioTarget (Expression _ (PannedOutput _)) = True
 expressionHasAudioTarget _ = False
 
-updatePunctualW :: AudioIO m => PunctualW m -> (AudioTime,Double) -> Evaluation -> m (PunctualW m)
+updatePunctualW :: PunctualW -> (AudioTime,Double) -> Evaluation -> W.AudioContextIO PunctualW
 updatePunctualW s tempo e@(xs,t) = do
   t1 <- liftIO $ getCurrentTime
   let evalTime = t + 0.2
@@ -52,9 +54,12 @@ updatePunctualW s tempo e@(xs,t) = do
   updatedSynthsNodes <- sequence $ intersectionWith (updateSynth dest tempo evalTime) continuingSynthsNodes exprs
   let newSynthsNodes = union addedSynthsNodes updatedSynthsNodes
   let newState = updatePunctualState (punctualState s) e
+  when (not $ silentSynthLaunched s) $ do
+    W.playSynth dest t $ W.constantSource 0 >>= W.audioOut
+    return ()
   t2 <- liftIO $ getCurrentTime
-  liftIO $ putStrLn $ " updatePunctualW (audio) t=" ++ show (realToFrac (diffUTCTime t2 t1) :: Double)
-  return $ s { punctualState = newState, prevSynthsNodes = newSynthsNodes }
+  liftIO $ putStrLn $ "updatePunctualW (audio): " ++ show (round (diffUTCTime t2 t1 * 1000) :: Int) ++ " ms"
+  return $ s { punctualState = newState, prevSynthsNodes = newSynthsNodes, silentSynthLaunched = True }
 
 addNewSynth :: AudioIO m => W.Node -> (AudioTime,Double) -> AudioTime -> Expression -> m (Synth m, W.Node)
 addNewSynth dest tempo evalTime expr = do
