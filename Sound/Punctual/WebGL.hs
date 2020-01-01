@@ -42,8 +42,9 @@ data PunctualWebGL = PunctualWebGL {
   prevExpressions :: [Expression]
   }
 
-newPunctualWebGL :: WebGLRenderingContext -> IO PunctualWebGL
-newPunctualWebGL glCtx = runGL glCtx $ do
+newPunctualWebGL :: GLContext -> IO PunctualWebGL
+newPunctualWebGL ctx = runGL ctx $ do
+  glCtx <- gl
   defaultBlendFunc
   unpackFlipY
   -- create a buffer representing default triangle strip used by main and "post" programs
@@ -136,15 +137,15 @@ postFragmentShaderSrc =
   \}"
 
 
-evaluatePunctualWebGL :: WebGLRenderingContext -> PunctualWebGL -> (AudioTime,Double) -> Evaluation -> IO PunctualWebGL
-evaluatePunctualWebGL glCtx st tempo e = runGL glCtx $ do
+evaluatePunctualWebGL :: GLContext -> PunctualWebGL -> (AudioTime,Double) -> Evaluation -> IO PunctualWebGL
+evaluatePunctualWebGL ctx st tempo e = runGL ctx $ do
   newFragmentShader <- logTime "write fragment shader" $ (return $! fragmentShader (prevExpressions st) tempo e)
   mp <- logTime "updateAsyncProgram" $ updateAsyncProgram (mainProgram st) defaultVertexShader newFragmentShader
   return $ st { prevExpressions = fst e, mainProgram = mp }
 
 
-drawFrame :: WebGLRenderingContext -> (AudioTime,Double,Double,Double) -> PunctualWebGL -> IO PunctualWebGL
-drawFrame glCtx (t,lo,mid,hi) st = runGL glCtx $ do
+drawFrame :: GLContext -> (AudioTime,Double,Double,Double) -> PunctualWebGL -> IO PunctualWebGL
+drawFrame ctx (t,lo,mid,hi) st = runGL ctx $ do
   st' <- useMainProgram st
   drawMainProgram (t,lo,mid,hi) st'
   st'' <- usePostProgram st'

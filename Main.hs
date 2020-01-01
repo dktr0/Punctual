@@ -135,7 +135,7 @@ data RenderState = RenderState {
   status :: Text,
   toParse :: Maybe Text,
   toUpdate :: Maybe Evaluation,
-  glCtx :: WebGLRenderingContext,
+  glCtx :: GLContext,
   punctualW :: PunctualW AudioContextIO,
   punctualWebGL :: PunctualWebGL,
   fps :: MovingAverage,
@@ -161,7 +161,7 @@ forkRenderThreads canvas = do
   t0audio <- liftAudioIO $ audioTime
   let iW = emptyPunctualW ac gain 2 t0audio -- hard coded stereo for now
   -- create PunctualWebGL for animation
-  glc <- getWebGLRenderingContext canvas
+  glc <- newGLContext canvas
   initialPunctualWebGL <- newPunctualWebGL glc
   -- create an MVar for the render state, fork render threads, return the MVar
   t0system <- getCurrentTime

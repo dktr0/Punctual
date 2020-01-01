@@ -6,6 +6,7 @@ import GHCJS.DOM.Types hiding (Text)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
+import Control.Monad
 import Control.Monad.IO.Class (liftIO,MonadIO)
 import Control.Monad.Trans.Reader
 import Data.Time
@@ -19,17 +20,58 @@ logTime l m = do
   liftIO $ T.putStrLn $ l <> " " <> showt (round (diffUTCTime t2 t1 * 1000) :: Int) <> " ms"
   return a
 
-type GL = ReaderT WebGLRenderingContext IO
+data GLContext = GLContext {
+  _webGLRenderingContext :: WebGLRenderingContext,
+  _khr_parallel_shader_compile :: Bool,
+  _completion_status_khr :: JSVal -- cached value of ext.COMPLETION_STATUS_KHR if KHR_parallel_shader_compile enabled
+}
 
-runGL :: WebGLRenderingContext -> GL a -> IO a
+type GL = ReaderT GLContext IO
+
+gl :: GL WebGLRenderingContext
+gl = _webGLRenderingContext <$> ask
+
+khr_parallel_shader_compile :: GL Bool
+khr_parallel_shader_compile = _khr_parallel_shader_compile <$> ask
+
+runGL :: GLContext -> GL a -> IO a
 runGL ctx x = (runReaderT x) ctx
+
+newGLContext :: HTMLCanvasElement -> IO GLContext
+newGLContext cv = do
+  ctx <- _getWebGLRenderingContext cv
+  psc <- _extensionIsAvailable "KHR_parallel_shader_compile" ctx
+  when psc $ T.putStrLn "WebGL extension khr_parallel_shader_compile is available"
+  when (not psc) $ T.putStrLn "WebGL extension khr_parallel_shader_compile is not available (this is okay)"
+  cs <- _getCompletionStatusKhr ctx
+  return $ GLContext {
+    _webGLRenderingContext = ctx,
+    _khr_parallel_shader_compile = psc,
+    _completion_status_khr = cs
+  }
 
 foreign import javascript unsafe
   "$1.getContext('webgl')"
-  getWebGLRenderingContext :: HTMLCanvasElement -> IO WebGLRenderingContext
+  _getWebGLRenderingContext :: HTMLCanvasElement -> IO WebGLRenderingContext
 
-gl :: GL WebGLRenderingContext
-gl = ask
+foreign import javascript unsafe
+  "$2.getExtension($1) != null"
+  _extensionIsAvailable :: Text -> WebGLRenderingContext -> IO Bool
+
+foreign import javascript unsafe
+  "$r = null; if($1.getExtension('KHR_parallel_shader_compile') != null) $r = $1.getExtension('KHR_parallel_shader_compile').COMPLETION_STATUS_KHR;"
+  _getCompletionStatusKhr :: WebGLRenderingContext -> IO JSVal
+
+getProgramParameterCompletionStatus :: WebGLProgram -> GL Bool
+getProgramParameterCompletionStatus p = do
+  ctx <- gl
+  psc <- khr_parallel_shader_compile
+  cs <- _completion_status_khr <$> ask
+  liftIO $ if not psc then return True else _getProgramParameterCompletionStatus p cs ctx
+
+foreign import javascript unsafe
+  "$3.getProgramParameter($1,$2)"
+  _getProgramParameterCompletionStatus :: WebGLProgram -> JSVal -> WebGLRenderingContext -> IO Bool
 
 flush :: GL ()
 flush = gl >>= (liftIO . _flush)

@@ -62,11 +62,13 @@ updateAsyncProgram a vSrc fSrc = do
   compileShader f
   linkProgram p
   Sound.Punctual.GL.flush
+  psc <- khr_parallel_shader_compile
+  let cd = if psc then 0 else 30 -- if we don't have parallel_shader_compile extension, wait 30 frames before using new program
   return $ a {
     nextProgram = Just p,
     nextVertexShader = Just v,
     nextFragmentShader = Just f,
-    nextProgramCountDown = 30
+    nextProgramCountDown = cd
   }
 
 -- returns true if a new program is going to be used for the first time
@@ -75,45 +77,49 @@ useAsyncProgram :: AsyncProgram -> [Text] -> GL (Bool,AsyncProgram)
 useAsyncProgram a uniformNames = do
   -- first check if we have an updated program that might be ready
   let countDown = nextProgramCountDown a
-  (newProgramUsed,a'') <- if (isNothing (nextProgram a) || countDown > 0) then (return (False,a)) else do
+  (newProgramUsed,a') <- if (isNothing (nextProgram a) || countDown > 0) then (return (False,a)) else do
     let nextProgram' = fromJust $ nextProgram a
-    ls <- logTime "linkStatus" $ linkStatus nextProgram'
-    case ls of
-      0 -> do -- link failed
-        liftIO $ T.putStrLn "***WEBGL LINK FAILED"
-        let vs = fromJust $ nextVertexShader a
-        let fs = fromJust $ nextFragmentShader a
-        vsStatus <- getShaderParameterCompileStatus vs
-        vsLog <- getShaderInfoLog vs
-        liftIO $ T.putStrLn $ " vertex shader status=" <> showt vsStatus <> " log: " <> vsLog
-        fsStatus <- getShaderParameterCompileStatus fs
-        fsLog <- getShaderInfoLog fs
-        liftIO $ T.putStrLn $ " fragment shader status=" <> showt fsStatus <> " log: " <> fsLog
-        pLog <- getProgramInfoLog nextProgram'
-        liftIO $ T.putStrLn $ " program log: " <> fsLog
-        return (False, a {
-          nextProgram = Nothing,
-          nextVertexShader = Nothing,
-          nextFragmentShader = Nothing
-        })
-      1 -> logTime "query uniforms (etc)" $ do -- make new program the active program and query location of uniforms
-        newUniformsMap <- mapM (getUniformLocation nextProgram') $ fromList $ fmap (\x -> (x,x)) uniformNames
-        when (isJust $ activeProgram a) $ do
-          deleteProgram $ fromJust $ activeProgram a
-          deleteShader $ fromJust $ activeVertexShader a
-          deleteShader $ fromJust $ activeFragmentShader a
-        return (True, a {
-          activeProgram = Just nextProgram',
-          activeVertexShader = nextVertexShader a,
-          activeFragmentShader = nextFragmentShader a,
-          nextProgram = Nothing,
-          nextVertexShader = Nothing,
-          nextFragmentShader = Nothing,
-          uniformsMap = newUniformsMap
-        })
-  when ((isJust $ activeProgram a'') && newProgramUsed) $ logTime "useProgram on new program" $ useProgram $ fromJust $ activeProgram a''
-  when ((isJust $ activeProgram a'') && not newProgramUsed) $ useProgram $ fromJust $ activeProgram a''
-  return (newProgramUsed,a'' { nextProgramCountDown = max 0 (nextProgramCountDown a'' -1) })
+    cs <- getProgramParameterCompletionStatus nextProgram'
+    case cs of
+      False -> return (False,a)
+      True -> do
+        ls <- logTime "linkStatus" $ linkStatus nextProgram'
+        case ls of
+          0 -> do -- link failed
+            liftIO $ T.putStrLn "***WEBGL LINK FAILED"
+            let vs = fromJust $ nextVertexShader a
+            let fs = fromJust $ nextFragmentShader a
+            vsStatus <- getShaderParameterCompileStatus vs
+            vsLog <- getShaderInfoLog vs
+            liftIO $ T.putStrLn $ " vertex shader status=" <> showt vsStatus <> " log: " <> vsLog
+            fsStatus <- getShaderParameterCompileStatus fs
+            fsLog <- getShaderInfoLog fs
+            liftIO $ T.putStrLn $ " fragment shader status=" <> showt fsStatus <> " log: " <> fsLog
+            pLog <- getProgramInfoLog nextProgram'
+            liftIO $ T.putStrLn $ " program log: " <> fsLog
+            return (False, a {
+              nextProgram = Nothing,
+              nextVertexShader = Nothing,
+              nextFragmentShader = Nothing
+            })
+          1 -> logTime "query uniforms (etc)" $ do -- make new program the active program and query location of uniforms
+            newUniformsMap <- mapM (getUniformLocation nextProgram') $ fromList $ fmap (\x -> (x,x)) uniformNames
+            when (isJust $ activeProgram a) $ do
+              deleteProgram $ fromJust $ activeProgram a
+              deleteShader $ fromJust $ activeVertexShader a
+              deleteShader $ fromJust $ activeFragmentShader a
+            return (True, a {
+              activeProgram = Just nextProgram',
+              activeVertexShader = nextVertexShader a,
+              activeFragmentShader = nextFragmentShader a,
+              nextProgram = Nothing,
+              nextVertexShader = Nothing,
+              nextFragmentShader = Nothing,
+              uniformsMap = newUniformsMap
+            })
+  when ((isJust $ activeProgram a') && newProgramUsed) $ logTime "useProgram on new program" $ useProgram $ fromJust $ activeProgram a'
+  when ((isJust $ activeProgram a') && not newProgramUsed) $ useProgram $ fromJust $ activeProgram a'
+  return (newProgramUsed,a' { nextProgramCountDown = max 0 (nextProgramCountDown a' -1) })
 
 uniform1fAsync :: AsyncProgram -> Text -> Double -> GL ()
 uniform1fAsync a n v = do
