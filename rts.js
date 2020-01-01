@@ -8057,7 +8057,7 @@ function h$blockThread(t,o,resume) {
 
 
 var h$lastGc = Date.now();
-var h$gcInterval = 60000;
+var h$gcInterval = 1000;
 function h$scheduler(next) {
                                                 ;
 
