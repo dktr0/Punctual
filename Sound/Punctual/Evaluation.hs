@@ -1,6 +1,12 @@
 module Sound.Punctual.Evaluation where
 
-import Sound.Punctual.AudioTime
-import Sound.Punctual.Program
+import Data.Time
+import Data.Text (Text)
+
+import Sound.Punctual.Types
+import Sound.Punctual.Graph
 
 type Evaluation = (Program,AudioTime)
+
+findGraphsForOutput :: Text -> Evaluation -> [Graph]
+findGraphsForOutput outputName (p,_) = fmap (graph . definition) $ filter ((==NamedOutput outputName) . output) $ expressions p

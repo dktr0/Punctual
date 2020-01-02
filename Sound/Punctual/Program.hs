@@ -1,7 +1,17 @@
 module Sound.Punctual.Program where
 
 import Data.IntMap.Strict
-import Sound.Punctual.Definition
+import Data.Text (Text)
 
-type Program = IntMap Definition
- 
+import Sound.Punctual.Action
+
+data Program = Program {
+  directGLSL :: Maybe Text,
+  actions :: IntMap Action
+}
+
+emptyProgram :: Program
+emptyProgram = Program {
+  directGLSL = Nothing,
+  actions = empty
+}

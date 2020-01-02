@@ -1,9 +1,15 @@
+{-# LANGUAGE OverloadedStrings, DeriveGeneric, DeriveAnyClass #-}
+
 module Sound.Punctual.DefTime where
+
+import GHC.Generics (Generic)
+import Control.DeepSeq
 
 import Sound.Punctual.AudioTime
 import Sound.Punctual.Duration
 
-data DefTime = After Duration | Quant Double Duration deriving (Show,Eq)
+
+data DefTime = After Duration | Quant Double Duration deriving (Show,Eq,Generic,NFData)
 
 calculateT1 :: (AudioTime,Double) -> AudioTime -> DefTime -> AudioTime
 calculateT1 _ evalTime (After (Seconds t)) = t + evalTime

@@ -1,9 +1,14 @@
+{-# LANGUAGE OverloadedStrings, DeriveGeneric, DeriveAnyClass #-}
+
 module Sound.Punctual.Transition where
+
+import GHC.Generics (Generic)
+import Control.DeepSeq
 
 import Sound.Punctual.AudioTime
 import Sound.Punctual.Duration
 
-data Transition = DefaultCrossFade | CrossFade Duration | HoldPhase deriving (Show, Eq)
+data Transition = DefaultCrossFade | CrossFade Duration | HoldPhase deriving (Show, Eq, Generic, NFData)
 
 -- note: returned value represents half of total xfade duration
 transitionToXfade :: Double -> Transition -> AudioTime

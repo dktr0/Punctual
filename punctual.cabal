@@ -2,7 +2,7 @@ name:                punctual
 version:             0.0.0.1
 synopsis:            Live coding language
 description:         Please see README.md
-homepage:            http://github.com/d0kt0r0/Punctual/blob/master/README.md
+homepage:            http://github.com/dktr0/Punctual/blob/master/README.md
 license:             GPL-3
 license-file:        LICENSE
 author:              David Ogborn
@@ -15,7 +15,20 @@ extra-source-files:
 
 Library
   hs-source-dirs:    .
-  Build-Depends:     base, parsec, time, mtl, musicw, containers, ghcjs-base, ghcjs-dom-jsffi, text, text-show
+  Build-Depends:
+      base,
+      time,
+      mtl,
+      musicw >= 0.3.1,
+      containers,
+      ghcjs-base,
+      ghcjs-dom-jsffi,
+      text,
+      text-show,
+      haskellish >= 0.1.2,
+      haskell-src-exts >= 1.21.0,
+      transformers,
+      deepseq
   GHC-Options:       -Wall -fwarn-tabs -fno-warn-unused-do-bind
   Exposed-modules:   Sound.Punctual.Extent
                      Sound.Punctual.AudioTime
@@ -23,18 +36,51 @@ Library
                      Sound.Punctual.DefTime
                      Sound.Punctual.Transition
                      Sound.Punctual.Graph
-                     Sound.Punctual.Target
                      Sound.Punctual.Definition
                      Sound.Punctual.Program
+=======
+  Exposed-modules:   Sound.Punctual.Graph
+                     Sound.Punctual.Types
+                     Sound.Punctual.Evaluation
+>>>>>>> async
                      Sound.Punctual.Parser
                      Sound.Punctual.Evaluation
                      Sound.Punctual.WebGL
                      Sound.Punctual.PunctualW
-  other-modules:     Sound.Punctual.Token
+  other-modules:
   default-language:  Haskell2010
 
 executable punctual
   hs-source-dirs:    .
   main-is:           Main.hs
-  build-depends:     base, punctual, reflex, reflex-dom, time, parsec, mtl, musicw, text, containers, ghcjs-base, ghcjs-dom-jsffi, reflex-dom-contrib, text, text-show
+  build-depends:
+      base,
+      punctual,
+      reflex,
+      reflex-dom,
+      time,
+      mtl,
+      musicw >= 0.3.1,
+      text,
+      containers,
+      ghcjs-base,
+      ghcjs-dom-jsffi,
+      reflex-dom-contrib,
+      text,
+      text-show,
+      haskellish >= 0.1.2,
+      haskell-src-exts >= 1.21.0,
+      transformers,
+      deepseq
   default-language:  Haskell2010
+
+benchmark punctual-benchmarks
+  build-depends:
+      base,
+      criterion
+
+  default-language: Haskell2010
+  ghc-options:      -Wall
+  hs-source-dirs:   .
+  main-is:          Benchmarks.hs
+  type:             exitcode-stdio-1.0
