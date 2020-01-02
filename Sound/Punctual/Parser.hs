@@ -50,7 +50,7 @@ extractPragmas t = (newText,pragmas)
   where
     f "#glsl" = (T.empty,["glsl"])
     f x = (x,[])
-    xs = fmap f $ T.lines t
+    xs = fmap (f . T.stripEnd) $ T.lines t
     newText = T.unlines $ fmap fst xs
     pragmas = concat $ fmap snd xs
 
