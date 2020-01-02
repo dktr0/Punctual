@@ -1,19 +1,19 @@
 code size summary per package:
 
 base:                    807959
-bytestring-0.10.8.2-FBklFuapa1a7kq4yflY7Bt:113173
-containers-0.6.0.1-BAqcfV1UBBeCIRjPbUYeSG:242055
+bytestring-0.10.8.2-FBklFuapa1a7kq4yflY7Bt:125395
+containers-0.6.0.1-BAqcfV1UBBeCIRjPbUYeSG:241133
 dependent-map-0.3-82DTUQPsubeFMPg64cnlKg:85851
-dependent-sum-0.6.2.0-7ro4RTDuvwj7KvAIN0tbai:13698
-ghc-prim:                330792
+dependent-sum-0.6.2.0-7ro4RTDuvwj7KvAIN0tbai:14045
+ghc-prim:                330932
 ghcjs-base-0.2.0.0-94o7qH5GqxYIuAX83RduIv:5954
 ghcjs-dom-jsffi-0.9.2.0-LhqmrnYZ728DFrIvvqEjAk:126544
 ghcjs-prim-0.1.1.0-EXzjGVHQlAS2XAXcu0iCbS:10275
 haskell-src-exts-1.21.0-DsLjfIdnuhDB9rbXFZ7Qmq:5433658
 haskellish-0.1.2-1BTFrsdWU3e8LUM1kmHnsf:5473
 integer-gmp:             95413
-main:                    1763078
-musicw-0.3.1-DhJ80z7D04DDk6uB7qRtid:308098
+main:                    1593570
+musicw-0.3.2-1Bn5AxXeqzW7LhRxogFuNw:326944
 pretty-1.1.3.6-HCbdzOHqNpW5RoNxlHyeg5:2484
 primitive-0.6.3.0-KfguiTuxgILGqu8JEOpKRI:1293
 ref-tf-0.4.0.1-4fEDYopgtHB1kxZabrLLUM:3390
@@ -21,12 +21,12 @@ reflex-0.6.2.4-5yZIMPComPJIRLAlmqrSE5:1168398
 reflex-dom-contrib-0.6-EzMUHZZmTmJKoY8IWemlOb:17295
 reflex-dom-core-0.5.2.0-GkO8KmFBylOAmRGw6IXoPy:1824621
 semialign-1-5skbPxNQj8D3AvF6riHMVM:3781
-text-1.2.3.0-G7RNccSav6I3egGIwK0cpP:222557
+text-1.2.3.0-G7RNccSav6I3egGIwK0cpP:223365
 text-show-3.7.5-KwULiPtPzFNcaYnUwuXRO:5401
-these-1-3AW2YEk4PYiLdgZ7ikQ0ki:1742
-time-1.8.0.2-3d3i5aGvKEfEHwUSNgliL4:17707
+these-1-3AW2YEk4PYiLdgZ7ikQ0ki:1711
+time-1.8.0.2-3d3i5aGvKEfEHwUSNgliL4:17600
 transformers-0.5.6.2-KaPP0fdMTwBF02jPgfEE5s:8869
-unbounded-delays-0.1.1.0-3OIBWhvs3opCI9f4squMMQ:239699
+unbounded-delays-0.1.1.0-3OIBWhvs3opCI9f4squMMQ:239239
 
 
 code size per module:
@@ -108,13 +108,12 @@ base
     Unsafe.Coerce:                      4622
 
 bytestring-0.10.8.2-FBklFuapa1a7kq4yflY7Bt
-    Data.ByteString.Internal:           113173
+    Data.ByteString.Internal:           125395
 
 containers-0.6.0.1-BAqcfV1UBBeCIRjPbUYeSG
-    Data.IntMap.Internal:               43564
-    Data.IntMap.Strict:                 88981
-    Data.Map.Internal:                  2832
-    Data.Map.Strict.Internal:           106678
+    Data.IntMap.Internal:               47497
+    Data.IntMap.Strict:                 86958
+    Data.Map.Internal:                  106678
 
 dependent-map-0.3-82DTUQPsubeFMPg64cnlKg
     Data.Dependent.Map:                 85116
@@ -123,14 +122,14 @@ dependent-map-0.3-82DTUQPsubeFMPg64cnlKg
 dependent-sum-0.6.2.0-7ro4RTDuvwj7KvAIN0tbai
     Data.Dependent.Sum:                 3145
     Data.GADT.Compare:                  5093
-    Data.Some:                          5460
+    Data.Some:                          5807
 
 ghc-prim
     GHC.CString:                        22145
     GHC.Classes:                        451
     GHC.IntWord64:                      3052
     GHC.Tuple:                          4228
-    GHC.Types:                          300916
+    GHC.Types:                          301056
 
 ghcjs-base-0.2.0.0-94o7qH5GqxYIuAX83RduIv
     Data.JSString:                      1492
@@ -182,24 +181,28 @@ integer-gmp
     GHC.Integer.Type:                   6356
 
 main
-    Main:                               70194
-    Sound.Punctual.AsyncProgram:        1897
-    Sound.Punctual.Evaluation:          712152
+    Main:                               22229
+    Sound.Punctual.Action:              70194
+    Sound.Punctual.AsyncProgram:        1
+    Sound.Punctual.AudioTime:           16800
+    Sound.Punctual.DefTime:             8768
+    Sound.Punctual.Duration:            1609
+    Sound.Punctual.Extent:              639608
     Sound.Punctual.FragmentShader:      63374
-    Sound.Punctual.GL:                  249252
+    Sound.Punctual.GL:                  247916
     Sound.Punctual.Graph:               3852
-    Sound.Punctual.MovingAverage:       180180
-    Sound.Punctual.Parser:              556
-    Sound.Punctual.Phasor:              1343
-    Sound.Punctual.PunctualState:       283388
-    Sound.Punctual.PunctualW:           150720
-    Sound.Punctual.Types:               42106
+    Sound.Punctual.MovingAverage:       19590
+    Sound.Punctual.Output:              183942
+    Sound.Punctual.Parser:              12049
+    Sound.Punctual.Program:             248491
+    Sound.Punctual.PunctualW:           9443
+    Sound.Punctual.Transition:          41640
     Sound.Punctual.WebGL:               4064
 
-musicw-0.3.1-DhJ80z7D04DDk6uB7qRtid
-    Sound.MusicW.AudioContext:          110697
-    Sound.MusicW.Node:                  34102
-    Sound.MusicW.Synth:                 40867
+musicw-0.3.2-1Bn5AxXeqzW7LhRxogFuNw
+    Sound.MusicW.AudioContext:          118824
+    Sound.MusicW.Node:                  36627
+    Sound.MusicW.Synth:                 49061
     Sound.MusicW.SynthDef:              25393
     Sound.MusicW.Transformations:       26453
     Sound.MusicW.Worklets:              70586
@@ -262,7 +265,7 @@ semialign-1-5skbPxNQj8D3AvF6riHMVM
 text-1.2.3.0-G7RNccSav6I3egGIwK0cpP
     Data.Text:                          725
     Data.Text.Array:                    49019
-    Data.Text.IO:                       1
+    Data.Text.IO:                       809
     Data.Text.Internal:                 2486
     Data.Text.Internal.Builder:         433
     Data.Text.Internal.Builder.Int.Digits:815
@@ -277,12 +280,12 @@ text-show-3.7.5-KwULiPtPzFNcaYnUwuXRO
     TextShow.Utils:                     810
 
 these-1-3AW2YEk4PYiLdgZ7ikQ0ki
-    Data.These:                         1742
+    Data.These:                         1711
 
 time-1.8.0.2-3d3i5aGvKEfEHwUSNgliL4
-    Data.Time.Clock.Internal.CTimeval:  1011
+    Data.Time.Clock.Internal.CTimespec: 1011
     Data.Time.Clock.Internal.NominalDiffTime:380
-    Data.Time.Clock.Internal.UTCTime:   2792
+    Data.Time.Clock.Internal.UTCTime:   2685
     Data.Time.Clock.POSIX:              1751
     Data.Time.Clock.System:             11773
 
@@ -292,9 +295,9 @@ transformers-0.5.6.2-KaPP0fdMTwBF02jPgfEE5s
     Control.Monad.Trans.State.Strict:   1911
 
 unbounded-delays-0.1.1.0-3OIBWhvs3opCI9f4squMMQ
-    Control.Concurrent.Thread.Delay:    239699
+    Control.Concurrent.Thread.Delay:    239239
 
 
 
-packed metadata: 3539820
+packed metadata: 3527905
 
