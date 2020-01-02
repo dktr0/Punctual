@@ -3,9 +3,13 @@ module Sound.Punctual.Extent where
 type Extent = Double
 
 dbamp :: Double -> Double
-dbamp x = 10 ** (x/20)
+dbamp x = 10.0 ** (x / 20.0)
+
+ampdb :: Double -> Double
+ampdb x = 20.0 * (logBase 10 x)
 
 midicps :: Double -> Double
-midicps x = 440 * (2**((x-69)/12))
+midicps x = 440.0 * (2.0 ** ((x - 69.0) / 12.0))
 
--- ampdb and cpsmidi need to go here as well
+cpsmidi :: Double -> Double
+cpsmidi x = 69.0 + 12.0 * (logBase 2 (x / 440.0))

@@ -8,16 +8,14 @@ import GHC.Generics (Generic)
 import Control.DeepSeq
 
 data Graph =
+  EmptyGraph |
   Constant Double |
   Multi [Graph] |
   Mono Graph |
-<<<<<<< HEAD
-=======
   Bipolar Graph |
   Unipolar Graph |
   Noise |
   Pink |
->>>>>>> async
   Fx |
   Fy |
   Px |
@@ -82,13 +80,9 @@ instance Fractional Graph where
 -- Multi-channel expansion:
 
 expandMultis :: Graph -> [Graph]
-<<<<<<< HEAD
-expandMultis (Multi []) = [] -- ? will this cause problems ?
-expandMultis (Multi xs) = fmap mixIfMulti xs
-=======
+expandMultis EmptyGraph = [EmptyGraph]
 expandMultis (Multi []) = [EmptyGraph]
 expandMultis (Multi xs) = fmap graphsToMono $ fmap expandMultis xs
->>>>>>> async
 expandMultis (Mono x) = [graphsToMono $ expandMultis x]
 expandMultis (Bipolar x) = fmap Bipolar $ expandMultis x
 expandMultis (Unipolar x) = fmap Unipolar $ expandMultis x
@@ -137,13 +131,8 @@ expandMultis (LinLin x1 y1 x2 y2 w) = expandWith5 LinLin x1 y1 x2 y2 w
 expandMultis x = [x] -- everything else should, by definition, be a one-channel signal
 
 graphsToMono :: [Graph] -> Graph
-<<<<<<< HEAD
-graphsToMono xs = foldl Sum (Constant 0) xs -- ** TODO: eliminate unnecessary extra node here
-=======
 graphsToMono [] = EmptyGraph
-graphsToMono (x:[]) = x
-graphsToMono xs = foldl' Sum EmptyGraph xs
->>>>>>> async
+graphsToMono xs = foldl1 Sum xs
 
 -- Like zipWith... input graphs are multi-channel expanded, then cycled to the
 -- length of whichever one of them is longest, then pairwise combined with the
@@ -202,23 +191,8 @@ expandWith5 f a b c d e = zipWith5 f a'' b'' c'' d'' e''
 tex :: Graph -> Graph -> Graph -> Graph
 tex n x y = Multi [TexR n x y,TexG n x y,TexB n x y]
 
-<<<<<<< HEAD
-unipolar :: Graph -> Graph
-unipolar x = x * 0.5 + 0.5
-
-mean :: Graph -> Graph -> Graph
-mean x y = (x + y) * 0.5
-
-linlin :: Graph -> Graph -> Graph -> Graph -> Graph -> Graph
-linlin min1 max1 min2 max2 x = min2 + (outputRange * proportion)
-  where
-    inputRange = max1 - min1
-    outputRange = max2 - min2
-    proportion = (x - min1) / inputRange
-=======
 fb :: Graph -> Graph -> Graph
 fb x y = tex 0 x y
->>>>>>> async
 
 modulatedRangeGraph :: Graph -> Graph -> Graph -> Graph
 modulatedRangeGraph low high m = LinLin (-1) (1) low high m

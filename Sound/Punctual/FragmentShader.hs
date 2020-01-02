@@ -9,32 +9,16 @@ import qualified Data.Text as T
 import Data.Semigroup ((<>))
 import TextShow
 import Data.Foldable
+import Data.Maybe
 
-import Sound.Punctual.Graph hiding (difference)
-import Sound.Punctual.Types hiding ((<>))
-import Sound.Punctual.Evaluation
-
--- the Text result is GLSL code to instantiate the array with the provided name
--- and initialize all of its components/channels. The Int result is the size of
--- the array (ie. the number of channels in the expansion of the Graph in this Definition).
--- the addendum is meant to be used to add crossfades into each channel component.
-{-
-definitionToFloatArray :: Text -> Text -> Definition -> (Text,Int)
-definitionToFloatArray name addendum def = (declaration <> channels,nchnls)
-  where
-    graphs = expandMultis $ graph def
-    nchnls = length graphs
-    declaration = "float " <> name <> "[" <> showt nchnls <> "];\n"
-    f n g = name <> "[" <> showt n <> "] = " <> graphToFloat g <> addendum <> ";\n"
-    channels = concat $ zipWith f [0..] graphs
--}
+import Sound.Punctual.AudioTime
+import Sound.Punctual.Graph
+import Sound.Punctual.Output
+import Sound.Punctual.Action hiding ((<>),(>>))
+import Sound.Punctual.Program
 
 graphToFloat :: Graph -> Builder
 graphToFloat = graphToFloat' . graphsToMono . expandMultis
-
-interspersePluses :: Builder -> [Builder] -> Builder
-interspersePluses zero [] = zero
-interspersePluses _ xs = Data.Foldable.foldr1 (\a b -> a <> "+" <> b) xs
 
 graphToVec3 :: Graph -> Builder
 graphToVec3 x = "vec3(" <> r <> "," <> g <> "," <> b <> ")"
@@ -115,11 +99,11 @@ graphToFloat' (LinLin min1 max1 min2 max2 x) = "linlin(" <> graphToFloat' min1 <
 unaryShaderFunction :: Builder -> Builder -> Builder
 unaryShaderFunction f x = f <> "(" <> x <> ")"
 
-expressionToFloat :: Expression -> Builder
-expressionToFloat (Expression (Definition _ _ _ g) _) = graphToFloat g
+actionToFloat :: Action -> Builder
+actionToFloat = graphToFloat . graph
 
-expressionToVec3 :: Expression -> Builder
-expressionToVec3 (Expression (Definition _ _ _ g) _) = graphToVec3 g
+actionToVec3 :: Action -> Builder
+actionToVec3 = graphToVec3 . graph
 
 defaultFragmentShader :: Text
 defaultFragmentShader = (toText header) <> "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"
@@ -197,68 +181,46 @@ header
    \float point(float x,float y) { return circle(x,y,0.002); }"
    -- thanks to http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl for the hsv2rgb algorithm above!
 
-{-
-continuedDefinition :: (AudioTime,Double) -> AudioTime -> Int -> Definition -> Definition -> (Text,Int)
-continuedDefinition tempo evalTime key newDef oldDef = (oldCode <> newCode <> mergeCode,newChnls)
+isVec3 :: Action -> Bool
+isVec3 x = output x == RGB || output x == HSV
+
+continuingAction :: (AudioTime,Double) -> AudioTime -> Int -> Action -> Action -> Builder
+continuingAction tempo eTime i newAction oldAction = line1 <> line2 <> line3 <> line4
   where
-    (t1,t2) = definitionToTimes tempo evalTime newDef
-    (oldCode,oldChnls) = definitionToFloatArray ("_old_" <> showt key) ("*" <> xFadeOld t1 t2) oldDef
-    (newCode,newChnls) = definitionToFloatArray ("_new_" <> showt key) ("*" <> xFadeNew t1 t2) newDef
-    mergeCode = "_" <> showt key <> "=mergeOldAndNew("
-
-discontinuedDefinition :: (AudioTime,Double) -> AudioTime -> Int -> Definition -> (Text,Int)
-discontinuedDefinition tempo evalTime key oldDef = definitionToFloatArray ("_" <> showt key) ("*" <> xFadeOld t1 t2) oldDef
-  where (t1,t2) = (evalTime,0.5 + evalTime) -- 0.5 secHi Jakgord
-
-addedDefinition :: (AudioTime,Double) -> AudioTime -> Int -> Definition -> (Text,Int)
-addedDefinition tempo evalTime key newDef = definitionToFloatArray ("_" <> showt key) ("*" <> xFadeNew t1 t2) newDef
-  where (t1,t2) = definitionToTimes tempo evalTime newDef
--}
-
-targetToVariableName :: Target' -> Builder
-targetToVariableName (Named s) = "_named_" <> fromText s;
-targetToVariableName (Anon i) = "_anon_" <> (showb i);
-
-isVec3 :: Expression -> Bool
-isVec3 x = (output x == NamedOutput "rgb") || (output x == NamedOutput "hsv")
-
-continuingTarget :: (AudioTime,Double) -> AudioTime -> (Target',Expression) -> (Target',Expression) -> Builder
-continuingTarget tempo evalTime (newTarget,newExpr) (target',oldExpr) = line1 <> line2 <> line3 <> line4
-  where
-    typeText | isVec3 newExpr = "vec3"
+    typeText | isVec3 newAction = "vec3"
              | otherwise = "float"
-    varName = targetToVariableName target'
+    varName = "_" <> showb i
     line1 = typeText <> " " <> varName <> ";\n"
-    (t1,t2) = expressionToTimes tempo evalTime newExpr
-    oldText | isVec3 newExpr = expressionToVec3 oldExpr
-            | otherwise = expressionToFloat oldExpr
-    newText | isVec3 newExpr = expressionToVec3 newExpr
-            | otherwise = expressionToFloat newExpr
+    (t1,t2) = actionToTimes tempo eTime newAction
+    oldText | isVec3 newAction = actionToVec3 oldAction
+            | otherwise = actionToFloat oldAction
+    newText | isVec3 newAction = actionToVec3 newAction
+            | otherwise = actionToFloat newAction
     line2 = "if(t<" <> showb t1 <> ")" <> varName <> "=" <> oldText <> ";\n"
     line3 = "else if(t>" <> showb t2 <> ")" <> varName <> "=" <> newText <> ";\n"
     line4 = "else " <> varName <> "=" <> oldText <> "*" <> xFadeOld t1 t2 <> "+" <> newText <> "*" <> xFadeNew t1 t2 <> ";\n"
 
-discontinuedTarget :: (AudioTime,Double) -> AudioTime -> (Target',Expression) -> Builder
-discontinuedTarget tempo evalTime (target',oldExpr) = line1 <> line2 <> line3
+discontinuedAction :: (AudioTime,Double) -> AudioTime -> Int -> Action -> Builder
+discontinuedAction tempo eTime i oldAction = line1 <> line2 <> line3
   where
-    varName = targetToVariableName target'
-    line1 | isVec3 oldExpr = "vec3 " <> varName <> "=vec3(0.);\n"
+    varName = "_" <> showb i
+    line1 | isVec3 oldAction = "vec3 " <> varName <> "=vec3(0.);\n"
           | otherwise = "float " <> varName <> "=0.;\n"
-    (t1,t2) = (evalTime,0.5 + evalTime) -- 0.5 sec
-    oldText | isVec3 oldExpr = expressionToVec3 oldExpr
-            | otherwise = expressionToFloat oldExpr
+    (t1,t2) = (eTime,0.5 + eTime) -- 0.5 sec
+    oldText | isVec3 oldAction = actionToVec3 oldAction
+            | otherwise = actionToFloat oldAction
     line2 = "if(t<" <> showb t1 <> ")" <> varName <> "=" <> oldText <> ";\n"
     line3 = "else if(t<=" <> showb t2 <> ")" <> varName <> "=" <> oldText <> "*" <> xFadeOld t1 t2 <> ";\n"
 
-addedTarget :: (AudioTime,Double) -> AudioTime -> (Target',Expression) -> Builder
-addedTarget tempo evalTime (target',newExpr) = line1 <> line2 <> line3
+addedAction :: (AudioTime,Double) -> AudioTime -> Int -> Action -> Builder
+addedAction tempo eTime i newAction = line1 <> line2 <> line3
   where
-    varName = targetToVariableName target'
-    line1 | isVec3 newExpr = "vec3 " <> varName <> "=vec3(0.);\n"
+    varName = "_" <> showb i
+    line1 | isVec3 newAction = "vec3 " <> varName <> "=vec3(0.);\n"
           | otherwise = "float " <> varName <> "=0.;\n"
-    (t1,t2) = expressionToTimes tempo evalTime newExpr
-    newText | isVec3 newExpr = expressionToVec3 newExpr
-            | otherwise = expressionToFloat newExpr
+    (t1,t2) = actionToTimes tempo eTime newAction
+    newText | isVec3 newAction = actionToVec3 newAction
+            | otherwise = actionToFloat newAction
     line2 = "if(t>=" <> showb t2 <> ")" <> varName <> "=" <> newText <> ";\n"
     line3 = "else if(t>" <> showb t1 <> ")" <> varName <> "=" <> newText <> "*" <> xFadeNew t1 t2 <> ";\n"
 
@@ -268,42 +230,34 @@ xFadeOld t1 t2 = "xFadeOld(" <> showb t1 <> "," <> showb t2 <> ")"
 xFadeNew :: AudioTime -> AudioTime -> Builder
 xFadeNew t1 t2 = "xFadeNew(" <> showb t1 <> "," <> showb t2 <> ")"
 
-fragmentShader :: [Expression] -> (AudioTime,Double) -> Evaluation -> Text
-fragmentShader _ _ (Program (Just x) _,_) = toText header <> x
-fragmentShader xs0 tempo (Program Nothing xs1,t) = toText $ header <> "void main() {\n" <> allTargets <> allOutputs <> glFragColor <> "}"
+fragmentShader :: (AudioTime,Double) -> Program -> Program -> Text
+fragmentShader _ _ newProgram | isJust (directGLSL newProgram) = toText header <> fromJust (directGLSL newProgram)
+fragmentShader tempo oldProgram newProgram = toText $ header <> body
   where
-    evalTime = 0.2 + t
-    -- generate maps of previous, current and all relevant expressions :: Map Target' (Target',Expression)
-    oldExprs = mapWithKey (\k a -> (k,a)) $ listOfExpressionsToMap xs0
-    newExprs = mapWithKey (\k a -> (k,a)) $ listOfExpressionsToMap xs1
-    allExprs = union newExprs oldExprs
-    -- using the maps in oldExprs and newExprs, generate GLSL shader code for each target, with crossfades
-    continuing = intersectionWith (continuingTarget tempo evalTime) newExprs oldExprs -- Map Target' Builder
-    continuing' = fold continuing -- Builder
-    discontinued = fmap (discontinuedTarget tempo evalTime) $ difference oldExprs newExprs -- Map Target' Builder
-    discontinued' = fold discontinued -- Builder
-    added = fmap (addedTarget tempo evalTime) $ difference newExprs oldExprs -- Map Target' Text
-    added' = fold added -- Builder
-    allTargets = continuing' <> discontinued' <> added'
-    --
-    redExprs = fmap (targetToVariableName . fst) $ Prelude.filter (\(_,x) -> output x == NamedOutput "red") $ elems allExprs
-    greenExprs = fmap (targetToVariableName . fst) $ Prelude.filter (\(_,x) -> output x == NamedOutput "green") $ elems allExprs
-    blueExprs = fmap (targetToVariableName . fst) $ Prelude.filter (\(_,x) -> output x == NamedOutput "blue") $ elems allExprs
-    alphaExprs = fmap (targetToVariableName . fst) $ Prelude.filter (\(_,x) -> output x == NamedOutput "alpha") $ elems allExprs
-    rgbExprs = fmap (targetToVariableName . fst) $ Prelude.filter (\(_,x) -> output x == NamedOutput "rgb") $ elems allExprs
-    hsvExprs = fmap (targetToVariableName . fst) $ Prelude.filter (\(_,x) -> output x == NamedOutput "hsv") $ elems allExprs
-    redVars = interspersePluses "0." redExprs
-    greenVars = interspersePluses "0." greenExprs
-    blueVars = interspersePluses "0." blueExprs
-    alphaVars = interspersePluses "1." alphaExprs
-    rgbVars = interspersePluses "vec3(0.,0.,0.)" rgbExprs
-    hsvVars = interspersePluses "vec3(0.,0.,0.)" hsvExprs
-    red = "float red = " <> redVars <> ";\n"
-    green = "float green = " <> greenVars <> ";\n"
-    blue = "float blue = " <> blueVars <> ";\n"
-    alpha = "float alpha = " <> alphaVars <> ";\n"
-    hsv = "vec3 hsv = hsv2rgb(" <> hsvVars <> ");\n"
-    rgb = "vec3 rgb = " <> rgbVars <> "+vec3(red,green,blue)+hsv;\n"
+    eTime = 0.2 + (evalTime newProgram)
+    -- generate maps of previous, current and all relevant expressions
+    oldActions = IntMap.filter actionOutputsWebGL $ actions oldProgram
+    newActions = IntMap.filter actionOutputsWebGL $ actions newProgram
+    allActions = union newActions oldActions
+    -- generate GLSL shader code for each action, with crossfades
+    continuingSources = fold $ intersectionWithKey (continuingAction tempo eTime) newActions oldActions
+    discontinuedSources = fold $ mapWithKey (discontinuedAction tempo eTime) $ difference oldActions newActions
+    newSources = fold $ mapWithKey (addedAction tempo eTime) $ difference newActions oldActions
+    allSources = continuingSources <> discontinuedSources <> newSources
+    -- generate GLSL shader code that maps the sources to outputs
+    red = generateOutput Red "float red" "0." allActions
+    green = generateOutput Green "float green" "0." allActions
+    blue = generateOutput Blue "float blue" "0." allActions
+    alpha = generateOutput Alpha "float alpha" "1." allActions
+    hsv = generateOutput HSV "vec3 hsv" "vec3(0.,0.,0.)" allActions
+    rgb = generateOutput RGB "vec3 rgb" "vec3(0.,0.,0.)" allActions
     allOutputs = red <> green <> blue <> alpha <> hsv <> rgb
     --
-    glFragColor = "gl_FragColor = vec4(rgb,alpha);\n"
+    body = "void main() {\n" <> allSources <> allOutputs <> "gl_FragColor = vec4(vec3(red,green,blue)+rgb+hsv2rgb(hsv),alpha);}"
+
+generateOutput :: Output -> Builder -> Builder -> IntMap Action -> Builder
+generateOutput o typeDecl zeroBuilder xs = typeDecl <> "=" <> interspersePluses zeroBuilder xs' <> ";\n"
+  where xs' = mapWithKey (\k _ -> "_" <> showb k) $ IntMap.filter ((==o) . output) xs
+
+interspersePluses :: Foldable t => Builder -> t Builder -> Builder
+interspersePluses zero xs = if Data.Foldable.null xs then zero else Data.Foldable.foldr1 (\a b -> a <> "+" <> b) xs

@@ -23,12 +23,12 @@ import Data.Bool
 import Data.Maybe
 import Data.Either
 
-import Sound.Punctual.Types hiding ((>>),(<>))
-import Sound.Punctual.Evaluation
+import Sound.Punctual.Action hiding ((>>),(<>))
+import Sound.Punctual.Program
 import Sound.Punctual.Parser
 import Sound.Punctual.PunctualW
 import Sound.Punctual.WebGL
-import Sound.MusicW hiding (AudioTime)
+import Sound.MusicW
 import Sound.MusicW.AudioContext hiding (AudioTime)
 import Sound.Punctual.MovingAverage
 import Sound.Punctual.GL
@@ -134,7 +134,7 @@ hideableDiv isVisible cssClass childWidget = do
 data RenderState = RenderState {
   status :: Text,
   toParse :: Maybe Text,
-  toUpdate :: Maybe Evaluation,
+  toUpdate :: Maybe Program,
   glCtx :: GLContext,
   punctualW :: PunctualW,
   punctualWebGL :: PunctualWebGL,
@@ -197,10 +197,10 @@ parseIfNecessary :: RenderState -> IO RenderState
 parseIfNecessary rs = if (isNothing $ toParse rs) then return rs else do
   let x = fromJust $ toParse rs
   now <- liftAudioIO $ audioTime
-  p <- runPunctualParserTimed x
+  p <- runPunctualParserTimed now x
   return $ rs {
     toParse = Nothing,
-    toUpdate = either (const Nothing) (\y -> Just (y,now)) p,
+    toUpdate = either (const Nothing) Just p,
     status = either (T.pack) (const "") p
   }
 

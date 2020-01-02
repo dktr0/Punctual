@@ -9,12 +9,13 @@ import Control.Monad.IO.Class
 import Control.Concurrent
 import Data.Time
 import Data.Maybe
-import Data.IntMap.Strict
+import Data.IntMap.Strict as IntMap
 
-import Sound.Punctual.Graph hiding (difference)
-import Sound.Punctual.Target
-import Sound.Punctual.Definition
-import Sound.Punctual.Evaluation
+import Sound.Punctual.AudioTime
+import Sound.Punctual.Graph
+import Sound.Punctual.Output
+import Sound.Punctual.Action
+import Sound.Punctual.Program
 import Sound.MusicW (AudioIO,SynthDef,Synth,AudioContext,Node,NodeRef)
 import qualified Sound.MusicW as W
 
@@ -24,7 +25,7 @@ data PunctualW = PunctualW {
   punctualChannels :: Int,
   silentSynthLaunched :: Bool,
   prevSynthsNodes :: IntMap (Synth W.AudioContextIO, Node),
-  punctualState :: PunctualState
+  prevProgramW :: Program
   }
 
 emptyPunctualW :: AudioContext -> Node -> Int -> AudioTime -> PunctualW
@@ -34,60 +35,57 @@ emptyPunctualW ac dest nchnls t = PunctualW {
   punctualChannels = nchnls,
   silentSynthLaunched = False,
   prevSynthsNodes = empty,
-  punctualState = emptyPunctualState t
+  prevProgramW = emptyProgram
   }
 
-expressionHasAudioTarget :: Expression -> Bool
-expressionHasAudioTarget (Expression _ (NamedOutput "splay")) = True
-expressionHasAudioTarget (Expression _ (PannedOutput _)) = True
-expressionHasAudioTarget _ = False
-
-updatePunctualW :: PunctualW -> (AudioTime,Double) -> Evaluation -> W.AudioContextIO PunctualW
-updatePunctualW s tempo e@(p,t) = do
+updatePunctualW :: PunctualW -> (AudioTime,Double) -> Program -> W.AudioContextIO PunctualW
+updatePunctualW s tempo p = do
+  let evalTime' = evalTime p + 0.2
   t1 <- liftIO $ getCurrentTime
-  let xs = expressions p
-  let evalTime = t + 0.2
+  let xs = IntMap.filter actionOutputsAudio $ actions p
   let dest = punctualDestination s
-  let exprs = Map.filter expressionHasAudioTarget $ listOfExpressionsToMap xs -- Map Target' Expression
-  mapM_ (deleteSynth evalTime evalTime (0.050 + evalTime)) $ difference (prevSynthsNodes s) exprs -- delete synths no longer present
-  addedSynthsNodes <- mapM (addNewSynth dest tempo evalTime) $ difference exprs (prevSynthsNodes s) -- add synths newly present
-  let continuingSynthsNodes = intersection (prevSynthsNodes s) exprs
-  updatedSynthsNodes <- sequence $ intersectionWith (updateSynth dest tempo evalTime) continuingSynthsNodes exprs
-  let newSynthsNodes = union addedSynthsNodes updatedSynthsNodes
-  let newState = updatePunctualState (punctualState s) e
+  mapM_ (deleteSynth evalTime' evalTime' (0.050 + evalTime')) $ difference (prevSynthsNodes s) xs -- delete synths no longer present
+  addedSynthsNodes <- mapM (addNewSynth dest tempo evalTime') $ difference xs (prevSynthsNodes s) -- add synths newly present
+  let continuingSynthsNodes = intersection (prevSynthsNodes s) xs
+  updatedSynthsNodes <- sequence $ intersectionWith (updateSynth dest tempo evalTime') continuingSynthsNodes xs
+  newSynthsNodes <- return $! union addedSynthsNodes updatedSynthsNodes
   when (not $ silentSynthLaunched s) $ do
-    W.playSynth dest t $ W.constantSource 0 >>= W.audioOut
+    W.playSynth dest (evalTime p) $ W.constantSource 0 >>= W.audioOut
     return ()
   t2 <- liftIO $ getCurrentTime
   liftIO $ putStrLn $ "updatePunctualW (audio): " ++ show (round (diffUTCTime t2 t1 * 1000) :: Int) ++ " ms"
-  return $ s { punctualState = newState, prevSynthsNodes = newSynthsNodes, silentSynthLaunched = True }
+  return $ s {
+    prevSynthsNodes = newSynthsNodes,
+    prevProgramW = p,
+    silentSynthLaunched = True
+    }
 
-addNewSynth :: AudioIO m => W.Node -> (AudioTime,Double) -> AudioTime -> Expression -> m (Synth m, W.Node)
-addNewSynth dest tempo evalTime expr = do
-  let (xfadeStart,xfadeEnd) = expressionToTimes tempo evalTime expr
-  addSynth dest xfadeStart xfadeStart xfadeEnd expr
+addNewSynth :: AudioIO m => W.Node -> (AudioTime,Double) -> AudioTime -> Action -> m (Synth m, W.Node)
+addNewSynth dest tempo evalTime a = do
+  let (xfadeStart,xfadeEnd) = actionToTimes tempo evalTime a
+  addSynth dest xfadeStart xfadeStart xfadeEnd a
 
-updateSynth :: AudioIO m => W.Node -> (AudioTime,Double) -> AudioTime -> (Synth m, W.Node) -> Expression -> m (Synth m, W.Node)
-updateSynth dest tempo evalTime prevSynthNode expr = do
-  let (xfadeStart,xfadeEnd) = expressionToTimes tempo evalTime expr
+updateSynth :: AudioIO m => W.Node -> (AudioTime,Double) -> AudioTime -> (Synth m, W.Node) -> Action -> m (Synth m, W.Node)
+updateSynth dest tempo evalTime prevSynthNode a = do
+  let (xfadeStart,xfadeEnd) = actionToTimes tempo evalTime a
   deleteSynth evalTime xfadeStart xfadeEnd prevSynthNode
-  addSynth dest xfadeStart xfadeStart xfadeEnd def
+  addSynth dest xfadeStart xfadeStart xfadeEnd a
 
-addSynth :: AudioIO m => W.Node -> AudioTime -> AudioTime -> AudioTime -> Definition -> m (Synth m, W.Node)
-addSynth dest startTime xfadeStart xfadeEnd def = do
+addSynth :: AudioIO m => W.Node -> AudioTime -> AudioTime -> AudioTime -> Action -> m (Synth m, W.Node)
+addSynth dest startTime xfadeStart xfadeEnd a = do
   let xfadeStart' = xfadeStart - startTime
   let xfadeEnd' = xfadeEnd - startTime
   (newNodeRef,newSynth) <- W.playSynth dest startTime $ do
-    gainNode <- definitionToSynthDef def
+    gainNode <- graphToSynthDef' $ graph a
     W.setParam W.Gain 0.0 0.0 gainNode
     W.setParam W.Gain 0.0 xfadeStart' gainNode
     W.linearRampOnParam W.Gain 1.0 xfadeEnd' gainNode
-    mapM_ (connectSynthToOutput gainNode) $ targets def
+    connectSynthToOutput gainNode $ output a
     return gainNode
   newNode <- W.nodeRefToNode newNodeRef newSynth
   return (newSynth,newNode)
 
-connectSynthToOutput :: AudioIO m => NodeRef -> Target -> SynthDef m ()
+connectSynthToOutput :: AudioIO m => NodeRef -> Output -> SynthDef m ()
 connectSynthToOutput nRef (Panned p) = do
   xs <- W.channelSplitter nRef
   y <- W.mix xs
@@ -97,7 +95,7 @@ connectSynthToOutput nRef Splay = do
   xs <- W.channelSplitter nRef
   y <- W.splay 2 xs
   W.audioOut y
-connectSynthToOutput _ _ = return () -- all other types of targets are not (directly) connected to audio output
+connectSynthToOutput _ _ = return ()
 
 deleteSynth :: MonadIO m => AudioTime -> AudioTime -> AudioTime -> (Synth m, W.Node) -> m ()
 deleteSynth evalTime xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
@@ -111,24 +109,21 @@ deleteSynth evalTime xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
     W.disconnectSynth prevSynth
   return ()
 
-definitionToSynthDef :: AudioIO m => Definition -> SynthDef m NodeRef
-definitionToSynthDef def = do
-  sd <- mapM graphToSynthDef $ expandMultis $ graph def
+graphToSynthDef' :: AudioIO m => Graph -> SynthDef m NodeRef
+graphToSynthDef' g = do
+  sd <- mapM graphToSynthDef $ expandMultis g
   cm <- W.channelMerger sd
   W.gain 0 cm
 
 graphToSynthDef :: AudioIO m => Graph -> SynthDef m NodeRef
+
+graphToSynthDef EmptyGraph = W.constantSource 0
 
 graphToSynthDef (Multi _) = error "internal error: graphToSynthDef should only be used post multi-channel expansion (can't handle Multi)"
 
 graphToSynthDef (Mono _) = error "internal error: graphToSynthDef should only be used post multi-channel expansion (can't handle Mono)"
 
 graphToSynthDef (Constant x) = W.constantSource x
-
--- for now, audio analysis not available in audio graphs
-graphToSynthDef Lo = W.constantSource 0
-graphToSynthDef Mid = W.constantSource 0
-graphToSynthDef Hi = W.constantSource 0
 
 graphToSynthDef (Bipolar x) = graphToSynthDef $ x * 2 - 1
 graphToSynthDef (Unipolar x) = graphToSynthDef $ x * 0.5 + 0.5
@@ -300,3 +295,6 @@ graphToSynthDef Py = W.constantSource 0
 graphToSynthDef (TexR _ _ _) = W.constantSource 0
 graphToSynthDef (TexG _ _ _) = W.constantSource 0
 graphToSynthDef (TexB _ _ _) = W.constantSource 0
+graphToSynthDef Lo = W.constantSource 0 -- for now, audio analysis not available in audio graphs
+graphToSynthDef Mid = W.constantSource 0
+graphToSynthDef Hi = W.constantSource 0

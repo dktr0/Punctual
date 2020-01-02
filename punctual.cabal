@@ -19,7 +19,7 @@ Library
       base,
       time,
       mtl,
-      musicw >= 0.3.1,
+      musicw >= 0.3.2,
       containers,
       ghcjs-base,
       ghcjs-dom-jsffi,
@@ -33,20 +33,18 @@ Library
   Exposed-modules:   Sound.Punctual.Extent
                      Sound.Punctual.AudioTime
                      Sound.Punctual.Duration
+                     Sound.Punctual.Output
                      Sound.Punctual.DefTime
                      Sound.Punctual.Transition
                      Sound.Punctual.Graph
-                     Sound.Punctual.Definition
+                     Sound.Punctual.Action
                      Sound.Punctual.Program
-=======
-  Exposed-modules:   Sound.Punctual.Graph
-                     Sound.Punctual.Types
-                     Sound.Punctual.Evaluation
->>>>>>> async
                      Sound.Punctual.Parser
-                     Sound.Punctual.Evaluation
-                     Sound.Punctual.WebGL
                      Sound.Punctual.PunctualW
+                     Sound.Punctual.GL
+                     Sound.Punctual.AsyncProgram
+                     Sound.Punctual.FragmentShader
+                     Sound.Punctual.WebGL
   other-modules:
   default-language:  Haskell2010
 
