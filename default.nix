@@ -24,6 +24,8 @@ with pkgs.haskell.lib;
   overrides = self: super: {
     #       lens = self.callHackage "lens" "4.15.4" {}; # saving this example in case we need it later
 
+    punctual = appendConfigureFlags super.punctual ["--ghcjs-options=-DGHCJS_BROWSER" "--ghcjs-options=-O2" "--ghcjs-options=-dedupe" "--ghcjs-options=-DGHCJS_GC_INTERVAL=60000"];
+
     base-compat-batteries = dontCheck super.base-compat-batteries;
 
     text-show = dontCheck super.text-show;
