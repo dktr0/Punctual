@@ -80,7 +80,7 @@ addSynth dest startTime xfadeStart xfadeEnd a = do
     W.setParam W.Gain 0.0 0.0 gainNode
     W.setParam W.Gain 0.0 xfadeStart' gainNode
     W.linearRampOnParam W.Gain 1.0 xfadeEnd' gainNode
-    connectSynthToOutput gainNode $ output a
+    mapM_ (connectSynthToOutput gainNode) $ outputs a
     return gainNode
   newNode <- W.nodeRefToNode newNodeRef newSynth
   return (newSynth,newNode)

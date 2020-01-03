@@ -182,7 +182,7 @@ header
    -- thanks to http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl for the hsv2rgb algorithm above!
 
 isVec3 :: Action -> Bool
-isVec3 x = output x == RGB || output x == HSV
+isVec3 x = elem RGB (outputs x) || elem HSV (outputs x)
 
 continuingAction :: (AudioTime,Double) -> AudioTime -> Int -> Action -> Action -> Builder
 continuingAction tempo eTime i newAction oldAction = line1 <> line2 <> line3 <> line4
@@ -257,7 +257,7 @@ fragmentShader tempo oldProgram newProgram = toText $ header <> body
 
 generateOutput :: Output -> Builder -> Builder -> IntMap Action -> Builder
 generateOutput o typeDecl zeroBuilder xs = typeDecl <> "=" <> interspersePluses zeroBuilder xs' <> ";\n"
-  where xs' = mapWithKey (\k _ -> "_" <> showb k) $ IntMap.filter ((==o) . output) xs
+  where xs' = mapWithKey (\k _ -> "_" <> showb k) $ IntMap.filter (elem o . outputs) xs
 
 interspersePluses :: Foldable t => Builder -> t Builder -> Builder
 interspersePluses zero xs = if Data.Foldable.null xs then zero else Data.Foldable.foldr1 (\a b -> a <> "+" <> b) xs

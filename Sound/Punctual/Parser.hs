@@ -18,7 +18,7 @@ import Sound.Punctual.Graph
 import Sound.Punctual.Duration
 import Sound.Punctual.DefTime
 import Sound.Punctual.Output
-import Sound.Punctual.Action hiding ((>>),(<>),graph,output,defTime)
+import Sound.Punctual.Action hiding ((>>),(<>),graph,output,defTime,outputs)
 import qualified Sound.Punctual.Action as P
 import Sound.Punctual.Program
 
@@ -124,7 +124,7 @@ action :: Haskellish Action
 action = asum [
   duration_action <*> duration,
   defTime_action <*> defTime,
-  output_action <*> output,
+  outputs_action <*> outputs,
   actionFromGraph <$> graph
   ]
 
@@ -134,8 +134,8 @@ duration_action = action_duration_action <*> action
 defTime_action :: Haskellish (DefTime -> Action)
 defTime_action = action_defTime_action <*> action
 
-output_action :: Haskellish (Output -> Action)
-output_action = action_output_action <*> action
+outputs_action :: Haskellish ([Output] -> Action)
+outputs_action = action_outputs_action <*> action
 
 action_duration_action :: Haskellish (Action-> Duration -> Action)
 action_duration_action = reserved "<>" >> return (P.<>)
@@ -143,8 +143,8 @@ action_duration_action = reserved "<>" >> return (P.<>)
 action_defTime_action :: Haskellish (Action -> DefTime -> Action)
 action_defTime_action = reserved "@@" >> return (@@)
 
-action_output_action :: Haskellish (Action -> Output -> Action)
-action_output_action = reserved ">>" >> return (P.>>)
+action_outputs_action :: Haskellish (Action -> [Output] -> Action)
+action_outputs_action = reserved ">>" >> return (P.>>)
 
 double :: Haskellish Double
 double = asum [
@@ -167,19 +167,20 @@ defTime = asum [
   After <$> duration
   ]
 
-output :: Haskellish Output
-output = asum [
-  (Panned . realToFrac) <$> rationalOrInteger,
-  reserved "left" >> return (Panned 0),
-  reserved "right" >> return (Panned 1),
-  reserved "centre" >> return (Panned 0.5),
-  reserved "splay" >> return Splay,
-  reserved "red" >> return Red,
-  reserved "green" >> return Green,
-  reserved "blue" >> return Blue,
-  reserved "alpha" >> return Alpha,
-  reserved "rgb" >> return RGB,
-  reserved "hsv" >> return HSV
+outputs :: Haskellish [Output]
+outputs = asum [
+  concat <$> list outputs,
+  ((:[]) . Panned . realToFrac) <$> rationalOrInteger,
+  reserved "left" >> return [Panned 0],
+  reserved "right" >> return [Panned 1],
+  reserved "centre" >> return [Panned 0.5],
+  reserved "splay" >> return [Splay],
+  reserved "red" >> return [Red],
+  reserved "green" >> return [Green],
+  reserved "blue" >> return [Blue],
+  reserved "alpha" >> return [Alpha],
+  reserved "rgb" >> return [RGB],
+  reserved "hsv" >> return [HSV]
   ]
 
 graph :: Haskellish Graph

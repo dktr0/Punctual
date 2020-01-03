@@ -16,7 +16,7 @@ data Action = Action {
   graph :: Graph,
   defTime :: DefTime,
   transition :: Transition,
-  output :: Output
+  outputs :: [Output]
   } deriving (Show, Eq, Generic, NFData)
 
 actionFromGraph :: Graph -> Action
@@ -24,7 +24,7 @@ actionFromGraph g = Action {
   graph = g,
   defTime = Quant 1.0 (Seconds 0.0),
   transition = DefaultCrossFade,
-  output = NoOutput
+  outputs = []
   }
 
 (<>) :: Action -> Duration -> Action
@@ -33,8 +33,8 @@ a <> d = a { transition = CrossFade d }
 (@@) :: Action -> DefTime -> Action
 a @@ d = a { defTime = d }
 
-(>>) :: Action -> Output -> Action
-a >> o = a { output = o }
+(>>) :: Action -> [Output] -> Action
+a >> o = a { outputs = o ++ outputs a }
 
 actionToTimes :: (AudioTime,Double) -> AudioTime -> Action -> (AudioTime,AudioTime)
 actionToTimes tempo@(tempoT,cps) eTime x = (t1,t2)
@@ -43,7 +43,7 @@ actionToTimes tempo@(tempoT,cps) eTime x = (t1,t2)
     t2 = (transitionToXfade cps $ transition x) + t1
 
 actionOutputsAudio :: Action -> Bool
-actionOutputsAudio = outputsAudio . output
+actionOutputsAudio = outputsAudio . outputs
 
 actionOutputsWebGL :: Action -> Bool
-actionOutputsWebGL = outputsWebGL . output
+actionOutputsWebGL = outputsWebGL . outputs
