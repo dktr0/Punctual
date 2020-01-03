@@ -130,6 +130,9 @@ header
    \  (texture2D(tex2,vec2(unipolar(x),unipolar(y)))*prox1(n,2.))+\
    \  (texture2D(tex3,vec2(unipolar(x),unipolar(y)))*prox1(n,3.));}\
    \vec2 uv() { return vec2(gl_FragCoord.x / res.x, gl_FragCoord.y / res.y); }\
+   \vec3 fb(float r){\
+   \  vec3 x = texture2D(tex0,uv()).xyz * r;\
+   \  return vec3(x.x > 0.1 ? x.x : 0.,x.y > 0.1 ? x.y : 0.,x.z > 0.1 ? x.z : 0.);}\
    \float fx() { return bipolar(gl_FragCoord.x / res.x); }\
    \float fy() { return bipolar(gl_FragCoord.y / res.y); }\
    \float sin_(float f) { return sin(f*3.14159265*2.*t);}\
@@ -248,12 +251,16 @@ fragmentShader tempo oldProgram newProgram = toText $ header <> body
     red = generateOutput Red "float red" "0." allActions
     green = generateOutput Green "float green" "0." allActions
     blue = generateOutput Blue "float blue" "0." allActions
+    hue = generateOutput Hue "float hue" "0." allActions
+    saturation = generateOutput Saturation "float saturation" "0." allActions
+    value = generateOutput Value "float value" "0." allActions
     alpha = generateOutput Alpha "float alpha" "1." allActions
     hsv = generateOutput HSV "vec3 hsv" "vec3(0.,0.,0.)" allActions
     rgb = generateOutput RGB "vec3 rgb" "vec3(0.,0.,0.)" allActions
-    allOutputs = red <> green <> blue <> alpha <> hsv <> rgb
+    fdbk = generateOutput Fdbk "float fdbk" "0." allActions
+    allOutputs = red <> green <> blue <> hue <> saturation <> value <> hsv <> rgb <> alpha <> fdbk
     --
-    body = "void main() {\n" <> allSources <> allOutputs <> "gl_FragColor = vec4(vec3(red,green,blue)+rgb+hsv2rgb(hsv),alpha);}"
+    body = "void main() {\n" <> allSources <> allOutputs <> "gl_FragColor = vec4(vec3(red,green,blue)+rgb+fb(fdbk)+hsv2rgb(hsv+vec3(hue,saturation,value)),alpha);}"
 
 generateOutput :: Output -> Builder -> Builder -> IntMap Action -> Builder
 generateOutput o typeDecl zeroBuilder xs = typeDecl <> "=" <> interspersePluses zeroBuilder xs' <> ";\n"

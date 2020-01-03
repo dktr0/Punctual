@@ -178,9 +178,13 @@ outputs = asum [
   reserved "red" >> return [Red],
   reserved "green" >> return [Green],
   reserved "blue" >> return [Blue],
-  reserved "alpha" >> return [Alpha],
+  reserved "hue" >> return [Hue],
+  reserved "saturation" >> return [Saturation],
+  reserved "value" >> return [Value],
   reserved "rgb" >> return [RGB],
-  reserved "hsv" >> return [HSV]
+  reserved "hsv" >> return [HSV],
+  reserved "alpha" >> return [Alpha],
+  reserved "fdbk" >> return [Fdbk]
   ]
 
 graph :: Haskellish Graph

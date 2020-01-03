@@ -10,7 +10,9 @@ import Sound.Punctual.Extent
 
 data Output =
   Panned Extent | Splay |
-  Red | Green | Blue | Alpha | RGB | HSV
+  Red | Green | Blue |
+  Hue | Saturation | Value |
+  RGB | HSV | Alpha | Fdbk
   deriving (Show,Eq,Generic,NFData)
 
 outputsAudio :: [Output] -> Bool
@@ -24,7 +26,11 @@ outputsWebGL [] = False
 outputsWebGL (Red:xs) = True
 outputsWebGL (Green:xs) = True
 outputsWebGL (Blue:xs) = True
-outputsWebGL (Alpha:xs) = True
+outputsWebGL (Hue:xs) = True
+outputsWebGL (Saturation:xs) = True
+outputsWebGL (Value:xs) = True
 outputsWebGL (RGB:xs) = True
 outputsWebGL (HSV:xs) = True
+outputsWebGL (Alpha:xs) = True
+outputsWebGL (Fdbk:xs) = True
 outputsWebGL (_:xs) = outputsWebGL xs
