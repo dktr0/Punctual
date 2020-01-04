@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass, OverloadedStrings #-}
 
 module Sound.Punctual.Graph where
 
@@ -6,13 +6,65 @@ import Data.Text (Text)
 import Data.List
 import GHC.Generics (Generic)
 import Control.DeepSeq
+import TextShow
 
-data Graph =
-  EmptyGraph |
-  Constant Double |
-  Multi [Graph] |
-  Mono Graph |
-  Bipolar Graph |
+import qualified Sound.MusicW as W
+
+data BuilderType = FloatBuilder | Vec3Builder
+
+data Graph = Graph {
+  musicw :: SynthDef m [NodeRef],
+  glsl :: ([Builder],BuilderType)
+  }
+
+-- data Graph =
+
+--  EmptyGraph |
+emptyGraph :: Graph
+emptyGraph = Graph {
+  musicw = W.constantSource 0,
+  glsl = (["0."],FloatBuilder)
+  }
+
+--  Constant Double |
+constant :: Double -> Graph
+constant x = Graph {
+  musicw = W.constantSource x,
+  glsl = ([showt x],FloatBuilder)
+  }
+
+--  Multi [Graph] |
+multi :: [Graph] -> Graph
+multi xs = Graph {
+  musicw = do
+    xs' <- mapM musicw xs
+    W.channelMerger xs',
+  glsl = (   ,   ) -- this one is tricky - what happens if graphs in list are of different types, how do they get coerced?
+  }
+
+-- call glsl on all of the graphs in xs
+-- you'll get a mix of lists of FloatBuilders (1 channel) and Vec3Builders (3 channels)
+-- if the mix of lists contains any Vec3Builders then the overall type is Vec3Builder
+-- but the channels reflow probably? ie. if you have two float builders then a vec3 builder, this becomes two vec3 builders starting with the two floats and then the first component of the vec3
+-- *** so, yeah, a bit tricky... right this next before proceeding ***
+
+--  Mono Graph |
+mono :: Graph -> Graph
+mono x = Graph {
+  musicw = W.mono $ musicw x, -- *** need to add mono to MusicW for this
+  glsl = (graphToFloatBuilder x, FloatBuilder)
+  }
+
+-- *** continue working here...
+
+-- Bipolar Graph |
+bipolar :: Graph -> Graph
+bipolar x = Graph {
+  musicw =
+  glsl =
+  }
+
+
   Unipolar Graph |
   Noise |
   Pink |
@@ -31,7 +83,30 @@ data Graph =
   LPF Graph Graph Graph |
   HPF Graph Graph Graph |
   FromTarget Text |
-  Product Graph Graph |
+--  Product Graph Graph |
+
+product :: Graph -> Graph -> Graph
+product x y = Graph {
+  musicw = do
+    xys <- zipMusicW x y
+    forM xys $ \(x',y') -> do
+      m <- W.gain 0.0 x'
+      W.param W.Gain m y'
+      return m,
+  glsl = ([Builder],BuilderType)
+    where
+      glsl x :: ([Builder],BuilderType)
+      glsl y :: ([Builder],BuilderType)
+  }
+
+
+
+zipMusicW :: AudioIO m => Graph -> Graph -> SynthDef m [(NodeRef,NodeRef)]
+zipGLSL :: Graph -> Graph -> [(([Builder],BuilderType),([Builder],BuilderType))]
+
+zipCycle :: [a] -> [a] -> [a]
+
+
   Sum Graph Graph |
   Mean Graph Graph |
   Max Graph Graph |
@@ -64,6 +139,58 @@ data Graph =
   Line Graph Graph Graph Graph Graph |
   LinLin Graph Graph Graph Graph Graph
   deriving (Show,Eq,Generic,NFData)
+-}
+
+
+sin :: Graph -> Graph
+sin freq = Graph {
+  toMusicW = do
+    xs <- toMusicW freq
+    mapM W.sineOscillator xs,
+  toGLSL = (fmap (\x -> "sin_(" <> x <> ")") $ graphToFloatBuilders freq , FloatBuilder)
+}
+
+fb :: Graph -> Graph -> Graph
+fb x y = Graph {
+  toMusicW = W.constantSource 0,
+  toGLSL = (fmap (\(x,y) -> "fb(" <> x <> "," <> y <> ")") xys, Vec3Builder)
+    where
+      xs = graphToFloatBuilders x
+      ys = graphToFloatBuilders y
+      xyz = .. repeat xs and ys to maximum length of xs or ys then zip together...
+}
+
+rgbhsv :: Graph -> Graph
+rgbhsv g = Graph {
+  toMusicW = do
+    xs <- toMusicW g
+    mapM (const $ W.constantSource 0) xs,
+  toGLSL = (fmap (\x -> "rgbhsv(" <> x <> ")") $ graphToVec3Builders g, Vec3Builder)
+}
+
+graphToFloatBuilders :: Graph -> [Builder]
+graphToFloatBuilders = f . toGLSL
+  where
+    f ([],_) = []
+    f (bs,FloatBuilder) = bs
+    f (bs,Vec3Builder) = ... ie. unwrap the list of vec3 builders into a longer list via swizzling...
+
+graphToVec3Builders :: Graph -> [Builder]
+graphToVec3Builders = f . toGLSL
+  where
+    f ([],_) = []
+    f (bs,FloatBuilder) = ... cycle through builders until we evenly fill some number of vec3s
+    f (bs,Vec3Builder) = bs
+
+-- for example to generate the expression necessary for assignment to a "source" variable...
+graphToFloatBuilder :: Graph -> Builder
+graphToFloatBuilder = intersperseZeros "0." $ graphToFloatBuilders
+
+graphToVec3Builder :: Graph -> Builder
+graphToVec3Builder = intersperseZeros "vec3(0.)" $ graphToVec3Builders
+
+-- we could implement the above in an alternate module and benchmark it against the status quo approach?
+
 
 instance Num Graph where
   x + y = Sum x y

@@ -1,0 +1,175 @@
+code size summary per package:
+
+base:                    744599
+bytestring-0.10.8.2-FBklFuapa1a7kq4yflY7Bt:86920
+containers-0.6.0.1-BAqcfV1UBBeCIRjPbUYeSG:35762
+ghc-prim:                293620
+ghcjs-base-0.2.0.0-94o7qH5GqxYIuAX83RduIv:4023
+ghcjs-prim-0.1.1.0-EXzjGVHQlAS2XAXcu0iCbS:9520
+haskell-src-exts-1.21.0-DsLjfIdnuhDB9rbXFZ7Qmq:5433312
+haskellish-0.1.2-1BTFrsdWU3e8LUM1kmHnsf:70572
+integer-gmp:             87025
+main:                    1118483
+pretty-1.1.3.6-HCbdzOHqNpW5RoNxlHyeg5:2489
+text-1.2.3.0-G7RNccSav6I3egGIwK0cpP:223357
+text-show-3.7.5-KwULiPtPzFNcaYnUwuXRO:6333
+time-1.8.0.2-3d3i5aGvKEfEHwUSNgliL4:29960
+
+
+code size per module:
+
+base
+    Control.Exception.Base:             1470
+    Data.Char:                          369
+    Data.Either:                        137
+    Data.Fixed:                         270
+    Data.Maybe:                         7912
+    Data.OldList:                       334
+    Data.Tuple:                         74013
+    Data.Typeable.Internal:             10700
+    Foreign.C.Error:                    1576
+    Foreign.Marshal.Alloc:              3219
+    Foreign.Storable:                   3358
+    GHC.Arr:                            7219
+    GHC.Base:                           582
+    GHC.Char:                           4198
+    GHC.Conc.Sync:                      10695
+    GHC.Enum:                           1543
+    GHC.Err:                            10665
+    GHC.Exception:                      5698
+    GHC.Exception.Type:                 6654
+    GHC.Fingerprint:                    1043
+    GHC.Fingerprint.Type:               133890
+    GHC.Float:                          11962
+    GHC.Foreign:                        1519
+    GHC.ForeignPtr:                     833
+    GHC.Generics:                       3510
+    GHC.IO:                             1241
+    GHC.IO.Buffer:                      850
+    GHC.IO.BufferedIO:                  1248
+    GHC.IO.Device:                      1044
+    GHC.IO.Encoding:                    910
+    GHC.IO.Encoding.Failure:            2720
+    GHC.IO.Encoding.Latin1:             983
+    GHC.IO.Encoding.Types:              62030
+    GHC.IO.Encoding.UTF8:               22891
+    GHC.IO.Exception:                   34903
+    GHC.IO.FD:                          369
+    GHC.IO.Handle:                      7184
+    GHC.IO.Handle.FD:                   34977
+    GHC.IO.Handle.Internals:            20906
+    GHC.IO.Handle.Text:                 3900
+    GHC.IO.Handle.Types:                5779
+    GHC.Int:                            15440
+    GHC.List:                           174
+    GHC.MVar:                           2245
+    GHC.Maybe:                          2970
+    GHC.Num:                            174
+    GHC.Ptr:                            12033
+    GHC.Read:                           40629
+    GHC.Real:                           180
+    GHC.STRef:                          29957
+    GHC.Show:                           4161
+    GHC.Stack.CCS:                      1268
+    GHC.Stack.Types:                    14572
+    GHC.TopHandler:                     4621
+    GHC.Unicode:                        459
+    GHC.Word:                           15731
+    System.Posix.Internals:             23070
+    Text.ParserCombinators.ReadP:       168
+    Text.ParserCombinators.ReadPrec:    1520
+    Text.Read:                          65301
+    Text.Read.Lex:                      4622
+
+bytestring-0.10.8.2-FBklFuapa1a7kq4yflY7Bt
+    Data.ByteString.Internal:           86920
+
+containers-0.6.0.1-BAqcfV1UBBeCIRjPbUYeSG
+    Data.IntMap.Internal:               31352
+    Data.IntMap.Strict:                 4410
+
+ghc-prim
+    GHC.CString:                        16156
+    GHC.Classes:                        451
+    GHC.IntWord64:                      2617
+    GHC.Tuple:                          3416
+    GHC.Types:                          270980
+
+ghcjs-base-0.2.0.0-94o7qH5GqxYIuAX83RduIv
+    Data.JSString:                      1492
+    Data.JSString.Internal.Fusion.Common:1848
+    Data.JSString.Internal.Fusion.Types:267
+    Data.JSString.Internal.Type:        416
+
+ghcjs-prim-0.1.1.0-EXzjGVHQlAS2XAXcu0iCbS
+    GHCJS.Prim:                         3658
+    GHCJS.Prim.Internal:                5862
+
+haskell-src-exts-1.21.0-DsLjfIdnuhDB9rbXFZ7Qmq
+    Language.Haskell.Exts.Comments:     2875
+    Language.Haskell.Exts.ExtScheme:    77779
+    Language.Haskell.Exts.Extension:    231436
+    Language.Haskell.Exts.Fixity:       662771
+    Language.Haskell.Exts.InternalLexer:1905596
+    Language.Haskell.Exts.InternalParser:31464
+    Language.Haskell.Exts.ParseMonad:   156174
+    Language.Haskell.Exts.ParseSyntax:  512157
+    Language.Haskell.Exts.ParseUtils:   2312
+    Language.Haskell.Exts.Parser:       1200139
+    Language.Haskell.Exts.Pretty:       17952
+    Language.Haskell.Exts.SrcLoc:       610410
+    Language.Haskell.Exts.Syntax:       22247
+
+haskellish-0.1.2-1BTFrsdWU3e8LUM1kmHnsf
+    Language.Haskellish:                70572
+
+integer-gmp
+    GHC.Integer.Logarithms.Internals:   80669
+    GHC.Integer.Type:                   6356
+
+main
+    Main:                               27067
+    Sound.Punctual.Action:              1
+    Sound.Punctual.AudioTime:           16486
+    Sound.Punctual.DefTime:             8768
+    Sound.Punctual.Duration:            1609
+    Sound.Punctual.Extent:              617432
+    Sound.Punctual.FragmentShader:      239423
+    Sound.Punctual.Graph:               22158
+    Sound.Punctual.Output:              159987
+    Sound.Punctual.Parser:              12045
+    Sound.Punctual.Program:             9443
+    Sound.Punctual.Transition:          4064
+
+pretty-1.1.3.6-HCbdzOHqNpW5RoNxlHyeg5
+    Text.PrettyPrint.Annotated.HughesPJ:1666
+    Text.PrettyPrint.HughesPJ:          823
+
+text-1.2.3.0-G7RNccSav6I3egGIwK0cpP
+    Data.Text:                          725
+    Data.Text.Array:                    49013
+    Data.Text.IO:                       809
+    Data.Text.Internal:                 2486
+    Data.Text.Internal.Builder:         433
+    Data.Text.Internal.Builder.Int.Digits:815
+    Data.Text.Internal.Lazy:            1618
+    Data.Text.Lazy:                     27954
+    Data.Text.Lazy.Builder.Int:         389
+    Data.Text.Lazy.Builder.RealFloat:   139115
+
+text-show-3.7.5-KwULiPtPzFNcaYnUwuXRO
+    TextShow.Data.Floating:             4365
+    TextShow.Data.Integral:             226
+    TextShow.Utils:                     1742
+
+time-1.8.0.2-3d3i5aGvKEfEHwUSNgliL4
+    Data.Time.Clock.Internal.CTimeval:  200
+    Data.Time.Clock.Internal.NominalDiffTime:380
+    Data.Time.Clock.Internal.UTCTime:   2792
+    Data.Time.Clock.POSIX:              1751
+    Data.Time.Clock.System:             24837
+
+
+
+packed metadata: 2599235
+
