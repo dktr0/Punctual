@@ -10,6 +10,18 @@ devBuild:
 	cp -Rf dev-result/build/x86_64-linux/ghcjs-8.6.0.1/punctual-0.0.0.1/x/punctual/build/punctual/punctual.jsexe .
 	cp -f style.css punctual.jsexe/style.css
 
+ghcBuild:
+	cabal --builddir=ghc-result new-build all --disable-library-profiling --disable-documentation
+
+buildBenchmark:
+	cabal --ghcjs --builddir=benchmark new-build punctual-benchmarks --disable-library-profiling --disable-documentation --ghcjs-options=-DGHCJS_GC_INTERVAL=60000
+
+runBenchmark:
+	node benchmark/build/x86_64-linux/ghcjs-8.6.0.1/punctual-0.0.0.1/b/punctual-benchmarks/build/punctual-benchmarks/punctual-benchmarks.jsexe/all.js
+
+runBenchmarkInBrowser:
+	open benchmark/build/x86_64-linux/ghcjs-8.6.0.1/punctual-0.0.0.1/b/punctual-benchmarks/build/punctual-benchmarks/punctual-benchmarks.jsexe/index.html
+
 serve:
 	cd punctual.jsexe; python -m SimpleHTTPServer 8000
 

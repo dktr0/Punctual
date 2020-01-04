@@ -28,7 +28,8 @@ Library
       haskellish >= 0.1.2,
       haskell-src-exts >= 1.21.0,
       transformers,
-      deepseq
+      deepseq,
+      criterion
   GHC-Options:       -Wall -fwarn-tabs -fno-warn-unused-do-bind
   Exposed-modules:   Sound.Punctual.Extent
                      Sound.Punctual.AudioTime
@@ -58,7 +59,7 @@ executable punctual
       reflex-dom,
       time,
       mtl,
-      musicw >= 0.3.1,
+      musicw >= 0.3.2,
       text,
       containers,
       ghcjs-base,
@@ -75,6 +76,23 @@ executable punctual
 benchmark punctual-benchmarks
   build-depends:
       base,
+      punctual,
+      reflex,
+      reflex-dom,
+      time,
+      mtl,
+      musicw >= 0.3.1,
+      text,
+      containers,
+      ghcjs-base,
+      ghcjs-dom-jsffi,
+      reflex-dom-contrib,
+      text,
+      text-show,
+      haskellish >= 0.1.2,
+      haskell-src-exts >= 1.21.0,
+      transformers,
+      deepseq,
       criterion
 
   default-language: Haskell2010
