@@ -46,12 +46,13 @@ with pkgs.haskell.lib;
       sha256 = "1aa045mr82hdzzd8qlqhfrycgyhd29lad8rf7vsqykly9axpl52a";
       }) {});
 
-    haskellish = dontHaddock (self.callCabal2nix "haskellish" (pkgs.fetchFromGitHub {
-      owner = "dktr0";
-      repo = "Haskellish";
-      sha256 = "0n2926g62j6cjy1fmb6s2zx4lwc24mrica03cplh9ahh9gfwgfwx";
-      rev = "41caf3c9eeb4847643dce307bdcdab3bf1accf17";
-      }) {});
+    haskellish = dontHaddock (self.callCabal2nix "haskellish" ../haskellish {});
+#    dontHaddock (self.callCabal2nix "haskellish" (pkgs.fetchFromGitHub {
+#      owner = "dktr0";
+#      repo = "Haskellish";
+#      sha256 = "0n2926g62j6cjy1fmb6s2zx4lwc24mrica03cplh9ahh9gfwgfwx";
+#      rev = "41caf3c9eeb4847643dce307bdcdab3bf1accf17";
+#      }) {});
 
   };
 

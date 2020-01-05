@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Sound.Punctual.Parser (runPunctualParser,runPunctualParserTimed) where
+module Sound.Punctual.Parser ({- runPunctualParser,-} runPunctualParserTimed) where
 
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -10,7 +10,10 @@ import Language.Haskell.Exts
 import Language.Haskellish
 import Data.Time
 import TextShow
-import Data.IntMap.Strict
+import Data.IntMap.Strict as IntMap
+import Data.Map as Map
+import Data.List.Split (linesBy)
+import Control.Monad
 
 import Sound.Punctual.AudioTime
 import Sound.Punctual.Extent
@@ -22,6 +25,49 @@ import Sound.Punctual.Action hiding ((>>),(<>),graph,output,defTime,outputs)
 import qualified Sound.Punctual.Action as P
 import Sound.Punctual.Program
 
+data ParserState = ParserState {
+  localBindings :: Map String Int, -- eg. f x y = fromList [("x",0),("y",1)]
+  definitions1 :: Map String Graph,
+  definitions2 :: Map String (Graph -> Graph),
+  definitions3 :: Map String (Graph -> Graph -> Graph)
+}
+
+emptyParserState :: ParserState
+emptyParserState = ParserState {
+  localBindings = Map.empty,
+  definitions1 = Map.empty,
+  definitions2 = Map.empty,
+  definitions3 = Map.empty
+  }
+
+type H = Haskellish ParserState
+
+parseHaskellish :: H a -> ParserState -> String -> Either String (a,ParserState)
+parseHaskellish p st x = (parseResultToEither $ parseWithMode haskellSrcExtsParseMode x) >>= runHaskellish p st
+
+parseResultToEither :: ParseResult a -> Either String a
+parseResultToEither (ParseOk x) = Right x
+parseResultToEither (ParseFailed l s) = Left s
+
+parseProgram :: [String] -> Either String Program
+parseProgram xs = fst <$> (foldM parseStatement (emptyProgram,emptyParserState) $ zip [0..] xs)
+
+parseStatement :: (Program,ParserState) -> (Int,String) -> Either String (Program,ParserState)
+parseStatement (p,st) (lineNumber,x) = do
+  if elem '=' x then do
+    st' <- parseDefinition st x
+    return (p,st')
+  else do
+    (a,st') <- parseAction st x
+    return (p { actions = IntMap.insert lineNumber a (actions p) },st')
+
+parseAction :: ParserState -> String -> Either String (Action,ParserState)
+parseAction = parseHaskellish action
+
+parseDefinition :: ParserState -> String -> Either String ParserState
+parseDefinition st x = Right st -- *** PLACEHOLDER ***
+
+
 runPunctualParserTimed :: AudioTime -> Text -> IO (Either String Program)
 runPunctualParserTimed eTime x = do
   t0 <- getCurrentTime
@@ -31,23 +77,17 @@ runPunctualParserTimed eTime x = do
     T.putStrLn $ "parse pragmas: " <> " " <> showt (round (diffUTCTime t1 t0 * 1000) :: Int) <> " ms"
     return $ Right $ emptyProgram { directGLSL = Just x' }
   else do
-    a <- return $! preprocess x'
+    a <- return $! linesBy (==';') $ T.unpack x' -- cast to String and separate on ;
     t2 <- getCurrentTime
-    b <- return $! parseWithMode haskellSrcExtsParseMode a
+    p <- return $! parseProgram a
     t3 <- getCurrentTime
-    c <- return $! f b
-    t4 <- getCurrentTime
     T.putStrLn $ "parse pragmas: " <> " " <> showt (round (diffUTCTime t1 t0 * 1000) :: Int) <> " ms"
-    T.putStrLn $ "parse preprocess: " <> " " <> showt (round (diffUTCTime t2 t1 * 1000) :: Int) <> " ms"
-    T.putStrLn $ "parse parseWithMode: " <> " " <> showt (round (diffUTCTime t3 t2 * 1000) :: Int) <> " ms"
-    T.putStrLn $ "parse runHaskellish: " <> " " <> showt (round (diffUTCTime t4 t3 * 1000) :: Int) <> " ms"
-    return c
+    T.putStrLn $ "parse lines: " <> " " <> showt (round (diffUTCTime t2 t1 * 1000) :: Int) <> " ms"
+    T.putStrLn $ "parse parseProgram: " <> " " <> showt (round (diffUTCTime t3 t2 * 1000) :: Int) <> " ms"
+    return p
   tEnd <- getCurrentTime
   T.putStrLn $ "parse (total): " <> " " <> showt (round (diffUTCTime tEnd t0 * 1000) :: Int) <> " ms"
   return r
-  where
-    f (ParseOk x) = runHaskellish (program eTime) x
-    f (ParseFailed l s) = Left s
 
 extractPragmas :: Text -> (Text,[Text])
 extractPragmas t = (newText,pragmas)
@@ -58,15 +98,13 @@ extractPragmas t = (newText,pragmas)
     newText = T.unlines $ fmap fst xs
     pragmas = concat $ fmap snd xs
 
-preprocess :: Text -> String
-preprocess = ('[':) . (++ "]") . T.unpack . (T.replace ";" ",")
 
 -- TODO: rework this to include pragmas as well as per runPunctualParserTimed above
-runPunctualParser :: AudioTime -> Text -> Either String Program
+{- runPunctualParser :: AudioTime -> Text -> Either String Program
 runPunctualParser eTime = f . parseWithMode haskellSrcExtsParseMode . preprocess
   where
     f (ParseOk x) = runHaskellish (program eTime) x
-    f (ParseFailed l s) = Left s
+    f (ParseFailed l s) = Left s -}
 
 haskellSrcExtsParseMode = defaultParseMode {
       fixities = Just [
@@ -111,16 +149,16 @@ haskellSrcExtsParseMode = defaultParseMode {
         ]
     }
 
-program :: AudioTime -> Haskellish Program
+program :: AudioTime -> H Program
 program t = do
   xs <- list action
   return $ Program {
     directGLSL = Nothing,
-    actions = fromList $ zip [0..] xs,
+    actions = IntMap.fromList $ zip [0..] xs,
     evalTime = t
   }
 
-action :: Haskellish Action
+action :: H Action
 action = asum [
   duration_action <*> duration,
   defTime_action <*> defTime,
@@ -128,32 +166,32 @@ action = asum [
   actionFromGraph <$> graph
   ]
 
-duration_action :: Haskellish (Duration -> Action)
+duration_action :: H (Duration -> Action)
 duration_action = action_duration_action <*> action
 
-defTime_action :: Haskellish (DefTime -> Action)
+defTime_action :: H (DefTime -> Action)
 defTime_action = action_defTime_action <*> action
 
-outputs_action :: Haskellish ([Output] -> Action)
+outputs_action :: H ([Output] -> Action)
 outputs_action = action_outputs_action <*> action
 
-action_duration_action :: Haskellish (Action-> Duration -> Action)
+action_duration_action :: H (Action-> Duration -> Action)
 action_duration_action = reserved "<>" >> return (P.<>)
 
-action_defTime_action :: Haskellish (Action -> DefTime -> Action)
+action_defTime_action :: H (Action -> DefTime -> Action)
 action_defTime_action = reserved "@@" >> return (@@)
 
-action_outputs_action :: Haskellish (Action -> [Output] -> Action)
+action_outputs_action :: H (Action -> [Output] -> Action)
 action_outputs_action = reserved ">>" >> return (P.>>)
 
-double :: Haskellish Double
+double :: H Double
 double = asum [
   realToFrac <$> rationalOrInteger,
   reverseApplication double (reserved "m" >> return midicps),
   reverseApplication double (reserved "db" >> return dbamp)
   ]
 
-duration :: Haskellish Duration
+duration :: H Duration
 duration = asum [
   Seconds <$> double,
   reverseApplication double (reserved "s" >> return Seconds),
@@ -161,13 +199,13 @@ duration = asum [
   reverseApplication double (reserved "c" >> return Cycles)
   ]
 
-defTime :: Haskellish DefTime
+defTime :: H DefTime
 defTime = asum [
   (\(x,y) -> Quant x y) <$> Language.Haskellish.tuple double duration,
   After <$> duration
   ]
 
-outputs :: Haskellish [Output]
+outputs :: H [Output]
 outputs = asum [
   concat <$> list outputs,
   ((:[]) . Panned . realToFrac) <$> rationalOrInteger,
@@ -187,7 +225,7 @@ outputs = asum [
   reserved "fdbk" >> return [Fdbk]
   ]
 
-graph :: Haskellish Graph
+graph :: H Graph
 graph = asum [
   reverseApplication graph (reserved "m" >> return MidiCps),
   reverseApplication graph (reserved "db" >> return DbAmp),
@@ -204,10 +242,13 @@ graph = asum [
   reserved "lo" >> return Lo,
   reserved "mid" >> return Mid,
   reserved "hi" >> return Hi,
+  reserved "ilo" >> return ILo,
+  reserved "imid" >> return IMid,
+  reserved "ihi" >> return IHi,
   graph2 <*> graph
   ]
 
-graph2 :: Haskellish (Graph -> Graph)
+graph2 :: H (Graph -> Graph)
 graph2 = asum [
   reserved "bipolar" >> return Bipolar,
   reserved "unipolar" >> return Unipolar,
@@ -227,7 +268,7 @@ graph2 = asum [
   graph3 <*> graph
   ]
 
-graph3 :: Haskellish (Graph -> Graph -> Graph)
+graph3 :: H (Graph -> Graph -> Graph)
 graph3 = asum [
   reserved "+" >> return (+),
   reserved "-" >> return (-),
@@ -251,7 +292,7 @@ graph3 = asum [
   graph4 <*> graph
   ]
 
-graph4 :: Haskellish (Graph -> Graph -> Graph -> Graph)
+graph4 :: H (Graph -> Graph -> Graph -> Graph)
 graph4 = asum [
   reserved "lpf" >> return LPF,
   reserved "hpf" >> return HPF,
@@ -267,20 +308,20 @@ graph4 = asum [
   graph5 <*> graph
   ]
 
-graph5 :: Haskellish (Graph -> Graph -> Graph -> Graph -> Graph)
+graph5 :: H (Graph -> Graph -> Graph -> Graph -> Graph)
 graph5 = asum [
   reserved "rect" >> return Rect,
   graph6 <*> graph
   ]
 
-graph6 :: Haskellish (Graph -> Graph -> Graph -> Graph -> Graph -> Graph)
+graph6 :: H (Graph -> Graph -> Graph -> Graph -> Graph -> Graph)
 graph6 = asum [
   reserved "linlin" >> return LinLin,
   reserved "iline" >> return ILine,
   reserved "line" >> return Line
   ]
 
-multiSeries :: Haskellish Graph
+multiSeries :: H Graph
 multiSeries = (reserved "..." >> return f) <*> i <*> i
   where
     f x y = Multi $ fmap Constant [x .. y]

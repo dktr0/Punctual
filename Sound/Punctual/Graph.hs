@@ -24,6 +24,7 @@ data Graph =
   TexG Graph Graph Graph |
   TexB Graph Graph Graph |
   Lo | Mid | Hi |
+  ILo | IMid | IHi |
   Sine Graph |
   Tri Graph |
   Saw Graph |
