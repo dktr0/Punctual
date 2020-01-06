@@ -9,6 +9,7 @@ import Control.DeepSeq
 
 data Graph =
   EmptyGraph |
+  LocalBinding Int |
   Constant Double |
   Multi [Graph] |
   Mono Graph |

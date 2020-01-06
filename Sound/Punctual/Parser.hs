@@ -14,6 +14,9 @@ import Data.IntMap.Strict as IntMap
 import Data.Map as Map
 import Data.List.Split (linesBy)
 import Control.Monad
+import Control.Monad.State
+import Control.Monad.Except
+import Data.Maybe
 
 import Sound.Punctual.AudioTime
 import Sound.Punctual.Extent
@@ -49,8 +52,9 @@ parseResultToEither :: ParseResult a -> Either String a
 parseResultToEither (ParseOk x) = Right x
 parseResultToEither (ParseFailed l s) = Left s
 
-parseProgram :: [String] -> Either String Program
-parseProgram xs = fst <$> (foldM parseStatement (emptyProgram,emptyParserState) $ zip [0..] xs)
+parseProgram :: AudioTime -> [String] -> Either String Program
+parseProgram eTime xs = fst <$> (foldM parseStatement (initialProgram,emptyParserState) $ zip [0..] xs)
+  where initialProgram = emptyProgram { evalTime = eTime }
 
 parseStatement :: (Program,ParserState) -> (Int,String) -> Either String (Program,ParserState)
 parseStatement (p,st) (lineNumber,x) = do
@@ -65,28 +69,36 @@ parseAction :: ParserState -> String -> Either String (Action,ParserState)
 parseAction = parseHaskellish action
 
 parseDefinition :: ParserState -> String -> Either String ParserState
-parseDefinition st x = Right st -- *** PLACEHOLDER ***
+parseDefinition st x = do
+  y <- parseResultToEither $ parseWithMode haskellSrcExtsParseMode x
+  (k,g) <- simpleDefinition st y
+  return $ st { definitions1 = Map.insert k g (definitions1 st) }
 
+simpleDefinition :: ParserState -> Decl SrcSpanInfo -> Either String (String,Graph)
+simpleDefinition st (PatBind _ (PVar _ (Ident _ x)) (UnGuardedRhs _ e) _) = do
+  (e',_) <- runHaskellish graph st e
+  return (x,e')
+simpleDefinition st _ = Left ""
 
 runPunctualParserTimed :: AudioTime -> Text -> IO (Either String Program)
 runPunctualParserTimed eTime x = do
   t0 <- getCurrentTime
   (x',pragmas) <- return $! extractPragmas x
-  t1 <- getCurrentTime
+--  t1 <- getCurrentTime
   r <- if (elem "glsl" pragmas) then do
-    T.putStrLn $ "parse pragmas: " <> " " <> showt (round (diffUTCTime t1 t0 * 1000) :: Int) <> " ms"
+--    T.putStrLn $ "parse pragmas: " <> " " <> showt (round (diffUTCTime t1 t0 * 1000) :: Int) <> " ms"
     return $ Right $ emptyProgram { directGLSL = Just x' }
   else do
     a <- return $! linesBy (==';') $ T.unpack x' -- cast to String and separate on ;
-    t2 <- getCurrentTime
-    p <- return $! parseProgram a
-    t3 <- getCurrentTime
-    T.putStrLn $ "parse pragmas: " <> " " <> showt (round (diffUTCTime t1 t0 * 1000) :: Int) <> " ms"
-    T.putStrLn $ "parse lines: " <> " " <> showt (round (diffUTCTime t2 t1 * 1000) :: Int) <> " ms"
-    T.putStrLn $ "parse parseProgram: " <> " " <> showt (round (diffUTCTime t3 t2 * 1000) :: Int) <> " ms"
+--    t2 <- getCurrentTime
+    p <- return $! parseProgram eTime a
+--    t3 <- getCurrentTime
+--    T.putStrLn $ "parse pragmas: " <> " " <> showt (round (diffUTCTime t1 t0 * 1000) :: Int) <> " ms"
+--    T.putStrLn $ "parse lines: " <> " " <> showt (round (diffUTCTime t2 t1 * 1000) :: Int) <> " ms"
+--    T.putStrLn $ "parse parseProgram: " <> " " <> showt (round (diffUTCTime t3 t2 * 1000) :: Int) <> " ms"
     return p
   tEnd <- getCurrentTime
-  T.putStrLn $ "parse (total): " <> " " <> showt (round (diffUTCTime tEnd t0 * 1000) :: Int) <> " ms"
+  T.putStrLn $ "parse: " <> " " <> showt (round (diffUTCTime tEnd t0 * 1000) :: Int) <> " ms"
   return r
 
 extractPragmas :: Text -> (Text,[Text])
@@ -148,15 +160,6 @@ haskellSrcExtsParseMode = defaultParseMode {
         Fixity (AssocLeft ()) 0 (UnQual () (Symbol () "@@"))
         ]
     }
-
-program :: AudioTime -> H Program
-program t = do
-  xs <- list action
-  return $ Program {
-    directGLSL = Nothing,
-    actions = IntMap.fromList $ zip [0..] xs,
-    evalTime = t
-  }
 
 action :: H Action
 action = asum [
@@ -225,8 +228,17 @@ outputs = asum [
   reserved "fdbk" >> return [Fdbk]
   ]
 
+definitions1H :: H Graph
+definitions1H = do
+  x <- identifier
+  m <- gets definitions1 -- Map Text Graph
+  let xm = Map.lookup x m
+  if isJust xm then return (fromJust xm) else throwError ""
+
+
 graph :: H Graph
 graph = asum [
+  definitions1H,
   reverseApplication graph (reserved "m" >> return MidiCps),
   reverseApplication graph (reserved "db" >> return DbAmp),
   (Constant . realToFrac) <$> rational,
