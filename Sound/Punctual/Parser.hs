@@ -89,7 +89,7 @@ runPunctualParserTimed eTime x = do
 --    T.putStrLn $ "parse pragmas: " <> " " <> showt (round (diffUTCTime t1 t0 * 1000) :: Int) <> " ms"
     return $ Right $ emptyProgram { directGLSL = Just x' }
   else do
-    a <- return $! linesBy (==';') $ T.unpack x' -- cast to String and separate on ;
+    a <- return $! Prelude.filter notEmptyLine $ linesBy (==';') $ T.unpack x' -- cast to String and separate on ;
 --    t2 <- getCurrentTime
     p <- return $! parseProgram eTime a
 --    t3 <- getCurrentTime
@@ -109,6 +109,9 @@ extractPragmas t = (newText,pragmas)
     xs = fmap (f . T.stripEnd) $ T.lines t
     newText = T.unlines $ fmap fst xs
     pragmas = concat $ fmap snd xs
+
+notEmptyLine :: String -> Bool
+notEmptyLine = (/="") . Prelude.filter (\y -> y /= '\n' && y /=' ' && y /= '\t')
 
 
 -- TODO: rework this to include pragmas as well as per runPunctualParserTimed above
