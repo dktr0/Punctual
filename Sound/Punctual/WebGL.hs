@@ -147,6 +147,7 @@ evaluatePunctualWebGL ctx st tempo p = runGL ctx $ do
 
 drawFrame :: GLContext -> (AudioTime,Double,Double,Double) -> PunctualWebGL -> IO PunctualWebGL
 drawFrame ctx (t,lo,mid,hi) st = runGL ctx $ do
+  disableScissorTest
   st' <- useMainProgram st
   drawMainProgram (t,lo,mid,hi) st'
   st'' <- usePostProgram st'

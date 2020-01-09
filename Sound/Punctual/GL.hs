@@ -330,3 +330,10 @@ getProgramInfoLog p = gl >>= (liftIO . _getProgramInfoLog p)
 foreign import javascript unsafe
   "$2.getProgramInfoLog($1)"
   _getProgramInfoLog :: WebGLProgram -> WebGLRenderingContext -> IO Text
+
+disableScissorTest :: GL ()
+disableScissorTest = gl >>= (liftIO . _disableScissorTest)
+
+foreign import javascript unsafe
+  "$1.disable($1.SCISSOR_TEST);"
+  _disableScissorTest :: WebGLRenderingContext -> IO ()
