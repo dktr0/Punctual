@@ -1,7 +1,7 @@
 {-# LANGUAGE JavaScriptFFI, OverloadedStrings #-}
 
 module Sound.Punctual.WebGL
-  (PunctualWebGL,
+  (PunctualWebGL(..),
   newPunctualWebGL,
   evaluatePunctualWebGL,
   drawFrame)
