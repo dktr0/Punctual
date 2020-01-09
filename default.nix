@@ -32,6 +32,10 @@ with pkgs.haskell.lib;
 
     text-show = dontCheck super.text-show;
 
+    text-short = dontCheck super.text-short;
+
+    criterion = dontCheck super.criterion;
+
     musicw = dontHaddock (self.callCabal2nix "musicw" (pkgs.fetchFromGitHub {
       owner = "dktr0";
       repo = "musicw";

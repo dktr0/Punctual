@@ -140,7 +140,7 @@ postFragmentShaderSrc =
 evaluatePunctualWebGL :: GLContext -> PunctualWebGL -> (AudioTime,Double) -> Program -> IO PunctualWebGL
 evaluatePunctualWebGL ctx st tempo p = runGL ctx $ do
   newFragmentShader <- logTime "write fragment shader" $ (return $! fragmentShader tempo (prevProgram st) p)
-  liftIO $ T.putStrLn newFragmentShader
+  -- liftIO $ T.putStrLn newFragmentShader
   mp <- updateAsyncProgram (mainProgram st) defaultVertexShader newFragmentShader
   return $ st { prevProgram = p, mainProgram = mp }
 
