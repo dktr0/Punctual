@@ -186,6 +186,12 @@ drawMainProgram (t,lo,mid,hi) st = when (isJust $ activeProgram $ mainProgram st
   --  clearColor 0.0 0.0 0.0 1.0 -- probably should comment this back in?
   --  clearColorBuffer -- probably should comment this back in?
   let program = mainProgram st
+  -- BEGIN experiment
+  p <- getAttribLocation (fromJust $ activeProgram program) "p"
+  bindBufferArray $ triangleStrip st
+  vertexAttribPointer p
+  enableVertexAttribArray p
+  -- END experiment
   uniform1fAsync program "t" (realToFrac t)
   uniform1fAsync program "lo" lo
   uniform1fAsync program "mid" mid
