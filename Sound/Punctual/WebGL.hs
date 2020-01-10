@@ -140,7 +140,7 @@ postFragmentShaderSrc =
 
 evaluatePunctualWebGL :: GLContext -> PunctualWebGL -> (AudioTime,Double) -> Program -> IO PunctualWebGL
 evaluatePunctualWebGL ctx st tempo p = runGL ctx $ do
-  newFragmentShader <- logTime "write fragment shader" $ (return $! fragmentShader tempo (prevProgram st) p)
+  newFragmentShader <- {- logTime "write fragment shader" $ -} (return $! fragmentShader tempo (prevProgram st) p)
   -- liftIO $ T.putStrLn newFragmentShader
   mp <- updateAsyncProgram (mainProgram st) defaultVertexShader newFragmentShader
   return $ st { prevProgram = p, mainProgram = mp }
@@ -197,6 +197,7 @@ drawMainProgram (t,lo,mid,hi) st = when (isJust $ activeProgram $ mainProgram st
   uniform1fAsync program "mid" mid
   uniform1fAsync program "hi" hi
   pingPongFrameBuffers st
+  viewport 0 0 1920 1080
   drawArraysTriangleStrip 0 4
 
 pingPongFrameBuffers :: PunctualWebGL -> GL ()
@@ -228,4 +229,5 @@ drawPostProgram st = when (isJust $ activeProgram $ postProgram st) $ do
   let loc =  (uniformsMap $ postProgram st) ! "tex"
   bindTex 0 tPost loc
   bindFramebufferNull
+  viewport 0 0 1920 1080
   drawArraysTriangleStrip 0 4

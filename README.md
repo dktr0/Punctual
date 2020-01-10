@@ -18,12 +18,10 @@ See also [REFERENCE.MD](REFERENCE.md) for what should be an up-to-date list of P
 # Audio Output
 
 ```
-sin 440 => centre; -- sound panned to the centre
-sin 440 => 50%; -- also panned to the centre
-sin 440 => 0.5; -- also panned to the centre
-sin 440 => left;
-sin 440 => right;
-sin 440 => 25%; --panned halfway to the left
+sin 440 >> centre; -- sound panned to the centre
+sin 440 >> 0.5; -- also panned to the centre
+sin 440 >> left;
+sin 440 >> right;
 sin 440; -- no audible output
 ```
 
@@ -38,13 +36,13 @@ There are three colour targets - red green blue - and they each respond to value
 The functions fx and fy represent the position of the current "fragment" (ie. pixel) that is being drawn, as a range from -1 (bottom or left) to +1 (top or right). (Note: when fx and fy are used in expressions targeting sound output, they are constant signals of +1).
 
 ```
-1 => red; -- a very red screen
-sin 0.2 => red; -- a pulsating red screen
-unipolar (sin 0.2) => red; -- using all of the sine wave's range for the colour
-unipolar (sin 0.2) * -10db => red; -- a bit darker
-fx => red; -- getting redder as we go from left to right
-fy * -1 => green; -- getting greener as we go from to bottom
-sin (fx * 60m) * sin (fy * 60.05m) * fx * fy * 10db => blue; -- pretty patterns
+1 >> red; -- a very red screen
+sin 0.2 >> red; -- a pulsating red screen
+unipolar (sin 0.2) >> red; -- using all of the sine wave's range for the colour
+unipolar (sin 0.2) * (-10) db >> red; -- a bit darker
+fx >> red; -- getting redder as we go from left to right
+fy * (-1) >> green; -- getting greener as we go from to bottom
+sin (fx * 60m) * sin (fy * 60.05m) * fx * fy * 10db >> blue; -- pretty patterns
 ```
 
 # Oscillators and Filters
@@ -66,11 +64,11 @@ the frequency of things in MIDI note numbers (where an increase of one is equiva
     an increase of six is roughly equivalent to doubling something).
 
 ```
-sin 57m; -- also a 440 Hz sine wave, expressed in MIDI note numbers (57m = 440)
-sin 57.1m; -- a slightly out of tune 440 Hz sine wave
-sin 57m * -10 db; -- a quieter sine wave
-sin 57m * -13 db; -- quieter still...
-sin 57m * -40 db; -- much quieter
+sin (57m); -- also a 440 Hz sine wave, expressed in MIDI note numbers (57m = 440)
+sin (57.1m); -- a slightly out of tune 440 Hz sine wave
+sin (57m) * (-10) db; -- a quieter sine wave
+sin (57m) * (-13) db; -- quieter still...
+sin (57m) * (-40) db; -- much quieter
 ```
 
 Note in the last few example aboves that the 57m "associates" with the "sin" rather
@@ -91,13 +89,9 @@ tend towards alignment in time, and avoids clicks and pops. Often, more control 
 this replacement process is desired:
 
 ```
-<8s> sin 440 => centre; -- new definition crossfades over 8 seconds
-<2500ms> sin 440 => centre; -- crossfade over 2500 milliseconds
-<1.5c> sin 440 => centre; -- crossfade over one and a half cycles (bars)
-@4c sin 440 => centre; -- new definition starts on next 4-cycle/bar boundary
-@0.5c sin 440 => centre; -- new definition starts on next half cycle boundary
-@(2c,0.5c) sin 440 => centre; -- new definition starts half cycle after next two cycle boundary
-@2c <2c> sin 440 => centre; -- new def starts at next 2-cycle boundary, crossfades over 2 cycles
+sin 440 >> centre <> 8s; -- new definition crossfades over 8 seconds
+sin 440 >> centre <> 2500ms; -- crossfade over 2500 milliseconds
+sin 440 >> centre <> 1.5c; -- crossfade over one and a half cycles (bars)
 ```
 
 Note that in each of the above example lines, you'll have to change the definition
@@ -112,21 +106,8 @@ Modulated ranges are a series of Punctual specific notations for this common
 mapping/scaling operation:
 
 ```
-saw (24m +- 3% : sin 1) => centre; -- go between 3% below MIDI note 24 and 3% above, driven by a 1 Hz sine wave
-lpf (saw 24m) (100 -> 1000 : sin 1) 1 => centre; -- filter frequency from 100 to 1000, driven by a 1 Hz sine wave
-sin (440 : sin 1) => centre; -- sine wave frequency goes between 0 and 440, driven by a 1 Hz sine wave
-saw (24m +- 3% : (sin 1 * sqr 2)) => centre; -- using a more complex "driver" for the modulation
-saw ((24m -> 30m : sqr 2) +- 3% : sin 1) => centre; -- the elements of the ranges can be more complex "graphs" or nested modulated ranges as well
-```
-
-# Future Work
-
-At the time of writing, the next major anticipated feature of Punctual is a kind of variable
-system allowing synthesis graphs to be used inside other synthesis graphs. It will
-probably work like this:
-
-```
-a <2s> 24m +- 3% : saw 1; -- a is approximately 24m (+- 3% according 1 Hz saw modulation)
-<8s> tri a * -10db => centre; -- the frequency of this triangle wave is controlled by a
-<8s> saw a * -10db => centre; -- the frequency of this sawtooth wave is also controlled by a
+saw (24m +- 3% $ sin 1) >> centre; -- go between 3% below MIDI note 24 and 3% above, driven by a 1 Hz sine wave
+lpf (saw 24m) (100 ... 1000 $ sin 1) 1 >> centre; -- filter frequency from 100 to 1000, driven by a 1 Hz sine wave
+saw (24m +- 3% $ (sin 1 * sqr 2)) >> centre; -- using a more complex "driver" for the modulation
+saw ((24m ... 30m $ sqr 2) +- 3% $ sin 1) => centre; -- the elements of the ranges can be more complex "graphs" or nested modulated ranges as well
 ```

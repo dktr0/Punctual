@@ -41,8 +41,8 @@ newGLContext :: HTMLCanvasElement -> IO GLContext
 newGLContext cv = do
   ctx <- _getWebGLRenderingContext cv
   psc <- _extensionIsAvailable "KHR_parallel_shader_compile" ctx
-  when psc $ T.putStrLn "WebGL extension khr_parallel_shader_compile is available"
-  when (not psc) $ T.putStrLn "WebGL extension khr_parallel_shader_compile is not available (this is okay)"
+  when psc $ T.putStrLn "Punctual: WebGL extension khr_parallel_shader_compile is available"
+  when (not psc) $ T.putStrLn "Punctual: WebGL extension khr_parallel_shader_compile is not available (this is okay)"
   cs <- _getCompletionStatusKhr ctx
   return $ GLContext {
     _webGLRenderingContext = ctx,
@@ -337,3 +337,10 @@ disableScissorTest = gl >>= (liftIO . _disableScissorTest)
 foreign import javascript unsafe
   "$1.disable($1.SCISSOR_TEST);"
   _disableScissorTest :: WebGLRenderingContext -> IO ()
+
+viewport :: Int -> Int -> Int -> Int -> GL ()
+viewport x y w h = gl >>= (liftIO . _viewport x y w h)
+
+foreign import javascript unsafe
+  "$5.viewport($1,$2,$3,$4)"
+  _viewport :: Int -> Int -> Int -> Int -> WebGLRenderingContext -> IO ()

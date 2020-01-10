@@ -53,7 +53,7 @@ updatePunctualW s tempo p = do
     W.playSynth dest (evalTime p) $ W.constantSource 0 >>= W.audioOut
     return ()
   t2 <- liftIO $ getCurrentTime
-  liftIO $ putStrLn $ "updatePunctualW (audio): " ++ show (round (diffUTCTime t2 t1 * 1000) :: Int) ++ " ms"
+--  liftIO $ putStrLn $ "updatePunctualW (audio): " ++ show (round (diffUTCTime t2 t1 * 1000) :: Int) ++ " ms"
   return $ s {
     prevSynthsNodes = newSynthsNodes,
     prevProgramW = p,

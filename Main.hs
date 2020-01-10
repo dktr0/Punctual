@@ -180,7 +180,6 @@ forkRenderThreads canvas = do
   }
   forkIO $ mainRenderThread mv
   forkIO $ void $ animationThread mv 0
-  T.putStrLn "mainRender and animation threads forked (startup complete)"
   return mv
 
 
@@ -197,7 +196,7 @@ parseIfNecessary :: RenderState -> IO RenderState
 parseIfNecessary rs = if (isNothing $ toParse rs) then return rs else do
   let x = fromJust $ toParse rs
   now <- liftAudioIO $ audioTime
-  p <- runPunctualParserTimed now x
+  p <- runPunctualParser now x
   return $ rs {
     toParse = Nothing,
     toUpdate = either (const Nothing) Just p,

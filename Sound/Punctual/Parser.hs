@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Sound.Punctual.Parser ({- runPunctualParser,-} runPunctualParserTimed) where
+module Sound.Punctual.Parser (runPunctualParser) where
 
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -80,9 +80,9 @@ simpleDefinition st (PatBind _ (PVar _ (Ident _ x)) (UnGuardedRhs _ e) _) = do
   return (x,e')
 simpleDefinition st _ = Left ""
 
-runPunctualParserTimed :: AudioTime -> Text -> IO (Either String Program)
-runPunctualParserTimed eTime x = do
-  t0 <- getCurrentTime
+runPunctualParser :: AudioTime -> Text -> IO (Either String Program)
+runPunctualParser eTime x = do
+--  t0 <- getCurrentTime
   (x',pragmas) <- return $! extractPragmas x
 --  t1 <- getCurrentTime
   r <- if (elem "glsl" pragmas) then do
@@ -97,8 +97,8 @@ runPunctualParserTimed eTime x = do
 --    T.putStrLn $ "parse lines: " <> " " <> showt (round (diffUTCTime t2 t1 * 1000) :: Int) <> " ms"
 --    T.putStrLn $ "parse parseProgram: " <> " " <> showt (round (diffUTCTime t3 t2 * 1000) :: Int) <> " ms"
     return p
-  tEnd <- getCurrentTime
-  T.putStrLn $ "parse: " <> " " <> showt (round (diffUTCTime tEnd t0 * 1000) :: Int) <> " ms"
+--  tEnd <- getCurrentTime
+--  T.putStrLn $ "parse: " <> " " <> showt (round (diffUTCTime tEnd t0 * 1000) :: Int) <> " ms"
   return r
 
 extractPragmas :: Text -> (Text,[Text])
@@ -112,14 +112,6 @@ extractPragmas t = (newText,pragmas)
 
 notEmptyLine :: String -> Bool
 notEmptyLine = (/="") . Prelude.filter (\y -> y /= '\n' && y /=' ' && y /= '\t')
-
-
--- TODO: rework this to include pragmas as well as per runPunctualParserTimed above
-{- runPunctualParser :: AudioTime -> Text -> Either String Program
-runPunctualParser eTime = f . parseWithMode haskellSrcExtsParseMode . preprocess
-  where
-    f (ParseOk x) = runHaskellish (program eTime) x
-    f (ParseFailed l s) = Left s -}
 
 haskellSrcExtsParseMode = defaultParseMode {
       fixities = Just [
