@@ -60,7 +60,8 @@ newPunctualWebGL ctx = runGL ctx $ do
   frameBuffer0 <- makeFrameBufferTexture 1920 1080
   frameBuffer1 <- makeFrameBufferTexture 1920 1080
   -- asynchronously compile/link the main and "post" programs
-  mp <- updateAsyncProgram emptyAsyncProgram defaultVertexShader defaultFragmentShader
+  let mp = emptyAsyncProgram
+  -- mp <- updateAsyncProgram emptyAsyncProgram defaultVertexShader defaultFragmentShader
   pp <- updateAsyncProgram emptyAsyncProgram defaultVertexShader postFragmentShaderSrc
   return $ PunctualWebGL {
     triangleStrip = ts,
