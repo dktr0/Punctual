@@ -14,6 +14,7 @@ import Data.IntMap.Strict as IntMap
 import Data.Map as Map
 import Data.List.Split (linesBy)
 import Control.Monad
+import Control.Applicative
 import Control.Monad.State
 import Control.Monad.Except
 import Data.Maybe
@@ -61,13 +62,17 @@ parseProgram eTime xs = do
   return $ p { textureMap = Map.mapKeys T.pack $ textureRefs st }
 
 parseStatement :: (Program,ParserState) -> (Int,String) -> Either String (Program,ParserState)
-parseStatement (p,st) (lineNumber,x) = do
-  if elem '=' x then do
-    st' <- parseDefinition st x
-    return (p,st')
-  else do
-    (a,st') <- parseAction st x
-    return (p { actions = IntMap.insert lineNumber a (actions p) },st')
+parseStatement x y = parseStatementAsDefinition x y <|> parseStatementAsAction x y
+
+parseStatementAsDefinition :: (Program,ParserState) -> (Int,String) -> Either String (Program,ParserState)
+parseStatementAsDefinition (p,st) (_,x) = do
+  st' <- parseDefinition st x
+  return (p,st')
+
+parseStatementAsAction :: (Program,ParserState) -> (Int,String) -> Either String (Program,ParserState)
+parseStatementAsAction (p,st) (lineNumber,x) = do
+  (a,st') <- parseAction st x
+  return (p { actions = IntMap.insert lineNumber a (actions p) },st')
 
 parseAction :: ParserState -> String -> Either String (Action,ParserState)
 parseAction = parseHaskellish action
