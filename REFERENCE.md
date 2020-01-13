@@ -87,11 +87,17 @@ circle [x] [y] [r] -- returns 1 when current fragment within a circle at x and y
 
 point [x] [y] -- returns 1 when current fragment is within a pixel of x and y, 0 otherwise
 
-hline [y] -- returns 1 when current fragment is within a pixel of a horizontal line at y, 0 otherwise
-
-vline [x] -- returns 1 when current fragment is within a pixel of a vertical line at x, 0 otherwise
-
 rect [x] [y] [w] [h] -- returns 1 when current fragment is within rectangle (x and y are centre not corner), 0 otherwise
+
+hline [y] [w] -- returns 1 when current fragment is within w of a horizontal line at y, 0 otherwise
+
+vline [x] [w] -- returns 1 when current fragment is within w of a vertical line at x, 0 otherwise
+
+iline [x1] [y1] [x2] [y2] -- returns 1 when current fragment is within w of an infinite line that passes through x1,y1 and x2,y2; otherwise 0
+
+line [x1] [y1] [x2] [y2] -- returns 1 when current fragment is within w of a line that goes from x1,y1 and x2,y2; otherwise 0
+
+tex "https://url-to-image-file" [x] [y] -- accesses a texture built from the image file in question
 
 ## Punctual Output Notations
 
