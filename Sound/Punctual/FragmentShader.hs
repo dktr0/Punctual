@@ -48,9 +48,9 @@ graphToFloat' Fx = "fx()"
 graphToFloat' Fy = "fy()"
 graphToFloat' Px = "10./1920."
 graphToFloat' Py = "10./1080."
-graphToFloat' (TexR n x y) = "tex(" <> graphToFloat' n <> "," <> graphToFloat' x <> "," <> graphToFloat' y <> ").r"
-graphToFloat' (TexG n x y) = "tex(" <> graphToFloat' n <> "," <> graphToFloat' x <> "," <> graphToFloat' y <> ").g"
-graphToFloat' (TexB n x y) = "tex(" <> graphToFloat' n <> "," <> graphToFloat' x <> "," <> graphToFloat' y <> ").b"
+graphToFloat' (TexR n x y) = "tex(" <> showb n <> "," <> graphToFloat' x <> "," <> graphToFloat' y <> ").r"
+graphToFloat' (TexG n x y) = "tex(" <> showb n <> "," <> graphToFloat' x <> "," <> graphToFloat' y <> ").g"
+graphToFloat' (TexB n x y) = "tex(" <> showb n <> "," <> graphToFloat' x <> "," <> graphToFloat' y <> ").b"
 graphToFloat' Lo = "lo"
 graphToFloat' Mid = "mid"
 graphToFloat' Hi = "hi"
@@ -122,13 +122,12 @@ header
    \uniform float hi;\
    \float bipolar(float x) { return x * 2. - 1.; }\
    \float unipolar(float x) { return (x + 1.) * 0.5; }\
-   \float prox1(float x,float y) { return max(1.-abs(x-y),0.); }\
-   \vec4 tex(float n,float x,float y) {\
-   \ return\
-   \  (texture2D(tex0,vec2(unipolar(x),unipolar(y)))*prox1(n,0.))+\
-   \  (texture2D(tex1,vec2(unipolar(x),unipolar(y)))*prox1(n,1.))+\
-   \  (texture2D(tex2,vec2(unipolar(x),unipolar(y)))*prox1(n,2.))+\
-   \  (texture2D(tex3,vec2(unipolar(x),unipolar(y)))*prox1(n,3.));}\
+   \vec4 tex(int n,float x,float y) {\
+   \ if(n==0)return texture2D(tex0,vec2(unipolar(x),unipolar(y))); else\
+   \ if(n==1)return texture2D(tex1,vec2(unipolar(x),unipolar(y))); else\
+   \ if(n==2)return texture2D(tex2,vec2(unipolar(x),unipolar(y))); else\
+   \ if(n==3)return texture2D(tex3,vec2(unipolar(x),unipolar(y))); else\
+   \ return vec4(0.);}\
    \vec2 uv() { return vec2(gl_FragCoord.x / res.x, gl_FragCoord.y / res.y); }\
    \vec3 fb(float r){\
    \  vec3 x = texture2D(tex0,uv()).xyz * r;\

@@ -21,9 +21,9 @@ data Graph =
   Fy |
   Px |
   Py |
-  TexR Graph Graph Graph |
-  TexG Graph Graph Graph |
-  TexB Graph Graph Graph |
+  TexR Int Graph Graph |
+  TexG Int Graph Graph |
+  TexB Int Graph Graph |
   Lo | Mid | Hi |
   ILo | IMid | IHi |
   Sine Graph |
@@ -96,9 +96,9 @@ expandMultis (LPF i f q) = expandWith3 LPF i f q
 expandMultis (HPF i f q) = expandWith3 HPF i f q
 expandMultis (FromTarget x) = [Constant 0] -- placeholder
 expandMultis (Product x y) = expandWith Product x y
-expandMultis (TexR n x y) = expandWith3 TexR n x y
-expandMultis (TexG n x y) = expandWith3 TexG n x y
-expandMultis (TexB n x y) = expandWith3 TexB n x y
+expandMultis (TexR n x y) = expandWith (TexR n) x y
+expandMultis (TexG n x y) = expandWith (TexG n) x y
+expandMultis (TexB n x y) = expandWith (TexB n) x y
 expandMultis (Sum x y) = expandWith Sum x y
 expandMultis (Mean x y) = expandWith Mean x y
 expandMultis (Max x y) = expandWith Max x y
@@ -190,7 +190,7 @@ expandWith5 f a b c d e = zipWith5 f a'' b'' c'' d'' e''
 
 -- Miscellaneous functions over Graphs:
 
-tex :: Graph -> Graph -> Graph -> Graph
+tex :: Int -> Graph -> Graph -> Graph
 tex n x y = Multi [TexR n x y,TexG n x y,TexB n x y]
 
 fb :: Graph -> Graph -> Graph

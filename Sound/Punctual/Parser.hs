@@ -182,6 +182,9 @@ action_defTime_action = reserved "@@" >> return (@@)
 action_outputs_action :: H (Action -> [Output] -> Action)
 action_outputs_action = reserved ">>" >> return (P.>>)
 
+int :: H Int
+int = fromIntegral <$> integer
+
 double :: H Double
 double = asum [
   realToFrac <$> rationalOrInteger,
@@ -296,7 +299,8 @@ graph3 = asum [
   reserved "hline" >> return HLine,
   reserved "vline" >> return VLine,
   reserved "fb" >> return fb,
-  graph4 <*> graph
+  graph4 <*> graph,
+  int_graph_graph_graph <*> int
   ]
 
 graph4 :: H (Graph -> Graph -> Graph -> Graph)
@@ -304,10 +308,6 @@ graph4 = asum [
   reserved "lpf" >> return LPF,
   reserved "hpf" >> return HPF,
   reserved "circle" >> return Circle,
-  reserved "texr" >> return TexR,
-  reserved "texg" >> return TexG,
-  reserved "texb" >> return TexB,
-  reserved "tex" >> return tex,
   reserved "clip" >> return Clip,
   reserved "between" >> return Between,
   reserved "~~" >> return modulatedRangeGraph,
@@ -327,6 +327,15 @@ graph6 = asum [
   reserved "iline" >> return ILine,
   reserved "line" >> return Line
   ]
+
+int_graph_graph_graph :: H (Int -> Graph -> Graph -> Graph)
+int_graph_graph_graph = asum [
+  reserved "tex" >> return tex,
+  reserved "texr" >> return TexR,
+  reserved "texg" >> return TexG,
+  reserved "texb" >> return TexB
+  ]
+
 
 multiSeries :: H Graph
 multiSeries = (reserved "..." >> return f) <*> i <*> i

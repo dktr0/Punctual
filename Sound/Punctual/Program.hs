@@ -2,7 +2,8 @@
 
 module Sound.Punctual.Program where
 
-import Data.IntMap.Strict
+import Data.IntMap.Strict as IntMap
+import Data.Map.Strict as Map
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Control.DeepSeq
@@ -12,6 +13,7 @@ import Sound.Punctual.Action
 
 data Program = Program {
   directGLSL :: Maybe Text,
+  textureRefs :: Map Text Int,
   actions :: IntMap Action,
   evalTime :: AudioTime
   } deriving (Show, Eq, Generic, NFData)
@@ -19,6 +21,7 @@ data Program = Program {
 emptyProgram :: Program
 emptyProgram = Program {
   directGLSL = Nothing,
-  actions = empty,
+  textureRefs = Map.empty,
+  actions = IntMap.empty,
   evalTime = 0
 }
