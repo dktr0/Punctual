@@ -30,10 +30,7 @@ import Sound.Punctual.AsyncProgram
 
 data PunctualWebGL = PunctualWebGL {
   triangleStrip :: WebGLBuffer,
-  tex0Texture :: WebGLTexture,
-  tex1Texture :: WebGLTexture,
-  tex2Texture :: WebGLTexture,
-  tex3Texture :: WebGLTexture,
+  textures :: Map Text WebGLTexture,
   fb0 :: (WebGLFramebuffer,WebGLTexture),
   fb1 :: (WebGLFramebuffer,WebGLTexture),
   pingPong :: Bool,
@@ -42,44 +39,17 @@ data PunctualWebGL = PunctualWebGL {
   prevProgram :: Program -- note: this is a Punctual program, above two lines are GL AsyncPrograms so quite different...
   }
 
-newPunctualWebGL :: GLContext -> IO PunctualWebGL
-newPunctualWebGL ctx = runGL ctx $ do
-  glCtx <- gl
-  defaultBlendFunc
-  unpackFlipY
-  -- create a buffer representing default triangle strip used by main and "post" programs
-  ts <- createBuffer
-  bindBufferArray ts
-  liftIO $ bufferDataArrayStatic glCtx
-  -- load textures
-  tex0t <- loadTexture "tex0.jpg"
-  tex1t <- loadTexture "tex1.jpg"
-  tex2t <- loadTexture "tex2.jpg"
-  tex3t <- loadTexture "tex3.jpg"
-  -- create two framebuffers to ping-pong between as backbuffer/feedback
-  frameBuffer0 <- makeFrameBufferTexture 1920 1080
-  frameBuffer1 <- makeFrameBufferTexture 1920 1080
-  -- asynchronously compile/link the main and "post" programs
-  let mp = emptyAsyncProgram
-  -- mp <- updateAsyncProgram emptyAsyncProgram defaultVertexShader defaultFragmentShader
-  pp <- updateAsyncProgram emptyAsyncProgram defaultVertexShader postFragmentShaderSrc
-  return $ PunctualWebGL {
-    triangleStrip = ts,
-    tex0Texture = tex0t,
-    tex1Texture = tex1t,
-    tex2Texture = tex2t,
-    tex3Texture = tex3t,
-    fb0 = frameBuffer0,
-    fb1 = frameBuffer1,
-    pingPong = False,
-    mainProgram = mp,
-    postProgram = pp,
-    prevProgram = emptyProgram
-  }
 
-foreign import javascript unsafe
-  "$1.bufferData($1.ARRAY_BUFFER,new Float32Array([-1,1,-1,-1,1,1,1,-1]),$1.STATIC_DRAW);"
-  bufferDataArrayStatic :: WebGLRenderingContext -> IO ()
+-- given a list of requested texture sources (images) and the previous map of requested texture sources
+-- request any textures we don't already have AND delete any textures we no longer need
+
+updateTextures :: [Text] -> Map Text WebGLTexture -> GL (Map Text WebGLTexture)
+updateTextures xs prevTextures = do
+  let xs' = fromList $ zip xs xs
+  newTextures <- mapM loadTexture $ difference xs' prevTextures
+  let continuingTextures = intersection prevTextures xs'
+  mapM_ deleteTexture $ difference prevTextures xs'
+  return $ union newTextures continuingTextures
 
 loadTexture :: Text -> GL WebGLTexture
 loadTexture t = do
@@ -98,6 +68,42 @@ foreign import javascript safe
      \};\
    \image.src = $2;"
    _loadTexture :: WebGLRenderingContext -> Text -> IO WebGLTexture
+
+
+
+
+newPunctualWebGL :: GLContext -> IO PunctualWebGL
+newPunctualWebGL ctx = runGL ctx $ do
+  glCtx <- gl
+  defaultBlendFunc
+  unpackFlipY
+  -- create a buffer representing default triangle strip used by main and "post" programs
+  ts <- createBuffer
+  bindBufferArray ts
+  liftIO $ bufferDataArrayStatic glCtx
+  -- load textures
+  theTextureMap <- updateTextures ["tex1.jpg","tex2.jpg","tex3.jpg"] empty
+  -- create two framebuffers to ping-pong between as backbuffer/feedback
+  frameBuffer0 <- makeFrameBufferTexture 1920 1080
+  frameBuffer1 <- makeFrameBufferTexture 1920 1080
+  -- asynchronously compile/link the main and "post" programs
+  let mp = emptyAsyncProgram
+  -- mp <- updateAsyncProgram emptyAsyncProgram defaultVertexShader defaultFragmentShader
+  pp <- updateAsyncProgram emptyAsyncProgram defaultVertexShader postFragmentShaderSrc
+  return $ PunctualWebGL {
+    triangleStrip = ts,
+    textures = theTextureMap,
+    fb0 = frameBuffer0,
+    fb1 = frameBuffer1,
+    pingPong = False,
+    mainProgram = mp,
+    postProgram = pp,
+    prevProgram = emptyProgram
+  }
+
+foreign import javascript unsafe
+  "$1.bufferData($1.ARRAY_BUFFER,new Float32Array([-1,1,-1,-1,1,1,1,-1]),$1.STATIC_DRAW);"
+  bufferDataArrayStatic :: WebGLRenderingContext -> IO ()
 
 configureFrameBufferTexture :: WebGLFramebuffer -> WebGLTexture -> Int -> Int -> GL ()
 configureFrameBufferTexture fb t w h = do
@@ -169,10 +175,9 @@ useMainProgram st = do
     uniform2fAsync asyncProgram "res" 1920 1080
     -- bind textures to uniforms representing textures in the program
     let uMap = uniformsMap asyncProgram
-    bindTex 0 (tex0Texture st) (uMap ! "tex0")
-    bindTex 1 (tex1Texture st) (uMap ! "tex1")
-    bindTex 2 (tex2Texture st) (uMap ! "tex2")
-    bindTex 3 (tex3Texture st) (uMap ! "tex3")
+    bindTex 1 (textures st ! "tex1.jpg") (uMap ! "tex1")
+    bindTex 2 (textures st ! "tex2.jpg") (uMap ! "tex2")
+    bindTex 3 (textures st ! "tex3.jpg") (uMap ! "tex3")
   return $ st { mainProgram = asyncProgram }
 
 bindTex :: Int -> WebGLTexture -> WebGLUniformLocation -> GL ()

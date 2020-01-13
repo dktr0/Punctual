@@ -185,6 +185,13 @@ foreign import javascript unsafe
   "$1.createTexture()"
   _createTexture :: WebGLRenderingContext -> IO WebGLTexture
 
+deleteTexture :: WebGLTexture -> GL ()
+deleteTexture x = gl >>= (liftIO . _deleteTexture x)
+
+foreign import javascript unsafe
+  "$2.deleteTexture($1)"
+  _deleteTexture :: WebGLTexture -> WebGLRenderingContext -> IO ()
+
 createBuffer :: GL WebGLBuffer
 createBuffer = gl >>= (liftIO . _createBuffer)
 
