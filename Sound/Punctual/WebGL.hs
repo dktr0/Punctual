@@ -60,6 +60,7 @@ loadTexture t = do
 foreign import javascript safe
   "$r = $1.createTexture();\
   \var image = new Image();\
+  \image.crossOrigin = \"Anonymous\";\
   \image.onload = function() {\
      \$1.bindTexture($1.TEXTURE_2D, $r);\
      \$1.texImage2D($1.TEXTURE_2D, 0, $1.RGBA, $1.RGBA, $1.UNSIGNED_BYTE, image);\
