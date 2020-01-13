@@ -18,7 +18,8 @@ import Data.Maybe
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Map.Strict
+import TextShow
+import Data.Map as Map
 import qualified Data.Text.IO as T
 
 import Sound.Punctual.AudioTime
@@ -81,8 +82,6 @@ newPunctualWebGL ctx = runGL ctx $ do
   ts <- createBuffer
   bindBufferArray ts
   liftIO $ bufferDataArrayStatic glCtx
-  -- load textures
-  theTextureMap <- updateTextures ["tex1.jpg","tex2.jpg","tex3.jpg"] empty
   -- create two framebuffers to ping-pong between as backbuffer/feedback
   frameBuffer0 <- makeFrameBufferTexture 1920 1080
   frameBuffer1 <- makeFrameBufferTexture 1920 1080
@@ -92,7 +91,7 @@ newPunctualWebGL ctx = runGL ctx $ do
   pp <- updateAsyncProgram emptyAsyncProgram defaultVertexShader postFragmentShaderSrc
   return $ PunctualWebGL {
     triangleStrip = ts,
-    textures = theTextureMap,
+    textures = Map.empty,
     fb0 = frameBuffer0,
     fb1 = frameBuffer1,
     pingPong = False,
@@ -146,10 +145,10 @@ postFragmentShaderSrc =
 
 evaluatePunctualWebGL :: GLContext -> PunctualWebGL -> (AudioTime,Double) -> Program -> IO PunctualWebGL
 evaluatePunctualWebGL ctx st tempo p = runGL ctx $ do
+  newTextures <- updateTextures (keys $ textureMap p) (textures st)
   newFragmentShader <- {- logTime "write fragment shader" $ -} (return $! fragmentShader tempo (prevProgram st) p)
-  -- liftIO $ T.putStrLn newFragmentShader
   mp <- updateAsyncProgram (mainProgram st) defaultVertexShader newFragmentShader
-  return $ st { prevProgram = p, mainProgram = mp }
+  return $ st { prevProgram = p, mainProgram = mp, textures = newTextures }
 
 
 drawFrame :: GLContext -> (AudioTime,Double,Double,Double) -> PunctualWebGL -> IO PunctualWebGL
@@ -175,10 +174,11 @@ useMainProgram st = do
     uniform2fAsync asyncProgram "res" 1920 1080
     -- bind textures to uniforms representing textures in the program
     let uMap = uniformsMap asyncProgram
-    bindTex 1 (textures st ! "tex1.jpg") (uMap ! "tex1")
-    bindTex 2 (textures st ! "tex2.jpg") (uMap ! "tex2")
-    bindTex 3 (textures st ! "tex3.jpg") (uMap ! "tex3")
+    let texs = textureMap $ prevProgram st -- Map Text Int
+    sequence_ $ mapWithKey (\k a -> bindTex a (textures st ! k) (uMap ! ("tex" <> showt a))) texs
+    -- bindTex 3 (textures st ! "tex3.jpg") (uMap ! "tex3")
   return $ st { mainProgram = asyncProgram }
+
 
 bindTex :: Int -> WebGLTexture -> WebGLUniformLocation -> GL ()
 bindTex n t loc = do

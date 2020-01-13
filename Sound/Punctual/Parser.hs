@@ -29,6 +29,7 @@ import qualified Sound.Punctual.Action as P
 import Sound.Punctual.Program
 
 data ParserState = ParserState {
+  textureRefs :: Map String Int,
   localBindings :: Map String Int, -- eg. f x y = fromList [("x",0),("y",1)]
   definitions1 :: Map String Graph,
   definitions2 :: Map String (Graph -> Graph),
@@ -37,6 +38,7 @@ data ParserState = ParserState {
 
 emptyParserState :: ParserState
 emptyParserState = ParserState {
+  textureRefs = Map.empty,
   localBindings = Map.empty,
   definitions1 = Map.empty,
   definitions2 = Map.empty,
@@ -53,8 +55,10 @@ parseResultToEither (ParseOk x) = Right x
 parseResultToEither (ParseFailed l s) = Left s
 
 parseProgram :: AudioTime -> [String] -> Either String Program
-parseProgram eTime xs = fst <$> (foldM parseStatement (initialProgram,emptyParserState) $ zip [0..] xs)
-  where initialProgram = emptyProgram { evalTime = eTime }
+parseProgram eTime xs = do
+  let initialProgram = emptyProgram { evalTime = eTime }
+  (p,st) <- foldM parseStatement (initialProgram,emptyParserState) $ zip [0..] xs
+  return $ p { textureMap = Map.mapKeys T.pack $ textureRefs st }
 
 parseStatement :: (Program,ParserState) -> (Int,String) -> Either String (Program,ParserState)
 parseStatement (p,st) (lineNumber,x) = do
@@ -300,7 +304,7 @@ graph3 = asum [
   reserved "vline" >> return VLine,
   reserved "fb" >> return fb,
   graph4 <*> graph,
-  int_graph_graph_graph <*> int
+  textureRef_graph_graph_graph <*> textureRef
   ]
 
 graph4 :: H (Graph -> Graph -> Graph -> Graph)
@@ -328,14 +332,25 @@ graph6 = asum [
   reserved "line" >> return Line
   ]
 
-int_graph_graph_graph :: H (Int -> Graph -> Graph -> Graph)
-int_graph_graph_graph = asum [
+textureRef_graph_graph_graph :: H (Int -> Graph -> Graph -> Graph)
+textureRef_graph_graph_graph = asum [
   reserved "tex" >> return tex,
   reserved "texr" >> return TexR,
   reserved "texg" >> return TexG,
   reserved "texb" >> return TexB
   ]
 
+textureRef :: H Int
+textureRef = do
+  x <- string
+  tRefs <- gets textureRefs
+  let x' = Map.lookup x tRefs
+  case x' of
+    Just i -> return i
+    Nothing -> do
+      let i = Map.size tRefs + 1
+      modify $ \s -> s { textureRefs = Map.insert x i tRefs }
+      return i
 
 multiSeries :: H Graph
 multiSeries = (reserved "..." >> return f) <*> i <*> i
