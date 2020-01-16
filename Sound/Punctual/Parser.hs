@@ -78,36 +78,23 @@ parseAction :: ParserState -> String -> Either String (Action,ParserState)
 parseAction = parseHaskellish action
 
 parseDefinition :: ParserState -> String -> Either String ParserState
-parseDefinition st x = do
-  y <- parseResultToEither $ parseWithMode haskellSrcExtsParseMode x
-  (k,g) <- simpleDefinition st y
-  return $ st { definitions1 = Map.insert k g (definitions1 st) }
-
-simpleDefinition :: ParserState -> Decl SrcSpanInfo -> Either String (String,Graph)
+parseDefinition st x = (parseResultToEither $ parseWithMode haskellSrcExtsParseMode x) >>= simpleDefinition st
+  
+simpleDefinition :: ParserState -> Decl SrcSpanInfo -> Either String ParserState
 simpleDefinition st (PatBind _ (PVar _ (Ident _ x)) (UnGuardedRhs _ e) _) = do
-  (e',_) <- runHaskellish graph st e
-  return (x,e')
+  (e',st') <- runHaskellish graph st e
+  return $ st' { definitions1 = Map.insert x e' (definitions1 st') }
 simpleDefinition st _ = Left ""
 
 runPunctualParser :: AudioTime -> Text -> IO (Either String Program)
 runPunctualParser eTime x = do
---  t0 <- getCurrentTime
   (x',pragmas) <- return $! extractPragmas x
---  t1 <- getCurrentTime
   r <- if (elem "glsl" pragmas) then do
---    T.putStrLn $ "parse pragmas: " <> " " <> showt (round (diffUTCTime t1 t0 * 1000) :: Int) <> " ms"
     return $ Right $ emptyProgram { directGLSL = Just x' }
   else do
     a <- return $! Prelude.filter notEmptyLine $ linesBy (==';') $ T.unpack x' -- cast to String and separate on ;
---    t2 <- getCurrentTime
     p <- return $! parseProgram eTime a
---    t3 <- getCurrentTime
---    T.putStrLn $ "parse pragmas: " <> " " <> showt (round (diffUTCTime t1 t0 * 1000) :: Int) <> " ms"
---    T.putStrLn $ "parse lines: " <> " " <> showt (round (diffUTCTime t2 t1 * 1000) :: Int) <> " ms"
---    T.putStrLn $ "parse parseProgram: " <> " " <> showt (round (diffUTCTime t3 t2 * 1000) :: Int) <> " ms"
     return p
---  tEnd <- getCurrentTime
---  T.putStrLn $ "parse: " <> " " <> showt (round (diffUTCTime tEnd t0 * 1000) :: Int) <> " ms"
   return r
 
 extractPragmas :: Text -> (Text,[Text])
