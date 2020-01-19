@@ -4,7 +4,8 @@ module Sound.Punctual.WebGL
   (PunctualWebGL(..),
   newPunctualWebGL,
   evaluatePunctualWebGL,
-  drawFrame)
+  drawPunctualWebGL,
+  displayPunctualWebGL)
   where
 
 import Control.Monad
@@ -18,9 +19,10 @@ import Data.Maybe
 import Data.Semigroup ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import TextShow
 import Data.Map as Map
-import qualified Data.Text.IO as T
+import qualified Data.IntMap as IntMap
 
 import Sound.Punctual.AudioTime
 import Sound.Punctual.Action hiding ((<>))
@@ -35,11 +37,10 @@ data PunctualWebGL = PunctualWebGL {
   fb0 :: (WebGLFramebuffer,WebGLTexture),
   fb1 :: (WebGLFramebuffer,WebGLTexture),
   pingPong :: Bool,
-  mainProgram :: AsyncProgram,
   postProgram :: AsyncProgram,
-  prevProgram :: Program -- note: this is a Punctual program, above two lines are GL AsyncPrograms so quite different...
+  mainPrograms :: IntMap.IntMap AsyncProgram,
+  prevPrograms :: IntMap.IntMap Program -- note: these are Punctual programs, above two lines are GL AsyncPrograms so quite different...
   }
-
 
 -- given a list of requested texture sources (images) and the previous map of requested texture sources
 -- request any textures we don't already have AND delete any textures we no longer need
@@ -71,9 +72,6 @@ foreign import javascript safe
    \image.src = $2;"
    _loadTexture :: WebGLRenderingContext -> Text -> IO WebGLTexture
 
-
-
-
 newPunctualWebGL :: GLContext -> IO PunctualWebGL
 newPunctualWebGL ctx = runGL ctx $ do
   glCtx <- gl
@@ -86,9 +84,7 @@ newPunctualWebGL ctx = runGL ctx $ do
   -- create two framebuffers to ping-pong between as backbuffer/feedback
   frameBuffer0 <- makeFrameBufferTexture 1920 1080
   frameBuffer1 <- makeFrameBufferTexture 1920 1080
-  -- asynchronously compile/link the main and "post" programs
-  let mp = emptyAsyncProgram
-  -- mp <- updateAsyncProgram emptyAsyncProgram defaultVertexShader defaultFragmentShader
+  -- asynchronously compile/link the "post" program (which transfers imagery from framebuffer to display)
   pp <- updateAsyncProgram emptyAsyncProgram defaultVertexShader postFragmentShaderSrc
   return $ PunctualWebGL {
     triangleStrip = ts,
@@ -96,9 +92,9 @@ newPunctualWebGL ctx = runGL ctx $ do
     fb0 = frameBuffer0,
     fb1 = frameBuffer1,
     pingPong = False,
-    mainProgram = mp,
     postProgram = pp,
-    prevProgram = emptyProgram
+    mainPrograms = IntMap.empty,
+    prevPrograms = IntMap.empty
   }
 
 foreign import javascript unsafe
@@ -144,28 +140,24 @@ postFragmentShaderSrc =
   \}"
 
 
-evaluatePunctualWebGL :: GLContext -> PunctualWebGL -> (AudioTime,Double) -> Program -> IO PunctualWebGL
-evaluatePunctualWebGL ctx st tempo p = runGL ctx $ do
-  newTextures <- updateTextures (keys $ textureMap p) (textures st)
-  newFragmentShader <- {- logTime "write fragment shader" $ -} (return $! fragmentShader tempo (prevProgram st) p)
-  mp <- updateAsyncProgram (mainProgram st) defaultVertexShader newFragmentShader
-  return $ st { prevProgram = p, mainProgram = mp, textures = newTextures }
+evaluatePunctualWebGL :: GLContext -> (AudioTime,Double) -> Int -> Program -> PunctualWebGL -> IO PunctualWebGL
+evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
+  let newPrograms = IntMap.insert z p $ prevPrograms st
+  let allTextures = Map.keys $ Map.unions $ fmap textureMap newPrograms
+  newTextures <- updateTextures allTextures (textures st)
+  let prevP = IntMap.findWithDefault emptyProgram z (prevPrograms st)
+  let newFragmentShader = fragmentShader tempo prevP p
+  let prevAsync = IntMap.findWithDefault emptyAsyncProgram z (mainPrograms st)
+  newAsync <- updateAsyncProgram prevAsync defaultVertexShader newFragmentShader
+  return $ st { prevPrograms = newPrograms, mainPrograms = IntMap.insert z newAsync (mainPrograms st), textures = newTextures }
 
 
-drawFrame :: GLContext -> (AudioTime,Double,Double,Double) -> PunctualWebGL -> IO PunctualWebGL
-drawFrame ctx (t,lo,mid,hi) st = runGL ctx $ do
-  st' <- useMainProgram st
-  drawMainProgram (t,lo,mid,hi) st'
-  st'' <- usePostProgram st'
-  drawPostProgram st''
-  return $ st'' { pingPong = not (pingPong st'') }
-
-
-useMainProgram :: PunctualWebGL -> GL PunctualWebGL
-useMainProgram st = do
-  let mainUniforms = ["t","res","tex0","tex1","tex2","tex3","lo","mid","hi"]
+drawPunctualWebGL :: GLContext -> (AudioTime,Double,Double,Double) -> Int -> PunctualWebGL -> IO PunctualWebGL
+drawPunctualWebGL ctx (t,lo,mid,hi) z st = runGL ctx $ do
+  let mainUniforms = ["t","res","tex0","tex1","tex2","tex3","tex4","tex5","tex6","tex7","lo","mid","hi"]
   let mainAttribs = ["p"]
-  (newProgramReady,asyncProgram) <- useAsyncProgram (mainProgram st) mainUniforms mainAttribs
+  let prevAsync = IntMap.findWithDefault emptyAsyncProgram z $ mainPrograms st
+  (newProgramReady,asyncProgram) <- useAsyncProgram prevAsync mainUniforms mainAttribs
   when newProgramReady $ do
     let program = fromJust $ activeProgram asyncProgram
     p <- getAttribLocation program "p"
@@ -175,36 +167,21 @@ useMainProgram st = do
     uniform2fAsync asyncProgram "res" 1920 1080
     -- bind textures to uniforms representing textures in the program
     let uMap = uniformsMap asyncProgram
-    let texs = textureMap $ prevProgram st -- Map Text Int
+    let prevProgram = IntMap.findWithDefault emptyProgram z $ prevPrograms st
+    let texs = textureMap prevProgram -- Map Text Int
     sequence_ $ mapWithKey (\k a -> bindTex a (textures st ! k) (uMap ! ("tex" <> showt a))) texs
-    -- bindTex 3 (textures st ! "tex3.jpg") (uMap ! "tex3")
-  return $ st { mainProgram = asyncProgram }
+  when (isJust $ activeProgram asyncProgram) $ do
+    --  clearColor 0.0 0.0 0.0 1.0 -- probably should comment this back in?
+    --  clearColorBuffer -- probably should comment this back in?
+    uniform1fAsync asyncProgram "t" (realToFrac t)
+    uniform1fAsync asyncProgram "lo" lo
+    uniform1fAsync asyncProgram "mid" mid
+    uniform1fAsync asyncProgram "hi" hi
+    pingPongFrameBuffers st
+    viewport 0 0 1920 1080
+    drawArraysTriangleStrip 0 4
+  return $ st { mainPrograms = IntMap.insert z asyncProgram (mainPrograms st) }
 
-
-bindTex :: Int -> WebGLTexture -> WebGLUniformLocation -> GL ()
-bindTex n t loc = do
-  activeTexture n
-  bindTexture2D t
-  uniform1i loc n
-
-drawMainProgram :: (AudioTime,Double,Double,Double) -> PunctualWebGL -> GL ()
-drawMainProgram (t,lo,mid,hi) st = when (isJust $ activeProgram $ mainProgram st) $ do
-  --  clearColor 0.0 0.0 0.0 1.0 -- probably should comment this back in?
-  --  clearColorBuffer -- probably should comment this back in?
-  let program = mainProgram st
-  -- BEGIN experiment
-  p <- getAttribLocation (fromJust $ activeProgram program) "p"
-  bindBufferArray $ triangleStrip st
-  vertexAttribPointer p
-  enableVertexAttribArray p
-  -- END experiment
-  uniform1fAsync program "t" (realToFrac t)
-  uniform1fAsync program "lo" lo
-  uniform1fAsync program "mid" mid
-  uniform1fAsync program "hi" hi
-  pingPongFrameBuffers st
-  viewport 0 0 1920 1080
-  drawArraysTriangleStrip 0 4
 
 pingPongFrameBuffers :: PunctualWebGL -> GL ()
 pingPongFrameBuffers st = do
@@ -215,8 +192,9 @@ pingPongFrameBuffers st = do
   bindTexture2D t
   bindFramebuffer fb
 
-usePostProgram :: PunctualWebGL -> GL PunctualWebGL
-usePostProgram st = do
+
+displayPunctualWebGL :: GLContext -> PunctualWebGL -> IO PunctualWebGL
+displayPunctualWebGL ctx st = runGL ctx $ do
   let postUniforms = ["res","tex"]
   let postAttribs = ["p"]
   (newProgramReady,asyncProgram) <- useAsyncProgram (postProgram st) postUniforms postAttribs
@@ -227,13 +205,18 @@ usePostProgram st = do
     vertexAttribPointer p
     enableVertexAttribArray p
     uniform2fAsync asyncProgram "res" 1920 1080
-  return $ st { postProgram = asyncProgram }
+  when (isJust $ activeProgram asyncProgram) $ do
+    let tPost = if (pingPong st) then (snd $ fb0 st) else (snd $ fb1 st)
+    let loc = uniformsMap asyncProgram ! "tex"
+    bindTex 0 tPost loc
+    bindFramebufferNull
+    viewport 0 0 1920 1080
+    drawArraysTriangleStrip 0 4
+  return $ st { postProgram = asyncProgram, pingPong = not (pingPong st) }
 
-drawPostProgram :: PunctualWebGL -> GL ()
-drawPostProgram st = when (isJust $ activeProgram $ postProgram st) $ do
-  let tPost = if (pingPong st) then (snd $ fb0 st) else (snd $ fb1 st)
-  let loc =  (uniformsMap $ postProgram st) ! "tex"
-  bindTex 0 tPost loc
-  bindFramebufferNull
-  viewport 0 0 1920 1080
-  drawArraysTriangleStrip 0 4
+
+bindTex :: Int -> WebGLTexture -> WebGLUniformLocation -> GL ()
+bindTex n t loc = do
+  activeTexture n
+  bindTexture2D t
+  uniform1i loc n

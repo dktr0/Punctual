@@ -208,7 +208,7 @@ updateIfNecessary rs = if (isNothing $ toUpdate rs) then return rs else do
   let x = fromJust $ toUpdate rs
   let t = (t0 rs, 0.5) -- hard-coded for now...
   nW <- liftAudioIO $ updatePunctualW (punctualW rs) t x
-  nGL <- evaluatePunctualWebGL (glCtx rs) (punctualWebGL rs) t x
+  nGL <- evaluatePunctualWebGL (glCtx rs) t 1 x (punctualWebGL rs)
   return $ rs {
     toUpdate = Nothing,
     punctualW = nW,
@@ -227,11 +227,12 @@ animationThread mv _ = do
   lo <- getLo aArray
   mid <- getMid aArray
   hi <- getHi aArray
-  nGL <- drawFrame (glCtx rs) (t1audio,lo,mid,hi) (punctualWebGL rs)
+  nGL <- drawPunctualWebGL (glCtx rs) (t1audio,lo,mid,hi) 1 (punctualWebGL rs)
+  nGL' <- displayPunctualWebGL (glCtx rs) nGL
   putMVar mv $ rs {
     tPrevAnimationFrame = t1system,
     fps = newFps,
-    punctualWebGL = nGL
+    punctualWebGL = nGL'
   }
   void $ inAnimationFrame ContinueAsync $ animationThread mv
 
