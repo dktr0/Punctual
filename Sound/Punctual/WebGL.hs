@@ -39,7 +39,8 @@ data PunctualWebGL = PunctualWebGL {
   pingPong :: Bool,
   postProgram :: AsyncProgram,
   mainPrograms :: IntMap.IntMap AsyncProgram,
-  prevPrograms :: IntMap.IntMap Program -- note: these are Punctual programs, above two lines are GL AsyncPrograms so quite different...
+  prevPrograms :: IntMap.IntMap Program, -- note: these are Punctual programs, above two lines are GL AsyncPrograms so quite different...
+  firstZone :: Int
   }
 
 -- given a list of requested texture sources (images) and the previous map of requested texture sources
@@ -94,7 +95,8 @@ newPunctualWebGL ctx = runGL ctx $ do
     pingPong = False,
     postProgram = pp,
     mainPrograms = IntMap.empty,
-    prevPrograms = IntMap.empty
+    prevPrograms = IntMap.empty,
+    firstZone = 0
   }
 
 foreign import javascript unsafe
@@ -149,12 +151,17 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
   let newFragmentShader = fragmentShader tempo prevP p
   let prevAsync = IntMap.findWithDefault emptyAsyncProgram z (mainPrograms st)
   newAsync <- updateAsyncProgram prevAsync defaultVertexShader newFragmentShader
-  return $ st { prevPrograms = newPrograms, mainPrograms = IntMap.insert z newAsync (mainPrograms st), textures = newTextures }
+  return $ st {
+    prevPrograms = newPrograms,
+    mainPrograms = IntMap.insert z newAsync (mainPrograms st),
+    textures = newTextures,
+    firstZone = head $ IntMap.keys newPrograms -- recalculate which zone is first in drawing order so that defaultAlpha can be correct
+    }
 
 
 drawPunctualWebGL :: GLContext -> (AudioTime,Double,Double,Double) -> Int -> PunctualWebGL -> IO PunctualWebGL
 drawPunctualWebGL ctx (t,lo,mid,hi) z st = runGL ctx $ do
-  let mainUniforms = ["t","res","tex0","tex1","tex2","tex3","tex4","tex5","tex6","tex7","lo","mid","hi"]
+  let mainUniforms = ["t","res","tex0","tex1","tex2","tex3","tex4","tex5","tex6","tex7","lo","mid","hi","_defaultAlpha"]
   let mainAttribs = ["p"]
   let prevAsync = IntMap.findWithDefault emptyAsyncProgram z $ mainPrograms st
   (newProgramReady,asyncProgram) <- useAsyncProgram prevAsync mainUniforms mainAttribs
@@ -177,6 +184,8 @@ drawPunctualWebGL ctx (t,lo,mid,hi) z st = runGL ctx $ do
     uniform1fAsync asyncProgram "lo" lo
     uniform1fAsync asyncProgram "mid" mid
     uniform1fAsync asyncProgram "hi" hi
+    let defaultAlpha = if z == firstZone st then 1.0 else 0.0
+    uniform1fAsync asyncProgram "_defaultAlpha" defaultAlpha
     pingPongFrameBuffers st
     viewport 0 0 1920 1080
     drawArraysTriangleStrip 0 4

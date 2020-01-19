@@ -117,9 +117,22 @@ header
    \uniform sampler2D tex1;\
    \uniform sampler2D tex2;\
    \uniform sampler2D tex3;\
+   \uniform sampler2D tex4;\
+   \uniform sampler2D tex5;\
+   \uniform sampler2D tex6;\
+   \uniform sampler2D tex7;\
+   \uniform sampler2D tex8;\
+   \uniform sampler2D tex9;\
+   \uniform sampler2D tex10;\
+   \uniform sampler2D tex11;\
+   \uniform sampler2D tex12;\
+   \uniform sampler2D tex13;\
+   \uniform sampler2D tex14;\
+   \uniform sampler2D tex15;\
    \uniform float lo;\
    \uniform float mid;\
    \uniform float hi;\
+   \uniform float _defaultAlpha;\
    \float bipolar(float x) { return x * 2. - 1.; }\
    \float unipolar(float x) { return (x + 1.) * 0.5; }\
    \vec4 tex(int n,float x,float y) {\
@@ -127,6 +140,18 @@ header
    \ if(n==1)return texture2D(tex1,vec2(unipolar(x),unipolar(y))); else\
    \ if(n==2)return texture2D(tex2,vec2(unipolar(x),unipolar(y))); else\
    \ if(n==3)return texture2D(tex3,vec2(unipolar(x),unipolar(y))); else\
+   \ if(n==4)return texture2D(tex4,vec2(unipolar(x),unipolar(y))); else\
+   \ if(n==5)return texture2D(tex5,vec2(unipolar(x),unipolar(y))); else\
+   \ if(n==6)return texture2D(tex6,vec2(unipolar(x),unipolar(y))); else\
+   \ if(n==7)return texture2D(tex7,vec2(unipolar(x),unipolar(y))); else\
+   \ if(n==8)return texture2D(tex8,vec2(unipolar(x),unipolar(y))); else\
+   \ if(n==9)return texture2D(tex9,vec2(unipolar(x),unipolar(y))); else\
+   \ if(n==10)return texture2D(tex10,vec2(unipolar(x),unipolar(y))); else\
+   \ if(n==11)return texture2D(tex11,vec2(unipolar(x),unipolar(y))); else\
+   \ if(n==12)return texture2D(tex12,vec2(unipolar(x),unipolar(y))); else\
+   \ if(n==13)return texture2D(tex13,vec2(unipolar(x),unipolar(y))); else\
+   \ if(n==14)return texture2D(tex14,vec2(unipolar(x),unipolar(y))); else\
+   \ if(n==15)return texture2D(tex15,vec2(unipolar(x),unipolar(y))); else\
    \ return vec4(0.);}\
    \vec2 uv() { return vec2(gl_FragCoord.x / res.x, gl_FragCoord.y / res.y); }\
    \vec3 fb(float r){\
@@ -253,7 +278,7 @@ fragmentShader tempo oldProgram newProgram = toText $ header <> body
     hue = generateOutput Hue "float hue" "0." allActions
     saturation = generateOutput Saturation "float saturation" "0." allActions
     value = generateOutput Value "float value" "0." allActions
-    alpha = generateOutput Alpha "float alpha" "1." allActions
+    alpha = generateOutput Alpha "float alpha" "_defaultAlpha" allActions
     hsv = generateOutput HSV "vec3 hsv" "vec3(0.,0.,0.)" allActions
     rgb = generateOutput RGB "vec3 rgb" "vec3(0.,0.,0.)" allActions
     fdbk = generateOutput Fdbk "float fdbk" "0." allActions
