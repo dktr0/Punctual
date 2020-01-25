@@ -79,7 +79,7 @@ parseAction = parseHaskellish action
 
 parseDefinition :: ParserState -> String -> Either String ParserState
 parseDefinition st x = (parseResultToEither $ parseWithMode haskellSrcExtsParseMode x) >>= simpleDefinition st
-  
+
 simpleDefinition :: ParserState -> Decl SrcSpanInfo -> Either String ParserState
 simpleDefinition st (PatBind _ (PVar _ (Ident _ x)) (UnGuardedRhs _ e) _) = do
   (e',st') <- runHaskellish graph st e
@@ -271,6 +271,8 @@ graph2 = asum [
   reserved "sqrt" >> return Sqrt,
   reserved "floor" >> return Floor,
   reserved "fract" >> return Fract,
+  reserved "hsvrgb" >> return HsvRgb,
+  reserved "rgbhsv" >> return RgbHsv,
   graph3 <*> graph
   ]
 

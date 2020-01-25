@@ -24,6 +24,8 @@ data Graph =
   TexR Int Graph Graph |
   TexG Int Graph Graph |
   TexB Int Graph Graph |
+  RgbHsv Graph |
+  HsvRgb Graph |
   Lo | Mid | Hi |
   ILo | IMid | IHi |
   Sine Graph |
@@ -99,6 +101,8 @@ expandMultis (Product x y) = expandWith Product x y
 expandMultis (TexR n x y) = expandWith (TexR n) x y
 expandMultis (TexG n x y) = expandWith (TexG n) x y
 expandMultis (TexB n x y) = expandWith (TexB n) x y
+expandMultis (RgbHsv x) = rgbhsv $ expandMultis x
+expandMultis (HsvRgb x) = hsvrgb $ expandMultis x
 expandMultis (Sum x y) = expandWith Sum x y
 expandMultis (Mean x y) = expandWith Mean x y
 expandMultis (Max x y) = expandWith Max x y
@@ -201,3 +205,44 @@ modulatedRangeGraph low high m = LinLin (-1) (1) low high m
 
 (+-) :: Graph -> Graph -> Graph -> Graph
 a +- b = modulatedRangeGraph (a - (a*b)) (a + (a*b))
+
+rgbhsv :: [Graph] -> [Graph]
+rgbhsv xs = concat $ fmap rgbhsv' $ extend3 xs
+
+rgbhsv' :: (Graph,Graph,Graph) -> [Graph]
+rgbhsv' (r,g,b) = [h,s,v]
+  where
+    cmax = Max r $ Max g b
+    cmin = Min r $ Min g b
+    delta = cmax - cmin
+    hr = 0.1666666667 * (gmod ((g - b)/delta) 6) * (Equal cmax r)
+    hg = 0.1666666667 * (((b - r)/delta) + 2) * (Equal cmax g)
+    hb = 0.1666666667 * (((r - g)/delta) + 4) * (Equal cmax b)
+    h = hr + hg + hb
+    s = (delta/cmax) * (NotEqual cmax 0)
+    v = cmax
+
+gmod :: Graph -> Graph -> Graph
+gmod x y = x - (Floor (x / y) * y)
+
+hsvrgb :: [Graph] -> [Graph]
+hsvrgb xs = concat $ fmap hsvrgb' $ extend3 xs
+
+hsvrgb' :: (Graph,Graph,Graph) -> [Graph]
+hsvrgb' (h,s,v) = [r,g,b]
+  where
+    rh = Abs (Fract (h + 1) * 6 - 3) - 1
+    gh = Abs (Fract (h + 0.6666666667) * 6 - 3) - 1
+    bh = Abs (Fract (h + 0.3333333334) * 6 - 3) - 1
+    r = v * LinLin 0 1 1 (Clip 0 1 rh) s -- TODO: this might be more performant if we had a 'mix' operator like GLSL to use instead of linlin
+    g = v * LinLin 0 1 1 (Clip 0 1 gh) s
+    b = v * LinLin 0 1 1 (Clip 0 1 bh) s
+
+
+-- given a list of items, extend it by repeating final elements (if necessary) so it's length is a multiple of 3
+-- and return the result as a list of triplets
+extend3 :: [a] -> [(a,a,a)]
+extend3 [] = []
+extend3 (x:y:z:w) = (x,y,z):(extend3 w)
+extend3 (x:[]) = [(x,x,x)]
+extend3 (x:y:[]) = [(x,y,y)]
