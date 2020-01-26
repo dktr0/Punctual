@@ -38,26 +38,19 @@ toGLFloats ((x,GLFloat):xs) = (x,GLFloat):(toGLFloats xs)
 toGLFloats ((x,Vec2):xs) = (x<>".x",GLFloat):(x<>".y",GLFloat):(toGLFloats xs)
 toGLFloats ((x,Vec3):xs) = (x<>".x",GLFloat):(x<>".y",GLFloat):(x<>".z",GLFloat):(toGLFloats xs)
 
--- *** TODO: there are some non-matched patterns here that should be caught
 toVec2s :: GLSL -> GLSL
 toVec2s [] = []
 toVec2s ((x,Vec2):xs) = (x,Vec2):(toVec2s xs)
 toVec2s ((x,GLFloat):(y,GLFloat):xs) = ("vec2("<>x<>","<>y<>")",Vec2):(toVec2s xs)
-toVec2s ((x,Vec3):(y,GLFloat):xs) =  ("vec2("<>x<>".x,"<>x<>".y)",Vec2):("vec2("<>x<>".z,"<>y<>")",Vec2):(toVec2s xs)
-toVec2s ((x,GLFloat):(y,Vec3):xs) = ("vec2("<>x<>","<>y<>".x)",Vec2):("vec2("<>y<>".y,"<>y<>".z)",Vec2):(toVec2s xs)
-toVec2s ((x,GLFloat):[]) = [("vec2("<>x<>","<>x<>")",Vec2)]
-toVec2s ((x,Vec3):[]) = [("vec2("<>x<>".x,"<>x<>".y)",Vec2),("vec2("<>x<>".z,"<>x<>".z)",Vec2)]
+toVec2s xs = toVec2s $ toGLFloats xs
 
--- *** TODO: there are some non-matched patterns here that should be caught
 toVec3s :: GLSL -> GLSL
 toVec3s [] = []
 toVec3s ((x,Vec3):xs) = (x,Vec3):(toVec3s xs)
 toVec3s ((x,GLFloat):(y,GLFloat):(z,GLFloat):xs) = ("vec3("<>x<>","<>y<>","<>z<>")",Vec3):(toVec3s xs)
 toVec3s ((x,GLFloat):(y,Vec2):xs) = ("vec3("<>x<>","<>y<>")",Vec3):(toVec3s xs)
 toVec3s ((x,Vec2):(y,GLFloat):xs) = ("vec3("<>x<>","<>y<>")",Vec3):(toVec3s xs)
-toVec3s ((x,GLFloat):[]) = [("vec3("<>x<>")",Vec3)]
-toVec3s ((x,GLFloat):(y,GLFloat):[]) = [("vec3("<>x<>","<>y<>","<>y<>")",Vec3)]
-toVec3s ((x,Vec2):[]) = [("vec3("<>x<>","<>x<>".y)",Vec3)]
+toVec3s xs = toVec3s $ toGLFloats xs
 
 
 graphToGLSL :: Graph -> GLSL
