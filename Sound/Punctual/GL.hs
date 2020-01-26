@@ -4,7 +4,6 @@ module Sound.Punctual.GL where
 
 import GHCJS.DOM.Types hiding (Text)
 import Data.Text (Text)
-import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Control.Monad
 import Control.Monad.IO.Class (liftIO,MonadIO)

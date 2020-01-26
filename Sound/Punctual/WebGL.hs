@@ -10,22 +10,15 @@ module Sound.Punctual.WebGL
 
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
-import Control.Exception
-import GHCJS.Types
 import GHCJS.DOM.Types hiding (Text)
-import GHCJS.Marshal.Pure
-import Data.Time
 import Data.Maybe
 import Data.Semigroup ((<>))
 import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
 import TextShow
 import Data.Map as Map
 import qualified Data.IntMap as IntMap
 
 import Sound.Punctual.AudioTime
-import Sound.Punctual.Action hiding ((<>))
 import Sound.Punctual.Program
 import Sound.Punctual.FragmentShader
 import Sound.Punctual.GL

@@ -7,9 +7,8 @@ module Sound.Punctual.PunctualW where
 import Control.Monad (when)
 import Control.Monad.IO.Class
 import Control.Concurrent
-import Data.Time
-import Data.Maybe
 import Data.IntMap.Strict as IntMap
+import Data.List
 
 import Sound.Punctual.AudioTime
 import Sound.Punctual.Graph
@@ -28,8 +27,8 @@ data PunctualW = PunctualW {
   prevProgramW :: Program
   }
 
-emptyPunctualW :: AudioContext -> Node -> Int -> AudioTime -> PunctualW
-emptyPunctualW ac dest nchnls t = PunctualW {
+emptyPunctualW :: AudioContext -> Node -> Int -> PunctualW
+emptyPunctualW ac dest nchnls = PunctualW {
   punctualAudioContext = ac,
   punctualDestination = dest,
   punctualChannels = nchnls,
@@ -41,19 +40,16 @@ emptyPunctualW ac dest nchnls t = PunctualW {
 updatePunctualW :: PunctualW -> (AudioTime,Double) -> Program -> W.AudioContextIO PunctualW
 updatePunctualW s tempo p = do
   let evalTime' = evalTime p + 0.2
-  t1 <- liftIO $ getCurrentTime
   let xs = IntMap.filter actionOutputsAudio $ actions p
   let dest = punctualDestination s
   mapM_ (deleteSynth evalTime' evalTime' (0.050 + evalTime')) $ difference (prevSynthsNodes s) xs -- delete synths no longer present
   addedSynthsNodes <- mapM (addNewSynth dest tempo evalTime') $ difference xs (prevSynthsNodes s) -- add synths newly present
   let continuingSynthsNodes = intersection (prevSynthsNodes s) xs
   updatedSynthsNodes <- sequence $ intersectionWith (updateSynth dest tempo evalTime') continuingSynthsNodes xs
-  newSynthsNodes <- return $! union addedSynthsNodes updatedSynthsNodes
+  newSynthsNodes <- return $! IntMap.union addedSynthsNodes updatedSynthsNodes
   when (not $ silentSynthLaunched s) $ do
     W.playSynth dest (evalTime p) $ W.constantSource 0 >>= W.audioOut
     return ()
-  t2 <- liftIO $ getCurrentTime
---  liftIO $ putStrLn $ "updatePunctualW (audio): " ++ show (round (diffUTCTime t2 t1 * 1000) :: Int) ++ " ms"
   return $ s {
     prevSynthsNodes = newSynthsNodes,
     prevProgramW = p,
@@ -61,14 +57,14 @@ updatePunctualW s tempo p = do
     }
 
 addNewSynth :: AudioIO m => W.Node -> (AudioTime,Double) -> AudioTime -> Action -> m (Synth m, W.Node)
-addNewSynth dest tempo evalTime a = do
-  let (xfadeStart,xfadeEnd) = actionToTimes tempo evalTime a
+addNewSynth dest tempo eTime a = do
+  let (xfadeStart,xfadeEnd) = actionToTimes tempo eTime a
   addSynth dest xfadeStart xfadeStart xfadeEnd a
 
 updateSynth :: AudioIO m => W.Node -> (AudioTime,Double) -> AudioTime -> (Synth m, W.Node) -> Action -> m (Synth m, W.Node)
-updateSynth dest tempo evalTime prevSynthNode a = do
-  let (xfadeStart,xfadeEnd) = actionToTimes tempo evalTime a
-  deleteSynth evalTime xfadeStart xfadeEnd prevSynthNode
+updateSynth dest tempo eTime prevSynthNode a = do
+  let (xfadeStart,xfadeEnd) = actionToTimes tempo eTime a
+  deleteSynth eTime xfadeStart xfadeEnd prevSynthNode
   addSynth dest xfadeStart xfadeStart xfadeEnd a
 
 addSynth :: AudioIO m => W.Node -> AudioTime -> AudioTime -> AudioTime -> Action -> m (Synth m, W.Node)
@@ -98,16 +94,17 @@ connectSynthToOutput nRef Splay = do
 connectSynthToOutput _ _ = return ()
 
 deleteSynth :: MonadIO m => AudioTime -> AudioTime -> AudioTime -> (Synth m, W.Node) -> m ()
-deleteSynth evalTime xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
+deleteSynth eTime xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
   W.setValueAtTime prevGainNode W.Gain 1.0 xfadeStart
   W.linearRampToValueAtTime prevGainNode W.Gain 0.0 xfadeEnd
   W.stopSynth xfadeEnd prevSynth
-  let microseconds = ceiling $ (xfadeEnd - evalTime + 0.3) * 1000000
+  let microseconds = ceiling $ (xfadeEnd - eTime + 0.3) * 1000000
   --  ^ = kill synth 100ms after fade out
   liftIO $ forkIO $ do
     threadDelay microseconds
     W.disconnectSynth prevSynth
   return ()
+
 
 graphToSynthDef' :: AudioIO m => Graph -> SynthDef m NodeRef
 graphToSynthDef' g = do
@@ -116,8 +113,6 @@ graphToSynthDef' g = do
   W.gain 0 cm
 
 graphToSynthDef :: AudioIO m => Graph -> SynthDef m NodeRef
-
-graphToSynthDef EmptyGraph = W.constantSource 0
 
 graphToSynthDef (Multi _) = error "internal error: graphToSynthDef should only be used post multi-channel expansion (can't handle Multi)"
 
@@ -128,9 +123,9 @@ graphToSynthDef (Constant x) = W.constantSource x
 graphToSynthDef (Bipolar x) = graphToSynthDef $ x * 2 - 1
 graphToSynthDef (Unipolar x) = graphToSynthDef $ x * 0.5 + 0.5
 
-graphToSynthDef (Sine (MidiCps (Constant x))) = W.oscillator W.Sine $ W.midicps x
-graphToSynthDef (Sine (Constant x)) = W.oscillator W.Sine x
-graphToSynthDef (Sine x) = do
+graphToSynthDef (Sin (MidiCps (Constant x))) = W.oscillator W.Sine $ W.midicps x
+graphToSynthDef (Sin (Constant x)) = W.oscillator W.Sine x
+graphToSynthDef (Sin x) = do
   s <- W.oscillator W.Sine 0
   graphToSynthDef x >>= W.param W.Frequency s
   return s
@@ -149,9 +144,9 @@ graphToSynthDef (Saw x) = do
   graphToSynthDef x >>= W.param W.Frequency s
   return s
 
-graphToSynthDef (Square (MidiCps (Constant x))) = W.oscillator W.Square $ W.midicps x
-graphToSynthDef (Square (Constant x)) = W.oscillator W.Square x
-graphToSynthDef (Square x) = do
+graphToSynthDef (Sqr (MidiCps (Constant x))) = W.oscillator W.Square $ W.midicps x
+graphToSynthDef (Sqr (Constant x)) = W.oscillator W.Square x
+graphToSynthDef (Sqr x) = do
   s <- W.oscillator W.Square 0
   graphToSynthDef x >>= W.param W.Frequency s
   return s
@@ -186,8 +181,6 @@ graphToSynthDef (HPF i f q) = do
   graphToSynthDef q >>= W.param W.Q x
   return x
 
-graphToSynthDef (FromTarget x) = W.constantSource 0 -- placeholder
-
 graphToSynthDef (Sum (Constant x) (Constant y)) = graphToSynthDef (Constant $ x+y)
 graphToSynthDef (Sum x y) = W.mixSynthDefs $ fmap graphToSynthDef [x,y]
 
@@ -201,7 +194,6 @@ graphToSynthDef (Product x y) = do
   graphToSynthDef y >>= W.param W.Gain m
   return m
 
-graphToSynthDef (Mean x y) = graphToSynthDef $ (x + y) * 0.5
 graphToSynthDef (Max x y) = graphToSynthDef $ (GreaterThanOrEqual x y * x) + (LessThan x y * y)
 graphToSynthDef (Min x y) = graphToSynthDef $ (GreaterThanOrEqual x y * y) + (LessThan x y * x)
 
@@ -263,38 +255,134 @@ graphToSynthDef (Floor x) = graphToSynthDef x >>= W.floorWorklet
 
 graphToSynthDef (Fract x) = graphToSynthDef x >>= W.fractWorklet
 
-graphToSynthDef (Clip x y z) = do
+graphToSynthDef (Clip (Multi [r1,r2]) x) = do -- *** THIS IS PRETTY HACKY
+  r1' <- graphToSynthDef r1
+  r2' <- graphToSynthDef r2
   x' <- graphToSynthDef x
-  y' <- graphToSynthDef y
-  z' <- graphToSynthDef z
-  W.clipWorklet x' y' z'
+  W.clipWorklet r1' r2' x'
 
-graphToSynthDef (Between r1 r2 x) = graphToSynthDef g
+graphToSynthDef (Between (Multi [r1,r2]) x) = graphToSynthDef g -- ***** THIS IS ALSO PRETTY HACKY
   where g = (GreaterThan r2 r1) * (GreaterThan x r1) * (LessThan x r2) +
             (GreaterThan r1 r2) * (GreaterThan x r2) * (LessThan x r1)
 
-graphToSynthDef (LinLin min1 max1 min2 max2 x) = graphToSynthDef $ min2 + outputRange * proportion
+graphToSynthDef (LinLin (Multi [min1,max1]) (Multi [min2,max2]) x) = graphToSynthDef $ min2 + outputRange * proportion -- *** THIS IS ALSO VERY HACKY
   where
     inputRange = max1 - min1
     outputRange = max2 - min2
     proportion = Division (x - min1) inputRange
 
 -- Graph constructors that have no meaning in the audio domain all produce a constant signal of 0
-graphToSynthDef (VLine _ _) = W.constantSource 0
-graphToSynthDef (HLine _ _) = W.constantSource 0
-graphToSynthDef (ILine _ _ _ _ _) = W.constantSource 0
-graphToSynthDef (Line _ _ _ _ _) = W.constantSource 0
-graphToSynthDef (Rect _ _ _ _) = W.constantSource 0
-graphToSynthDef (Point _ _) = W.constantSource 0
-graphToSynthDef (Circle _ _ _) = W.constantSource 0
-graphToSynthDef (Distance _ _) = W.constantSource 0
-graphToSynthDef Fx = W.constantSource 0
-graphToSynthDef Fy = W.constantSource 0
-graphToSynthDef Px = W.constantSource 0
-graphToSynthDef Py = W.constantSource 0
-graphToSynthDef (TexR _ _ _) = W.constantSource 0
-graphToSynthDef (TexG _ _ _) = W.constantSource 0
-graphToSynthDef (TexB _ _ _) = W.constantSource 0
-graphToSynthDef Lo = W.constantSource 0 -- for now, audio analysis not available in audio graphs
-graphToSynthDef Mid = W.constantSource 0
-graphToSynthDef Hi = W.constantSource 0
+graphToSynthDef _ = W.constantSource 0
+
+
+-- Multi-channel expansion (and removal of some subgraphs that don't affect audio)
+
+expandMultis :: Graph -> [Graph]
+-- multi, mono, constants
+expandMultis (Multi []) = []
+expandMultis (Multi xs) = fmap graphsToMono $ fmap expandMultis xs
+expandMultis (Mono x) = [graphsToMono $ expandMultis x]
+-- unary functions
+expandMultis (Bipolar x) = fmap Bipolar $ expandMultis x
+expandMultis (Unipolar x) = fmap Unipolar $ expandMultis x
+expandMultis (Sin x) = fmap Sin (expandMultis x)
+expandMultis (Tri x) = fmap Tri (expandMultis x)
+expandMultis (Saw x) = fmap Saw (expandMultis x)
+expandMultis (Sqr x) = fmap Sqr (expandMultis x)
+expandMultis (MidiCps x) = fmap MidiCps (expandMultis x)
+expandMultis (CpsMidi x) = fmap CpsMidi (expandMultis x)
+expandMultis (DbAmp x) = fmap DbAmp (expandMultis x)
+expandMultis (AmpDb x) = fmap AmpDb (expandMultis x)
+expandMultis (Abs x) = fmap Abs (expandMultis x)
+expandMultis (Sqrt x) = fmap Sqrt (expandMultis x)
+expandMultis (Floor x) = fmap Floor (expandMultis x)
+expandMultis (Fract x) = fmap Fract (expandMultis x)
+-- binary functions
+expandMultis (Product x y) = expandWith' Product x y
+expandMultis (Sum x y) = expandWith' Sum x y
+expandMultis (Max x y) = expandWith' Max x y
+expandMultis (Min x y) = expandWith' Min x y
+expandMultis (Division x y) = expandWith' Division x y
+expandMultis (GreaterThan x y) = expandWith' GreaterThan x y
+expandMultis (GreaterThanOrEqual x y) = expandWith' GreaterThanOrEqual x y
+expandMultis (LessThan x y) = expandWith' LessThan x y
+expandMultis (LessThanOrEqual x y) = expandWith' LessThanOrEqual x y
+expandMultis (Equal x y) = expandWith' Equal x y
+expandMultis (NotEqual x y) = expandWith' NotEqual x y
+expandMultis (Pow x y) = expandWith' Pow x y
+expandMultis (Clip r x) = zipWith Clip r' x' -- *** VERY HACKY
+  where
+    x' = expandMultis x
+    n = length x' * 2
+    r' = fmap (\(a,b) -> Multi [a,b] ) $ listIntoTuples $ take n $ cycle $ expandMultis r
+expandMultis (Between r x) = zipWith Between r' x' -- *** VERY HACKY
+  where
+    x' = expandMultis x
+    n = length x' * 2
+    r' = fmap (\(a,b) -> Multi [a,b] ) $ listIntoTuples $ take n $ cycle $ expandMultis r
+-- ternary functions
+expandMultis (LinLin r1 r2 x) = zipWith3 LinLin r1' r2' x' -- *** VERY HACKY
+  where
+    x' = expandMultis x
+    n = length x' * 2
+    r1' = fmap (\(a,b) -> Multi [a,b] ) $ listIntoTuples $ take n $ cycle $ expandMultis r1
+    r2' = fmap (\(a,b) -> Multi [a,b] ) $ listIntoTuples $ take n $ cycle $ expandMultis r2
+expandMultis (LPF i f q) = expandWith3' LPF i f q
+expandMultis (HPF i f q) = expandWith3' HPF i f q
+expandMultis _ = []
+
+listIntoTuples :: [a] -> [(a,a)]
+listIntoTuples (x:y:xs) = (x,y):listIntoTuples xs
+listIntoTuples _ = []
+
+graphsToMono :: [Graph] -> Graph
+graphsToMono [] = Constant 0
+graphsToMono xs = foldl1 Sum xs
+
+expandWith' :: (Graph -> Graph -> Graph) -> Graph -> Graph -> [Graph]
+expandWith' f x y = zipWith f x'' y''
+  where
+    x' = expandMultis x
+    y' = expandMultis y
+    n = maximum [length x',length y']
+    x'' = take n (cycle x')
+    y'' = take n (cycle y')
+
+expandWith3' :: (Graph -> Graph -> Graph -> Graph) -> Graph -> Graph -> Graph -> [Graph]
+expandWith3' f x y z = zipWith3 f x'' y'' z''
+  where
+    x' = expandMultis x
+    y' = expandMultis y
+    z' = expandMultis z
+    n = maximum [length x',length y',length z']
+    x'' = take n (cycle x')
+    y'' = take n (cycle y')
+    z'' = take n (cycle z')
+
+expandWith4 :: (Graph -> Graph -> Graph -> Graph -> Graph) -> Graph -> Graph -> Graph -> Graph -> [Graph]
+expandWith4 f a b c d = zipWith4 f a'' b'' c'' d''
+  where
+    a' = expandMultis a
+    b' = expandMultis b
+    c' = expandMultis c
+    d' = expandMultis d
+    n = maximum [length a',length b',length c',length d']
+    a'' = take n (cycle a')
+    b'' = take n (cycle b')
+    c'' = take n (cycle c')
+    d'' = take n (cycle d')
+
+expandWith5 :: (Graph -> Graph -> Graph -> Graph -> Graph -> Graph) -> Graph -> Graph -> Graph -> Graph -> Graph -> [Graph]
+expandWith5 f a b c d e = zipWith5 f a'' b'' c'' d'' e''
+  where
+    a' = expandMultis a
+    b' = expandMultis b
+    c' = expandMultis c
+    d' = expandMultis d
+    e' = expandMultis e
+    n = maximum [length a',length b',length c',length d',length e']
+    a'' = take n (cycle a')
+    b'' = take n (cycle b')
+    c'' = take n (cycle c')
+    d'' = take n (cycle d')
+    e'' = take n (cycle e')

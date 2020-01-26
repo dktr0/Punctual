@@ -1,15 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Sound.Punctual.Parser (runPunctualParser) where
+module Sound.Punctual.Parser (Sound.Punctual.Parser.parse) where
 
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.IO as T
 import Data.Foldable (asum)
 import Language.Haskell.Exts
 import Language.Haskellish
-import Data.Time
-import TextShow
 import Data.IntMap.Strict as IntMap
 import Data.Map as Map
 import Data.List.Split (linesBy)
@@ -25,7 +22,7 @@ import Sound.Punctual.Graph
 import Sound.Punctual.Duration
 import Sound.Punctual.DefTime
 import Sound.Punctual.Output
-import Sound.Punctual.Action hiding ((>>),(<>),graph,output,defTime,outputs)
+import Sound.Punctual.Action hiding ((>>),(<>),graph,defTime,outputs)
 import qualified Sound.Punctual.Action as P
 import Sound.Punctual.Program
 
@@ -53,7 +50,7 @@ parseHaskellish p st x = (parseResultToEither $ parseWithMode haskellSrcExtsPars
 
 parseResultToEither :: ParseResult a -> Either String a
 parseResultToEither (ParseOk x) = Right x
-parseResultToEither (ParseFailed l s) = Left s
+parseResultToEither (ParseFailed _ s) = Left s
 
 parseProgram :: AudioTime -> [String] -> Either String Program
 parseProgram eTime xs = do
@@ -84,10 +81,10 @@ simpleDefinition :: ParserState -> Decl SrcSpanInfo -> Either String ParserState
 simpleDefinition st (PatBind _ (PVar _ (Ident _ x)) (UnGuardedRhs _ e) _) = do
   (e',st') <- runHaskellish graph st e
   return $ st' { definitions1 = Map.insert x e' (definitions1 st') }
-simpleDefinition st _ = Left ""
+simpleDefinition _ _ = Left ""
 
-runPunctualParser :: AudioTime -> Text -> IO (Either String Program)
-runPunctualParser eTime x = do
+parse :: AudioTime -> Text -> IO (Either String Program)
+parse eTime x = do
   (x',pragmas) <- return $! extractPragmas x
   r <- if (elem "glsl" pragmas) then do
     return $ Right $ emptyProgram { directGLSL = Just x' }
@@ -109,6 +106,7 @@ extractPragmas t = (newText,pragmas)
 notEmptyLine :: String -> Bool
 notEmptyLine = (/="") . Prelude.filter (\y -> y /= '\n' && y /=' ' && y /= '\t')
 
+haskellSrcExtsParseMode :: ParseMode
 haskellSrcExtsParseMode = defaultParseMode {
       fixities = Just [
         Fixity (AssocRight ()) 9 (UnQual () (Symbol () ".")),
@@ -178,9 +176,6 @@ action_defTime_action = reserved "@@" >> return (@@)
 action_outputs_action :: H (Action -> [Output] -> Action)
 action_outputs_action = reserved ">>" >> return (P.>>)
 
-int :: H Int
-int = fromIntegral <$> integer
-
 double :: H Double
 double = asum [
   realToFrac <$> rationalOrInteger,
@@ -239,10 +234,9 @@ graph = asum [
   (Constant . fromIntegral) <$> integer,
   Multi <$> list graph,
   multiSeries,
-  reserved "noise" >> return Noise,
-  reserved "pink" >> return Pink,
   reserved "fx" >> return Fx,
   reserved "fy" >> return Fy,
+  reserved "fxy" >> return Fxy,
   reserved "px" >> return Px,
   reserved "py" >> return Py,
   reserved "lo" >> return Lo,
@@ -258,10 +252,10 @@ graph2 :: H (Graph -> Graph)
 graph2 = asum [
   reserved "bipolar" >> return Bipolar,
   reserved "unipolar" >> return Unipolar,
-  reserved "sin" >> return Sine,
+  reserved "sin" >> return Sin,
   reserved "tri" >> return Tri,
   reserved "saw" >> return Saw,
-  reserved "sqr" >> return Square,
+  reserved "sqr" >> return Sqr,
   reserved "mono" >> return Mono,
   reserved "abs" >> return Abs,
   reserved "cpsmidi" >> return CpsMidi,
@@ -273,6 +267,10 @@ graph2 = asum [
   reserved "fract" >> return Fract,
   reserved "hsvrgb" >> return HsvRgb,
   reserved "rgbhsv" >> return RgbHsv,
+  reserved "distance" >> return Distance,
+  reserved "point" >> return Point,
+  reserved "fb" >> return fb,
+  textureRef_graph_graph <*> textureRef,
   graph3 <*> graph
   ]
 
@@ -289,50 +287,30 @@ graph3 = asum [
   reserved "**" >> return Pow,
   reserved "*" >> return Product,
   reserved "/" >> return Division,
-  reserved "mean" >> return Mean,
   reserved "min" >> return Min,
   reserved "max" >> return Max,
-  reserved "distance" >> return Distance,
-  reserved "point" >> return Point,
   reserved "hline" >> return HLine,
   reserved "vline" >> return VLine,
-  reserved "fb" >> return fb,
-  graph4 <*> graph,
-  textureRef_graph_graph_graph <*> textureRef
+  reserved "circle" >> return Circle,
+  reserved "rect" >> return Rect,
+  reserved "clip" >> return Clip,
+  reserved "between" >> return Between,
+  graph4 <*> graph
   ]
 
 graph4 :: H (Graph -> Graph -> Graph -> Graph)
 graph4 = asum [
   reserved "lpf" >> return LPF,
   reserved "hpf" >> return HPF,
-  reserved "circle" >> return Circle,
-  reserved "clip" >> return Clip,
-  reserved "between" >> return Between,
   reserved "~~" >> return modulatedRangeGraph,
   reserved "+-" >> return (+-),
-  graph5 <*> graph
-  ]
-
-graph5 :: H (Graph -> Graph -> Graph -> Graph -> Graph)
-graph5 = asum [
-  reserved "rect" >> return Rect,
-  graph6 <*> graph
-  ]
-
-graph6 :: H (Graph -> Graph -> Graph -> Graph -> Graph -> Graph)
-graph6 = asum [
   reserved "linlin" >> return LinLin,
   reserved "iline" >> return ILine,
   reserved "line" >> return Line
   ]
 
-textureRef_graph_graph_graph :: H (Int -> Graph -> Graph -> Graph)
-textureRef_graph_graph_graph = asum [
-  reserved "tex" >> return tex,
-  reserved "texr" >> return TexR,
-  reserved "texg" >> return TexG,
-  reserved "texb" >> return TexB
-  ]
+textureRef_graph_graph :: H (Int -> Graph -> Graph)
+textureRef_graph_graph = reserved "tex" >> return Tex
 
 textureRef :: H Int
 textureRef = do

@@ -8,16 +8,13 @@ module Sound.Punctual.AsyncProgram where
 -- updated shader programs (eg. where use might be attempted quickly right
 -- after new shaders are provided with an already existing program still available)
 
-import GHCJS.Types
 import GHCJS.DOM.Types hiding (Text)
 import Data.Text (Text)
-import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Data.Map.Strict as Map
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
 import Data.Maybe
-import Data.Time
 import TextShow
 
 import Sound.Punctual.GL
@@ -105,14 +102,14 @@ useAsyncProgram a uniformNames attribNames = do
             fsLog <- getShaderInfoLog fs
             liftIO $ T.putStrLn $ " fragment shader status=" <> showt fsStatus <> " log: " <> fsLog
             pLog <- getProgramInfoLog nextProgram'
-            liftIO $ T.putStrLn $ " program log: " <> fsLog
+            liftIO $ T.putStrLn $ " program log: " <> pLog
             when (isJust $ activeProgram a) $ useProgram (fromJust (activeProgram a))
             return (False, a {
               nextProgram = Nothing,
               nextVertexShader = Nothing,
               nextFragmentShader = Nothing
             })
-          1 -> do -- delete old program, use new program, query inform locations
+          _ -> do -- delete old program, use new program, query inform locations
             when (isJust $ activeProgram a) $ do
               deleteProgram $ fromJust $ activeProgram a
               deleteShader $ fromJust $ activeVertexShader a
@@ -127,7 +124,8 @@ useAsyncProgram a uniformNames attribNames = do
               nextProgram = Nothing,
               nextVertexShader = Nothing,
               nextFragmentShader = Nothing,
-              uniformsMap = newUniformsMap
+              uniformsMap = newUniformsMap,
+              attribsMap = newAttribsMap
             })
 
 uniform1fAsync :: AsyncProgram -> Text -> Double -> GL ()

@@ -1,9 +1,10 @@
-{-# LANGUAGE RecursiveDo, OverloadedStrings, JavaScriptFFI #-}
+{-# LANGUAGE RecursiveDo, OverloadedStrings, JavaScriptFFI, FlexibleContexts #-}
 
 module Main where
 
 import System.IO
 import Control.Monad.Trans
+import Control.Monad.Fix
 import Reflex.Dom hiding (getKeyEvent,preventDefault)
 import Reflex.Dom.Contrib.KeyEvent
 import Data.Time.Clock
@@ -33,7 +34,7 @@ import Sound.MusicW.AudioContext hiding (AudioTime)
 import Sound.Punctual.MovingAverage
 import Sound.Punctual.GL
 
-headElement :: MonadWidget t m => m ()
+headElement :: DomBuilder t m => m ()
 headElement = do
   el "title" $ text "Punctual"
   let attrs = fromList [("rel", "stylesheet"), ("type", "text/css"), ("href", "style.css")]
@@ -117,7 +118,7 @@ foreign import javascript unsafe
   getHi :: JSVal -> IO Double
 
 
-performEvaluate :: MonadWidget t m => MVar RenderState -> Event t Text -> m ()
+performEvaluate :: (PerformEvent t m, MonadIO (Performable m)) => MVar RenderState -> Event t Text -> m ()
 performEvaluate mv e = performEvent_ $ fmap (liftIO . f) e
   where
     f x = do
@@ -125,7 +126,7 @@ performEvaluate mv e = performEvent_ $ fmap (liftIO . f) e
       putMVar mv $ rs { toParse = Just x }
 
 
-hideableDiv :: MonadWidget t m => Dynamic t Bool -> Text -> m a -> m a
+hideableDiv :: (DomBuilder t m, PostBuild t m) => Dynamic t Bool -> Text -> m a -> m a
 hideableDiv isVisible cssClass childWidget = do
   let attrs = fmap (bool (fromList [("hidden","true"),("class",cssClass)]) (Data.Map.Strict.singleton "class" cssClass)) isVisible
   elDynAttr "div" attrs childWidget
@@ -159,7 +160,7 @@ forkRenderThreads canvas = do
   connectNodes comp dest
   ac <- getGlobalAudioContext
   t0audio <- liftAudioIO $ audioTime
-  let iW = emptyPunctualW ac gain 2 t0audio -- hard coded stereo for now
+  let iW = emptyPunctualW ac gain 2 -- hard coded stereo for now
   -- create PunctualWebGL for animation
   glc <- newGLContext canvas
   initialPunctualWebGL <- newPunctualWebGL glc
@@ -196,7 +197,7 @@ parseIfNecessary :: RenderState -> IO RenderState
 parseIfNecessary rs = if (isNothing $ toParse rs) then return rs else do
   let x = fromJust $ toParse rs
   now <- liftAudioIO $ audioTime
-  p <- runPunctualParser now x
+  p <- parse now x
   return $ rs {
     toParse = Nothing,
     toUpdate = either (const Nothing) Just p,
@@ -237,7 +238,7 @@ animationThread mv _ = do
   void $ inAnimationFrame ContinueAsync $ animationThread mv
 
 
-pollStatus :: MonadWidget t m => MVar RenderState -> m (Dynamic t Text, Dynamic t Double)
+pollStatus :: (PostBuild t m, PerformEvent t m, TriggerEvent t m, MonadIO (Performable m), MonadFix m, MonadHold t m, MonadIO m) => MVar RenderState -> m (Dynamic t Text, Dynamic t Double)
 pollStatus mv = do
   now <- liftIO $ getCurrentTime
   ticks <- tickLossy (0.204::NominalDiffTime) now
