@@ -310,7 +310,10 @@ graph4 = asum [
   ]
 
 textureRef_graph_graph :: H (Int -> Graph -> Graph)
-textureRef_graph_graph = reserved "tex" >> return Tex
+textureRef_graph_graph = asum [
+  reserved "tex" >> return Tex,
+  reserved "texhsv" >> return texhsv
+  ]
 
 textureRef :: H Int
 textureRef = do

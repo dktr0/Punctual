@@ -74,6 +74,9 @@ instance Fractional Graph where
 fb :: Graph -> Graph
 fb xy = Tex 0 xy
 
+texhsv :: Int -> Graph -> Graph
+texhsv i g = RgbHsv $ Tex i g
+
 modulatedRangeGraph :: Graph -> Graph -> Graph -> Graph
 modulatedRangeGraph low high m = LinLin (Multi [-1,1]) (Multi [low,high]) m
 
