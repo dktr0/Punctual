@@ -96,27 +96,6 @@ bodyElement = do
         dynText fpsText
 
 
-foreign import javascript unsafe
-  "new Uint8Array($1.frequencyBinCount)"
-  arrayForAnalysis :: Node -> IO JSVal
-
-foreign import javascript unsafe
-  "$1.getByteFrequencyData($2);"
-  getByteFrequencyData :: Node -> JSVal -> IO ()
-
-foreign import javascript unsafe
-  "var acc=0; for(var x=0;x<4;x++) { acc=acc+$1[x] }; acc=acc/(4*256); $r = acc"
-  getLo :: JSVal -> IO Double
-
-foreign import javascript unsafe
-  "var acc=0; for(var x=4;x<40;x++) { acc=acc+$1[x] }; acc=acc/(36*256); $r = acc"
-  getMid :: JSVal -> IO Double
-
-foreign import javascript unsafe
-  "var acc=0; for(var x=40;x<256;x++) { acc=acc+$1[x] }; acc=acc/(216*256); $r = acc"
-  getHi :: JSVal -> IO Double
-
-
 performEvaluate :: (PerformEvent t m, MonadIO (Performable m)) => MVar RenderState -> Event t Text -> m ()
 performEvaluate mv e = performEvent_ $ fmap (liftIO . f) e
   where
@@ -139,8 +118,10 @@ data RenderState = RenderState {
   punctualW :: PunctualW,
   punctualWebGL :: PunctualWebGL,
   fps :: MovingAverage,
-  analysisNode :: Node,
-  analysisArray :: JSVal,
+  inputAnalysisNode :: Node,
+  inputAnalysisArray :: JSVal,
+  outputAnalysisNode :: Node,
+  outputAnalysisArray :: JSVal,
   t0 :: AudioTime,
   tPrevAnimationFrame :: UTCTime
 }
@@ -148,14 +129,19 @@ data RenderState = RenderState {
 
 forkRenderThreads :: HTMLCanvasElement -> IO (MVar RenderState)
 forkRenderThreads canvas = do
+  -- create audio input and analysis network
+  mic <- liftAudioIO createMicrophone
+  inputAnalyser <- liftAudioIO $ createAnalyser 128 0.5
+  inputArray <- arrayForAnalysis inputAnalyser
+  connectNodes mic inputAnalyser
   -- create audio output and analysis network
   gain <- liftAudioIO $ createGain (dbamp (-10))
   comp <- liftAudioIO $ createCompressor (-20) 3 4 0.050 0.1
-  analyser <- liftAudioIO $ createAnalyser 512 0.5
-  array <- arrayForAnalysis analyser
+  outputAnalyser <- liftAudioIO $ createAnalyser 128 0.5
+  outputArray <- arrayForAnalysis outputAnalyser
   dest <- liftAudioIO $ createDestination
   connectNodes gain comp
-  connectNodes comp analyser
+  connectNodes comp outputAnalyser
   connectNodes comp dest
   ac <- getGlobalAudioContext
   t0audio <- liftAudioIO $ audioTime
@@ -173,8 +159,10 @@ forkRenderThreads canvas = do
     punctualW = iW,
     punctualWebGL = initialPunctualWebGL,
     fps = newAverage 60,
-    analysisNode = analyser,
-    analysisArray = array,
+    inputAnalysisNode = inputAnalyser,
+    inputAnalysisArray = inputArray,
+    outputAnalysisNode = outputAnalyser,
+    outputAnalysisArray = outputArray,
     t0 = t0audio,
     tPrevAnimationFrame = t0system
   }
@@ -222,12 +210,15 @@ animationThread mv _ = do
   let tDiff = diffUTCTime t1system (tPrevAnimationFrame rs)
   let newFps = updateAverage (fps rs) $ 1 / realToFrac tDiff
   t1audio <- liftAudioIO $ audioTime
-  let aArray = analysisArray rs
-  getByteFrequencyData (analysisNode rs) aArray
-  lo <- getLo aArray
-  mid <- getMid aArray
-  hi <- getHi aArray
-  nGL <- drawPunctualWebGL (glCtx rs) (t1audio,lo,mid,hi) 1 (punctualWebGL rs)
+  getByteFrequencyData (inputAnalysisNode rs) (inputAnalysisArray rs)
+  getByteFrequencyData (outputAnalysisNode rs) (outputAnalysisArray rs)
+  ilo <- getLo $ inputAnalysisArray rs
+  imid <- getMid $ inputAnalysisArray rs
+  ihi <- getHi $ inputAnalysisArray rs
+  lo <- getLo $ outputAnalysisArray rs
+  mid <- getMid $ outputAnalysisArray rs
+  hi <- getHi $ outputAnalysisArray rs
+  nGL <- drawPunctualWebGL (glCtx rs) (t1audio,lo,mid,hi,ilo,imid,ihi) 1 (punctualWebGL rs)
   nGL' <- displayPunctualWebGL (glCtx rs) nGL
   putMVar mv $ rs {
     tPrevAnimationFrame = t1system,

@@ -5,7 +5,11 @@ module Sound.Punctual.WebGL
   newPunctualWebGL,
   evaluatePunctualWebGL,
   drawPunctualWebGL,
-  displayPunctualWebGL)
+  displayPunctualWebGL,
+  arrayForAnalysis,
+  getByteFrequencyData,
+  getLo,getMid,getHi
+  )
   where
 
 import Control.Monad
@@ -17,6 +21,7 @@ import Data.Text (Text)
 import TextShow
 import Data.Map as Map
 import qualified Data.IntMap as IntMap
+import Sound.MusicW.Node as MusicW
 
 import Sound.Punctual.AudioTime
 import Sound.Punctual.Program
@@ -152,9 +157,9 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
     }
 
 
-drawPunctualWebGL :: GLContext -> (AudioTime,Double,Double,Double) -> Int -> PunctualWebGL -> IO PunctualWebGL
-drawPunctualWebGL ctx (t,lo,mid,hi) z st = runGL ctx $ do
-  let mainUniforms = ["t","res","tex0","tex1","tex2","tex3","tex4","tex5","tex6","tex7","lo","mid","hi","_defaultAlpha"]
+drawPunctualWebGL :: GLContext -> (AudioTime,Double,Double,Double,Double,Double,Double) -> Int -> PunctualWebGL -> IO PunctualWebGL
+drawPunctualWebGL ctx (t,lo,mid,hi,ilo,imid,ihi) z st = runGL ctx $ do
+  let mainUniforms = ["t","res","tex0","tex1","tex2","tex3","tex4","tex5","tex6","tex7","lo","mid","hi","ilo","imid","ihi","_defaultAlpha"]
   let mainAttribs = ["p"]
   let prevAsync = IntMap.findWithDefault emptyAsyncProgram z $ mainPrograms st
   (newProgramReady,asyncProgram) <- useAsyncProgram prevAsync mainUniforms mainAttribs
@@ -175,8 +180,11 @@ drawPunctualWebGL ctx (t,lo,mid,hi) z st = runGL ctx $ do
     --  clearColorBuffer -- probably should comment this back in?
     uniform1fAsync asyncProgram "t" (realToFrac t)
     uniform1fAsync asyncProgram "lo" lo
-    uniform1fAsync asyncProgram "mid" mid
     uniform1fAsync asyncProgram "hi" hi
+    uniform1fAsync asyncProgram "mid" mid
+    uniform1fAsync asyncProgram "ilo" ilo
+    uniform1fAsync asyncProgram "imid" imid
+    uniform1fAsync asyncProgram "ihi" ihi
     let defaultAlpha = if z == firstZone st then 1.0 else 0.0
     uniform1fAsync asyncProgram "_defaultAlpha" defaultAlpha
     pingPongFrameBuffers st
@@ -222,3 +230,24 @@ bindTex n t loc = do
   activeTexture n
   bindTexture2D t
   uniform1i loc n
+
+
+foreign import javascript unsafe
+  "new Uint8Array($1.frequencyBinCount)"
+  arrayForAnalysis :: MusicW.Node -> IO JSVal
+
+foreign import javascript unsafe
+  "$1.getByteFrequencyData($2);"
+  getByteFrequencyData :: MusicW.Node -> JSVal -> IO ()
+
+foreign import javascript unsafe
+  "var acc=0; for(var x=0;x<1;x++) { acc=acc+$1[x] }; acc=acc/(1*256); $r = acc"
+  getLo :: JSVal -> IO Double
+
+foreign import javascript unsafe
+  "var acc=0; for(var x=1;x<10;x++) { acc=acc+$1[x] }; acc=acc/(9*256); $r = acc"
+  getMid :: JSVal -> IO Double
+
+foreign import javascript unsafe
+  "var acc=0; for(var x=10;x<64;x++) { acc=acc+$1[x] }; acc=acc/(54*256); $r = acc"
+  getHi :: JSVal -> IO Double
