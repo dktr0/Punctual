@@ -210,15 +210,25 @@ animationThread mv _ = do
   let tDiff = diffUTCTime t1system (tPrevAnimationFrame rs)
   let newFps = updateAverage (fps rs) $ 1 / realToFrac tDiff
   t1audio <- liftAudioIO $ audioTime
-  getByteFrequencyData (inputAnalysisNode rs) (inputAnalysisArray rs)
-  getByteFrequencyData (outputAnalysisNode rs) (outputAnalysisArray rs)
-  ilo <- getLo $ inputAnalysisArray rs
-  imid <- getMid $ inputAnalysisArray rs
-  ihi <- getHi $ inputAnalysisArray rs
-  lo <- getLo $ outputAnalysisArray rs
-  mid <- getMid $ outputAnalysisArray rs
-  hi <- getHi $ outputAnalysisArray rs
-  nGL <- drawPunctualWebGL (glCtx rs) (t1audio,lo,mid,hi,ilo,imid,ihi) 1 (punctualWebGL rs)
+  let pwgl = punctualWebGL rs
+  (ilo,imid,ihi) <- case needsAudioInputAnalysis pwgl of
+    True -> do
+      T.putStrLn "True"
+      getByteFrequencyData (inputAnalysisNode rs) (inputAnalysisArray rs)
+      x <- getLo $ inputAnalysisArray rs
+      y <- getMid $ inputAnalysisArray rs
+      z <- getHi $ inputAnalysisArray rs
+      return (x,y,z)
+    False -> return (0,0,0)
+  (lo,mid,hi) <- case needsAudioOutputAnalysis pwgl of
+    True -> do
+      getByteFrequencyData (outputAnalysisNode rs) (outputAnalysisArray rs)
+      x <- getLo $ outputAnalysisArray rs
+      y <- getMid $ outputAnalysisArray rs
+      z <- getHi $ outputAnalysisArray rs
+      return (x,y,z)
+    False -> return (0,0,0)
+  nGL <- drawPunctualWebGL (glCtx rs) (t1audio,lo,mid,hi,ilo,imid,ihi) 1 pwgl
   nGL' <- displayPunctualWebGL (glCtx rs) nGL
   putMVar mv $ rs {
     tPrevAnimationFrame = t1system,

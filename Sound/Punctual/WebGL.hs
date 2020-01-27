@@ -38,7 +38,9 @@ data PunctualWebGL = PunctualWebGL {
   postProgram :: AsyncProgram,
   mainPrograms :: IntMap.IntMap AsyncProgram,
   prevPrograms :: IntMap.IntMap Program, -- note: these are Punctual programs, above two lines are GL AsyncPrograms so quite different...
-  firstZone :: Int
+  firstZone :: Int,
+  needsAudioInputAnalysis :: Bool,
+  needsAudioOutputAnalysis :: Bool
   }
 
 -- given a list of requested texture sources (images) and the previous map of requested texture sources
@@ -94,7 +96,9 @@ newPunctualWebGL ctx = runGL ctx $ do
     postProgram = pp,
     mainPrograms = IntMap.empty,
     prevPrograms = IntMap.empty,
-    firstZone = 0
+    firstZone = 0,
+    needsAudioInputAnalysis = False,
+    needsAudioOutputAnalysis = False
   }
 
 foreign import javascript unsafe
@@ -149,11 +153,15 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
   let newFragmentShader = fragmentShader tempo prevP p
   let prevAsync = IntMap.findWithDefault emptyAsyncProgram z (mainPrograms st)
   newAsync <- updateAsyncProgram prevAsync defaultVertexShader newFragmentShader
+  let prevProgramsNeedAudioInputAnalysis = elem True $ fmap programNeedsAudioInputAnalysis $ IntMap.elems $ prevPrograms st
+  let prevProgramsNeedAudioOutputAnalysis = elem True $ fmap programNeedsAudioInputAnalysis $ IntMap.elems $ prevPrograms st
   return $ st {
     prevPrograms = newPrograms,
     mainPrograms = IntMap.insert z newAsync (mainPrograms st),
     textures = newTextures,
-    firstZone = head $ IntMap.keys newPrograms -- recalculate which zone is first in drawing order so that defaultAlpha can be correct
+    firstZone = head $ IntMap.keys newPrograms, -- recalculate which zone is first in drawing order so that defaultAlpha can be correct
+    needsAudioInputAnalysis = programNeedsAudioInputAnalysis p || prevProgramsNeedAudioInputAnalysis,
+    needsAudioOutputAnalysis = programNeedsAudioOutputAnalysis p || prevProgramsNeedAudioOutputAnalysis
     }
 
 

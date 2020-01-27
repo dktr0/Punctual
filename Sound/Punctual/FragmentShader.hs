@@ -42,14 +42,17 @@ toVec2s :: GLSL -> GLSL
 toVec2s [] = []
 toVec2s ((x,Vec2):xs) = (x,Vec2):(toVec2s xs)
 toVec2s ((x,GLFloat):(y,GLFloat):xs) = ("vec2("<>x<>","<>y<>")",Vec2):(toVec2s xs)
+toVec2s ((x,GLFloat):xs) = ("vec2("<>x<>")",Vec2):(toVec2s xs)
 toVec2s xs = toVec2s $ toGLFloats xs
 
 toVec3s :: GLSL -> GLSL
 toVec3s [] = []
 toVec3s ((x,Vec3):xs) = (x,Vec3):(toVec3s xs)
-toVec3s ((x,GLFloat):(y,GLFloat):(z,GLFloat):xs) = ("vec3("<>x<>","<>y<>","<>z<>")",Vec3):(toVec3s xs)
 toVec3s ((x,GLFloat):(y,Vec2):xs) = ("vec3("<>x<>","<>y<>")",Vec3):(toVec3s xs)
 toVec3s ((x,Vec2):(y,GLFloat):xs) = ("vec3("<>x<>","<>y<>")",Vec3):(toVec3s xs)
+toVec3s ((x,GLFloat):(y,GLFloat):(z,GLFloat):xs) = ("vec3("<>x<>","<>y<>","<>z<>")",Vec3):(toVec3s xs)
+toVec3s ((x,GLFloat):(y,GLFloat):xs) = ("vec3("<>x<>",vec2("<>y<>"))",Vec3):(toVec3s xs)
+toVec3s ((x,GLFloat):xs) = ("vec3("<>x<>")",Vec3):(toVec3s xs)
 toVec3s xs = toVec3s $ toGLFloats xs
 
 

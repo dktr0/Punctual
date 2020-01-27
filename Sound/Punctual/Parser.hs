@@ -31,7 +31,9 @@ data ParserState = ParserState {
   localBindings :: Map String Int, -- eg. f x y = fromList [("x",0),("y",1)]
   definitions1 :: Map String Graph,
   definitions2 :: Map String (Graph -> Graph),
-  definitions3 :: Map String (Graph -> Graph -> Graph)
+  definitions3 :: Map String (Graph -> Graph -> Graph),
+  audioInputAnalysis :: Bool,
+  audioOutputAnalysis :: Bool
 }
 
 emptyParserState :: ParserState
@@ -40,7 +42,9 @@ emptyParserState = ParserState {
   localBindings = Map.empty,
   definitions1 = Map.empty,
   definitions2 = Map.empty,
-  definitions3 = Map.empty
+  definitions3 = Map.empty,
+  audioInputAnalysis = False,
+  audioOutputAnalysis = False
   }
 
 type H = Haskellish ParserState
@@ -56,7 +60,11 @@ parseProgram :: AudioTime -> [String] -> Either String Program
 parseProgram eTime xs = do
   let initialProgram = emptyProgram { evalTime = eTime }
   (p,st) <- foldM parseStatement (initialProgram,emptyParserState) $ zip [0..] xs
-  return $ p { textureMap = Map.mapKeys T.pack $ textureRefs st }
+  return $ p {
+    textureMap = Map.mapKeys T.pack $ textureRefs st,
+    programNeedsAudioInputAnalysis = audioInputAnalysis st,
+    programNeedsAudioOutputAnalysis = audioOutputAnalysis st
+    }
 
 parseStatement :: (Program,ParserState) -> (Int,String) -> Either String (Program,ParserState)
 parseStatement x y = parseStatementAsDefinition x y <|> parseStatementAsAction x y
@@ -239,12 +247,12 @@ graph = asum [
   reserved "fxy" >> return Fxy,
   reserved "px" >> return Px,
   reserved "py" >> return Py,
-  reserved "lo" >> return Lo,
-  reserved "mid" >> return Mid,
-  reserved "hi" >> return Hi,
-  reserved "ilo" >> return ILo,
-  reserved "imid" >> return IMid,
-  reserved "ihi" >> return IHi,
+  reserved "lo" >> modify (\s -> s { audioOutputAnalysis = True } ) >> return Lo,
+  reserved "mid" >> modify (\s -> s { audioOutputAnalysis = True } ) >> return Mid,
+  reserved "hi" >> modify (\s -> s { audioOutputAnalysis = True } ) >> return Hi,
+  reserved "ilo" >> modify (\s -> s { audioInputAnalysis = True } ) >> return ILo,
+  reserved "imid" >> modify (\s -> s { audioInputAnalysis = True } ) >> return IMid,
+  reserved "ihi" >> modify (\s -> s { audioInputAnalysis = True } ) >> return IHi,
   graph2 <*> graph
   ]
 
