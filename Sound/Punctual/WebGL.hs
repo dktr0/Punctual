@@ -18,9 +18,11 @@ import GHCJS.DOM.Types hiding (Text)
 import Data.Maybe
 import Data.Semigroup ((<>))
 import Data.Text (Text)
+import qualified Data.Text.IO as T
 import TextShow
 import Data.Map as Map
 import qualified Data.IntMap as IntMap
+import Sound.MusicW as MusicW hiding (createBuffer,AudioTime)
 import Sound.MusicW.Node as MusicW
 
 import Sound.Punctual.AudioTime
@@ -39,9 +41,95 @@ data PunctualWebGL = PunctualWebGL {
   mainPrograms :: IntMap.IntMap AsyncProgram,
   prevPrograms :: IntMap.IntMap Program, -- note: these are Punctual programs, above two lines are GL AsyncPrograms so quite different...
   firstZone :: Int,
+  -- audio analysis
   needsAudioInputAnalysis :: Bool,
-  needsAudioOutputAnalysis :: Bool
+  needsAudioOutputAnalysis :: Bool,
+  microphoneNode :: Maybe MusicW.Node,
+  audioOutputNode :: Maybe MusicW.Node,
+  audioInputAnalyser :: Maybe MusicW.Node,
+  audioOutputAnalyser :: Maybe MusicW.Node,
+  audioInputArray :: Maybe JSVal,
+  audioOutputArray :: Maybe JSVal
   }
+
+
+updateAudioAnalysis :: PunctualWebGL -> IO PunctualWebGL
+updateAudioAnalysis st = do
+  a <- maybeActivateAudioInputAnalysis st
+  b <- maybeDisactivateAudioInputAnalysis a
+  c <- maybeActivateAudioOutputAnalysis b
+  maybeDisactivateAudioOutputAnalysis c
+
+maybeActivateAudioInputAnalysis :: PunctualWebGL -> IO PunctualWebGL
+maybeActivateAudioInputAnalysis st = case (needsAudioInputAnalysis st && isNothing (audioInputAnalyser st) && isJust (microphoneNode st)) of
+  True -> do
+    T.putStrLn "Punctual: activating audio input analysis"
+    x <- MusicW.liftAudioIO $ createAnalyser 128 0.5
+    y <- arrayForAnalysis x
+    connectNodes (fromJust $ microphoneNode st) x
+    return $ st {
+      audioInputAnalyser = Just x,
+      audioInputArray = Just y
+    }
+  False -> return st
+
+maybeDisactivateAudioInputAnalysis :: PunctualWebGL -> IO PunctualWebGL
+maybeDisactivateAudioInputAnalysis st = case ((not $ needsAudioInputAnalysis st) && isJust (audioInputAnalyser st)) of
+  True -> do
+    T.putStrLn "Punctual: disactivating audio input analysis"
+    MusicW.disconnectAll $ fromJust (audioInputAnalyser st)
+    return $ st {
+      audioInputAnalyser = Nothing,
+      audioInputArray = Nothing
+    }
+  False -> return st
+
+maybeActivateAudioOutputAnalysis :: PunctualWebGL -> IO PunctualWebGL
+maybeActivateAudioOutputAnalysis st = case (needsAudioOutputAnalysis st && isNothing (audioOutputAnalyser st) && isJust (audioOutputNode st)) of
+  True -> do
+    T.putStrLn "Punctual: activating audio output analysis"
+    x <- MusicW.liftAudioIO $ createAnalyser 128 0.5
+    y <- arrayForAnalysis x
+    connectNodes (fromJust $ audioOutputNode st) x
+    return $ st {
+      audioOutputAnalyser = Just x,
+      audioOutputArray = Just y
+    }
+  False -> return st
+
+maybeDisactivateAudioOutputAnalysis :: PunctualWebGL -> IO PunctualWebGL
+maybeDisactivateAudioOutputAnalysis st = case ((not $ needsAudioOutputAnalysis st) && isJust (audioOutputAnalyser st)) of
+  True -> do
+    T.putStrLn "Punctual: disactivating audio output analysis"
+    MusicW.disconnectAll $ fromJust (audioOutputAnalyser st)
+    return $ st {
+      audioOutputAnalyser = Nothing,
+      audioOutputArray = Nothing
+    }
+  False -> return st
+
+getAudioInputAnalysis :: PunctualWebGL -> IO (Double,Double,Double)
+getAudioInputAnalysis st = case (audioInputAnalyser st) of
+  Just n -> do
+    let a = fromJust $ audioInputArray st
+    getByteFrequencyData n a
+    x <- getLo a
+    y <- getMid a
+    z <- getHi a
+    return (x,y,z)
+  Nothing -> return (0,0,0)
+
+getAudioOutputAnalysis :: PunctualWebGL -> IO (Double,Double,Double)
+getAudioOutputAnalysis st = case (audioOutputAnalyser st) of
+  Just n -> do
+    let a = fromJust $ audioOutputArray st
+    getByteFrequencyData n a
+    x <- getLo a
+    y <- getMid a
+    z <- getHi a
+    return (x,y,z)
+  Nothing -> return (0,0,0)
+
 
 -- given a list of requested texture sources (images) and the previous map of requested texture sources
 -- request any textures we don't already have AND delete any textures we no longer need
@@ -73,8 +161,8 @@ foreign import javascript safe
    \image.src = $2;"
    _loadTexture :: WebGLRenderingContext -> Text -> IO WebGLTexture
 
-newPunctualWebGL :: GLContext -> IO PunctualWebGL
-newPunctualWebGL ctx = runGL ctx $ do
+newPunctualWebGL :: Maybe MusicW.Node -> Maybe MusicW.Node -> GLContext -> IO PunctualWebGL
+newPunctualWebGL mic out ctx = runGL ctx $ do
   glCtx <- gl
   defaultBlendFunc
   unpackFlipY
@@ -98,7 +186,13 @@ newPunctualWebGL ctx = runGL ctx $ do
     prevPrograms = IntMap.empty,
     firstZone = 0,
     needsAudioInputAnalysis = False,
-    needsAudioOutputAnalysis = False
+    needsAudioOutputAnalysis = False,
+    microphoneNode = mic,
+    audioOutputNode = out,
+    audioInputAnalyser = Nothing,
+    audioOutputAnalyser = Nothing,
+    audioInputArray = Nothing,
+    audioOutputArray = Nothing
   }
 
 foreign import javascript unsafe
@@ -154,8 +248,8 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
   let prevAsync = IntMap.findWithDefault emptyAsyncProgram z (mainPrograms st)
   newAsync <- updateAsyncProgram prevAsync defaultVertexShader newFragmentShader
   let prevProgramsNeedAudioInputAnalysis = elem True $ fmap programNeedsAudioInputAnalysis $ IntMap.elems $ prevPrograms st
-  let prevProgramsNeedAudioOutputAnalysis = elem True $ fmap programNeedsAudioInputAnalysis $ IntMap.elems $ prevPrograms st
-  return $ st {
+  let prevProgramsNeedAudioOutputAnalysis = elem True $ fmap programNeedsAudioOutputAnalysis $ IntMap.elems $ prevPrograms st
+  let st' = st {
     prevPrograms = newPrograms,
     mainPrograms = IntMap.insert z newAsync (mainPrograms st),
     textures = newTextures,
@@ -163,10 +257,11 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
     needsAudioInputAnalysis = programNeedsAudioInputAnalysis p || prevProgramsNeedAudioInputAnalysis,
     needsAudioOutputAnalysis = programNeedsAudioOutputAnalysis p || prevProgramsNeedAudioOutputAnalysis
     }
+  liftIO $ updateAudioAnalysis st'
 
 
-drawPunctualWebGL :: GLContext -> (AudioTime,Double,Double,Double,Double,Double,Double) -> Int -> PunctualWebGL -> IO PunctualWebGL
-drawPunctualWebGL ctx (t,lo,mid,hi,ilo,imid,ihi) z st = runGL ctx $ do
+drawPunctualWebGL :: GLContext -> AudioTime -> Int -> PunctualWebGL -> IO PunctualWebGL
+drawPunctualWebGL ctx t z st = runGL ctx $ do
   let mainUniforms = ["t","res","tex0","tex1","tex2","tex3","tex4","tex5","tex6","tex7","lo","mid","hi","ilo","imid","ihi","_defaultAlpha"]
   let mainAttribs = ["p"]
   let prevAsync = IntMap.findWithDefault emptyAsyncProgram z $ mainPrograms st
@@ -187,6 +282,8 @@ drawPunctualWebGL ctx (t,lo,mid,hi,ilo,imid,ihi) z st = runGL ctx $ do
     --  clearColor 0.0 0.0 0.0 1.0 -- probably should comment this back in?
     --  clearColorBuffer -- probably should comment this back in?
     uniform1fAsync asyncProgram "t" (realToFrac t)
+    (lo,mid,hi) <- liftIO $ getAudioOutputAnalysis st
+    (ilo,imid,ihi) <- liftIO $ getAudioInputAnalysis st
     uniform1fAsync asyncProgram "lo" lo
     uniform1fAsync asyncProgram "hi" hi
     uniform1fAsync asyncProgram "mid" mid

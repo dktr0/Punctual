@@ -118,10 +118,6 @@ data RenderState = RenderState {
   punctualW :: PunctualW,
   punctualWebGL :: PunctualWebGL,
   fps :: MovingAverage,
-  inputAnalysisNode :: Node,
-  inputAnalysisArray :: JSVal,
-  outputAnalysisNode :: Node,
-  outputAnalysisArray :: JSVal,
   t0 :: AudioTime,
   tPrevAnimationFrame :: UTCTime
 }
@@ -129,26 +125,18 @@ data RenderState = RenderState {
 
 forkRenderThreads :: HTMLCanvasElement -> IO (MVar RenderState)
 forkRenderThreads canvas = do
-  -- create audio input and analysis network
   mic <- liftAudioIO createMicrophone
-  inputAnalyser <- liftAudioIO $ createAnalyser 128 0.5
-  inputArray <- arrayForAnalysis inputAnalyser
-  connectNodes mic inputAnalyser
-  -- create audio output and analysis network
   gain <- liftAudioIO $ createGain (dbamp (-10))
   comp <- liftAudioIO $ createCompressor (-20) 3 4 0.050 0.1
-  outputAnalyser <- liftAudioIO $ createAnalyser 128 0.5
-  outputArray <- arrayForAnalysis outputAnalyser
   dest <- liftAudioIO $ createDestination
   connectNodes gain comp
-  connectNodes comp outputAnalyser
   connectNodes comp dest
   ac <- getGlobalAudioContext
   t0audio <- liftAudioIO $ audioTime
   let iW = emptyPunctualW ac gain 2 -- hard coded stereo for now
   -- create PunctualWebGL for animation
   glc <- newGLContext canvas
-  initialPunctualWebGL <- newPunctualWebGL glc
+  initialPunctualWebGL <- newPunctualWebGL (Just mic) (Just comp) glc
   -- create an MVar for the render state, fork render threads, return the MVar
   t0system <- getCurrentTime
   mv <- newMVar $ RenderState {
@@ -159,10 +147,6 @@ forkRenderThreads canvas = do
     punctualW = iW,
     punctualWebGL = initialPunctualWebGL,
     fps = newAverage 60,
-    inputAnalysisNode = inputAnalyser,
-    inputAnalysisArray = inputArray,
-    outputAnalysisNode = outputAnalyser,
-    outputAnalysisArray = outputArray,
     t0 = t0audio,
     tPrevAnimationFrame = t0system
   }
@@ -211,24 +195,7 @@ animationThread mv _ = do
   let newFps = updateAverage (fps rs) $ 1 / realToFrac tDiff
   t1audio <- liftAudioIO $ audioTime
   let pwgl = punctualWebGL rs
-  (ilo,imid,ihi) <- case needsAudioInputAnalysis pwgl of
-    True -> do
-      T.putStrLn "True"
-      getByteFrequencyData (inputAnalysisNode rs) (inputAnalysisArray rs)
-      x <- getLo $ inputAnalysisArray rs
-      y <- getMid $ inputAnalysisArray rs
-      z <- getHi $ inputAnalysisArray rs
-      return (x,y,z)
-    False -> return (0,0,0)
-  (lo,mid,hi) <- case needsAudioOutputAnalysis pwgl of
-    True -> do
-      getByteFrequencyData (outputAnalysisNode rs) (outputAnalysisArray rs)
-      x <- getLo $ outputAnalysisArray rs
-      y <- getMid $ outputAnalysisArray rs
-      z <- getHi $ outputAnalysisArray rs
-      return (x,y,z)
-    False -> return (0,0,0)
-  nGL <- drawPunctualWebGL (glCtx rs) (t1audio,lo,mid,hi,ilo,imid,ihi) 1 pwgl
+  nGL <- drawPunctualWebGL (glCtx rs) t1audio 1 pwgl
   nGL' <- displayPunctualWebGL (glCtx rs) nGL
   putMVar mv $ rs {
     tPrevAnimationFrame = t1system,
