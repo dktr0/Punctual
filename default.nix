@@ -36,13 +36,14 @@ with pkgs.haskell.lib;
 
     criterion = dontCheck super.criterion;
 
-    musicw = dontHaddock (self.callCabal2nix "musicw" ../MusicW {});
-    #dontHaddock (self.callCabal2nix "musicw" (pkgs.fetchFromGitHub {
-    #  owner = "dktr0";
-    #  repo = "musicw";
-    #  sha256 = "0q05d02cbsgqcryq78hq2sbn12md07bj09nxn0zp55s0wfvv3syh";
-    #  rev = "8ad568d0465eafffe308751fa5aafece1850eaad";
-    #  }) {});
+    musicw =
+    #dontHaddock (self.callCabal2nix "musicw" ../MusicW {});
+    dontHaddock (self.callCabal2nix "musicw" (pkgs.fetchFromGitHub {
+      owner = "dktr0";
+      repo = "musicw";
+      sha256 = "1c954035fsb9pb3x4hi2fl97y9sbf3xkb0fsl4ssly2f88ykxv8l";
+      rev = "dda24f19af8ca172adfd404fe0b75b25bd1c7fa2";
+      }) {});
 
     reflex-dom-contrib = dontHaddock (self.callCabal2nix "reflex-dom-contrib" (pkgs.fetchFromGitHub {
       owner = "reflex-frp";
