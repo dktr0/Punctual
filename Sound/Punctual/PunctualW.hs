@@ -282,6 +282,7 @@ expandMultis :: Graph -> [Graph]
 expandMultis (Multi []) = []
 expandMultis (Multi xs) = fmap graphsToMono $ fmap expandMultis xs
 expandMultis (Mono x) = [graphsToMono $ expandMultis x]
+expandMultis (Constant x) = [Constant x]
 -- unary functions
 expandMultis (Bipolar x) = fmap Bipolar $ expandMultis x
 expandMultis (Unipolar x) = fmap Unipolar $ expandMultis x

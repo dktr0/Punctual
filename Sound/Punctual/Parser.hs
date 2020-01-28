@@ -27,6 +27,7 @@ import qualified Sound.Punctual.Action as P
 import Sound.Punctual.Program
 
 data ParserState = ParserState {
+  actionCount :: Int,
   textureRefs :: Map String Int,
   localBindings :: Map String Int, -- eg. f x y = fromList [("x",0),("y",1)]
   definitions1 :: Map String Graph,
@@ -38,6 +39,7 @@ data ParserState = ParserState {
 
 emptyParserState :: ParserState
 emptyParserState = ParserState {
+  actionCount = 0,
   textureRefs = Map.empty,
   localBindings = Map.empty,
   definitions1 = Map.empty,
@@ -75,9 +77,11 @@ parseStatementAsDefinition (p,st) (_,x) = do
   return (p,st')
 
 parseStatementAsAction :: (Program,ParserState) -> (Int,String) -> Either String (Program,ParserState)
-parseStatementAsAction (p,st) (lineNumber,x) = do
+parseStatementAsAction (p,st) (_,x) = do
   (a,st') <- parseAction st x
-  return (p { actions = IntMap.insert lineNumber a (actions p) },st')
+  let actionIndex = actionCount st
+  let st'' = st' { actionCount = actionIndex + 1 }
+  return (p { actions = IntMap.insert actionIndex a (actions p)}, st'')
 
 parseAction :: ParserState -> String -> Either String (Action,ParserState)
 parseAction = parseHaskellish action
@@ -93,13 +97,15 @@ simpleDefinition _ _ = Left ""
 
 parse :: AudioTime -> Text -> IO (Either String Program)
 parse eTime x = do
-  (x',pragmas) <- return $! extractPragmas x
+  let (x',pragmas) = extractPragmas x
   r <- if (elem "glsl" pragmas) then do
     return $ Right $ emptyProgram { directGLSL = Just x' }
   else do
-    a <- return $! Prelude.filter notEmptyLine $ linesBy (==';') $ T.unpack x' -- cast to String and separate on ;
-    p <- return $! parseProgram eTime a
-    return p
+    let a = Prelude.filter notEmptyLine $ linesBy (==';') $ T.unpack x' -- cast to String and separate on ;
+    p' <- return $! parseProgram eTime a
+    case p' of
+      Left _ -> return $ Left "syntax error"
+      Right p'' -> return $ Right p''
   return r
 
 extractPragmas :: Text -> (Text,[Text])
