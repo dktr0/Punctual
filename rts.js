@@ -1339,17 +1339,68 @@ var h$ret10;
 
 
 function h$ghcjszmprimZCGHCJSziPrimziJSVal_con_e() { return h$stack[h$sp]; };
-function h$getGlobal(that) {
-    if(typeof global !== 'undefined') return global;
-    return that;
+var h$isNode = false;
+var h$isJvm = false;
+var h$isJsShell = false;
+var h$isJsCore = false;
+var h$isBrowser = false;
+
+var h$isGHCJSi = false;
+
+
+if(typeof process !== 'undefined' && (typeof h$TH !== 'undefined' || (typeof require !== 'undefined' && typeof module !== 'undefined' && module.exports))) {
+    h$isNode = true;
+
+    var fs = require('fs');
+    var path = require('path');
+    var os = require('os');
+    var child_process = require('child_process');
+    var h$fs = fs;
+    var h$path = path;
+    var h$os = os;
+    var h$child = child_process;
+    var h$process = process;
+    function h$getProcessConstants() {
+
+      var cs = process['binding']('constants');
+      if(typeof cs.os === 'object' && typeof cs.fs === 'object') {
+        return cs;
+      } else {
+
+
+        return { 'fs': cs
+               , 'crypto': cs
+               , 'os': { 'UV_UDP_REUSEADDR': cs['UV_UDP_REUSEADDR']
+                           , 'errno': cs
+                           , 'signals': cs
+                           }
+               };
+      }
+    }
+    var h$processConstants = h$getProcessConstants();
+} else if(typeof Java !== 'undefined') {
+    h$isJvm = true;
+    this.console = {
+      log: function(s) {
+        java.lang.System.out.print(s);
+      }
+    };
+} else if(typeof snarf !== 'undefined' && typeof print !== 'undefined' && typeof quit !== 'undefined') {
+    h$isJsShell = true;
+    this.console = { log: this.print };
+} else if(typeof numberOfDFGCompiles !== 'undefined' && typeof jscStack !== 'undefined') {
+    h$isJsCore = true;
+} else {
+    h$isBrowser = true;
+}
+if(typeof global !== 'undefined' && global.h$GHCJSi) {
+  h$isGHCJSi = true;
 }
 
 
-
-if (!Date.now) {
-  Date.now = function now() {
-    return +(new Date);
-  };
+function h$getGlobal(that) {
+    if(typeof global !== 'undefined') return global;
+    return that;
 }
 
 
@@ -2436,6 +2487,17 @@ goog.crypt = {};
     function clearImmediate(handle) {
         delete tasksByHandle[handle];
     }
+
+
+    function installNextTickImplementation() {
+        setImmediate = function() {
+            var handle = addFromSetImmediateArguments(arguments);
+            process.nextTick(partiallyApplied(runIfPresent, handle));
+            return handle;
+        };
+    }
+
+
     function canUsePostMessage() {
 
 
@@ -2513,8 +2575,8 @@ goog.crypt = {};
     function installSetTimeoutImplementation() {
 
 
-
-
+        if(typeof setTimeout === 'undefined') setImmediate = function() { return null; };
+        else
 
           setImmediate = function() {
             var handle = addFromSetImmediateArguments(arguments);
@@ -2526,6 +2588,15 @@ goog.crypt = {};
 
     var attachTo = Object.getPrototypeOf && Object.getPrototypeOf(global);
     attachTo = attachTo && attachTo.setTimeout ? attachTo : global;
+
+
+
+    if ({}.toString.call(global.process) === "[object process]") {
+
+        installNextTickImplementation();
+
+    } else
+
        if (canUsePostMessage()) {
 
         installPostMessageImplementation();
@@ -5126,6 +5197,15 @@ function h$gcQuick(t) {
 
 
 function h$gc(t) {
+
+
+
+
+
+
+    if(h$isGHCJSi) return;
+
+
     if(h$currentThread !== null) throw "h$gc: GC can only be run when no thread is running";
 
 
@@ -5628,10 +5708,75 @@ function h$strerror(err) {
  { h$ret1 = (0); return (h$encodeUtf8("operation unsupported on this platform")); };
     }
 
-    { h$ret1 = (0); return (h$encodeUtf8("unknown error")); };
 
 
+    { h$ret1 = (0); return (h$encodeUtf8(h$errorStrs[err] || "unknown error")); };
 
+}
+
+
+function h$setErrno(e) {
+                               ;
+  var es = e.toString();
+  var getErr = function() {
+      if(es.indexOf('ENOTDIR') !== -1) return 20;
+      if(es.indexOf('ENOENT') !== -1) return 2;
+      if(es.indexOf('EEXIST') !== -1) return 17;
+      if(es.indexOf('ENETUNREACH') !== -1) return 22;
+      if(es.indexOf('EPERM') !== -1) return 1;
+      if(es.indexOf('EMFILE') !== -1) return 24;
+      if(es.indexOf('EPIPE') !== -1) return 32;
+      if(es.indexOf('EAGAIN') !== -1) return 35;
+      if(es.indexOf('EINVAL') !== -1) return 22;
+      if(es.indexOf('ESPIPE') !== -1) return 29;
+      if(es.indexOf('EBADF') !== -1) return 9;
+      if(es.indexOf('Bad argument') !== -1) return 2;
+      throw ("setErrno not yet implemented: " + e);
+
+  }
+  h$errno = getErr();
+}
+
+var h$errorStrs = { 7: "Argument list too long"
+                   , CONST_EACCESS: "Permission denied"
+                   , 22: "Invalid argument"
+                   , 9: "Bad file descriptor"
+                   , 20: "Not a directory"
+                   , 2: "No such file or directory"
+                   , 1: "Operation not permitted"
+                   , 17: "File exists"
+                   , 24: "Too many open files"
+                   , 32: "Broken pipe"
+                   , 35: "Resource temporarily unavailable"
+                   , 29: "Illegal seek"
+                   }
+
+function h$handleErrno(r_err, f) {
+  try {
+    return f();
+  } catch(e) {
+    h$setErrno(e);
+    return r_err;
+  }
+}
+
+function h$handleErrnoS(r_err, r_success, f) {
+  try {
+    f();
+    return r_success;
+  } catch(e) {
+    h$setErrno(e);
+    return r_err;
+  }
+}
+
+function h$handleErrnoC(err, r_err, r_success, c) {
+    if(err) {
+        h$setErrno(err);
+        c(r_err);
+    } else {
+        c(r_success);
+    }
 }
 
 function h$MD5Init(ctx, ctx_off) {
@@ -6982,6 +7127,15 @@ function h$throwJSException(e) {
 
 
 
+var h$glbl;
+function h$getGlbl() { h$glbl = this; }
+h$getGlbl();
+
+
+
+
+
+
 function h$log() {
 
 
@@ -6991,12 +7145,22 @@ function h$log() {
 
 
   try {
+
+    if(h$glbl) {
+      if(h$glbl.console && h$glbl.console.log) {
+        h$glbl.console.log.apply(h$glbl.console,arguments);
+      } else {
+        h$glbl.print.apply(this,arguments);
+      }
+    } else {
+      if(typeof console !== 'undefined') {
+
         console.log.apply(console, arguments);
 
-
-
-
-
+      } else if(typeof print !== 'undefined') {
+        print.apply(null, arguments);
+      }
+    }
 
   } catch(ex) {
 
@@ -7015,7 +7179,24 @@ function h$collectProps(o) {
 
 var h$programArgs;
 
-h$programArgs = [ "a.js" ];
+
+
+if(h$isNode) {
+    h$programArgs = process.argv.slice(1);
+} else if(h$isJvm) {
+    h$programArgs = h$getGlobal(this).arguments.slice(0);
+    h$programArgs.unshift("a.js");
+} else if(h$isJsShell && typeof h$getGlobal(this).scriptArgs !== 'undefined') {
+    h$programArgs = h$getGlobal(this).scriptArgs.slice(0);
+    h$programArgs.unshift("a.js");
+} else if((h$isJsShell || h$isJsCore) && typeof h$getGlobal(this).arguments !== 'undefined') {
+    h$programArgs = h$getGlobal(this).arguments.slice(0);
+    h$programArgs.unshift("a.js");
+} else {
+    h$programArgs = [ "a.js" ];
+}
+
+
 function h$getProgArgv(argc_v,argc_off,argv_v,argv_off) {
                           ;
   var c = h$programArgs.length;
@@ -7045,7 +7226,7 @@ function h$setProgArgv(n, ptr_d, ptr_o) {
 
 function h$getpid() {
 
-
+  if(h$isNode) return process.id;
 
   return 0;
 }
@@ -7057,6 +7238,16 @@ function h$cpuTimePrecision() {
 var h$fakeCpuTime = 1.0;
 
 function h$getCPUTime() {
+
+if(h$isNode) {
+  var t = process.cpuUsage();
+  var cput = t.user + t.system;
+                                  ;
+  return cput;
+}
+
+
+
                                                ;
   return ++h$fakeCpuTime;
   return -1;
@@ -7064,6 +7255,22 @@ function h$getCPUTime() {
 
 function h$__hscore_environ() {
                                ;
+
+    if(h$isNode) {
+        var env = [], i;
+        for(i in process.env) {
+          var envv = i + '=' + process.env[i];
+                                              ;
+          env.push(envv);
+        }
+        if(env.length === 0) return null;
+        var p = h$newByteArray(4*env.length+1);
+        p.arr = [];
+        for(i=0;i<env.length;i++) p.arr[4*i] = [h$encodeUtf8(env[i]), 0];
+        p.arr[4*env.length] = [null, 0];
+        { h$ret1 = (0); return (p); };
+    }
+
     { h$ret1 = (0); return (null); };
 }
 
@@ -7073,6 +7280,16 @@ function h$__hsbase_unsetenv(name, name_off) {
 
 function h$getenv(name, name_off) {
                        ;
+
+    if(h$isNode) {
+        var n = h$decodeUtf8z(name, name_off);
+                                        ;
+        if(typeof process.env[n] !== 'undefined') {
+                                                                      ;
+            { h$ret1 = (0); return (h$encodeUtf8(process.env[n])); };
+        }
+    }
+
     { h$ret1 = (0); return (null); };
 }
 
@@ -7085,9 +7302,9 @@ function h$setenv(name, name_off, val, val_off, overwrite) {
     return -1;
   }
 
-
-
-
+  if(h$isNode) {
+    if(overwrite || typeof process.env[n] !== 'undefined') process.env[n] = v;
+  }
 
   return 0;
 }
@@ -7100,11 +7317,25 @@ function h$unsetenv(name, name_off) {
     return -1;
   }
 
-
+  if(h$isNode) delete process.env[n];
 
   return 0;
 }
 function h$putenv(str, str_off) {
+
+  var x = h$decodeUtf8z(str, str_off);
+  var i = x.indexOf('=');
+                           ;
+  if(i === -1) {
+                                   ;
+    if(h$isNode) delete process.env[x];
+  } else {
+    var name = x.substring(0, i)
+    var val = x.substring(i+1);
+                                                   ;
+    if(h$isNode) process.env[name] = val;
+  }
+
   return 0;
 }
 
@@ -7123,20 +7354,40 @@ function h$debugBelch2(buf1, buf_offset1, buf2, buf_offset2) {
 
 function h$errorMsg(pat) {
 
-
-
-
+  function stripTrailingNewline(xs) {
+    return xs.replace(/\r?\n$/, "");
+  }
 
 
   var str = pat;
   for(var i=1;i<arguments.length;i++) {
     str = str.replace(/%s/, arguments[i]);
   }
+
+  if(h$isGHCJSi) {
+
+  } else if(h$isNode) {
+    process.stderr.write(str);
+  } else if (h$isJsShell && typeof printErr !== 'undefined') {
+    if(str.length) printErr(stripTrailingNewline(str));
+  } else if (h$isJsShell && typeof putstr !== 'undefined') {
+    putstr(str);
+  } else if (h$isJsCore) {
+    if(str.length) {
+ if(h$base_stderrLeftover.val !== null) {
+     debug(h$base_stderrLeftover.val + stripTrailingNewline(str));
+     h$base_stderrLeftover.val = null;
+ } else {
+     debug(stripTrailingNewline(str));
+ }
+    }
+  } else {
+
     if(typeof console !== 'undefined') {
       console.log(str);
     }
 
-
+  }
 
 }
 
@@ -7919,19 +8170,19 @@ function h$scheduleMainLoop() {
     h$clearScheduleMainLoop();
     if(h$delayed.size() === 0) {
 
-
+        if(typeof setTimeout !== 'undefined') {
 
                                                                                     ;
             h$mainLoopTimeout = setTimeout(h$mainLoop, h$gcInterval);
 
-
+        }
 
         return;
     }
     var now = Date.now();
     var delay = Math.min(Math.max(h$delayed.peekPrio()-now, 0), h$gcInterval);
 
-
+    if(typeof setTimeout !== 'undefined') {
 
         if(delay >= 1) {
                                                                              ;
@@ -7941,7 +8192,7 @@ function h$scheduleMainLoop() {
             h$mainLoopImmediate = setImmediate(h$mainLoop);
         }
 
-
+    }
 
 }
 
@@ -7969,12 +8220,26 @@ function h$startMainLoop() {
                                                     ;
     if(h$running) return;
 
-
+    if(typeof setTimeout !== 'undefined') {
 
         if(!h$mainLoopImmediate) {
             h$clearScheduleMainLoop();
             h$mainLoopImmediate = setImmediate(h$mainLoop);
         }
+
+    } else {
+      while(true) {
+
+
+
+        try {
+          h$mainLoop();
+        } catch(e) {
+          throw e;
+        }
+      }
+    }
+
 }
 var h$busyYield = 500;
 var h$schedQuantum = 25;
@@ -8374,9 +8639,9 @@ function h$main(a) {
 
     t.stack[0] = h$doneMain_e;
 
-
-
-
+  if(!h$isBrowser && !h$isGHCJSi) {
+    t.stack[2] = h$baseZCGHCziTopHandlerzitopHandler;
+  }
 
   t.stack[4] = h$ap_1_0;
   t.stack[5] = h$flushStdout;
@@ -8393,15 +8658,15 @@ function h$main(a) {
 
 function h$doneMain() {
 
-
-
-
-
-
+  if(h$isGHCJSi) {
+    if(h$currentThread.stack) {
+      global.h$GHCJSi.done(h$currentThread);
+    }
+  } else {
 
     h$exitProcess(0);
 
-
+  }
 
   h$finishThread(h$currentThread);
   return h$reschedule;
@@ -8417,13 +8682,28 @@ h$ThreadAbortedError.prototype.toString = function() {
 }
 
 function h$exitProcess(code) {
+
+    if(h$isNode) {
+ process.exit(code);
+    } else if(h$isJvm) {
+        java.lang.System.exit(code);
+    } else if(h$isJsShell) {
+        quit(code);
+    } else if(h$isJsCore) {
+        if(h$base_stdoutLeftover.val !== null) print(h$base_stdoutLeftover.val);
+        if(h$base_stderrLeftover.val !== null) debug(h$base_stderrLeftover.val);
+
+        if(code !== 0) debug("GHCJS JSC exit status: " + code);
+        quit();
+    } else {
+
         if(h$currentThread) {
             h$finishThread(h$currentThread);
             h$stack = null;
             throw new h$ThreadAbortedError(code);
         }
 
-
+    }
 
 }
 
