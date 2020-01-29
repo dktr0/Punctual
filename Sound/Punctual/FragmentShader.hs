@@ -146,6 +146,8 @@ ternaryShaderFunction f x y z = expandWith3 (\(a,_) (b,_) (c,_) -> (f<>"("<>a<>"
     z' = toGLFloats $ graphToGLSL z
 
 expandWith :: (a -> b -> c) -> [a] -> [b] -> [c]
+expandWith _ [] _ = []
+expandWith _ _ [] = []
 expandWith f xs ys = zipWith f xs' ys'
   where
     n = max (length xs) (length ys)
@@ -153,6 +155,9 @@ expandWith f xs ys = zipWith f xs' ys'
     ys' = take n $ cycle ys
 
 expandWith3 :: (a -> b -> c -> d) -> [a] -> [b] -> [c] -> [d]
+expandWith3 _ [] _ _ = []
+expandWith3 _ _ [] _ = []
+expandWith3 _ _ _ [] = []
 expandWith3 f xs ys zs = zipWith3 f xs' ys' zs'
   where
     n = maximum [length xs,length ys,length zs]

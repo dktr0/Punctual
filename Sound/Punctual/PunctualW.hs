@@ -109,9 +109,10 @@ deleteSynth eTime xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
 graphToSynthDef' :: AudioIO m => Graph -> SynthDef m NodeRef
 graphToSynthDef' g = do
   sd <- mapM graphToSynthDef $ expandMultis g
-  cm <- W.channelMerger sd
-  W.gain 0 cm
-
+  case sd of
+    [] -> W.constantSource 0 >>= W.gain 0
+    _ -> W.channelMerger sd >>= W.gain 0
+  
 graphToSynthDef :: AudioIO m => Graph -> SynthDef m NodeRef
 
 graphToSynthDef (Multi _) = error "internal error: graphToSynthDef should only be used post multi-channel expansion (can't handle Multi)"
