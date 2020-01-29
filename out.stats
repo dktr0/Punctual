@@ -13,7 +13,7 @@ ghcjs-prim-0.1.1.0-EXzjGVHQlAS2XAXcu0iCbS:10275
 haskell-src-exts-1.21.0-DsLjfIdnuhDB9rbXFZ7Qmq:5441326
 haskellish-0.2.0-F2hem3hpCY185keVIRuk3:5473
 integer-gmp:             95413
-main:                    1594560
+main:                    1596831
 musicw-0.3.3-BmzM3jxix3PJ70yoFrxjTu:333502
 pretty-1.1.3.6-HCbdzOHqNpW5RoNxlHyeg5:2484
 primitive-0.6.3.0-KfguiTuxgILGqu8JEOpKRI:1293
@@ -192,14 +192,14 @@ main
     Sound.Punctual.AudioTime:           16486
     Sound.Punctual.DefTime:             8768
     Sound.Punctual.Duration:            1609
-    Sound.Punctual.Extent:              585742
+    Sound.Punctual.Extent:              585243
     Sound.Punctual.FragmentShader:      69936
     Sound.Punctual.GL:                  179267
     Sound.Punctual.Graph:               3852
     Sound.Punctual.MovingAverage:       22158
     Sound.Punctual.Output:              154718
     Sound.Punctual.Parser:              18603
-    Sound.Punctual.Program:             287146
+    Sound.Punctual.Program:             289916
     Sound.Punctual.PunctualW:           9443
     Sound.Punctual.Transition:          137988
     Sound.Punctual.WebGL:               4064
@@ -307,5 +307,5 @@ unbounded-delays-0.1.1.0-3OIBWhvs3opCI9f4squMMQ
 
 
 
-packed metadata: 3468026
+packed metadata: 3468188
 
