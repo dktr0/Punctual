@@ -132,7 +132,7 @@ binaryShaderFunction f x y = expandWith (\(a,_) (b,_) -> (f<>"("<>a<>","<>b<>")"
 -- TODO: for now this is reducing everything to floats but later we should figure out how to preserve larger types when possible
 binaryShaderOp :: Builder -> Graph -> Graph -> GLSL
 binaryShaderOp f x y = expandWith (\(a,_) (b,_) -> ("("<>a<>f<>b<>")",GLFloat)) (toGLFloats $ graphToGLSL x) (toGLFloats $ graphToGLSL y)
-
+  
 -- like binaryShaderOp except the function f returns a bool that gets cast to a GLFloat
 binaryShaderOpBool :: Builder -> Graph -> Graph -> GLSL
 binaryShaderOpBool f x y = expandWith (\(a,_) (b,_) -> ("float("<>a<>f<>b<>")",GLFloat)) (toGLFloats $ graphToGLSL x) (toGLFloats $ graphToGLSL y)
@@ -194,23 +194,24 @@ header
    \float fy() { return bipolar(gl_FragCoord.y/res.y); }\
    \vec2 fxy() { return bipolar(gl_FragCoord.xy/res); }\
    \vec2 uv() { return (gl_FragCoord.xy/res); }\
-   \vec3 tex(int n,vec2 xy) {\
-   \ if(n==0)return texture2D(tex0,unipolar(xy)).xyz; else\
-   \ if(n==1)return texture2D(tex1,unipolar(xy)).xyz; else\
-   \ if(n==2)return texture2D(tex2,unipolar(xy)).xyz; else\
-   \ if(n==3)return texture2D(tex3,unipolar(xy)).xyz; else\
-   \ if(n==4)return texture2D(tex4,unipolar(xy)).xyz; else\
-   \ if(n==5)return texture2D(tex5,unipolar(xy)).xyz; else\
-   \ if(n==6)return texture2D(tex6,unipolar(xy)).xyz; else\
-   \ if(n==7)return texture2D(tex7,unipolar(xy)).xyz; else\
-   \ if(n==8)return texture2D(tex8,unipolar(xy)).xyz; else\
-   \ if(n==9)return texture2D(tex9,unipolar(xy)).xyz; else\
-   \ if(n==10)return texture2D(tex10,unipolar(xy)).xyz; else\
-   \ if(n==11)return texture2D(tex11,unipolar(xy)).xyz; else\
-   \ if(n==12)return texture2D(tex12,unipolar(xy)).xyz; else\
-   \ if(n==13)return texture2D(tex13,unipolar(xy)).xyz; else\
-   \ if(n==14)return texture2D(tex14,unipolar(xy)).xyz; else\
-   \ if(n==15)return texture2D(tex15,unipolar(xy)).xyz; else\
+   \vec3 tex(int n,vec2 xy_) {\
+   \ vec2 xy = fract(unipolar(xy_));\
+   \ if(n==0)return texture2D(tex0,xy).xyz; else\
+   \ if(n==1)return texture2D(tex1,xy).xyz; else\
+   \ if(n==2)return texture2D(tex2,xy).xyz; else\
+   \ if(n==3)return texture2D(tex3,xy).xyz; else\
+   \ if(n==4)return texture2D(tex4,xy).xyz; else\
+   \ if(n==5)return texture2D(tex5,xy).xyz; else\
+   \ if(n==6)return texture2D(tex6,xy).xyz; else\
+   \ if(n==7)return texture2D(tex7,xy).xyz; else\
+   \ if(n==8)return texture2D(tex8,xy).xyz; else\
+   \ if(n==9)return texture2D(tex9,xy).xyz; else\
+   \ if(n==10)return texture2D(tex10,xy).xyz; else\
+   \ if(n==11)return texture2D(tex11,xy).xyz; else\
+   \ if(n==12)return texture2D(tex12,xy).xyz; else\
+   \ if(n==13)return texture2D(tex13,xy).xyz; else\
+   \ if(n==14)return texture2D(tex14,xy).xyz; else\
+   \ if(n==15)return texture2D(tex15,xy).xyz; else\
    \ return vec3(0.);}\
    \vec3 fb(float r){\
    \  vec3 x = texture2D(tex0,uv()).xyz * r;\

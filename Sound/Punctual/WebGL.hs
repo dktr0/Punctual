@@ -245,6 +245,7 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
   newTextures <- updateTextures allTextures (textures st)
   let prevP = IntMap.findWithDefault emptyProgram z (prevPrograms st)
   let newFragmentShader = fragmentShader tempo prevP p
+  -- liftIO $ T.putStrLn $ newFragmentShader
   let prevAsync = IntMap.findWithDefault emptyAsyncProgram z (mainPrograms st)
   newAsync <- updateAsyncProgram prevAsync defaultVertexShader newFragmentShader
   let prevProgramsNeedAudioInputAnalysis = elem True $ fmap programNeedsAudioInputAnalysis $ IntMap.elems $ prevPrograms st
