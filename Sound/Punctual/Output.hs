@@ -2,7 +2,6 @@
 
 module Sound.Punctual.Output where
 
-import Data.Text (Text)
 import GHC.Generics (Generic)
 import Control.DeepSeq
 
@@ -17,20 +16,20 @@ data Output =
 
 outputsAudio :: [Output] -> Bool
 outputsAudio [] = False
-outputsAudio ((Panned _):xs) = True
-outputsAudio (Splay:xs) = True
+outputsAudio ((Panned _):_) = True
+outputsAudio (Splay:_) = True
 outputsAudio (_:xs) = outputsAudio xs
 
 outputsWebGL :: [Output] -> Bool
 outputsWebGL [] = False
-outputsWebGL (Red:xs) = True
-outputsWebGL (Green:xs) = True
-outputsWebGL (Blue:xs) = True
-outputsWebGL (Hue:xs) = True
-outputsWebGL (Saturation:xs) = True
-outputsWebGL (Value:xs) = True
-outputsWebGL (RGB:xs) = True
-outputsWebGL (HSV:xs) = True
-outputsWebGL (Alpha:xs) = True
-outputsWebGL (Fdbk:xs) = True
+outputsWebGL (Red:_) = True
+outputsWebGL (Green:_) = True
+outputsWebGL (Blue:_) = True
+outputsWebGL (Hue:_) = True
+outputsWebGL (Saturation:_) = True
+outputsWebGL (Value:_) = True
+outputsWebGL (RGB:_) = True
+outputsWebGL (HSV:_) = True
+outputsWebGL (Alpha:_) = True
+outputsWebGL (Fdbk:_) = True
 outputsWebGL (_:xs) = outputsWebGL xs

@@ -119,6 +119,8 @@ graphToGLSL (Between r x) = expandWith (\(r',_) (b,t) -> ("between("<>r'<>","<>b
 graphToGLSL (ILine xy1 xy2 w) = ternaryShaderFunction "iline" xy1 xy2 w
 graphToGLSL (Line xy1 xy2 w) = ternaryShaderFunction "line" xy1 xy2 w
 graphToGLSL (LinLin r1 r2 w) = ternaryShaderFunction "linlin" r1 r2 w
+graphToGLSL (IfThenElse x y z) = zipWith3 (\(a,t) (b,_) (c,_) -> ("ifthenelse("<>a<>","<>b<>","<>c<>")",t)) x' y' z'
+  where (x',y',z') = alignGLSL3 (graphToGLSL x) (graphToGLSL y) (graphToGLSL z)
 graphToGLSL _ = []
 
 -- note: GLSL functions/ops implemented using unaryShaderFunction must exist in versions specialized for float, vec2, and vec3
@@ -160,6 +162,15 @@ glslChannels _ = 0
 alignGLSL :: GLSL -> GLSL -> (GLSL,GLSL)
 alignGLSL a b = if aIsModel then (a, cycleGLSL a b) else (cycleGLSL b a, b)
   where aIsModel = (glslChannels a > glslChannels b) || ((glslChannels a == glslChannels b) && (length a <= length b))
+
+alignGLSL3 :: GLSL -> GLSL -> GLSL -> (GLSL,GLSL,GLSL)
+alignGLSL3 a b c = if aIsModel then (a, cycleGLSL a b, cycleGLSL a c) else (if bIsModel then (cycleGLSL b a, b, cycleGLSL b c) else (cycleGLSL c a,cycleGLSL c b,c))
+  where
+    aOverB = (glslChannels a > glslChannels b) || ((glslChannels a == glslChannels b) && (length a <= length b))
+    aOverC = (glslChannels a > glslChannels c) || ((glslChannels a == glslChannels c) && (length a <= length c))
+    bOverC = (glslChannels b > glslChannels c) || ((glslChannels b == glslChannels c) && (length b <= length c))
+    aIsModel = aOverB && aOverC
+    bIsModel = (not aOverB) && bOverC
 
 -- cycle through the builders in a in a way that matches the model of m
 cycleGLSL :: GLSL -> GLSL -> GLSL
@@ -276,6 +287,9 @@ header
    \float ampdb(float x) { return 20. * log(x) / log(10.); }\
    \vec2 ampdb(vec2 x) { return 20. * log(x) / log(10.); }\
    \vec3 ampdb(vec3 x) { return 20. * log(x) / log(10.); }\
+   \float ifthenelse(float x,float y,float z) { return float(x>0.)*y+float(x<=0.)*z;}\
+   \vec2 ifthenelse(vec2 x,vec2 y,vec2 z) { return vec2(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y));}\
+   \vec3 ifthenelse(vec3 x,vec3 y,vec3 z) { return vec3(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y),ifthenelse(x.z,y.z,z.z));}\
    \float xFadeNew(float t1,float t2) { if (t>t2) return 1.; if (t<t1) return 0.; return ((t-t1)/(t2-t1));}\
    \float xFadeOld(float t1,float t2) { return 1.-xFadeNew(t1,t2);}\
    \vec3 hsvrgb(vec3 c) {\

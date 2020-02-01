@@ -11,7 +11,7 @@ import Data.IntMap.Strict as IntMap
 import Data.List
 
 import Sound.Punctual.AudioTime
-import Sound.Punctual.Graph
+import Sound.Punctual.Graph hiding (when)
 import Sound.Punctual.Output
 import Sound.Punctual.Action
 import Sound.Punctual.Program
@@ -112,7 +112,7 @@ graphToSynthDef' g = do
   case sd of
     [] -> W.constantSource 0 >>= W.gain 0
     _ -> W.channelMerger sd >>= W.gain 0
-  
+
 graphToSynthDef :: AudioIO m => Graph -> SynthDef m NodeRef
 
 graphToSynthDef (Multi _) = error "internal error: graphToSynthDef should only be used post multi-channel expansion (can't handle Multi)"
@@ -272,6 +272,8 @@ graphToSynthDef (LinLin (Multi [min1,max1]) (Multi [min2,max2]) x) = graphToSynt
     outputRange = max2 - min2
     proportion = Division (x - min1) inputRange
 
+graphToSynthDef (IfThenElse x y z) = graphToSynthDef $ ((GreaterThan x 0)*y)+((LessThanOrEqual x 0)*z)
+
 -- Graph constructors that have no meaning in the audio domain all produce a constant signal of 0
 graphToSynthDef _ = W.constantSource 0
 
@@ -322,6 +324,7 @@ expandMultis (Between r x) = zipWith Between r' x' -- *** VERY HACKY
     x' = expandMultis x
     n = length x' * 2
     r' = fmap (\(a,b) -> Multi [a,b] ) $ listIntoTuples $ take n $ cycle $ expandMultis r
+
 -- ternary functions
 expandMultis (LinLin r1 r2 x) = zipWith3 LinLin r1' r2' x' -- *** VERY HACKY
   where
@@ -331,6 +334,7 @@ expandMultis (LinLin r1 r2 x) = zipWith3 LinLin r1' r2' x' -- *** VERY HACKY
     r2' = fmap (\(a,b) -> Multi [a,b] ) $ listIntoTuples $ take n $ cycle $ expandMultis r2
 expandMultis (LPF i f q) = expandWith3' LPF i f q
 expandMultis (HPF i f q) = expandWith3' HPF i f q
+expandMultis (IfThenElse x y z) = expandWith3' IfThenElse x y z
 expandMultis _ = []
 
 listIntoTuples :: [a] -> [(a,a)]

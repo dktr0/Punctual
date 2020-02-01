@@ -259,8 +259,14 @@ graph = asum [
   reserved "ilo" >> modify (\s -> s { audioInputAnalysis = True } ) >> return ILo,
   reserved "imid" >> modify (\s -> s { audioInputAnalysis = True } ) >> return IMid,
   reserved "ihi" >> modify (\s -> s { audioInputAnalysis = True } ) >> return IHi,
-  graph2 <*> graph
+  graph2 <*> graph,
+  ifThenElseParser
   ]
+
+ifThenElseParser :: H Graph
+ifThenElseParser = do
+  (a,b,c) <- ifThenElse graph graph graph
+  return $ IfThenElse a b c
 
 graph2 :: H (Graph -> Graph)
 graph2 = asum [
@@ -309,6 +315,7 @@ graph3 = asum [
   reserved "rect" >> return Rect,
   reserved "clip" >> return Clip,
   reserved "between" >> return Between,
+  reserved "when" >> return Sound.Punctual.Graph.when,
   graph4 <*> graph
   ]
 

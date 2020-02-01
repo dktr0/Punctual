@@ -50,6 +50,7 @@ data Graph =
   Between Graph Graph |
   VLine Graph Graph |
   HLine Graph Graph |
+  IfThenElse Graph Graph Graph |
   ILine Graph Graph Graph |
   Line Graph Graph Graph |
   LinLin Graph Graph Graph |
@@ -70,6 +71,9 @@ instance Fractional Graph where
   fromRational x = Constant $ fromRational x
 
 -- Miscellaneous functions over Graphs:
+
+when :: Graph -> Graph -> Graph
+when x y = IfThenElse x y 0
 
 fb :: Graph -> Graph
 fb xy = Tex 0 xy
