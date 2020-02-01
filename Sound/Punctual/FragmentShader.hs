@@ -101,10 +101,10 @@ graphToGLSL (Max x y) = binaryShaderFunction "max" x y
 graphToGLSL (Min x y) = binaryShaderFunction "min" x y
 graphToGLSL (Product x y) = binaryShaderOp "*" x y
 graphToGLSL (Division x y) = binaryShaderOp "/" x y
-graphToGLSL (GreaterThan x y) = binaryShaderOpBool ">" x y
-graphToGLSL (GreaterThanOrEqual x y) = binaryShaderOpBool ">=" x y
-graphToGLSL (LessThan x y) = binaryShaderOpBool "<" x y
-graphToGLSL (LessThanOrEqual x y) = binaryShaderOpBool "<=" x y
+graphToGLSL (GreaterThan x y) = binaryShaderFunction "_gt" x y
+graphToGLSL (GreaterThanOrEqual x y) = binaryShaderFunction "_gte" x y
+graphToGLSL (LessThan x y) = binaryShaderFunction "_lt" x y
+graphToGLSL (LessThanOrEqual x y) = binaryShaderFunction "_lte" x y
 graphToGLSL (Equal x y) = binaryShaderOpBool "==" x y
 graphToGLSL (NotEqual x y) = binaryShaderOpBool "!=" x y
 graphToGLSL (Pow x y) = binaryShaderFunction "pow" x y
@@ -290,6 +290,18 @@ header
    \float ifthenelse(float x,float y,float z) { return float(x>0.)*y+float(x<=0.)*z;}\
    \vec2 ifthenelse(vec2 x,vec2 y,vec2 z) { return vec2(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y));}\
    \vec3 ifthenelse(vec3 x,vec3 y,vec3 z) { return vec3(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y),ifthenelse(x.z,y.z,z.z));}\
+   \float _gt(float x,float y) { return float(x>y); }\
+   \vec2 _gt(vec2 x,vec2 y) { return vec2(bvec2(x.x>y.x,x.y>y.y)); }\
+   \vec3 _gt(vec3 x,vec3 y) { return vec3(bvec3(x.x>y.x,x.y>y.y,x.z>y.z)); }\
+   \float _gte(float x,float y) { return float(x>=y); }\
+   \vec2 _gte(vec2 x,vec2 y) { return vec2(bvec2(x.x>=y.x,x.y>=y.y)); }\
+   \vec3 _gte(vec3 x,vec3 y) { return vec3(bvec3(x.x>=y.x,x.y>=y.y,x.z>=y.z)); }\
+   \float _lt(float x,float y) { return float(x<y); }\
+   \vec2 _lt(vec2 x,vec2 y) { return vec2(bvec2(x.x<y.x,x.y<y.y)); }\
+   \vec3 _lt(vec3 x,vec3 y) { return vec3(bvec3(x.x<y.x,x.y<y.y,x.z<y.z)); }\
+   \float _lte(float x,float y) { return float(x<=y); }\
+   \vec2 _lte(vec2 x,vec2 y) { return vec2(bvec2(x.x<=y.x,x.y<=y.y)); }\
+   \vec3 _lte(vec3 x,vec3 y) { return vec3(bvec3(x.x<=y.x,x.y<=y.y,x.z<=y.z)); }\
    \float xFadeNew(float t1,float t2) { if (t>t2) return 1.; if (t<t1) return 0.; return ((t-t1)/(t2-t1));}\
    \float xFadeOld(float t1,float t2) { return 1.-xFadeNew(t1,t2);}\
    \vec3 hsvrgb(vec3 c) {\
