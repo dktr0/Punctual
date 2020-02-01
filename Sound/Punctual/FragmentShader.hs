@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
 
 module Sound.Punctual.FragmentShader (fragmentShader,defaultFragmentShader) where
 
@@ -125,17 +125,23 @@ graphToGLSL _ = []
 unaryShaderFunction :: Builder -> Graph -> GLSL
 unaryShaderFunction f x = fmap (\(b,t) -> (f <> "(" <> b <> ")",t)) $ graphToGLSL x
 
--- TODO: for now this is reducing everything to floats but later we should figure out how to preserve larger types when possible
 binaryShaderFunction :: Builder -> Graph -> Graph -> GLSL
-binaryShaderFunction f x y = expandWith (\(a,_) (b,_) -> (f<>"("<>a<>","<>b<>")",GLFloat)) (toGLFloats $ graphToGLSL x) (toGLFloats $ graphToGLSL y)
+binaryShaderFunction f x y = zipWith (\(a,t) (b,_) -> (f<>"("<>a<>","<>b<>")",t)) x' y'
+  where (x',y') = alignGLSL (graphToGLSL x) (graphToGLSL y)
 
--- TODO: for now this is reducing everything to floats but later we should figure out how to preserve larger types when possible
 binaryShaderOp :: Builder -> Graph -> Graph -> GLSL
-binaryShaderOp f x y = expandWith (\(a,_) (b,_) -> ("("<>a<>f<>b<>")",GLFloat)) (toGLFloats $ graphToGLSL x) (toGLFloats $ graphToGLSL y)
-  
--- like binaryShaderOp except the function f returns a bool that gets cast to a GLFloat
+binaryShaderOp f x y = zipWith (\(a,t) (b,_) -> ("("<>a<>f<>b<>")",t)) x' y'
+  where (x',y') = alignGLSL (graphToGLSL x) (graphToGLSL y)
+
+-- like binaryShaderOp except the function f returns a bool/bvec2/bvec3 that gets cast to GLFloat/Vec2/Vec3
 binaryShaderOpBool :: Builder -> Graph -> Graph -> GLSL
-binaryShaderOpBool f x y = expandWith (\(a,_) (b,_) -> ("float("<>a<>f<>b<>")",GLFloat)) (toGLFloats $ graphToGLSL x) (toGLFloats $ graphToGLSL y)
+binaryShaderOpBool f x y = zipWith (\(a,t) (b,_) -> (glslTypeToCast t<>"("<>a<>f<>b<>")",t)) x' y'
+  where (x',y') = alignGLSL (graphToGLSL x) (graphToGLSL y)
+
+glslTypeToCast :: GLSLType -> Builder
+glslTypeToCast GLFloat = "float"
+glslTypeToCast Vec2 = "vec2"
+glslTypeToCast Vec3 = "vec3"
 
 -- note that ternaryShaderFunction is currently specialized for functions of the form: float f(vec2,vec2,float)
 ternaryShaderFunction :: Builder -> Graph -> Graph -> Graph -> GLSL
@@ -144,6 +150,41 @@ ternaryShaderFunction f x y z = expandWith3 (\(a,_) (b,_) (c,_) -> (f<>"("<>a<>"
     x' = toVec2s $ graphToGLSL x
     y' = toVec2s $ graphToGLSL y
     z' = toGLFloats $ graphToGLSL z
+
+glslChannels :: GLSL -> Int
+glslChannels ((_,Vec3):xs) = 3 + glslChannels xs
+glslChannels ((_,Vec2):xs) = 2 + glslChannels xs
+glslChannels ((_,GLFloat):xs) = 1 + glslChannels xs
+glslChannels _ = 0
+
+alignGLSL :: GLSL -> GLSL -> (GLSL,GLSL)
+alignGLSL a b = if aIsModel then (a, cycleGLSL a b) else (cycleGLSL b a, b)
+  where aIsModel = (glslChannels a > glslChannels b) || ((glslChannels a == glslChannels b) && (length a <= length b))
+
+-- cycle through the builders in a in a way that matches the model of m
+cycleGLSL :: GLSL -> GLSL -> GLSL
+cycleGLSL m a = f (fmap snd m) (cycle a)
+  where
+    f [] _ = []
+    f (GLFloat:ms) ((x,GLFloat):xs) = (x,GLFloat):(f ms xs)
+    f (GLFloat:ms) ((x,Vec2):xs) = (x <> ".x",GLFloat) : (f ms $ (x <> ".y",GLFloat):xs)
+    f (GLFloat:ms) ((x,Vec3):xs) = (x <> ".x",GLFloat) : (f ms $ (x <> ".yz",Vec2):xs)
+    f (Vec2:ms) ((x,Vec2):xs) = (x,Vec2):(f ms xs)
+    f (Vec2:ms) ((x,Vec3):xs) = (x <> ".xy",Vec2) : (f ms $ (x <> ".z",GLFloat):xs)
+    f (Vec2:ms) ((x,GLFloat):(y,GLFloat):xs) = ("vec2(" <> x <> "," <> y <> ")",Vec2) : (f ms xs)
+    f (Vec2:ms) ((x,GLFloat):(y,Vec2):xs) = ("vec2(" <> x <> "," <> y <> ".x)",Vec2) : (f ms $ (y <> ".y",GLFloat):xs)
+    f (Vec2:ms) ((x,GLFloat):(y,Vec3):xs) = ("vec2(" <> x <> "," <> y <> ".x)",Vec2) : (f ms $ (y <> ".yz",Vec2):xs)
+    f (Vec3:ms) ((x,Vec3):xs) = (x,Vec3):(f ms xs)
+    f (Vec3:ms) ((x,Vec2):(y,GLFloat):xs) = ("vec3(" <> x <> "," <> y <> ")",Vec3) : (f ms xs)
+    f (Vec3:ms) ((x,Vec2):(y,Vec2):xs) = ("vec3(" <> x <> "," <> y <> ".x)",Vec3) : (f ms $ (y <> ".y",GLFloat):xs)
+    f (Vec3:ms) ((x,Vec2):(y,Vec3):xs) = ("vec3(" <> x <> "," <> y <> ".x)",Vec3) : (f ms $ (y <> ".yz",Vec2):xs)
+    f (Vec3:ms) ((x,GLFloat):(y,GLFloat):(z,GLFloat):xs) = ("vec3(" <> x <> "," <> y <> "," <> z <> ")",Vec3) : (f ms xs)
+    f (Vec3:ms) ((x,GLFloat):(y,GLFloat):(z,Vec2):xs) = ("vec3(" <> x <> "," <> y <> "," <> z <> ".x)",Vec3) : (f ms $ (z <> ".y",GLFloat):xs)
+    f (Vec3:ms) ((x,GLFloat):(y,GLFloat):(z,Vec3):xs) = ("vec3(" <> x <> "," <> y <> "," <> z <> ".x)",Vec3) : (f ms $ (z <> ".yz",Vec2):xs)
+    f (Vec3:ms) ((x,GLFloat):(y,Vec2):xs) = ("vec3(" <> x <> "," <> y <> ")",Vec3) : (f ms xs)
+    f (Vec3:ms) ((x,GLFloat):(y,Vec3):xs) = ("vec3(" <> x <> "," <> y <> ".xy)",Vec3) : (f ms $ (y <> ".z",GLFloat):xs)
+    f _ _ = error "strange error in alignGLSL"
+
 
 expandWith :: (a -> b -> c) -> [a] -> [b] -> [c]
 expandWith _ [] _ = []

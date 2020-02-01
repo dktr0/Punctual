@@ -23,7 +23,6 @@ import TextShow
 import Data.Map as Map
 import qualified Data.IntMap as IntMap
 import Sound.MusicW as MusicW hiding (createBuffer,AudioTime)
-import Sound.MusicW.Node as MusicW
 
 import Sound.Punctual.AudioTime
 import Sound.Punctual.Program
@@ -245,7 +244,7 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
   newTextures <- updateTextures allTextures (textures st)
   let prevP = IntMap.findWithDefault emptyProgram z (prevPrograms st)
   let newFragmentShader = fragmentShader tempo prevP p
-  -- liftIO $ T.putStrLn $ newFragmentShader
+  liftIO $ T.putStrLn $ newFragmentShader
   let prevAsync = IntMap.findWithDefault emptyAsyncProgram z (mainPrograms st)
   newAsync <- updateAsyncProgram prevAsync defaultVertexShader newFragmentShader
   let prevProgramsNeedAudioInputAnalysis = elem True $ fmap programNeedsAudioInputAnalysis $ IntMap.elems $ prevPrograms st
