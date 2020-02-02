@@ -291,23 +291,25 @@ header
    \float ampdb(float x) { return 20. * log(x) / log(10.); }\
    \vec2 ampdb(vec2 x) { return 20. * log(x) / log(10.); }\
    \vec3 ampdb(vec3 x) { return 20. * log(x) / log(10.); }\
-   \float ifthenelse(float x,float y,float z) { return float(x>0.)*y+float(x<=0.)*z;}\
-   \vec2 ifthenelse(vec2 x,vec2 y,vec2 z) { return vec2(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y));}\
-   \vec3 ifthenelse(vec3 x,vec3 y,vec3 z) { return vec3(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y),ifthenelse(x.z,y.z,z.z));}\
-   \float _gt(float x,float y) { return float(x>y); }\
-   \vec2 _gt(vec2 x,vec2 y) { return vec2(bvec2(x.x>y.x,x.y>y.y)); }\
-   \vec3 _gt(vec3 x,vec3 y) { return vec3(bvec3(x.x>y.x,x.y>y.y,x.z>y.z)); }\
-   \float _gte(float x,float y) { return float(x>=y); }\
-   \vec2 _gte(vec2 x,vec2 y) { return vec2(bvec2(x.x>=y.x,x.y>=y.y)); }\
-   \vec3 _gte(vec3 x,vec3 y) { return vec3(bvec3(x.x>=y.x,x.y>=y.y,x.z>=y.z)); }\
-   \float _lt(float x,float y) { return float(x<y); }\
-   \vec2 _lt(vec2 x,vec2 y) { return vec2(bvec2(x.x<y.x,x.y<y.y)); }\
-   \vec3 _lt(vec3 x,vec3 y) { return vec3(bvec3(x.x<y.x,x.y<y.y,x.z<y.z)); }\
-   \float _lte(float x,float y) { return float(x<=y); }\
-   \vec2 _lte(vec2 x,vec2 y) { return vec2(bvec2(x.x<=y.x,x.y<=y.y)); }\
-   \vec3 _lte(vec3 x,vec3 y) { return vec3(bvec3(x.x<=y.x,x.y<=y.y,x.z<=y.z)); }\
-   \float xFadeNew(float t1,float t2) { if (t>t2) return 1.; if (t<t1) return 0.; return ((t-t1)/(t2-t1));}\
-   \float xFadeOld(float t1,float t2) { return 1.-xFadeNew(t1,t2);}\
+   \float ifthenelse(float x,float y,float z){return float(x>0.)*y+float(x<=0.)*z;}\
+   \vec2 ifthenelse(vec2 x,vec2 y,vec2 z){return vec2(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y));}\
+   \vec3 ifthenelse(vec3 x,vec3 y,vec3 z){return vec3(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y),ifthenelse(x.z,y.z,z.z));}\
+   \float _gt(float x,float y){return float(x>y);}\
+   \vec2 _gt(vec2 x,vec2 y){return vec2(bvec2(x.x>y.x,x.y>y.y));}\
+   \vec3 _gt(vec3 x,vec3 y){return vec3(bvec3(x.x>y.x,x.y>y.y,x.z>y.z));}\
+   \float _gte(float x,float y){return float(x>=y);}\
+   \vec2 _gte(vec2 x,vec2 y){return vec2(bvec2(x.x>=y.x,x.y>=y.y));}\
+   \vec3 _gte(vec3 x,vec3 y){return vec3(bvec3(x.x>=y.x,x.y>=y.y,x.z>=y.z));}\
+   \float _lt(float x,float y){return float(x<y);}\
+   \vec2 _lt(vec2 x,vec2 y){return vec2(bvec2(x.x<y.x,x.y<y.y));}\
+   \vec3 _lt(vec3 x,vec3 y){return vec3(bvec3(x.x<y.x,x.y<y.y,x.z<y.z));}\
+   \float _lte(float x,float y){return float(x<=y);}\
+   \vec2 _lte(vec2 x,vec2 y){return vec2(bvec2(x.x<=y.x,x.y<=y.y));}\
+   \vec3 _lte(vec3 x,vec3 y){return vec3(bvec3(x.x<=y.x,x.y<=y.y,x.z<=y.z));}\
+   \float xFadeNew(float t1,float t2){if(t>t2)return 1.;if(t<t1)return 0.;return((t-t1)/(t2-t1));}\
+   \float xFadeOld(float t1,float t2){return 1.-xFadeNew(t1,t2);}\
+   \vec3 xFadeNewHsv(float t1,float t2){return vec3(1.,1.,xFadeNew(t1,t2));}\
+   \vec3 xFadeOldHsv(float t1,float t2){return vec3(1.,1.,xFadeOld(t1,t2));}\
    \vec3 hsvrgb(vec3 c) {\
    \  vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\
    \  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\
@@ -356,6 +358,9 @@ header
 isVec3 :: Action -> Bool
 isVec3 x = elem RGB (outputs x) || elem HSV (outputs x)
 
+isHsv :: Action -> Bool
+isHsv x = elem HSV (outputs x)
+
 continuingAction :: (AudioTime,Double) -> AudioTime -> Int -> Action -> Action -> Builder
 continuingAction tempo eTime i newAction oldAction = line1 <> line2 <> line3 <> line4
   where
@@ -368,9 +373,16 @@ continuingAction tempo eTime i newAction oldAction = line1 <> line2 <> line3 <> 
             | otherwise = actionToFloat oldAction
     newText | isVec3 newAction = actionToVec3 newAction
             | otherwise = actionToFloat newAction
-    line2 = "if(t<" <> showb t1 <> ")" <> varName <> "=" <> oldText <> ";\n"
+    fromRGBtoHSV = (not $ isHsv oldAction) && isHsv newAction && isVec3 newAction -- convert old output to HSV
+    fromHSVtoRGB = isHsv oldAction && (not $ isHsv newAction) && isVec3 newAction -- convert old output to RGB
+    oldText' | fromRGBtoHSV = "rgbhsv(" <> oldText <> ")"
+             | fromHSVtoRGB = "hsvrgb(" <> oldText <> ")"
+             | otherwise = oldText
+    xfn = xFadeNew t1 t2
+    xfo = xFadeOld t1 t2
+    line2 = "if(t<" <> showb t1 <> ")" <> varName <> "=" <> oldText' <> ";\n"
     line3 = "else if(t>" <> showb t2 <> ")" <> varName <> "=" <> newText <> ";\n"
-    line4 = "else " <> varName <> "=" <> oldText <> "*" <> xFadeOld t1 t2 <> "+" <> newText <> "*" <> xFadeNew t1 t2 <> ";\n"
+    line4 = "else " <> varName <> "=" <> oldText' <> "*" <> xfo <> "+" <> newText <> "*" <> xfn <> ";\n"
 
 discontinuedAction :: (AudioTime,Double) -> AudioTime -> Int -> Action -> Builder
 discontinuedAction _ eTime i oldAction = line1 <> line2 <> line3
@@ -381,8 +393,10 @@ discontinuedAction _ eTime i oldAction = line1 <> line2 <> line3
     (t1,t2) = (eTime,0.5 + eTime) -- 0.5 sec
     oldText | isVec3 oldAction = actionToVec3 oldAction
             | otherwise = actionToFloat oldAction
+    xfo | isHsv oldAction = xFadeOldHsv t1 t2
+        | otherwise = xFadeOld t1 t2
     line2 = "if(t<" <> showb t1 <> ")" <> varName <> "=" <> oldText <> ";\n"
-    line3 = "else if(t<=" <> showb t2 <> ")" <> varName <> "=" <> oldText <> "*" <> xFadeOld t1 t2 <> ";\n"
+    line3 = "else if(t<=" <> showb t2 <> ")" <> varName <> "=" <> oldText <> "*" <> xfo <> ";\n"
 
 addedAction :: (AudioTime,Double) -> AudioTime -> Int -> Action -> Builder
 addedAction tempo eTime i newAction = line1 <> line2 <> line3
@@ -393,14 +407,22 @@ addedAction tempo eTime i newAction = line1 <> line2 <> line3
     (t1,t2) = actionToTimes tempo eTime newAction
     newText | isVec3 newAction = actionToVec3 newAction
             | otherwise = actionToFloat newAction
+    xfn | isHsv newAction = xFadeNewHsv t1 t2
+        | otherwise = xFadeNew t1 t2
     line2 = "if(t>=" <> showb t2 <> ")" <> varName <> "=" <> newText <> ";\n"
-    line3 = "else if(t>" <> showb t1 <> ")" <> varName <> "=" <> newText <> "*" <> xFadeNew t1 t2 <> ";\n"
+    line3 = "else if(t>" <> showb t1 <> ")" <> varName <> "=" <> newText <> "*" <> xfn <> ";\n"
 
 xFadeOld :: AudioTime -> AudioTime -> Builder
 xFadeOld t1 t2 = "xFadeOld(" <> showb t1 <> "," <> showb t2 <> ")"
 
 xFadeNew :: AudioTime -> AudioTime -> Builder
 xFadeNew t1 t2 = "xFadeNew(" <> showb t1 <> "," <> showb t2 <> ")"
+
+xFadeOldHsv :: AudioTime -> AudioTime -> Builder
+xFadeOldHsv t1 t2 = "xFadeOldHsv(" <> showb t1 <> "," <> showb t2 <> ")"
+
+xFadeNewHsv :: AudioTime -> AudioTime -> Builder
+xFadeNewHsv t1 t2 = "xFadeNewHsv(" <> showb t1 <> "," <> showb t2 <> ")"
 
 fragmentShader :: (AudioTime,Double) -> Program -> Program -> Text
 fragmentShader _ _ newProgram | isJust (directGLSL newProgram) = toText header <> fromJust (directGLSL newProgram)
