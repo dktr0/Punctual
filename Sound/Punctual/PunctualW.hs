@@ -267,6 +267,14 @@ graphToSynthDef (Between (Multi [r1,r2]) x) = graphToSynthDef g -- ***** THIS IS
   where g = (GreaterThan r2 r1) * (GreaterThan x r1) * (LessThan x r2) +
             (GreaterThan r1 r2) * (GreaterThan x r2) * (LessThan x r1)
 
+graphToSynthDef (Step x y) | length x == 0 = W.constantSource 0
+                           | length x == 1 = W.constantSource (head x)
+                           | otherwise = do
+  let n = Constant $ fromIntegral $ length x
+  let y' = Bipolar ((Floor $ Unipolar y * n) / (n-1))
+  y'' <- graphToSynthDef y'
+  W.waveShaper (Right $ W.listToArraySpec x) W.NoOversampling y''
+
 graphToSynthDef (LinLin (Multi [min1,max1]) (Multi [min2,max2]) x) = graphToSynthDef $ min2 + outputRange * proportion -- *** THIS IS ALSO VERY HACKY
   where
     inputRange = max1 - min1
@@ -328,6 +336,7 @@ expandMultis (Between r x) = zipWith Between r' x' -- *** VERY HACKY
     x' = expandMultis x
     n = length x' * 2
     r' = fmap (\(a,b) -> Multi [a,b] ) $ listIntoTuples $ take n $ cycle $ expandMultis r
+expandMultis (Step xs y) = fmap (Step xs) $ expandMultis y
 
 -- ternary functions
 expandMultis (LinLin r1 r2 x) = zipWith3 LinLin r1' r2' x' -- *** VERY HACKY
