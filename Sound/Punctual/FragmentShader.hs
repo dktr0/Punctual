@@ -118,7 +118,7 @@ graphToGLSL (VLine x w) = expandWith (\(a,_) (b,_) -> ("vline("<>a<>","<>b<>")",
 graphToGLSL (HLine y w) = expandWith (\(a,_) (b,_) -> ("hline("<>a<>","<>b<>")",GLFloat)) (toGLFloats $ graphToGLSL y) (toGLFloats $ graphToGLSL w)
 graphToGLSL (Clip r x) = expandWith (\(r',_) (b,t) -> ("clip("<>r'<>","<>b<>")",t)) (toVec2s $ graphToGLSL r) (graphToGLSL x)
 graphToGLSL (Between r x) = expandWith (\(r',_) (b,t) -> ("between("<>r'<>","<>b<>")",t)) (toVec2s $ graphToGLSL r) (graphToGLSL x)
-
+graphToGLSL (Step xs y) = fmap (\(a,_) -> (stepGLSL xs a,GLFloat)) $ toGLFloats $ graphToGLSL y
 -- ternary functions
 graphToGLSL (ILine xy1 xy2 w) = ternaryShaderFunction "iline" xy1 xy2 w
 graphToGLSL (Line xy1 xy2 w) = ternaryShaderFunction "line" xy1 xy2 w
@@ -126,6 +126,10 @@ graphToGLSL (LinLin r1 r2 w) = ternaryShaderFunction "linlin" r1 r2 w
 graphToGLSL (IfThenElse x y z) = zipWith3 (\(a,t) (b,_) (c,_) -> ("ifthenelse("<>a<>","<>b<>","<>c<>")",t)) x' y' z'
   where (x',y',z') = alignGLSL3 (graphToGLSL x) (graphToGLSL y) (graphToGLSL z)
 graphToGLSL _ = []
+
+stepGLSL :: [Double] -> Builder -> Builder
+stepGLSL xs y = interspersePluses "0." $ zipWith f xs ([0..]::[Int])
+  where f x n = showb x <> "*_step(" <> showb (length xs) <> "," <> showb n <> "," <> y <> ")"
 
 -- note: GLSL functions/ops implemented using unaryShaderFunction must exist in versions specialized for float, vec2, and vec3
 unaryShaderFunction :: Builder -> Graph -> GLSL
@@ -306,6 +310,7 @@ header
    \float _lte(float x,float y){return float(x<=y);}\
    \vec2 _lte(vec2 x,vec2 y){return vec2(bvec2(x.x<=y.x,x.y<=y.y));}\
    \vec3 _lte(vec3 x,vec3 y){return vec3(bvec3(x.x<=y.x,x.y<=y.y,x.z<=y.z));}\
+   \float _step(int n,int x,float y){return float(x==int((y*0.5+0.5)*float(n)));}\
    \float xFadeNew(float t1,float t2){if(t>t2)return 1.;if(t<t1)return 0.;return((t-t1)/(t2-t1));}\
    \float xFadeOld(float t1,float t2){return 1.-xFadeNew(t1,t2);}\
    \vec3 xFadeNewHsv(float t1,float t2){return vec3(1.,1.,xFadeNew(t1,t2));}\
