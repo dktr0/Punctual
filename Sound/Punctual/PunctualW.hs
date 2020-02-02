@@ -106,47 +106,90 @@ deleteSynth eTime xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
     W.disconnectSynth prevSynth
   return ()
 
+-- non-recursive
+optimize' :: Graph -> Graph
+optimize' (Sum (Constant x) (Constant y)) = Constant $ x+y
+optimize' (Product (Constant x) (Constant y)) = Constant $ x*y
+optimize' (MidiCps (Constant x)) = Constant $ W.midicps x
+optimize' (CpsMidi (Constant x)) = Constant $ W.cpsmidi x
+optimize' (DbAmp (Constant x)) = Constant $ W.dbamp x
+optimize' (AmpDb (Constant x)) = Constant $ W.ampdb x
+optimize' x = x
+
+-- recursive
+optimize :: Graph -> Graph
+optimize (Multi xs) = Multi $ fmap optimize xs
+optimize (Mono x) = Mono $ optimize x
+optimize (Rep n x) = Rep n $ optimize x
+optimize (UnRep n x) = UnRep n $ optimize x
+optimize (Bipolar x) = Bipolar $ optimize x
+optimize (Unipolar x) = Bipolar $ optimize x
+optimize (Sin x) = Sin $ optimize x
+optimize (Tri x) = Tri $ optimize x
+optimize (Saw x) = Saw $ optimize x
+optimize (Sqr x) = Sqr $ optimize x
+optimize (MidiCps x) = optimize' $ MidiCps $ optimize x
+optimize (CpsMidi x) = optimize' $ CpsMidi $ optimize x
+optimize (DbAmp x) = optimize' $ DbAmp $ optimize x
+optimize (AmpDb x) = optimize' $ AmpDb $ optimize x
+optimize (Abs x) = Abs $ optimize x
+optimize (Sqrt x) = Sqrt $ optimize x
+optimize (Floor x) = Floor $ optimize x
+optimize (Fract x) = Fract $ optimize x
+optimize (Sum x y) = optimize' $ Sum (optimize x) (optimize y)
+optimize (Product x y) = optimize' $ Product (optimize x) (optimize y)
+optimize (Max x y) = Max (optimize x) (optimize y)
+optimize (Min x y) = Min (optimize x) (optimize y)
+optimize (Division x y) = Division (optimize x) (optimize y)
+optimize (GreaterThan x y) = GreaterThan (optimize x) (optimize y)
+optimize (GreaterThanOrEqual x y) = GreaterThanOrEqual (optimize x) (optimize y)
+optimize (LessThan x y) = LessThan (optimize x) (optimize y)
+optimize (LessThanOrEqual x y) = LessThanOrEqual (optimize x) (optimize y)
+optimize (Equal x y) = Equal (optimize x) (optimize y)
+optimize (NotEqual x y) = NotEqual (optimize x) (optimize y)
+optimize (Pow x y) = Pow (optimize x) (optimize y)
+optimize (Clip x y) = Clip (optimize x) (optimize y)
+optimize (Between x y) = Between (optimize x) (optimize y)
+optimize (Step xs y) = Step xs $ optimize y
+optimize (IfThenElse x y z) = IfThenElse (optimize x) (optimize y) (optimize z)
+optimize (LinLin x y z) = LinLin (optimize x) (optimize y) (optimize z)
+optimize (LPF x y z) = LPF (optimize x) (optimize y) (optimize z)
+optimize (HPF x y z) = HPF (optimize x) (optimize y) (optimize z)
+optimize x = x
 
 graphToSynthDef' :: AudioIO m => Graph -> SynthDef m NodeRef
 graphToSynthDef' g = do
-  sd <- mapM graphToSynthDef $ expandMultis g
+  sd <- mapM (graphToSynthDef . optimize) $ expandMultis g
   case sd of
     [] -> W.constantSource 0 >>= W.gain 0
     _ -> W.channelMerger sd >>= W.gain 0
 
 graphToSynthDef :: AudioIO m => Graph -> SynthDef m NodeRef
-
 graphToSynthDef (Multi _) = error "internal error: graphToSynthDef should only be used post multi-channel expansion (can't handle Multi)"
-
 graphToSynthDef (Mono _) = error "internal error: graphToSynthDef should only be used post multi-channel expansion (can't handle Mono)"
-
 graphToSynthDef (Constant x) = W.constantSource x
 
 graphToSynthDef (Bipolar x) = graphToSynthDef $ x * 2 - 1
 graphToSynthDef (Unipolar x) = graphToSynthDef $ x * 0.5 + 0.5
 
-graphToSynthDef (Sin (MidiCps (Constant x))) = W.oscillator W.Sine $ W.midicps x
 graphToSynthDef (Sin (Constant x)) = W.oscillator W.Sine x
 graphToSynthDef (Sin x) = do
   s <- W.oscillator W.Sine 0
   graphToSynthDef x >>= W.param W.Frequency s
   return s
 
-graphToSynthDef (Tri (MidiCps (Constant x))) = W.oscillator W.Triangle $ W.midicps x
 graphToSynthDef (Tri (Constant x)) = W.oscillator W.Triangle x
 graphToSynthDef (Tri x) = do
   s <- W.oscillator W.Triangle 0
   graphToSynthDef x >>= W.param W.Frequency s
   return s
 
-graphToSynthDef (Saw (MidiCps (Constant x))) = W.oscillator W.Sawtooth $ W.midicps x
 graphToSynthDef (Saw (Constant x)) = W.oscillator W.Sawtooth x
 graphToSynthDef (Saw x) = do
   s <- W.oscillator W.Sawtooth 0
   graphToSynthDef x >>= W.param W.Frequency s
   return s
 
-graphToSynthDef (Sqr (MidiCps (Constant x))) = W.oscillator W.Square $ W.midicps x
 graphToSynthDef (Sqr (Constant x)) = W.oscillator W.Square x
 graphToSynthDef (Sqr x) = do
   s <- W.oscillator W.Square 0
@@ -183,12 +226,8 @@ graphToSynthDef (HPF i f q) = do
   graphToSynthDef q >>= W.param W.Q x
   return x
 
-graphToSynthDef (Sum (Constant x) (Constant y)) = graphToSynthDef (Constant $ x+y)
 graphToSynthDef (Sum x y) = W.mixSynthDefs $ fmap graphToSynthDef [x,y]
 
-graphToSynthDef (Product (Constant x) (Constant y)) = graphToSynthDef (Constant $ x*y)
-graphToSynthDef (Product x (DbAmp (Constant y))) = graphToSynthDef x >>= W.gain (W.dbamp y)
-graphToSynthDef (Product (DbAmp (Constant x)) y) = graphToSynthDef y >>= W.gain (W.dbamp x)
 graphToSynthDef (Product x (Constant y)) = graphToSynthDef x >>= W.gain y
 graphToSynthDef (Product (Constant x) y) = graphToSynthDef y >>= W.gain x
 graphToSynthDef (Product x y) = do
@@ -234,18 +273,11 @@ graphToSynthDef (NotEqual x y) = do
   y' <- graphToSynthDef y
   W.notEqualWorklet x' y'
 
-graphToSynthDef (MidiCps (Constant x)) = W.constantSource $ W.midicps x
 graphToSynthDef (MidiCps x) = graphToSynthDef x >>= W.midiCpsWorklet
-
 graphToSynthDef (CpsMidi x) = graphToSynthDef x >>= W.cpsMidiWorklet
-
-graphToSynthDef (DbAmp (Constant x)) = W.constantSource $ W.dbamp x
 graphToSynthDef (DbAmp x) = graphToSynthDef x >>= W.dbAmpWorklet
-
 graphToSynthDef (AmpDb x) = graphToSynthDef x >>= W.ampDbWorklet
-
 graphToSynthDef (Abs x) = graphToSynthDef x >>= W.absWorklet
-
 graphToSynthDef (Sqrt x) = graphToSynthDef x >>= W.sqrtWorklet
 
 graphToSynthDef (Pow x y) = do
@@ -275,7 +307,14 @@ graphToSynthDef (Step x y) | length x == 0 = W.constantSource 0
   y'' <- graphToSynthDef y'
   W.waveShaper (Right $ W.listToArraySpec x) W.NoOversampling y''
 
-graphToSynthDef (LinLin (Multi [min1,max1]) (Multi [min2,max2]) x) = graphToSynthDef $ min2 + outputRange * proportion -- *** THIS IS ALSO VERY HACKY
+
+graphToSynthDef (LinLin (Multi [Constant min1,Constant max1]) (Multi [Constant min2,Constant max2]) x) = graphToSynthDef $ optimize $ (x - Constant min1) * c
+  where c | (max1 - min1) /= 0 = Constant $ (max2 - min2) / (max1 - min1)
+          | otherwise = Constant 0
+graphToSynthDef (LinLin (Multi [Constant min1,Constant max1]) (Multi [min2,max2]) x) = graphToSynthDef $ optimize $ (x - Constant min1) * (max2 - min2) * c
+  where c | (max1 - min1) /= 0 = Constant $ 1 / (max1 - min1)
+          | otherwise = Constant 0
+graphToSynthDef (LinLin (Multi [min1,max1]) (Multi [min2,max2]) x) = graphToSynthDef $ optimize $ min2 + outputRange * proportion -- *** THIS IS ALSO VERY HACKY
   where
     inputRange = max1 - min1
     outputRange = max2 - min2

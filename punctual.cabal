@@ -19,7 +19,7 @@ Library
       base,
       time,
       mtl,
-      musicw >= 0.3.2,
+      musicw >= 0.3.4,
       containers,
       ghcjs-base,
       ghcjs-dom-jsffi,
