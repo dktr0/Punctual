@@ -13,6 +13,8 @@ data Graph =
   Px | Py |
   Lo | Mid | Hi | ILo | IMid | IHi |
   Mono Graph |
+  Rep Int Graph |
+  UnRep Int Graph |
   Bipolar Graph |
   Unipolar Graph |
   Tex Int Graph |

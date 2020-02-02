@@ -7,7 +7,7 @@ license:             GPL-3
 license-file:        LICENSE
 author:              David Ogborn
 maintainer:          ogbornd@mcmaster.ca
-copyright:           2018-19 David Ogborn
+copyright:           2018-20 David Ogborn
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.10

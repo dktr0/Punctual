@@ -291,6 +291,7 @@ graph2 = asum [
   reserved "point" >> return Point,
   reserved "fb" >> return fb,
   textureRef_graph_graph <*> textureRef,
+  int_graph_graph <*> int,
   graph3 <*> graph
   ]
 
@@ -329,6 +330,15 @@ graph4 = asum [
   reserved "iline" >> return ILine,
   reserved "line" >> return Line
   ]
+
+int_graph_graph :: H (Int -> Graph -> Graph)
+int_graph_graph = asum [
+  reserved "rep" >> return Rep,
+  reserved "unrep" >> return UnRep
+  ]
+
+int :: H Int
+int = fromIntegral <$> integer
 
 textureRef_graph_graph :: H (Int -> Graph -> Graph)
 textureRef_graph_graph = asum [

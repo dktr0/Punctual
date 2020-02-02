@@ -8,6 +8,7 @@ import Data.Semigroup ((<>))
 import TextShow
 import Data.Foldable
 import Data.Maybe
+import Data.List.Split
 
 import Sound.Punctual.AudioTime
 import Sound.Punctual.Graph
@@ -62,6 +63,9 @@ graphToGLSL :: Graph -> GLSL
 graphToGLSL (Multi xs) = concat $ fmap graphToGLSL xs
 graphToGLSL (Mono x) = toGLFloat $ graphToGLSL x
 graphToGLSL (Constant x) = [(showb x,GLFloat)]
+graphToGLSL (Rep n x) = concat $ fmap (replicate n) $ graphToGLSL x
+graphToGLSL (UnRep _ 0) = []
+graphToGLSL (UnRep n x) = fmap (\bs -> ("((" <> interspersePluses "0." (fmap fst bs) <> ")/" <> showb n <> ".)",GLFloat)) $ chunksOf n $ toGLFloats $ graphToGLSL x
 graphToGLSL Fx = [("fx()",GLFloat)]
 graphToGLSL Fy = [("fy()",GLFloat)]
 graphToGLSL Fxy = [("fxy()",Vec2)]

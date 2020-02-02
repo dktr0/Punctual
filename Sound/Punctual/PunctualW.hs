@@ -9,6 +9,7 @@ import Control.Monad.IO.Class
 import Control.Concurrent
 import Data.IntMap.Strict as IntMap
 import Data.List
+import Data.List.Split
 
 import Sound.Punctual.AudioTime
 import Sound.Punctual.Graph hiding (when)
@@ -286,6 +287,9 @@ expandMultis (Multi []) = []
 expandMultis (Multi xs) = fmap graphsToMono $ fmap expandMultis xs
 expandMultis (Mono x) = [graphsToMono $ expandMultis x]
 expandMultis (Constant x) = [Constant x]
+expandMultis (Rep n x) = concat $ fmap (replicate n) $ expandMultis x
+expandMultis (UnRep _ 0) = []
+expandMultis (UnRep n x) = fmap ((/ fromIntegral n) . graphsToMono) $ chunksOf n $ expandMultis x
 -- unary functions
 expandMultis (Bipolar x) = fmap Bipolar $ expandMultis x
 expandMultis (Unipolar x) = fmap Unipolar $ expandMultis x
