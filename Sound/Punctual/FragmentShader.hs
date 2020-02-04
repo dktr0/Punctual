@@ -6,7 +6,8 @@ import Data.IntMap.Strict as IntMap
 import Data.Text (Text)
 import Data.Semigroup ((<>))
 import TextShow
-import Data.Foldable
+import Data.Map as Map
+import Data.Foldable as Foldable
 import Data.Maybe
 import Data.List.Split
 
@@ -27,7 +28,7 @@ glslToVec3Builder :: Double -> GLSL -> Builder
 glslToVec3Builder def xs = interspersePluses ("vec3(" <> showb def <> ")") $ fmap fst $ toVec3s xs
 
 interspersePluses :: Foldable t => Builder -> t Builder -> Builder
-interspersePluses zero xs = if Data.Foldable.null xs then zero else Data.Foldable.foldr1 (\a b -> a <> "+" <> b) xs
+interspersePluses zero xs = if Foldable.null xs then zero else Foldable.foldr1 (\a b -> a <> "+" <> b) xs
 
 toGLFloat :: GLSL -> GLSL
 toGLFloat [] = []
@@ -57,96 +58,98 @@ toVec3s ((x,GLFloat):xs) = ("vec3("<>x<>")",Vec3):(toVec3s xs)
 toVec3s xs = toVec3s $ toGLFloats xs
 
 
-graphToGLSL :: Graph -> GLSL
+graphToGLSL :: Map Text Int -> Graph -> GLSL
 
 -- basics: multi, mono, constants, uniforms
-graphToGLSL (Multi xs) = concat $ fmap graphToGLSL xs
-graphToGLSL (Mono x) = toGLFloat $ graphToGLSL x
-graphToGLSL (Constant x) = [(showb x,GLFloat)]
-graphToGLSL (Rep n x) = concat $ fmap (replicate n) $ graphToGLSL x
-graphToGLSL (UnRep _ 0) = []
-graphToGLSL (UnRep n x) = fmap (\bs -> ("((" <> interspersePluses "0." (fmap fst bs) <> ")/" <> showb n <> ".)",GLFloat)) $ chunksOf n $ toGLFloats $ graphToGLSL x
-graphToGLSL Fx = [("fx()",GLFloat)]
-graphToGLSL Fy = [("fy()",GLFloat)]
-graphToGLSL Fxy = [("fxy()",Vec2)]
-graphToGLSL Px = [("10./1920.",GLFloat)]
-graphToGLSL Py = [("10./1080.",GLFloat)]
-graphToGLSL Lo = [("lo",GLFloat)]
-graphToGLSL Mid = [("mid",GLFloat)]
-graphToGLSL Hi = [("hi",GLFloat)]
-graphToGLSL ILo = [("ilo",GLFloat)]
-graphToGLSL IMid = [("imid",GLFloat)]
-graphToGLSL IHi = [("ihi",GLFloat)]
+graphToGLSL texMap (Multi xs) = concat $ fmap (graphToGLSL texMap) xs
+graphToGLSL texMap (Mono x) = toGLFloat $ (graphToGLSL texMap) x
+graphToGLSL _ (Constant x) = [(showb x,GLFloat)]
+graphToGLSL texMap (Rep n x) = concat $ fmap (replicate n) $ graphToGLSL texMap x
+graphToGLSL _ (UnRep _ 0) = []
+graphToGLSL texMap (UnRep n x) = fmap (\bs -> ("((" <> interspersePluses "0." (fmap fst bs) <> ")/" <> showb n <> ".)",GLFloat)) $ chunksOf n $ toGLFloats $ graphToGLSL texMap x
+graphToGLSL _ Fx = [("fx()",GLFloat)]
+graphToGLSL _ Fy = [("fy()",GLFloat)]
+graphToGLSL _ Fxy = [("fxy()",Vec2)]
+graphToGLSL _ Px = [("10./1920.",GLFloat)]
+graphToGLSL _ Py = [("10./1080.",GLFloat)]
+graphToGLSL _ Lo = [("lo",GLFloat)]
+graphToGLSL _ Mid = [("mid",GLFloat)]
+graphToGLSL _ Hi = [("hi",GLFloat)]
+graphToGLSL _ ILo = [("ilo",GLFloat)]
+graphToGLSL _ IMid = [("imid",GLFloat)]
+graphToGLSL _ IHi = [("ihi",GLFloat)]
 
 -- unary functions
-graphToGLSL (Bipolar x) = unaryShaderFunction "bipolar" x
-graphToGLSL (Unipolar x) = unaryShaderFunction "unipolar" x
-graphToGLSL (Sin x) = unaryShaderFunction "sin_" x
-graphToGLSL (Tri x) = fmap (\(b,_) -> ("tri(" <> b <> ")",GLFloat)) $ toGLFloats $ graphToGLSL x
-graphToGLSL (Saw x) = fmap (\(b,_) -> ("saw(" <> b <> ")",GLFloat)) $ toGLFloats $ graphToGLSL x
-graphToGLSL (Sqr x) = fmap (\(b,_) -> ("sqr(" <> b <> ")",GLFloat)) $ toGLFloats $ graphToGLSL x
-graphToGLSL (MidiCps x) = unaryShaderFunction "midicps" x
-graphToGLSL (CpsMidi x) = unaryShaderFunction "cpsmidi" x
-graphToGLSL (DbAmp x) = unaryShaderFunction "dbamp" x
-graphToGLSL (AmpDb x) = unaryShaderFunction "ampdb" x
-graphToGLSL (Abs x) = unaryShaderFunction "abs" x
-graphToGLSL (Sqrt x) = unaryShaderFunction "sqrt" x
-graphToGLSL (Floor x) = unaryShaderFunction "floor" x
-graphToGLSL (Fract x) = unaryShaderFunction "fract" x
-graphToGLSL (HsvRgb x) = fmap (\(b,_) -> ("hsvrgb("<>b<>")",Vec3))  $ toVec3s $ graphToGLSL x
-graphToGLSL (RgbHsv x) = fmap (\(b,_) -> ("rgbhsv("<>b<>")",Vec3))  $ toVec3s $ graphToGLSL x
-graphToGLSL (Tex n xy) = fmap (\(b,_) -> ("tex(" <> showb n <> "," <> b <> ")",Vec3)) $ toVec2s $ graphToGLSL xy
-graphToGLSL (Point xy) = fmap (\(b,_) -> ("point(" <> b <> ")",GLFloat)) $ toVec2s $ graphToGLSL xy
-graphToGLSL (Distance xy) = fmap (\(b,_) -> ("distance(" <> b <> ",fxy())",GLFloat)) $ toVec2s $ graphToGLSL xy
+graphToGLSL texMap (Bipolar x) = unaryShaderFunction "bipolar" texMap x
+graphToGLSL texMap (Unipolar x) = unaryShaderFunction "unipolar" texMap x
+graphToGLSL texMap (Sin x) = unaryShaderFunction "sin_" texMap x
+graphToGLSL texMap (Tri x) = fmap (\(b,_) -> ("tri(" <> b <> ")",GLFloat)) $ toGLFloats $ graphToGLSL texMap x
+graphToGLSL texMap (Saw x) = fmap (\(b,_) -> ("saw(" <> b <> ")",GLFloat)) $ toGLFloats $ graphToGLSL texMap x
+graphToGLSL texMap (Sqr x) = fmap (\(b,_) -> ("sqr(" <> b <> ")",GLFloat)) $ toGLFloats $ graphToGLSL texMap x
+graphToGLSL texMap (MidiCps x) = unaryShaderFunction "midicps" texMap x
+graphToGLSL texMap (CpsMidi x) = unaryShaderFunction "cpsmidi" texMap x
+graphToGLSL texMap (DbAmp x) = unaryShaderFunction "dbamp" texMap x
+graphToGLSL texMap (AmpDb x) = unaryShaderFunction "ampdb" texMap x
+graphToGLSL texMap (Abs x) = unaryShaderFunction "abs" texMap x
+graphToGLSL texMap (Sqrt x) = unaryShaderFunction "sqrt" texMap x
+graphToGLSL texMap (Floor x) = unaryShaderFunction "floor" texMap x
+graphToGLSL texMap (Fract x) = unaryShaderFunction "fract" texMap x
+graphToGLSL texMap (HsvRgb x) = fmap (\(b,_) -> ("hsvrgb("<>b<>")",Vec3))  $ toVec3s $ graphToGLSL texMap x
+graphToGLSL texMap (RgbHsv x) = fmap (\(b,_) -> ("rgbhsv("<>b<>")",Vec3))  $ toVec3s $ graphToGLSL texMap x
+graphToGLSL texMap (Fb xy) = fmap (\(b,_) -> ("tex(0,"<>b<>")",Vec3)) $ toVec2s $ graphToGLSL texMap xy
+graphToGLSL texMap (Tex t xy) = fmap (\(b,_) -> ("tex(" <> showb n <> "," <> b <> ")",Vec3)) $ toVec2s $ graphToGLSL texMap xy
+  where n = Map.findWithDefault 1 t texMap
+graphToGLSL texMap (Point xy) = fmap (\(b,_) -> ("point(" <> b <> ")",GLFloat)) $ toVec2s $ graphToGLSL texMap xy
+graphToGLSL texMap (Distance xy) = fmap (\(b,_) -> ("distance(" <> b <> ",fxy())",GLFloat)) $ toVec2s $ graphToGLSL texMap xy
 
 -- binary functions
-graphToGLSL (Sum x y) = binaryShaderOp "+" x y
-graphToGLSL (Max x y) = binaryShaderFunction "max" x y
-graphToGLSL (Min x y) = binaryShaderFunction "min" x y
-graphToGLSL (Product x y) = binaryShaderOp "*" x y
-graphToGLSL (Division x y) = binaryShaderOp "/" x y
-graphToGLSL (GreaterThan x y) = binaryShaderFunction "_gt" x y
-graphToGLSL (GreaterThanOrEqual x y) = binaryShaderFunction "_gte" x y
-graphToGLSL (LessThan x y) = binaryShaderFunction "_lt" x y
-graphToGLSL (LessThanOrEqual x y) = binaryShaderFunction "_lte" x y
-graphToGLSL (Equal x y) = binaryShaderOpBool "==" x y
-graphToGLSL (NotEqual x y) = binaryShaderOpBool "!=" x y
-graphToGLSL (Pow x y) = binaryShaderFunction "pow" x y
-graphToGLSL (Rect xy wh) = expandWith (\(a,_) (b,_) -> ("rect("<>a<>","<>b<>")",GLFloat)) (toVec2s $ graphToGLSL xy) (toVec2s $ graphToGLSL wh)
-graphToGLSL (Circle xy r) = expandWith (\(a,_) (b,_) -> ("circle("<>a<>","<>b<>")",GLFloat)) (toVec2s $ graphToGLSL xy) (toGLFloats $ graphToGLSL r)
-graphToGLSL (VLine x w) = expandWith (\(a,_) (b,_) -> ("vline("<>a<>","<>b<>")",GLFloat)) (toGLFloats $ graphToGLSL x) (toGLFloats $ graphToGLSL w)
-graphToGLSL (HLine y w) = expandWith (\(a,_) (b,_) -> ("hline("<>a<>","<>b<>")",GLFloat)) (toGLFloats $ graphToGLSL y) (toGLFloats $ graphToGLSL w)
-graphToGLSL (Clip r x) = expandWith (\(r',_) (b,t) -> ("clip("<>r'<>","<>b<>")",t)) (toVec2s $ graphToGLSL r) (graphToGLSL x)
-graphToGLSL (Between r x) = expandWith (\(r',_) (b,t) -> ("between("<>r'<>","<>b<>")",t)) (toVec2s $ graphToGLSL r) (graphToGLSL x)
-graphToGLSL (Step xs y) = fmap (\(a,_) -> (stepGLSL xs a,GLFloat)) $ toGLFloats $ graphToGLSL y
+graphToGLSL texMap (Sum x y) = binaryShaderOp "+" texMap x y
+graphToGLSL texMap (Max x y) = binaryShaderFunction "max" texMap x y
+graphToGLSL texMap (Min x y) = binaryShaderFunction "min" texMap x y
+graphToGLSL texMap (Product x y) = binaryShaderOp "*" texMap x y
+graphToGLSL texMap (Division x y) = binaryShaderOp "/" texMap x y
+graphToGLSL texMap (GreaterThan x y) = binaryShaderFunction "_gt" texMap x y
+graphToGLSL texMap (GreaterThanOrEqual x y) = binaryShaderFunction "_gte" texMap x y
+graphToGLSL texMap (LessThan x y) = binaryShaderFunction "_lt" texMap x y
+graphToGLSL texMap (LessThanOrEqual x y) = binaryShaderFunction "_lte" texMap x y
+graphToGLSL texMap (Equal x y) = binaryShaderOpBool "==" texMap x y
+graphToGLSL texMap (NotEqual x y) = binaryShaderOpBool "!=" texMap x y
+graphToGLSL texMap (Pow x y) = binaryShaderFunction "pow" texMap x y
+graphToGLSL texMap (Rect xy wh) = expandWith (\(a,_) (b,_) -> ("rect("<>a<>","<>b<>")",GLFloat)) (toVec2s $ graphToGLSL texMap xy) (toVec2s $ graphToGLSL texMap wh)
+graphToGLSL texMap (Circle xy r) = expandWith (\(a,_) (b,_) -> ("circle("<>a<>","<>b<>")",GLFloat)) (toVec2s $ graphToGLSL texMap xy) (toGLFloats $ graphToGLSL texMap r)
+graphToGLSL texMap (VLine x w) = expandWith (\(a,_) (b,_) -> ("vline("<>a<>","<>b<>")",GLFloat)) (toGLFloats $ graphToGLSL texMap x) (toGLFloats $ graphToGLSL texMap w)
+graphToGLSL texMap (HLine y w) = expandWith (\(a,_) (b,_) -> ("hline("<>a<>","<>b<>")",GLFloat)) (toGLFloats $ graphToGLSL texMap y) (toGLFloats $ graphToGLSL texMap w)
+graphToGLSL texMap (Clip r x) = expandWith (\(r',_) (b,t) -> ("clip("<>r'<>","<>b<>")",t)) (toVec2s $ graphToGLSL texMap r) (graphToGLSL texMap x)
+graphToGLSL texMap (Between r x) = expandWith (\(r',_) (b,t) -> ("between("<>r'<>","<>b<>")",t)) (toVec2s $ graphToGLSL texMap r) (graphToGLSL texMap x)
+graphToGLSL texMap (Step xs y) = fmap (\(a,_) -> (stepGLSL xs a,GLFloat)) $ toGLFloats $ graphToGLSL texMap y
 -- ternary functions
-graphToGLSL (ILine xy1 xy2 w) = ternaryShaderFunction "iline" xy1 xy2 w
-graphToGLSL (Line xy1 xy2 w) = ternaryShaderFunction "line" xy1 xy2 w
-graphToGLSL (LinLin r1 r2 w) = ternaryShaderFunction "linlin" r1 r2 w
-graphToGLSL (IfThenElse x y z) = zipWith3 (\(a,t) (b,_) (c,_) -> ("ifthenelse("<>a<>","<>b<>","<>c<>")",t)) x' y' z'
-  where (x',y',z') = alignGLSL3 (graphToGLSL x) (graphToGLSL y) (graphToGLSL z)
-graphToGLSL _ = []
+graphToGLSL texMap (ILine xy1 xy2 w) = ternaryShaderFunction "iline" texMap xy1 xy2 w
+graphToGLSL texMap (Line xy1 xy2 w) = ternaryShaderFunction "line" texMap xy1 xy2 w
+graphToGLSL texMap (LinLin r1 r2 w) = ternaryShaderFunction "linlin" texMap r1 r2 w
+graphToGLSL texMap (IfThenElse x y z) = zipWith3 (\(a,t) (b,_) (c,_) -> ("ifthenelse("<>a<>","<>b<>","<>c<>")",t)) x' y' z'
+  where (x',y',z') = alignGLSL3 (graphToGLSL texMap x) (graphToGLSL texMap y) (graphToGLSL texMap z)
+graphToGLSL _ _ = []
 
 stepGLSL :: [Double] -> Builder -> Builder
 stepGLSL xs y = interspersePluses "0." $ zipWith f xs ([0..]::[Int])
   where f x n = showb x <> "*_step(" <> showb (length xs) <> "," <> showb n <> "," <> y <> ")"
 
 -- note: GLSL functions/ops implemented using unaryShaderFunction must exist in versions specialized for float, vec2, and vec3
-unaryShaderFunction :: Builder -> Graph -> GLSL
-unaryShaderFunction f x = fmap (\(b,t) -> (f <> "(" <> b <> ")",t)) $ graphToGLSL x
+unaryShaderFunction :: Builder -> Map Text Int -> Graph -> GLSL
+unaryShaderFunction f texMap x = fmap (\(b,t) -> (f <> "(" <> b <> ")",t)) $ graphToGLSL texMap x
 
-binaryShaderFunction :: Builder -> Graph -> Graph -> GLSL
-binaryShaderFunction f x y = zipWith (\(a,t) (b,_) -> (f<>"("<>a<>","<>b<>")",t)) x' y'
-  where (x',y') = alignGLSL (graphToGLSL x) (graphToGLSL y)
+binaryShaderFunction :: Builder -> Map Text Int -> Graph -> Graph -> GLSL
+binaryShaderFunction f texMap x y = zipWith (\(a,t) (b,_) -> (f<>"("<>a<>","<>b<>")",t)) x' y'
+  where (x',y') = alignGLSL (graphToGLSL texMap x) (graphToGLSL texMap y)
 
-binaryShaderOp :: Builder -> Graph -> Graph -> GLSL
-binaryShaderOp f x y = zipWith (\(a,t) (b,_) -> ("("<>a<>f<>b<>")",t)) x' y'
-  where (x',y') = alignGLSL (graphToGLSL x) (graphToGLSL y)
+binaryShaderOp :: Builder -> Map Text Int -> Graph -> Graph -> GLSL
+binaryShaderOp f texMap x y = zipWith (\(a,t) (b,_) -> ("("<>a<>f<>b<>")",t)) x' y'
+  where (x',y') = alignGLSL (graphToGLSL texMap x) (graphToGLSL texMap y)
 
 -- like binaryShaderOp except the function f returns a bool/bvec2/bvec3 that gets cast to GLFloat/Vec2/Vec3
-binaryShaderOpBool :: Builder -> Graph -> Graph -> GLSL
-binaryShaderOpBool f x y = zipWith (\(a,t) (b,_) -> (glslTypeToCast t<>"("<>a<>f<>b<>")",t)) x' y'
-  where (x',y') = alignGLSL (graphToGLSL x) (graphToGLSL y)
+binaryShaderOpBool :: Builder -> Map Text Int -> Graph -> Graph -> GLSL
+binaryShaderOpBool f texMap x y = zipWith (\(a,t) (b,_) -> (glslTypeToCast t<>"("<>a<>f<>b<>")",t)) x' y'
+  where (x',y') = alignGLSL (graphToGLSL texMap x) (graphToGLSL texMap y)
 
 glslTypeToCast :: GLSLType -> Builder
 glslTypeToCast GLFloat = "float"
@@ -154,12 +157,12 @@ glslTypeToCast Vec2 = "vec2"
 glslTypeToCast Vec3 = "vec3"
 
 -- note that ternaryShaderFunction is currently specialized for functions of the form: float f(vec2,vec2,float)
-ternaryShaderFunction :: Builder -> Graph -> Graph -> Graph -> GLSL
-ternaryShaderFunction f x y z = expandWith3 (\(a,_) (b,_) (c,_) -> (f<>"("<>a<>","<>b<>","<>c<>")",GLFloat)) x' y' z'
+ternaryShaderFunction :: Builder -> Map Text Int -> Graph -> Graph -> Graph -> GLSL
+ternaryShaderFunction f texMap x y z = expandWith3 (\(a,_) (b,_) (c,_) -> (f<>"("<>a<>","<>b<>","<>c<>")",GLFloat)) x' y' z'
   where
-    x' = toVec2s $ graphToGLSL x
-    y' = toVec2s $ graphToGLSL y
-    z' = toGLFloats $ graphToGLSL z
+    x' = toVec2s $ graphToGLSL texMap x
+    y' = toVec2s $ graphToGLSL texMap y
+    z' = toGLFloats $ graphToGLSL texMap z
 
 glslChannels :: GLSL -> Int
 glslChannels ((_,Vec3):xs) = 3 + glslChannels xs
@@ -211,8 +214,8 @@ expandWith _ _ [] = []
 expandWith f xs ys = zipWith f xs' ys'
   where
     n = max (length xs) (length ys)
-    xs' = take n $ cycle xs -- *** TODO: not quite right, we mean to extend last element instead
-    ys' = take n $ cycle ys
+    xs' = Prelude.take n $ cycle xs -- *** TODO: not quite right, we mean to extend last element instead
+    ys' = Prelude.take n $ cycle ys
 
 expandWith3 :: (a -> b -> c -> d) -> [a] -> [b] -> [c] -> [d]
 expandWith3 _ [] _ _ = []
@@ -221,17 +224,17 @@ expandWith3 _ _ _ [] = []
 expandWith3 f xs ys zs = zipWith3 f xs' ys' zs'
   where
     n = maximum [length xs,length ys,length zs]
-    xs' = take n $ cycle xs -- *** TODO: not quite right, we mean to extend last element instead
-    ys' = take n $ cycle ys
-    zs' = take n $ cycle zs
+    xs' = Prelude.take n $ cycle xs -- *** TODO: not quite right, we mean to extend last element instead
+    ys' = Prelude.take n $ cycle ys
+    zs' = Prelude.take n $ cycle zs
 
 
 
-actionToFloat :: Action -> Builder
-actionToFloat = glslToFloatBuilder 0 . graphToGLSL . graph
+actionToFloat :: Map Text Int -> Action -> Builder
+actionToFloat texMap = glslToFloatBuilder 0 . graphToGLSL texMap . graph
 
-actionToVec3 :: Action -> Builder
-actionToVec3 = glslToVec3Builder 0 . graphToGLSL . graph
+actionToVec3 :: Map Text Int -> Action -> Builder
+actionToVec3 texMap = glslToVec3Builder 0 . graphToGLSL texMap . graph
 
 defaultFragmentShader :: Text
 defaultFragmentShader = (toText header) <> "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"
@@ -241,7 +244,8 @@ header
  = "precision mediump float;\
    \uniform float t;\
    \uniform lowp vec2 res;\
-   \uniform sampler2D tex0,tex1,tex2,tex3,tex4,tex5,tex6,tex7,tex8,tex9,tex10,tex11,tex12,tex13,tex14,tex15;\
+   \uniform sampler2D _fb;\
+   \uniform sampler2D tex0,tex1,tex2,tex3,tex4,tex5,tex6,tex7,tex8,tex9,tex10,tex11,tex12,tex13,tex14;\
    \uniform float lo,mid,hi,ilo,imid,ihi;\
    \uniform float _defaultAlpha;\
    \float bipolar(float a) { return a * 2. - 1.; }\
@@ -271,10 +275,9 @@ header
    \ if(n==12)return texture2D(tex12,xy).xyz; else\
    \ if(n==13)return texture2D(tex13,xy).xyz; else\
    \ if(n==14)return texture2D(tex14,xy).xyz; else\
-   \ if(n==15)return texture2D(tex15,xy).xyz; else\
    \ return vec3(0.);}\
    \vec3 fb(float r){\
-   \  vec3 x = texture2D(tex0,uv()).xyz * r;\
+   \  vec3 x = texture2D(_fb,uv()).xyz * r;\
    \  return vec3(x.x > 0.1 ? x.x : 0.,x.y > 0.1 ? x.y : 0.,x.z > 0.1 ? x.z : 0.);}\
    \float sin_(float f) { return sin(f*3.14159265*2.*t);}\
    \vec2 sin_(vec2 f) { return sin(f*3.14159265*2.*t);}\
@@ -366,18 +369,18 @@ isVec3 x = elem RGB (outputs x) || elem HSV (outputs x)
 isHsv :: Action -> Bool
 isHsv x = elem HSV (outputs x)
 
-continuingAction :: (AudioTime,Double) -> AudioTime -> Int -> Action -> Action -> Builder
-continuingAction tempo eTime i newAction oldAction = line1 <> line2 <> line3 <> line4
+continuingAction :: (AudioTime,Double) -> AudioTime -> Map Text Int -> Int -> Action -> Action -> Builder
+continuingAction tempo eTime texMap i newAction oldAction = line1 <> line2 <> line3 <> line4
   where
     typeText | isVec3 newAction = "vec3"
              | otherwise = "float"
     varName = "_" <> showb i
     line1 = typeText <> " " <> varName <> ";\n"
     (t1,t2) = actionToTimes tempo eTime newAction
-    oldText | isVec3 newAction = actionToVec3 oldAction
-            | otherwise = actionToFloat oldAction
-    newText | isVec3 newAction = actionToVec3 newAction
-            | otherwise = actionToFloat newAction
+    oldText | isVec3 newAction = actionToVec3 texMap oldAction
+            | otherwise = actionToFloat texMap oldAction
+    newText | isVec3 newAction = actionToVec3 texMap newAction
+            | otherwise = actionToFloat texMap newAction
     fromRGBtoHSV = (not $ isHsv oldAction) && isHsv newAction && isVec3 newAction -- convert old output to HSV
     fromHSVtoRGB = isHsv oldAction && (not $ isHsv newAction) && isVec3 newAction -- convert old output to RGB
     oldText' | fromRGBtoHSV = "rgbhsv(" <> oldText <> ")"
@@ -389,29 +392,29 @@ continuingAction tempo eTime i newAction oldAction = line1 <> line2 <> line3 <> 
     line3 = "else if(t>" <> showb t2 <> ")" <> varName <> "=" <> newText <> ";\n"
     line4 = "else " <> varName <> "=" <> oldText' <> "*" <> xfo <> "+" <> newText <> "*" <> xfn <> ";\n"
 
-discontinuedAction :: (AudioTime,Double) -> AudioTime -> Int -> Action -> Builder
-discontinuedAction _ eTime i oldAction = line1 <> line2 <> line3
+discontinuedAction :: (AudioTime,Double) -> AudioTime -> Map Text Int -> Int -> Action -> Builder
+discontinuedAction _ eTime texMap i oldAction = line1 <> line2 <> line3
   where
     varName = "_" <> showb i
     line1 | isVec3 oldAction = "vec3 " <> varName <> "=vec3(0.);\n"
           | otherwise = "float " <> varName <> "=0.;\n"
     (t1,t2) = (eTime,0.5 + eTime) -- 0.5 sec
-    oldText | isVec3 oldAction = actionToVec3 oldAction
-            | otherwise = actionToFloat oldAction
+    oldText | isVec3 oldAction = actionToVec3 texMap oldAction
+            | otherwise = actionToFloat texMap oldAction
     xfo | isHsv oldAction = xFadeOldHsv t1 t2
         | otherwise = xFadeOld t1 t2
     line2 = "if(t<" <> showb t1 <> ")" <> varName <> "=" <> oldText <> ";\n"
     line3 = "else if(t<=" <> showb t2 <> ")" <> varName <> "=" <> oldText <> "*" <> xfo <> ";\n"
 
-addedAction :: (AudioTime,Double) -> AudioTime -> Int -> Action -> Builder
-addedAction tempo eTime i newAction = line1 <> line2 <> line3
+addedAction :: (AudioTime,Double) -> AudioTime -> Map Text Int -> Int -> Action -> Builder
+addedAction tempo eTime texMap i newAction = line1 <> line2 <> line3
   where
     varName = "_" <> showb i
     line1 | isVec3 newAction = "vec3 " <> varName <> "=vec3(0.);\n"
           | otherwise = "float " <> varName <> "=0.;\n"
     (t1,t2) = actionToTimes tempo eTime newAction
-    newText | isVec3 newAction = actionToVec3 newAction
-            | otherwise = actionToFloat newAction
+    newText | isVec3 newAction = actionToVec3 texMap newAction
+            | otherwise = actionToFloat texMap newAction
     xfn | isHsv newAction = xFadeNewHsv t1 t2
         | otherwise = xFadeNew t1 t2
     line2 = "if(t>=" <> showb t2 <> ")" <> varName <> "=" <> newText <> ";\n"
@@ -429,19 +432,19 @@ xFadeOldHsv t1 t2 = "xFadeOldHsv(" <> showb t1 <> "," <> showb t2 <> ")"
 xFadeNewHsv :: AudioTime -> AudioTime -> Builder
 xFadeNewHsv t1 t2 = "xFadeNewHsv(" <> showb t1 <> "," <> showb t2 <> ")"
 
-fragmentShader :: (AudioTime,Double) -> Program -> Program -> Text
-fragmentShader _ _ newProgram | isJust (directGLSL newProgram) = toText header <> fromJust (directGLSL newProgram)
-fragmentShader tempo oldProgram newProgram = toText $ header <> body
+fragmentShader :: (AudioTime,Double) -> Map Text Int -> Program -> Program -> Text
+fragmentShader _ _ _ newProgram | isJust (directGLSL newProgram) = toText header <> fromJust (directGLSL newProgram)
+fragmentShader tempo texMap oldProgram newProgram = toText $ header <> body
   where
     eTime = 0.2 + (evalTime newProgram)
     -- generate maps of previous, current and all relevant expressions
     oldActions = IntMap.filter actionOutputsWebGL $ actions oldProgram
     newActions = IntMap.filter actionOutputsWebGL $ actions newProgram
-    allActions = union newActions oldActions
+    allActions = IntMap.union newActions oldActions
     -- generate GLSL shader code for each action, with crossfades
-    continuingSources = fold $ intersectionWithKey (continuingAction tempo eTime) newActions oldActions
-    discontinuedSources = fold $ mapWithKey (discontinuedAction tempo eTime) $ difference oldActions newActions
-    newSources = fold $ mapWithKey (addedAction tempo eTime) $ difference newActions oldActions
+    continuingSources = Foldable.fold $ IntMap.intersectionWithKey (continuingAction tempo eTime texMap) newActions oldActions
+    discontinuedSources = Foldable.fold $ IntMap.mapWithKey (discontinuedAction tempo eTime texMap) $ IntMap.difference oldActions newActions
+    newSources = Foldable.fold $ IntMap.mapWithKey (addedAction tempo eTime texMap) $ IntMap.difference newActions oldActions
     allSources = continuingSources <> discontinuedSources <> newSources
     -- generate GLSL shader code that maps the sources to outputs
     red = generateOutput Red "float red" "0." allActions
@@ -460,4 +463,4 @@ fragmentShader tempo oldProgram newProgram = toText $ header <> body
 
 generateOutput :: Output -> Builder -> Builder -> IntMap Action -> Builder
 generateOutput o typeDecl zeroBuilder xs = typeDecl <> "=" <> interspersePluses zeroBuilder xs' <> ";\n"
-  where xs' = mapWithKey (\k _ -> "_" <> showb k) $ IntMap.filter (elem o . outputs) xs
+  where xs' = IntMap.mapWithKey (\k _ -> "_" <> showb k) $ IntMap.filter (elem o . outputs) xs

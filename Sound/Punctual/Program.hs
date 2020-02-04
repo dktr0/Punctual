@@ -4,6 +4,7 @@ module Sound.Punctual.Program where
 
 import Data.IntMap.Strict as IntMap
 import Data.Map as Map
+import Data.Set as Set
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Control.DeepSeq
@@ -13,7 +14,7 @@ import Sound.Punctual.Action
 
 data Program = Program {
   directGLSL :: Maybe Text,
-  textureMap :: Map Text Int,
+  textureSet :: Set Text,
   programNeedsAudioInputAnalysis :: Bool,
   programNeedsAudioOutputAnalysis :: Bool,
   actions :: IntMap Action,
@@ -23,7 +24,7 @@ data Program = Program {
 emptyProgram :: Program
 emptyProgram = Program {
   directGLSL = Nothing,
-  textureMap = Map.empty,
+  textureSet = Set.empty,
   programNeedsAudioInputAnalysis = False,
   programNeedsAudioOutputAnalysis = False,
   actions = IntMap.empty,

@@ -4,6 +4,7 @@ module Sound.Punctual.Graph where
 
 import GHC.Generics (Generic)
 import Control.DeepSeq
+import Data.Text
 
 data Graph =
   LocalBinding Int |
@@ -17,7 +18,8 @@ data Graph =
   UnRep Int Graph |
   Bipolar Graph |
   Unipolar Graph |
-  Tex Int Graph |
+  Fb Graph |
+  Tex Text Graph |
   RgbHsv Graph |
   HsvRgb Graph |
   Sin Graph |
@@ -78,11 +80,8 @@ instance Fractional Graph where
 when :: Graph -> Graph -> Graph
 when x y = IfThenElse x y 0
 
-fb :: Graph -> Graph
-fb xy = Tex 0 xy
-
-texhsv :: Int -> Graph -> Graph
-texhsv i g = RgbHsv $ Tex i g
+texhsv :: Text -> Graph -> Graph
+texhsv t g = RgbHsv $ Tex t g
 
 modulatedRangeGraph :: Graph -> Graph -> Graph -> Graph
 modulatedRangeGraph low high m = LinLin (Multi [-1,1]) (Multi [low,high]) m

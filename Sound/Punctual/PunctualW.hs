@@ -106,17 +106,20 @@ deleteSynth eTime xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
     W.disconnectSynth prevSynth
   return ()
 
--- non-recursive
+-- non-recursive: specific optimizations go here, don't use this directly (use optimize instead)
 optimize' :: Graph -> Graph
 optimize' (Sum (Constant x) (Constant y)) = Constant $ x+y
 optimize' (Product (Constant x) (Constant y)) = Constant $ x*y
+optimize' (Division _ (Constant 0)) = Constant 0
+optimize' (Division (Constant x) (Constant y)) = Constant $ x/y
+optimize' (Division x (Constant y)) = Product x (Constant $ 1/y)
 optimize' (MidiCps (Constant x)) = Constant $ W.midicps x
 optimize' (CpsMidi (Constant x)) = Constant $ W.cpsmidi x
 optimize' (DbAmp (Constant x)) = Constant $ W.dbamp x
 optimize' (AmpDb (Constant x)) = Constant $ W.ampdb x
 optimize' x = x
 
--- recursive
+-- recursive: use this when optimizing, calls optimize' for specific optimizations but recursively walks the tree to make sure the whole tree is optimized
 optimize :: Graph -> Graph
 optimize (Multi xs) = Multi $ fmap optimize xs
 optimize (Mono x) = Mono $ optimize x
@@ -138,9 +141,9 @@ optimize (Floor x) = Floor $ optimize x
 optimize (Fract x) = Fract $ optimize x
 optimize (Sum x y) = optimize' $ Sum (optimize x) (optimize y)
 optimize (Product x y) = optimize' $ Product (optimize x) (optimize y)
+optimize (Division x y) = optimize' $ Division (optimize x) (optimize y)
 optimize (Max x y) = Max (optimize x) (optimize y)
 optimize (Min x y) = Min (optimize x) (optimize y)
-optimize (Division x y) = Division (optimize x) (optimize y)
 optimize (GreaterThan x y) = GreaterThan (optimize x) (optimize y)
 optimize (GreaterThanOrEqual x y) = GreaterThanOrEqual (optimize x) (optimize y)
 optimize (LessThan x y) = LessThan (optimize x) (optimize y)
@@ -169,8 +172,8 @@ graphToSynthDef (Multi _) = error "internal error: graphToSynthDef should only b
 graphToSynthDef (Mono _) = error "internal error: graphToSynthDef should only be used post multi-channel expansion (can't handle Mono)"
 graphToSynthDef (Constant x) = W.constantSource x
 
-graphToSynthDef (Bipolar x) = graphToSynthDef $ x * 2 - 1
-graphToSynthDef (Unipolar x) = graphToSynthDef $ x * 0.5 + 0.5
+graphToSynthDef (Bipolar x) = graphToSynthDef $ optimize $ x * 2 - 1
+graphToSynthDef (Unipolar x) = graphToSynthDef $ optimize $ x * 0.5 + 0.5
 
 graphToSynthDef (Sin (Constant x)) = W.oscillator W.Sine x
 graphToSynthDef (Sin x) = do
@@ -235,8 +238,8 @@ graphToSynthDef (Product x y) = do
   graphToSynthDef y >>= W.param W.Gain m
   return m
 
-graphToSynthDef (Max x y) = graphToSynthDef $ (GreaterThanOrEqual x y * x) + (LessThan x y * y)
-graphToSynthDef (Min x y) = graphToSynthDef $ (GreaterThanOrEqual x y * y) + (LessThan x y * x)
+graphToSynthDef (Max x y) = graphToSynthDef $ optimize $ (GreaterThanOrEqual x y * x) + (LessThan x y * y)
+graphToSynthDef (Min x y) = graphToSynthDef $ optimize $ (GreaterThanOrEqual x y * y) + (LessThan x y * x)
 
 graphToSynthDef (Division x y) = do
   x' <- graphToSynthDef x
@@ -304,14 +307,14 @@ graphToSynthDef (Step x y) | length x == 0 = W.constantSource 0
                            | otherwise = do
   let n = Constant $ fromIntegral $ length x
   let y' = Bipolar ((Floor $ Unipolar y * n) / (n-1))
-  y'' <- graphToSynthDef y'
+  y'' <- graphToSynthDef $ optimize y'
   W.waveShaper (Right $ W.listToArraySpec x) W.NoOversampling y''
 
 
-graphToSynthDef (LinLin (Multi [Constant min1,Constant max1]) (Multi [Constant min2,Constant max2]) x) = graphToSynthDef $ optimize $ (x - Constant min1) * c
+graphToSynthDef (LinLin (Multi [Constant min1,Constant max1]) (Multi [Constant min2,Constant max2]) x) = graphToSynthDef $ optimize $ (x - Constant min1) * c + Constant min2
   where c | (max1 - min1) /= 0 = Constant $ (max2 - min2) / (max1 - min1)
           | otherwise = Constant 0
-graphToSynthDef (LinLin (Multi [Constant min1,Constant max1]) (Multi [min2,max2]) x) = graphToSynthDef $ optimize $ (x - Constant min1) * (max2 - min2) * c
+graphToSynthDef (LinLin (Multi [Constant min1,Constant max1]) (Multi [min2,max2]) x) = graphToSynthDef $ optimize $ (x - Constant min1) * (max2 - min2) * c + min2
   where c | (max1 - min1) /= 0 = Constant $ 1 / (max1 - min1)
           | otherwise = Constant 0
 graphToSynthDef (LinLin (Multi [min1,max1]) (Multi [min2,max2]) x) = graphToSynthDef $ optimize $ min2 + outputRange * proportion -- *** THIS IS ALSO VERY HACKY

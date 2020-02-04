@@ -9,6 +9,7 @@ import Language.Haskell.Exts
 import Language.Haskellish
 import Data.IntMap.Strict as IntMap
 import Data.Map as Map
+import Data.Set as Set
 import Data.List.Split (linesBy)
 import Control.Monad
 import Control.Applicative
@@ -28,7 +29,7 @@ import Sound.Punctual.Program
 
 data ParserState = ParserState {
   actionCount :: Int,
-  textureRefs :: Map String Int,
+  textureRefs :: Set Text,
   localBindings :: Map String Int, -- eg. f x y = fromList [("x",0),("y",1)]
   definitions1 :: Map String Graph,
   definitions2 :: Map String (Graph -> Graph),
@@ -40,7 +41,7 @@ data ParserState = ParserState {
 emptyParserState :: ParserState
 emptyParserState = ParserState {
   actionCount = 0,
-  textureRefs = Map.empty,
+  textureRefs = Set.empty,
   localBindings = Map.empty,
   definitions1 = Map.empty,
   definitions2 = Map.empty,
@@ -63,7 +64,7 @@ parseProgram eTime xs = do
   let initialProgram = emptyProgram { evalTime = eTime }
   (p,st) <- foldM parseStatement (initialProgram,emptyParserState) $ zip [0..] xs
   return $ p {
-    textureMap = Map.mapKeys T.pack $ textureRefs st,
+    textureSet = textureRefs st,
     programNeedsAudioInputAnalysis = audioInputAnalysis st,
     programNeedsAudioOutputAnalysis = audioOutputAnalysis st
     }
@@ -289,7 +290,7 @@ graph2 = asum [
   reserved "rgbhsv" >> return RgbHsv,
   reserved "distance" >> return Distance,
   reserved "point" >> return Point,
-  reserved "fb" >> return fb,
+  reserved "fb" >> return Fb,
   textureRef_graph_graph <*> textureRef,
   int_graph_graph <*> int,
   lDouble_graph_graph <*> list double,
@@ -344,23 +345,17 @@ int_graph_graph = asum [
 int :: H Int
 int = fromIntegral <$> integer
 
-textureRef_graph_graph :: H (Int -> Graph -> Graph)
+textureRef_graph_graph :: H (Text -> Graph -> Graph)
 textureRef_graph_graph = asum [
   reserved "tex" >> return Tex,
   reserved "texhsv" >> return texhsv
   ]
 
-textureRef :: H Int
+textureRef :: H Text
 textureRef = do
-  x <- string
-  tRefs <- gets textureRefs
-  let x' = Map.lookup x tRefs
-  case x' of
-    Just i -> return i
-    Nothing -> do
-      let i = Map.size tRefs + 1
-      modify $ \s -> s { textureRefs = Map.insert x i tRefs }
-      return i
+  t <- T.pack <$> string
+  modify' $ \s -> s { textureRefs = Set.insert t $ textureRefs s }
+  return t
 
 multiSeries :: H Graph
 multiSeries = (reserved "..." >> return f) <*> i <*> i
