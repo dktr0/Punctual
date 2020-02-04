@@ -62,7 +62,7 @@ intro
 main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
-  getGlobalAudioContext >>= addWorklets
+  getGlobalAudioContextPlayback >>= addWorklets
   mainWidgetWithHead headElement bodyElement
 
 bodyElement :: MonadWidget t m => m ()
