@@ -136,11 +136,11 @@ A Punctual statement does not cause audio or video output unless it ends with =>
 
 \>> left -- audio output panned to the left (ie. to the first audio output connected to the system)
 
->> right -- audio output panned to the right (ie. to the second audio output connected to the system)
+\>> right -- audio output panned to the right (ie. to the second audio output connected to the system)
 
->> centre -- audio output panned to the centre (ie. equal power panned between the first two connected audio outputs)
+\>> centre -- audio output panned to the centre (ie. equal power panned between the first two connected audio outputs)
 
->> [number between 0 and 1] -- audio output panned somewhere between 1st audio output (0) and 2nd audio output (1)
+\>> [number between 0 and 1] -- audio output panned somewhere between 1st audio output (0) and 2nd audio output (1)
 
 Note: when presented with a multichannel signal for output, the panning outputs above will mix the multichannel signal down to mono before panning it.
 
