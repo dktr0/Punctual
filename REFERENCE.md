@@ -64,10 +64,12 @@ sqrt [graph] -- returns the square root of the graph
 
 mono [graph] -- takes multi-channel graphs down to a single channel by summing/mixing
 
+gate [graph] [graph] -- when the absolute value of the second graph is lower than the absolute value of the first graph the output is zero, otherwise the output is just the value of the second graph (note: unlike a typical audio noise gate this gate closes and opens immediately)
+
 ## Punctual Graph Functions Specialised for Graphics
 
-These functions are specialized for graphics. However, they are still valid in
-audio contexts (where they are equivalent to specific default values).
+These functions are specialized for graphics. (While they are still "valid" in
+audio contexts - so that audio and video outputs can be freely mixed within the same Punctual "program" - in the audio domain these functions will all produce a constant signal of 0.)
 
 fx -- the position of the current fragment along the x-axis from left (-1) to right (1)
 
@@ -103,11 +105,36 @@ rgbhsv [r,g,b,...] -- convert every 3 channels of red-green-blue signal to hue-s
 
 hsvrgb [h,s,v,...] -- convert every 3 channels of hue-saturation-value signal to red-green-blue
 
+rgbh [r,g,b,...] -- convert every 3 channels of red-green-blue signal to 1 channel of hue
+
+rgbs [r,g,b,...] -- convert every 3 channels of red-green-blue signal to 1 channel of saturation
+
+rgbv [r,g,b,...] -- convert every 3 channels of red-green-blue signal to 1 channel of value
+
+rgbr [r,g,b,...] -- convert every 3 channels of red-green-blue signal to 1 channel of red (ie. drop 2nd and 3rd channels)
+
+rgbg [r,g,b,...] -- convert every 3 channels of red-green-blue signal to 1 channel of green (ie. drop 1st and 3rd channels)
+
+rgbb [r,g,b,...] -- convert every 3 channels of red-green-blue signal to 1 channel of blue (ie. drop 1st and 2nd channels)
+
+hsvh [r,g,b,...] -- convert every 3 channels of hue-saturation-value signal to 1 channel of hue (ie. drop 2nd and 3rd channels)
+
+hsvs [r,g,b,...] -- convert every 3 channels of hue-saturation-value signal to 1 channel of saturation (ie. drop 2nd and 3rd channels)
+
+hsvv [r,g,b,...] -- convert every 3 channels of hue-saturation-value signal to 1 channel of value (ie. drop 2nd and 3rd channels)
+
+hsvr [r,g,b,...] -- convert every 3 channels of hue-saturation-value signal to 1 channel of red
+
+hsvg [r,g,b,...] -- convert every 3 channels of hue-saturation-value signal to 1 channel of green
+
+hsvb [r,g,b,...] -- convert every 3 channels of hue-saturation-value signal to 1 channel of blue
+
+
 ## Punctual Output Notations
 
 A Punctual statement does not cause audio or video output unless it ends with => and an output notation. Here are the available output notations:
 
->> left -- audio output panned to the left (ie. to the first audio output connected to the system)
+\>> left -- audio output panned to the left (ie. to the first audio output connected to the system)
 
 >> right -- audio output panned to the right (ie. to the second audio output connected to the system)
 
@@ -117,22 +144,22 @@ A Punctual statement does not cause audio or video output unless it ends with =>
 
 Note: when presented with a multichannel signal for output, the panning outputs above will mix the multichannel signal down to mono before panning it.
 
->> splay -- multiple channels of audio are spread "equidistantly" over the available audio outputs
+\>> splay -- multiple channels of audio are spread "equidistantly" over the available audio outputs
 
->> red -- intensity of red colour (0 to 1)
+\>> red -- intensity of red colour (0 to 1)
 
->> green -- intensity of green colour (0 to 1)
+\>> green -- intensity of green colour (0 to 1)
 
->> blue -- intensity of blue colour (0 to 1)
+\>> blue -- intensity of blue colour (0 to 1)
 
->> rgb -- every three channels of signal are interpreted as red, green, and blue intensities (from 0 to 1); if only a one-channel signal is provided the value of that signal is used for all of red, green, and blue intensities; if a two-channel signal is provided the first channel is used for red and green, and the second channel is used for blue.
+\>> rgb -- every three channels of signal are interpreted as red, green, and blue intensities (from 0 to 1); if only a one-channel signal is provided the value of that signal is used for all of red, green, and blue intensities; if a two-channel signal is provided the first channel is used for red and green, and the second channel is used for blue.
 
->> alpha -- when not specified alpha defaults to 1, which will erase (overwrite) any previous/underlying layers of drawing in circumstances where "this" Punctual program is drawing after/over other layers of drawing (for example: multiple Punctual programs in different zones of an Estuary collaborative interface). 0 for alpha values will not erase/overwrite previously drawn layers - instead the previous intensities will be kept at their pre-existent level and newly provided intensities will be added.
+\>> alpha -- when not specified alpha defaults to 1, which will erase (overwrite) any previous/underlying layers of drawing in circumstances where "this" Punctual program is drawing after/over other layers of drawing (for example: multiple Punctual programs in different zones of an Estuary collaborative interface). 0 for alpha values will not erase/overwrite previously drawn layers - instead the previous intensities will be kept at their pre-existent level and newly provided intensities will be added.
 
->> hsv -- every three channels of signal are interpreted as hue, saturation, and value intensities
+\>> hsv -- every three channels of signal are interpreted as hue, saturation, and value intensities
 
->> hue
+\>> hue
 
->> saturation
+\>> saturation
 
->> value
+\>> value

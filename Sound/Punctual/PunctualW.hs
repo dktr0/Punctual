@@ -150,6 +150,7 @@ optimize (LessThan x y) = LessThan (optimize x) (optimize y)
 optimize (LessThanOrEqual x y) = LessThanOrEqual (optimize x) (optimize y)
 optimize (Equal x y) = Equal (optimize x) (optimize y)
 optimize (NotEqual x y) = NotEqual (optimize x) (optimize y)
+optimize (Gate x y) = Gate (optimize x) (optimize y)
 optimize (Pow x y) = Pow (optimize x) (optimize y)
 optimize (Clip x y) = Clip (optimize x) (optimize y)
 optimize (Between x y) = Between (optimize x) (optimize y)
@@ -276,6 +277,8 @@ graphToSynthDef (NotEqual x y) = do
   y' <- graphToSynthDef y
   W.notEqualWorklet x' y'
 
+graphToSynthDef (Gate x y) = graphToSynthDef $ optimize $ (LessThan (Abs x) (Abs y)) * y
+
 graphToSynthDef (MidiCps x) = graphToSynthDef x >>= W.midiCpsWorklet
 graphToSynthDef (CpsMidi x) = graphToSynthDef x >>= W.cpsMidiWorklet
 graphToSynthDef (DbAmp x) = graphToSynthDef x >>= W.dbAmpWorklet
@@ -367,6 +370,7 @@ expandMultis (LessThan x y) = expandWith' LessThan x y
 expandMultis (LessThanOrEqual x y) = expandWith' LessThanOrEqual x y
 expandMultis (Equal x y) = expandWith' Equal x y
 expandMultis (NotEqual x y) = expandWith' NotEqual x y
+expandMultis (Gate x y) = expandWith' Gate x y
 expandMultis (Pow x y) = expandWith' Pow x y
 expandMultis (Clip r x) = zipWith Clip r' x' -- *** VERY HACKY
   where

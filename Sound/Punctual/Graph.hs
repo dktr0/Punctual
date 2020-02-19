@@ -20,8 +20,9 @@ data Graph =
   Unipolar Graph |
   Fb Graph |
   Tex Text Graph |
-  RgbHsv Graph |
-  HsvRgb Graph |
+  RgbHsv Graph | HsvRgb Graph |
+  HsvH Graph | HsvS Graph | HsvV Graph | HsvR Graph | HsvG Graph | HsvB Graph |
+  RgbH Graph | RgbS Graph | RgbV Graph | RgbR Graph | RgbG Graph | RgbB Graph |
   Sin Graph |
   Tri Graph |
   Saw Graph |
@@ -47,6 +48,7 @@ data Graph =
   LessThanOrEqual Graph Graph |
   Equal Graph Graph |
   NotEqual Graph Graph |
+  Gate Graph Graph |
   Circle Graph Graph |
   Rect Graph Graph |
   Pow Graph Graph |

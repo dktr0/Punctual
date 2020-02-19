@@ -96,6 +96,18 @@ graphToGLSL texMap (Floor x) = unaryShaderFunction "floor" texMap x
 graphToGLSL texMap (Fract x) = unaryShaderFunction "fract" texMap x
 graphToGLSL texMap (HsvRgb x) = fmap (\(b,_) -> ("hsvrgb("<>b<>")",Vec3))  $ toVec3s $ graphToGLSL texMap x
 graphToGLSL texMap (RgbHsv x) = fmap (\(b,_) -> ("rgbhsv("<>b<>")",Vec3))  $ toVec3s $ graphToGLSL texMap x
+graphToGLSL texMap (HsvH x) = fmap (\(b,_) -> (b<>".x",GLFloat)) $ toVec3s $ graphToGLSL texMap x
+graphToGLSL texMap (HsvS x) = fmap (\(b,_) -> (b<>".y",GLFloat)) $ toVec3s $ graphToGLSL texMap x
+graphToGLSL texMap (HsvV x) = fmap (\(b,_) -> (b<>".z",GLFloat)) $ toVec3s $ graphToGLSL texMap x
+graphToGLSL texMap (HsvR x) = fmap (\(b,_) -> ("hsvrgb("<>b<>").x",GLFloat)) $ toVec3s $ graphToGLSL texMap x
+graphToGLSL texMap (HsvG x) = fmap (\(b,_) -> ("hsvrgb("<>b<>").y",GLFloat)) $ toVec3s $ graphToGLSL texMap x
+graphToGLSL texMap (HsvB x) = fmap (\(b,_) -> ("hsvrgb("<>b<>").z",GLFloat)) $ toVec3s $ graphToGLSL texMap x
+graphToGLSL texMap (RgbR x) = fmap (\(b,_) -> (b<>".x",GLFloat)) $ toVec3s $ graphToGLSL texMap x
+graphToGLSL texMap (RgbG x) = fmap (\(b,_) -> (b<>".y",GLFloat)) $ toVec3s $ graphToGLSL texMap x
+graphToGLSL texMap (RgbB x) = fmap (\(b,_) -> (b<>".z",GLFloat)) $ toVec3s $ graphToGLSL texMap x
+graphToGLSL texMap (RgbH x) = fmap (\(b,_) -> ("rgbhsv("<>b<>").x",GLFloat)) $ toVec3s $ graphToGLSL texMap x
+graphToGLSL texMap (RgbS x) = fmap (\(b,_) -> ("rgbhsv("<>b<>").y",GLFloat)) $ toVec3s $ graphToGLSL texMap x
+graphToGLSL texMap (RgbV x) = fmap (\(b,_) -> ("rgbhsv("<>b<>").z",GLFloat)) $ toVec3s $ graphToGLSL texMap x
 graphToGLSL texMap (Fb xy) = fmap (\(b,_) -> ("tex(0,"<>b<>")",Vec3)) $ toVec2s $ graphToGLSL texMap xy
 graphToGLSL texMap (Tex t xy) = fmap (\(b,_) -> ("tex(" <> showb n <> "," <> b <> ")",Vec3)) $ toVec2s $ graphToGLSL texMap xy
   where n = Map.findWithDefault 1 t texMap
@@ -114,6 +126,7 @@ graphToGLSL texMap (LessThan x y) = binaryShaderFunction "_lt" texMap x y
 graphToGLSL texMap (LessThanOrEqual x y) = binaryShaderFunction "_lte" texMap x y
 graphToGLSL texMap (Equal x y) = binaryShaderOpBool "==" texMap x y
 graphToGLSL texMap (NotEqual x y) = binaryShaderOpBool "!=" texMap x y
+graphToGLSL texMap (Gate x y) = binaryShaderFunction "gate" texMap x y
 graphToGLSL texMap (Pow x y) = binaryShaderFunction "pow" texMap x y
 graphToGLSL texMap (Rect xy wh) = expandWith (\(a,_) (b,_) -> ("rect("<>a<>","<>b<>")",GLFloat)) (toVec2s $ graphToGLSL texMap xy) (toVec2s $ graphToGLSL texMap wh)
 graphToGLSL texMap (Circle xy r) = expandWith (\(a,_) (b,_) -> ("circle("<>a<>","<>b<>")",GLFloat)) (toVec2s $ graphToGLSL texMap xy) (toGLFloats $ graphToGLSL texMap r)
@@ -313,6 +326,9 @@ header
    \float _lte(float x,float y){return float(x<=y);}\
    \vec2 _lte(vec2 x,vec2 y){return vec2(bvec2(x.x<=y.x,x.y<=y.y));}\
    \vec3 _lte(vec3 x,vec3 y){return vec3(bvec3(x.x<=y.x,x.y<=y.y,x.z<=y.z));}\
+   \float gate(float x,float y){return float(abs(x)<abs(y))*y;}\
+   \vec2 gate(vec2 x,vec2 y){return vec2(gate(x.x,y.x),gate(x.y,y.y));}\
+   \vec3 gate(vec3 x,vec3 y){return vec3(gate(x.x,y.x),gate(x.y,y.y),gate(x.z,y.z));}\
    \float _step(int n,int x,float y){return float(x==int((y*0.5+0.5)*float(n)));}\
    \float xFadeNew(float t1,float t2){if(t>t2)return 1.;if(t<t1)return 0.;return((t-t1)/(t2-t1));}\
    \float xFadeOld(float t1,float t2){return 1.-xFadeNew(t1,t2);}\

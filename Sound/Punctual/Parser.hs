@@ -288,6 +288,18 @@ graph2 = asum [
   reserved "fract" >> return Fract,
   reserved "hsvrgb" >> return HsvRgb,
   reserved "rgbhsv" >> return RgbHsv,
+  reserved "hsvh" >> return HsvH,
+  reserved "hsvs" >> return HsvS,
+  reserved "hsvv" >> return HsvV,
+  reserved "hsvr" >> return HsvR,
+  reserved "hsvg" >> return HsvG,
+  reserved "hsvb" >> return HsvB,
+  reserved "rgbh" >> return RgbH,
+  reserved "rgbs" >> return RgbS,
+  reserved "rgbv" >> return RgbV,
+  reserved "rgbr" >> return RgbR,
+  reserved "rgbg" >> return RgbG,
+  reserved "rgbb" >> return RgbB,
   reserved "distance" >> return Distance,
   reserved "point" >> return Point,
   reserved "fb" >> return Fb,
@@ -319,6 +331,7 @@ graph3 = asum [
   reserved "clip" >> return Clip,
   reserved "between" >> return Between,
   reserved "when" >> return Sound.Punctual.Graph.when,
+  reserved "gate" >> return Gate,
   graph4 <*> graph
   ]
 
