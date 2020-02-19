@@ -106,8 +106,7 @@ Modulated ranges are a series of Punctual specific notations for this common
 mapping/scaling operation:
 
 ```
-saw (24m +- 3% $ sin 1) >> centre; -- go between 3% below MIDI note 24 and 3% above, driven by a 1 Hz sine wave
-lpf (saw 24m) (100 ... 1000 $ sin 1) 1 >> centre; -- filter frequency from 100 to 1000, driven by a 1 Hz sine wave
-saw (24m +- 3% $ (sin 1 * sqr 2)) >> centre; -- using a more complex "driver" for the modulation
-saw ((24m ... 30m $ sqr 2) +- 3% $ sin 1) => centre; -- the elements of the ranges can be more complex "graphs" or nested modulated ranges as well
+saw (midicps $ 24 +- 0.03 $ sin 1) >> centre; -- go between 3% below MIDI note 24 and 3% above, driven by a 1 Hz sine wave
+lpf (saw $ 24m) (100 ~~ 1000 $ sin 1) 1 >> centre; -- filter frequency from 100 to 1000, driven by a 1 Hz sine wave
+saw (midicps $ 24 +- 0.03 $ sin 1 * sqr 2) >> centre; -- using a more complex "driver" for the modulation
 ```

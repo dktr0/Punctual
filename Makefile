@@ -22,6 +22,9 @@ runBenchmark:
 runBenchmarkInBrowser:
 	open benchmark/build/x86_64-linux/ghcjs-8.6.0.1/punctual-0.0.0.1/b/punctual-benchmarks/build/punctual-benchmarks/punctual-benchmarks.jsexe/index.html
 
+bundleClient:
+	zip -r - ./punctual.jsexe/* > punctual-standalone.zip
+
 serve:
 	cd punctual.jsexe; python -m SimpleHTTPServer 8000
 
