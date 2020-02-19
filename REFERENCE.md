@@ -132,7 +132,7 @@ hsvb [r,g,b,...] -- convert every 3 channels of hue-saturation-value signal to 1
 
 ## Punctual Output Notations
 
-A Punctual statement does not cause audio or video output unless it ends with => and an output notation. Here are the available output notations:
+A Punctual statement does not cause audio or video output unless it ends with >> and an output notation. Here are the available output notations:
 
 \>> left -- audio output panned to the left (ie. to the first audio output connected to the system)
 
