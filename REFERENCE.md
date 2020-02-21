@@ -58,7 +58,7 @@ bipolar [graph] -- input is rescaled as if input range was unipolar (0,1) and ou
 
 [min] ~~  [max] $ [input] -- bipolar (-1,1) input rescaled to range (min,max)
 
-[centre] +- [offset] $ [input] -- bipolar (-1,1) input rescaled to range centre +- offset
+[centre] +- [offsetRatio] [input] -- bipolar (-1,1) input rescaled to range centre +- (offsetRatio * centre), e.g. a +- 0.5 ranges from 0.5a to 1.5a
 
 sqrt [graph] -- returns the square root of the graph
 
