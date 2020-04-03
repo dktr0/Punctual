@@ -93,9 +93,9 @@ hline [y] [w] -- returns 1 when current fragment is within w of a horizontal lin
 
 vline [x] [w] -- returns 1 when current fragment is within w of a vertical line at x, 0 otherwise
 
-iline [x1,y1,...] [x2,y2,...] -- returns 1 when current fragment is within w of an infinite line that passes through x1,y1 and x2,y2; otherwise 0
+iline [x1,y1,...] [x2,y2,...] [w] -- returns 1 when current fragment is within w of an infinite line that passes through x1,y1 and x2,y2; otherwise 0
 
-line [x1,y1,...] [x2,y2,...] -- returns 1 when current fragment is within w of a line that goes from x1,y1 and x2,y2; otherwise 0
+line [x1,y1,...] [x2,y2,...] [w] -- returns 1 when current fragment is within w of a line that goes from x1,y1 and x2,y2; otherwise 0
 
 tex "https://url-to-image-file" [x,y,...] -- accesses a texture built from the image file in question as red-green-blue (3-channel signal)
 
