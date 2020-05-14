@@ -1,4 +1,4 @@
-module Sound.Punctual.MovingAverage where
+module MovingAverage where
 
 type MovingAverage = (Int,[Double])
 

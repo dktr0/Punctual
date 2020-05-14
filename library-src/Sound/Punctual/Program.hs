@@ -3,7 +3,6 @@
 module Sound.Punctual.Program where
 
 import Data.IntMap.Strict as IntMap
-import Data.Map as Map
 import Data.Set as Set
 import Data.Text (Text)
 import GHC.Generics (Generic)

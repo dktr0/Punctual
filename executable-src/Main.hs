@@ -31,8 +31,9 @@ import Sound.Punctual.PunctualW
 import Sound.Punctual.WebGL
 import Sound.MusicW
 import Sound.MusicW.AudioContext hiding (AudioTime)
-import Sound.Punctual.MovingAverage
 import Sound.Punctual.GL
+import Sound.Punctual.Resolution
+import MovingAverage
 
 headElement :: DomBuilder t m => m ()
 headElement = do
@@ -136,7 +137,7 @@ forkRenderThreads canvas = do
   let iW = emptyPunctualW ac gain 2 -- hard coded stereo for now
   -- create PunctualWebGL for animation
   glc <- newGLContext canvas
-  initialPunctualWebGL <- newPunctualWebGL (Just mic) (Just comp) glc
+  initialPunctualWebGL <- newPunctualWebGL (Just mic) (Just comp) HD 1.0 glc
   -- create an MVar for the render state, fork render threads, return the MVar
   t0system <- getCurrentTime
   mv <- newMVar $ RenderState {
@@ -180,11 +181,13 @@ updateIfNecessary rs = if (isNothing $ toUpdate rs) then return rs else do
   let x = fromJust $ toUpdate rs
   let t = (t0 rs, 0.5) -- hard-coded for now...
   nW <- liftAudioIO $ updatePunctualW (punctualW rs) t x
-  nGL <- evaluatePunctualWebGL (glCtx rs) t 1 x (punctualWebGL rs)
+  nGL <- setResolution (glCtx rs) HD (punctualWebGL rs)
+  nGL' <- setBrightness 1.0 nGL
+  nGL'' <- evaluatePunctualWebGL (glCtx rs) t 1 x nGL'
   return $ rs {
     toUpdate = Nothing,
     punctualW = nW,
-    punctualWebGL = nGL
+    punctualWebGL = nGL''
   }
 
 animationThread :: MVar RenderState -> Double -> IO ()
