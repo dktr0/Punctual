@@ -52,14 +52,6 @@ intro
    \mono (iline [sin (0.11*1...6), sin (0.08/1...6)] [sin (0.06/1...6), sin (0.04*1...6)] 0.002) * [sin 0.11,0.5 ~~ 1 $ sin 0.12, 1] * (1 - rect [0,0.875] [2,0.25]) >> hsv <> 5;\n\
    \0.98 * fb fxy * (fb fxy > 0.1) >> rgb"
 
-   {-
-   \sin 60m * -10db => left;\n\
-   \sin 60.05m * -10db => right;\n\
-   \fx => red;\n\
-   \fy * -1 => green;\n\
-   \sin (fx * 60m) * sin (fy * 60.05m) * fx * fy * 10db => blue;\n"
-   -}
-
 main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
@@ -78,7 +70,7 @@ bodyElement = do
       let textAttrs = constDyn $ fromList [("class","editorArea"){- ,("rows","999") -}]
       code <- elClass "div" "editor" $ textArea $ def & textAreaConfig_attributes .~ textAttrs & textAreaConfig_initialValue .~ intro
       let e = _textArea_element code
-      e' <- wrapDomEvent (e) (onEventName Keypress) $ do
+      e' <- wrapDomEvent (e) (onEventName   Keypress) $ do
         y <- getKeyEvent
         let f ke | (keShift ke == True) && (keCtrl ke == False) && (keKeyCode ke == 13) = 1 -- shift-Enter
                  | (keShift ke == True) && (keCtrl ke == True) && (keKeyCode ke == 19) = 2 --ctrl-shift-S
@@ -137,7 +129,7 @@ forkRenderThreads canvas = do
   let iW = emptyPunctualW ac gain 2 -- hard coded stereo for now
   -- create PunctualWebGL for animation
   glc <- newGLContext canvas
-  initialPunctualWebGL <- newPunctualWebGL (Just mic) (Just comp) HD 1.0 glc
+  initialPunctualWebGL <- newPunctualWebGL (Just mic) (Just comp) FHD 1.0 glc
   -- create an MVar for the render state, fork render threads, return the MVar
   t0system <- getCurrentTime
   mv <- newMVar $ RenderState {
@@ -181,7 +173,7 @@ updateIfNecessary rs = if (isNothing $ toUpdate rs) then return rs else do
   let x = fromJust $ toUpdate rs
   let t = (t0 rs, 0.5) -- hard-coded for now...
   nW <- liftAudioIO $ updatePunctualW (punctualW rs) t x
-  nGL <- setResolution (glCtx rs) HD (punctualWebGL rs)
+  nGL <- setResolution (glCtx rs) FHD (punctualWebGL rs)
   nGL' <- setBrightness 1.0 nGL
   nGL'' <- evaluatePunctualWebGL (glCtx rs) t 1 x nGL'
   return $ rs {
