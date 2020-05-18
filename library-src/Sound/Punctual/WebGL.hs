@@ -245,9 +245,11 @@ postFragmentShaderSrc =
   "precision mediump float;\
   \uniform vec2 res;\
   \uniform sampler2D tex;\
+  \uniform float brightness;\
   \void main(){\
-  \  vec2 uv = vec2(gl_FragCoord.x/res.x,gl_FragCoord.y/res.y) ;\
-  \  gl_FragColor = texture2D(tex,uv);\
+  \  vec2 uv = vec2(gl_FragCoord.x/res.x,gl_FragCoord.y/res.y);\
+  \  vec4 t = texture2D(tex,uv);\
+  \  gl_FragColor = vec4(t.xyz*brightness,t.w);\
   \}"
 
 setResolution :: GLContext -> Resolution -> PunctualWebGL -> IO PunctualWebGL
@@ -309,8 +311,6 @@ drawPunctualWebGL ctx t z st = runGL ctx $ do
     bindBufferArray $ triangleStrip st
     vertexAttribPointer p
     enableVertexAttribArray p
-    let (w,h) = pixels (resolution st)
-    uniform2fAsync asyncProgram "res" w h
     -- bind textures to uniforms representing textures in the program
     let uMap = uniformsMap asyncProgram
     let texs = IntMap.findWithDefault (Map.empty) z $ textureMaps st -- Map Text Int
@@ -331,6 +331,7 @@ drawPunctualWebGL ctx t z st = runGL ctx $ do
     uniform1fAsync asyncProgram "_defaultAlpha" defaultAlpha
     pingPongFrameBuffers 0 (uniformsMap asyncProgram ! "_fb") st
     let (w,h) = pixels (resolution st)
+    uniform2fAsync asyncProgram "res" (fromIntegral w) (fromIntegral h)
     viewport 0 0 w h
     drawArraysTriangleStrip 0 4
   return $ st { mainPrograms = IntMap.insert z asyncProgram (mainPrograms st) }
@@ -347,7 +348,7 @@ pingPongFrameBuffers i l st = do
 
 displayPunctualWebGL :: GLContext -> PunctualWebGL -> IO PunctualWebGL
 displayPunctualWebGL ctx st = runGL ctx $ do
-  let postUniforms = ["res","tex"]
+  let postUniforms = ["res","tex","brightness"]
   let postAttribs = ["p"]
   (newProgramReady,asyncProgram) <- useAsyncProgram (postProgram st) postUniforms postAttribs
   when newProgramReady $ do
@@ -356,14 +357,14 @@ displayPunctualWebGL ctx st = runGL ctx $ do
     bindBufferArray $ triangleStrip st
     vertexAttribPointer p
     enableVertexAttribArray p
-    let (w,h) = pixels (resolution st)
-    uniform2fAsync asyncProgram "res" w h
   when (isJust $ activeProgram asyncProgram) $ do
     let tPost = if (pingPong st) then (snd $ fb0 st) else (snd $ fb1 st)
     let loc = uniformsMap asyncProgram ! "tex"
     bindTex 0 tPost loc
     bindFramebufferNull
     let (w,h) = pixels (resolution st)
+    uniform1fAsync asyncProgram "brightness" (brightness st)
+    uniform2fAsync asyncProgram "res" (fromIntegral w) (fromIntegral h)
     viewport 0 0 w h
     drawArraysTriangleStrip 0 4
   return $ st { postProgram = asyncProgram, pingPong = not (pingPong st) }
