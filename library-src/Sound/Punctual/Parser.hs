@@ -10,9 +10,6 @@ import Language.Haskellish
 import Data.IntMap.Strict as IntMap
 import Data.Map as Map
 import Data.Set as Set
-import Data.List.Split (linesBy)
-import Control.Monad
-import Control.Applicative
 import Control.Monad.State
 import Control.Monad.Except
 import Data.Maybe
@@ -27,74 +24,6 @@ import Sound.Punctual.Action hiding ((>>),(<>),graph,defTime,outputs)
 import qualified Sound.Punctual.Action as P
 import Sound.Punctual.Program
 
-data ParserState = ParserState {
-  actionCount :: Int,
-  textureRefs :: Set Text,
-  localBindings :: Map String Int, -- eg. f x y = fromList [("x",0),("y",1)]
-  definitions1 :: Map String Graph,
-  definitions2 :: Map String (Graph -> Graph),
-  definitions3 :: Map String (Graph -> Graph -> Graph),
-  audioInputAnalysis :: Bool,
-  audioOutputAnalysis :: Bool
-}
-
-emptyParserState :: ParserState
-emptyParserState = ParserState {
-  actionCount = 0,
-  textureRefs = Set.empty,
-  localBindings = Map.empty,
-  definitions1 = Map.empty,
-  definitions2 = Map.empty,
-  definitions3 = Map.empty,
-  audioInputAnalysis = False,
-  audioOutputAnalysis = False
-  }
-
-type H = Haskellish ParserState
-
-parseHaskellish :: H a -> ParserState -> String -> Either String (a,ParserState)
-parseHaskellish p st x = (parseResultToEither $ parseWithMode haskellSrcExtsParseMode x) >>= runHaskellish p st
-
-parseResultToEither :: ParseResult a -> Either String a
-parseResultToEither (ParseOk x) = Right x
-parseResultToEither (ParseFailed _ s) = Left s
-
-parseProgram :: AudioTime -> [String] -> Either String Program
-parseProgram eTime xs = do
-  let initialProgram = emptyProgram { evalTime = eTime }
-  (p,st) <- foldM parseStatement (initialProgram,emptyParserState) $ zip [0..] xs
-  return $ p {
-    textureSet = textureRefs st,
-    programNeedsAudioInputAnalysis = audioInputAnalysis st,
-    programNeedsAudioOutputAnalysis = audioOutputAnalysis st
-    }
-
-parseStatement :: (Program,ParserState) -> (Int,String) -> Either String (Program,ParserState)
-parseStatement x y = parseStatementAsDefinition x y <|> parseStatementAsAction x y
-
-parseStatementAsDefinition :: (Program,ParserState) -> (Int,String) -> Either String (Program,ParserState)
-parseStatementAsDefinition (p,st) (_,x) = do
-  st' <- parseDefinition st x
-  return (p,st')
-
-parseStatementAsAction :: (Program,ParserState) -> (Int,String) -> Either String (Program,ParserState)
-parseStatementAsAction (p,st) (_,x) = do
-  (a,st') <- parseAction st x
-  let actionIndex = actionCount st
-  let st'' = st' { actionCount = actionIndex + 1 }
-  return (p { actions = IntMap.insert actionIndex a (actions p)}, st'')
-
-parseAction :: ParserState -> String -> Either String (Action,ParserState)
-parseAction = parseHaskellish action
-
-parseDefinition :: ParserState -> String -> Either String ParserState
-parseDefinition st x = (parseResultToEither $ parseWithMode haskellSrcExtsParseMode x) >>= simpleDefinition st
-
-simpleDefinition :: ParserState -> Decl SrcSpanInfo -> Either String ParserState
-simpleDefinition st (PatBind _ (PVar _ (Ident _ x)) (UnGuardedRhs _ e) _) = do
-  (e',st') <- runHaskellish graph st e
-  return $ st' { definitions1 = Map.insert x e' (definitions1 st') }
-simpleDefinition _ _ = Left ""
 
 parse :: AudioTime -> Text -> IO (Either String Program)
 parse eTime x = do
@@ -102,8 +31,7 @@ parse eTime x = do
   r <- if (elem "glsl" pragmas) then do
     return $ Right $ emptyProgram { directGLSL = Just x' }
   else do
-    let a = Prelude.filter notEmptyLine $ linesBy (==';') $ T.unpack x' -- cast to String and separate on ;
-    p' <- return $! parseProgram eTime a
+    p' <- return $! parseProgram eTime $ Prelude.filter (/='\n') $ T.unpack x'
     case p' of
       Left _ -> return $ Left "syntax error"
       Right p'' -> return $ Right p''
@@ -118,8 +46,51 @@ extractPragmas t = (newText,pragmas)
     newText = T.unlines $ fmap fst xs
     pragmas = concat $ fmap snd xs
 
-notEmptyLine :: String -> Bool
-notEmptyLine = (/="") . Prelude.filter (\y -> y /= '\n' && y /=' ' && y /= '\t')
+parseProgram :: AudioTime -> String -> Either String Program
+parseProgram eTime x = do
+  let x' = fmap (\y -> if y == ';' then ',' else y) $ "[" ++ x ++ "]"
+  (p,st) <- parseHaskellish program emptyParserState x'
+  return $ p {
+    textureSet = textureRefs st,
+    programNeedsAudioInputAnalysis = audioInputAnalysis st,
+    programNeedsAudioOutputAnalysis = audioOutputAnalysis st,
+    evalTime = eTime
+  }
+
+
+type Identifier = String
+
+data ParserState = ParserState {
+  actionCount :: Int,
+  textureRefs :: Set Text,
+  localBindings :: Map Identifier Int, -- eg. f x y = fromList [("x",0),("y",1)]
+  definitions1 :: Map Identifier Graph,
+--  definitions2 :: Map Identifier (Graph -> Graph),
+--  definitions3 :: Map Identifier (Graph -> Graph -> Graph),
+  audioInputAnalysis :: Bool,
+  audioOutputAnalysis :: Bool
+} deriving (Show)
+
+emptyParserState :: ParserState
+emptyParserState = ParserState {
+  actionCount = 0,
+  textureRefs = Set.empty,
+  localBindings = Map.empty,
+  definitions1 = Map.empty,
+--  definitions2 = Map.empty,
+--  definitions3 = Map.empty,
+  audioInputAnalysis = False,
+  audioOutputAnalysis = False
+  }
+
+type H = Haskellish ParserState
+
+parseHaskellish :: H a -> ParserState -> String -> Either String (a,ParserState)
+parseHaskellish p st x = (parseResultToEither $ parseWithMode haskellSrcExtsParseMode x) >>= runHaskellish p st
+
+parseResultToEither :: ParseResult a -> Either String a
+parseResultToEither (ParseOk x) = Right x
+parseResultToEither (ParseFailed _ s) = Left s
 
 haskellSrcExtsParseMode :: ParseMode
 haskellSrcExtsParseMode = defaultParseMode {
@@ -161,9 +132,15 @@ haskellSrcExtsParseMode = defaultParseMode {
         Fixity (AssocRight ()) 0 (UnQual () (Symbol () "$!")),
         Fixity (AssocRight ()) 0 (UnQual () (Ident () "seq")), -- this line and above are fixities from defaultParseMode
         Fixity (AssocLeft ()) 0 (UnQual () (Symbol () "<>")), -- this line and below are fixities defined for Punctual's purposes...
-        Fixity (AssocLeft ()) 0 (UnQual () (Symbol () "@@"))
+        Fixity (AssocLeft ()) 0 (UnQual () (Symbol () "@@")),
+        Fixity (AssocRight ()) 1 (UnQual () (Symbol () "<<"))
         ]
     }
+
+program :: H Program
+program = do
+  xs <- list action
+  return $ emptyProgram { actions = IntMap.fromList $ zip [0..] xs }
 
 action :: H Action
 action = asum [
@@ -234,14 +211,14 @@ outputs = asum [
 
 definitions1H :: H Graph
 definitions1H = do
-  x <- identifier
+  x <- Sound.Punctual.Parser.identifier
   m <- gets definitions1 -- Map Text Graph
   let xm = Map.lookup x m
   if isJust xm then return (fromJust xm) else throwError ""
 
-
 graph :: H Graph
 graph = asum [
+  identifiedGraph,
   definitions1H,
   reverseApplication graph (reserved "m" >> return MidiCps),
   reverseApplication graph (reserved "db" >> return DbAmp),
@@ -354,6 +331,16 @@ int_graph_graph = asum [
   reserved "rep" >> return Rep,
   reserved "unrep" >> return UnRep
   ]
+
+identifiedGraph :: H Graph
+identifiedGraph = do
+  (_,i,g) <- binaryApplication (reserved "<<") Sound.Punctual.Parser.identifier  graph
+  modify $ \s -> s { definitions1 = Map.insert i g $ definitions1 s }
+  return g
+
+identifier :: H Identifier
+identifier = Language.Haskellish.identifier
+-- TODO: reject identifiers that are reserved words
 
 int :: H Int
 int = fromIntegral <$> integer

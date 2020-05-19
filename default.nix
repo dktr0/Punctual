@@ -56,8 +56,8 @@ with pkgs.haskell.lib;
      (self.callCabal2nix "haskellish" (pkgs.fetchFromGitHub {
       owner = "dktr0";
       repo = "Haskellish";
-      sha256 = "05dn0lyyaagljibxf0pnlin9ni1c5v7kh9c4bs76ch9z5wsk9nf1";
-      rev = "a1d78aedde218f8429517d8cfc599f9d7bbbc2d3";
+      sha256 = "00c2h8v7xbc17vjlwrc1pdly30p7wnki00zivhxq1qil0c8180wr";
+      rev = "5ae46955094f071f5c632380380fd9e234383eaf";
      }) {});
 
   };
