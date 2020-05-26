@@ -55,6 +55,21 @@ Library
   other-modules:
   default-language:  Haskell2010
 
+
+test-suite tests
+  type: exitcode-stdio-1.0
+  main-is: Tests.hs
+  hs-source-dirs: tests
+  ghc-options: -Wall
+  other-modules:
+  build-depends:
+      base,
+      microspec >= 0.2.1.3,
+      punctual,
+      containers
+  default-language: Haskell2010
+
+
 executable punctual
   hs-source-dirs:    executable-src
   main-is:           Main.hs

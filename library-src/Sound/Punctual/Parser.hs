@@ -25,17 +25,12 @@ import qualified Sound.Punctual.Action as P
 import Sound.Punctual.Program
 
 
-parse :: AudioTime -> Text -> IO (Either String Program)
+parse :: AudioTime -> Text -> Either String Program
 parse eTime x = do
   let (x',pragmas) = extractPragmas x
-  r <- if (elem "glsl" pragmas) then do
-    return $ Right $ emptyProgram { directGLSL = Just x' }
-  else do
-    p' <- return $! parseProgram eTime $ Prelude.filter (/='\n') $ T.unpack x'
-    case p' of
-      Left _ -> return $ Left "syntax error"
-      Right p'' -> return $ Right p''
-  return r
+  if (elem "glsl" pragmas) then do
+    return $ emptyProgram { directGLSL = Just x' }
+  else parseProgram eTime $ T.unpack x'
 
 extractPragmas :: Text -> (Text,[Text])
 extractPragmas t = (newText,pragmas)
@@ -48,7 +43,7 @@ extractPragmas t = (newText,pragmas)
 
 parseProgram :: AudioTime -> String -> Either String Program
 parseProgram eTime x = do
-  let x' = fmap (\y -> if y == ';' then ',' else y) $ "[" ++ x ++ "]"
+  let x' = fmap (\y -> if y == ';' then ',' else y) $ "[" ++ x ++ "\n]"
   (p,st) <- parseHaskellish program emptyParserState x'
   return $ p {
     textureSet = textureRefs st,
