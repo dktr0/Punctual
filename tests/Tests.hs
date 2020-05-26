@@ -36,8 +36,12 @@ main = microspec $ do
 
     it "a program containing just a silent 0 and a multi-line comment" $ parse 0.0 "0 {- comment\n-}" `shouldBe` Right (emptyProgram { actions = IntMap.fromList [(0,Action { graph = Constant 0.0, defTime = Quant 1.0 (Seconds 0.0), transition = DefaultCrossFade, outputs = []})]})
 
-    it "a simple sine wave to splay" $ parse 0.0 "sin 440 >> splay" `shouldBe` Right (emptyProgram { actions = fromList [(0,Action {graph = Sin (Constant 440.0), defTime = Quant 1.0 (Seconds 0.0), transition = DefaultCrossFade, outputs = [Splay]})]})
+    it "a simple sine wave to splay" $ parse 0.0 "sin 440 >> splay" `shouldBe` Right (emptyProgram { actions = IntMap.fromList [(0,Action {graph = Sin (Constant 440.0), defTime = Quant 1.0 (Seconds 0.0), transition = DefaultCrossFade, outputs = [Splay]})]})
 
-    it "two sine waves to splay, with no final semicolon" $ parse 0.0 "sin 440 >> splay;\n sin 550 >> splay" `shouldBe` Right (emptyProgram { actions = fromList [(0,Action {graph = Sin (Constant 440.0), defTime = Quant 1.0 (Seconds 0.0), transition = DefaultCrossFade, outputs = [Splay]}),(1,Action {graph = Sin (Constant 550.0), defTime = Quant 1.0 (Seconds 0.0), transition = DefaultCrossFade, outputs = [Splay]})]})
+    it "two sine waves to splay, with no final semicolon" $ parse 0.0 "sin 440 >> splay;\n sin 550 >> splay" `shouldBe` Right (emptyProgram { actions = IntMap.fromList [(0,Action {graph = Sin (Constant 440.0), defTime = Quant 1.0 (Seconds 0.0), transition = DefaultCrossFade, outputs = [Splay]}),(1,Action {graph = Sin (Constant 550.0), defTime = Quant 1.0 (Seconds 0.0), transition = DefaultCrossFade, outputs = [Splay]})]})
 
-    it "two sine waves to splay, with a final semicolon" $ parse 0.0 "sin 440 >> splay;\n sin 550 >> splay;" `shouldBe` Right (emptyProgram { actions = fromList [(0,Action {graph = Sin (Constant 440.0), defTime = Quant 1.0 (Seconds 0.0), transition = DefaultCrossFade, outputs = [Splay]}),(1,Action {graph = Sin (Constant 550.0), defTime = Quant 1.0 (Seconds 0.0), transition = DefaultCrossFade, outputs = [Splay]})]})
+    it "two sine waves to splay, with a final semicolon" $ parse 0.0 "sin 440 >> splay;\n sin 550 >> splay;" `shouldBe` Right (emptyProgram { actions = IntMap.fromList [(0,Action {graph = Sin (Constant 440.0), defTime = Quant 1.0 (Seconds 0.0), transition = DefaultCrossFade, outputs = [Splay]}),(1,Action {graph = Sin (Constant 550.0), defTime = Quant 1.0 (Seconds 0.0), transition = DefaultCrossFade, outputs = [Splay]})]})
+
+    it "two sine waves to splay, but the first commented out" $ parse 0.0 "-- sin 440 >> splay;\n sin 550 >> splay" `shouldBe` Right (emptyProgram {actions = IntMap.fromList [(0,Action {graph = Sin (Constant 550.0), defTime = Quant 1.0 (Seconds 0.0), transition = DefaultCrossFade, outputs = [Splay]})]})
+
+    it "two sine waves to splay, the first commented out with a final semicolon" $ parse 0.0 "-- sin 440 >> splay;\n sin 550 >> splay;" `shouldBe` Right (emptyProgram {actions = IntMap.fromList [(0,Action {graph = Sin (Constant 550.0), defTime = Quant 1.0 (Seconds 0.0), transition = DefaultCrossFade, outputs = [Splay]})]})
