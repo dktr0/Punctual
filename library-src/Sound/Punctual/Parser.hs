@@ -4,6 +4,8 @@ module Sound.Punctual.Parser (Sound.Punctual.Parser.parse) where
 
 import Data.Text (Text)
 import qualified Data.Text as T
+import Data.List
+import Data.List.Split
 import Data.Foldable (asum)
 import Language.Haskell.Exts
 import Language.Haskellish
@@ -13,6 +15,7 @@ import Data.Set as Set
 import Control.Monad.State
 import Control.Monad.Except
 import Data.Maybe
+import Control.Applicative
 
 import Sound.Punctual.AudioTime
 import Sound.Punctual.Extent
@@ -43,8 +46,9 @@ extractPragmas t = (newText,pragmas)
 
 parseProgram :: AudioTime -> String -> Either String Program
 parseProgram eTime x = do
-  let x' = fmap (\y -> if y == ';' then ',' else y) $ "[" ++ x ++ "\n]"
-  (p,st) <- parseHaskellish program emptyParserState x'
+  let x' = intercalate "," $ fmap (++ " _0") $ splitOn ";" x
+  let x'' = "[" ++ x' ++ "\n]"
+  (p,st) <- parseHaskellish program emptyParserState x''
   return $ p {
     textureSet = textureRefs st,
     programNeedsAudioInputAnalysis = audioInputAnalysis st,
@@ -132,10 +136,19 @@ haskellSrcExtsParseMode = defaultParseMode {
         ]
     }
 
+_0Arg :: H a -> H a
+_0Arg p = p <|> fmap fst (functionApplication p $ reserved "_0")
+
 program :: H Program
 program = do
-  xs <- list action
+  xs <- concat <$> list actionOr_0
   return $ emptyProgram { actions = IntMap.fromList $ zip [0..] xs }
+
+actionOr_0 :: H [Action]
+actionOr_0 = _0Arg $ asum [
+  reserved "_0" >> return [],
+  fmap (:[]) action
+  ]
 
 action :: H Action
 action = asum [
@@ -171,7 +184,7 @@ double = asum [
   ]
 
 duration :: H Duration
-duration = asum [
+duration = _0Arg $ asum [
   Seconds <$> double,
   reverseApplication double (reserved "s" >> return Seconds),
   reverseApplication double (reserved "ms" >> return (\x -> Seconds $ x/1000.0)),
@@ -179,13 +192,13 @@ duration = asum [
   ]
 
 defTime :: H DefTime
-defTime = asum [
+defTime = _0Arg $ asum [
   (\(x,y) -> Quant x y) <$> Language.Haskellish.tuple double duration,
   After <$> duration
   ]
 
 outputs :: H [Output]
-outputs = asum [
+outputs = _0Arg $ asum [
   concat <$> list outputs,
   ((:[]) . Panned . realToFrac) <$> rationalOrInteger,
   reserved "left" >> return [Panned 0],

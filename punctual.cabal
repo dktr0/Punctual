@@ -29,12 +29,12 @@ Library
       ghcjs-dom-jsffi,
       text,
       text-show,
-      haskellish >= 0.2.2 && <0.3,
+      haskellish >= 0.2.3 && <0.3,
       haskell-src-exts >= 1.21.0,
       transformers,
       deepseq,
       criterion,
-      split >= 0.2.3.3
+      split >= 0.2.3.3 && < 0.3
   GHC-Options:       -Wall -fwarn-tabs -fno-warn-unused-do-bind
   Exposed-modules:   Sound.Punctual.Extent
                      Sound.Punctual.AudioTime
