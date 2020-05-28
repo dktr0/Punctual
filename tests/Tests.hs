@@ -62,3 +62,6 @@ main = microspec $ do
     it "a circle, with a definition time" $ parse 0 "circle 0 0.25 >> rgb @@ 5" `shouldBe` Right (emptyProgram { actions = fromList [(0,Action {graph = Circle (Constant 0.0) (Constant 0.25), defTime = After (Seconds 5.0), transition = DefaultCrossFade, outputs = [RGB]})]})
 
     it "a circle, with a definition time (and a semi-colon)" $ parse 0 "circle 0 0.25 >> rgb @@ 5" `shouldBe` Right (emptyProgram { actions = fromList [(0,Action {graph = Circle (Constant 0.0) (Constant 0.25), defTime = After (Seconds 5.0), transition = DefaultCrossFade, outputs = [RGB]})]})
+
+    it "zero assigned to a variable, routed to RGB output" $ parse 0 "t << 0; t >> rgb" `shouldBe` Right (emptyProgram { actions = fromList [(0,Action {graph = Constant 0.0, defTime = Quant 1.0 (Seconds 0.0), transition = DefaultCrossFade, outputs = []}),(1,Action {graph = Constant 0.0, defTime = Quant 1.0 (Seconds 0.0), transition = DefaultCrossFade, outputs = [RGB]})]})
+    

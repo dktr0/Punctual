@@ -225,7 +225,7 @@ definitions1H = do
   if isJust xm then return (fromJust xm) else throwError ""
 
 graph :: H Graph
-graph = asum [
+graph = _0Arg $ asum [
   identifiedGraph,
   definitions1H,
   reverseApplication graph (reserved "m" >> return MidiCps),
