@@ -1,29 +1,29 @@
 code size summary per package:
 
-base:                    485192
+base:                    484974
 bytestring-0.10.8.2-FBklFuapa1a7kq4yflY7Bt:92255
 containers-0.6.0.1-BAqcfV1UBBeCIRjPbUYeSG:214219
 dependent-map-0.3-82DTUQPsubeFMPg64cnlKg:49477
 dependent-sum-0.6.2.0-7ro4RTDuvwj7KvAIN0tbai:4047
-ghc-prim:                305535
+ghc-prim:                305553
 ghcjs-base-0.2.0.0-94o7qH5GqxYIuAX83RduIv:1458
 ghcjs-dom-jsffi-0.9.2.0-LhqmrnYZ728DFrIvvqEjAk:21018
 ghcjs-prim-0.1.1.0-EXzjGVHQlAS2XAXcu0iCbS:4194
-haskell-src-exts-1.21.0-DsLjfIdnuhDB9rbXFZ7Qmq:2052960
+haskell-src-exts-1.21.0-DsLjfIdnuhDB9rbXFZ7Qmq:2052818
 haskellish-0.2.3-1rqQWzXEKfS6OkSkh2Gv4h:5783
 integer-gmp:             70440
 main:                    7037
 musicw-0.3.4-8VCBIHn1UvA5W3IT6Eo8A6:160931
 pretty-1.1.3.6-HCbdzOHqNpW5RoNxlHyeg5:482
 primitive-0.6.3.0-KfguiTuxgILGqu8JEOpKRI:2971
-punctual-0.0.0.1-4Tjhga6JalEGX3Z0oyG1j5:513868
+punctual-0.0.0.1-4Tjhga6JalEGX3Z0oyG1j5:515401
 ref-tf-0.4.0.1-4fEDYopgtHB1kxZabrLLUM:1
-reflex-0.6.2.4-5yZIMPComPJIRLAlmqrSE5:510815
+reflex-0.6.2.4-5yZIMPComPJIRLAlmqrSE5:510817
 reflex-dom-contrib-0.6-EzMUHZZmTmJKoY8IWemlOb:1828
-reflex-dom-core-0.5.2.0-GkO8KmFBylOAmRGw6IXoPy:795261
+reflex-dom-core-0.5.2.0-GkO8KmFBylOAmRGw6IXoPy:795260
 semialign-1-5skbPxNQj8D3AvF6riHMVM:21920
 split-0.2.3.3-qfkf36CxAn5AsxYzbuLkg:1848
-text-1.2.3.0-G7RNccSav6I3egGIwK0cpP:118064
+text-1.2.3.0-G7RNccSav6I3egGIwK0cpP:118065
 text-show-3.7.5-KwULiPtPzFNcaYnUwuXRO:3432
 these-1-3AW2YEk4PYiLdgZ7ikQ0ki:706
 time-1.8.0.2-3d3i5aGvKEfEHwUSNgliL4:3948
@@ -74,7 +74,7 @@ base
     GHC.IO.Encoding.Failure:            2568
     GHC.IO.Encoding.Latin1:             1
     GHC.IO.Encoding.Types:              58100
-    GHC.IO.Encoding.UTF8:               10806
+    GHC.IO.Encoding.UTF8:               10807
     GHC.IO.Exception:                   24529
     GHC.IO.FD:                          8100
     GHC.IO.Handle:                      4466
@@ -95,7 +95,7 @@ base
     GHC.STRef:                          21542
     GHC.Show:                           3900
     GHC.Stack.CCS:                      488
-    GHC.Stack.Types:                    9042
+    GHC.Stack.Types:                    8823
     GHC.TopHandler:                     3467
     GHC.Unicode:                        1
     GHC.Weak:                           1
@@ -131,7 +131,7 @@ ghc-prim
     GHC.Classes:                        451
     GHC.IntWord64:                      1610
     GHC.Tuple:                          173
-    GHC.Types:                          298343
+    GHC.Types:                          298361
 
 ghcjs-base-0.2.0.0-94o7qH5GqxYIuAX83RduIv
     Data.JSString:                      1
@@ -164,8 +164,8 @@ haskell-src-exts-1.21.0-DsLjfIdnuhDB9rbXFZ7Qmq
     Language.Haskell.Exts.Comments:     1494
     Language.Haskell.Exts.ExtScheme:    52187
     Language.Haskell.Exts.Extension:    68416
-    Language.Haskell.Exts.Fixity:       352435
-    Language.Haskell.Exts.InternalLexer:734291
+    Language.Haskell.Exts.Fixity:       352433
+    Language.Haskell.Exts.InternalLexer:734290
     Language.Haskell.Exts.InternalParser:19332
     Language.Haskell.Exts.ParseMonad:   70054
     Language.Haskell.Exts.ParseSyntax:  240061
@@ -173,7 +173,7 @@ haskell-src-exts-1.21.0-DsLjfIdnuhDB9rbXFZ7Qmq
     Language.Haskell.Exts.Parser:       248472
     Language.Haskell.Exts.Pretty:       12007
     Language.Haskell.Exts.SrcLoc:       232221
-    Language.Haskell.Exts.Syntax:       19678
+    Language.Haskell.Exts.Syntax:       19539
 
 haskellish-0.2.3-1rqQWzXEKfS6OkSkh2Gv4h
     Language.Haskellish:                5783
@@ -212,7 +212,7 @@ punctual-0.0.0.1-4Tjhga6JalEGX3Z0oyG1j5
     Sound.Punctual.FragmentShader:      3819
     Sound.Punctual.GL:                  28155
     Sound.Punctual.Graph:               2757
-    Sound.Punctual.Output:              47572
+    Sound.Punctual.Output:              49105
     Sound.Punctual.Parser:              1
     Sound.Punctual.Program:             91508
     Sound.Punctual.PunctualW:           1
@@ -246,7 +246,7 @@ reflex-0.6.2.4-5yZIMPComPJIRLAlmqrSE5
     Reflex.PostBuild.Base:              1
     Reflex.PostBuild.Class:             65063
     Reflex.Requester.Base:              1
-    Reflex.Requester.Class:             303783
+    Reflex.Requester.Class:             303785
     Reflex.Spider.Internal:             14607
     Reflex.Time:                        9183
     Reflex.TriggerEvent.Base:           1
@@ -258,7 +258,7 @@ reflex-dom-contrib-0.6-EzMUHZZmTmJKoY8IWemlOb
 reflex-dom-core-0.5.2.0-GkO8KmFBylOAmRGw6IXoPy
     Foreign.JavaScript.TH:              1642
     Reflex.Dom.Builder.Class:           133396
-    Reflex.Dom.Builder.Class.Events:    566346
+    Reflex.Dom.Builder.Class.Events:    566345
     Reflex.Dom.Builder.Immediate:       33628
     Reflex.Dom.Main:                    15629
     Reflex.Dom.Old:                     39752
@@ -273,7 +273,7 @@ split-0.2.3.3-qfkf36CxAn5AsxYzbuLkg
 
 text-1.2.3.0-G7RNccSav6I3egGIwK0cpP
     Data.Text:                          400
-    Data.Text.Array:                    30328
+    Data.Text.Array:                    30329
     Data.Text.IO:                       1
     Data.Text.Internal:                 1007
     Data.Text.Internal.Builder:         416
@@ -308,5 +308,5 @@ unbounded-delays-0.1.1.0-3OIBWhvs3opCI9f4squMMQ
 
 
 
-packed metadata: 4331782
+packed metadata: 4333120
 
