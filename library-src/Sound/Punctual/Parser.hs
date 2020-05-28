@@ -23,7 +23,7 @@ import Sound.Punctual.Graph
 import Sound.Punctual.Duration
 import Sound.Punctual.DefTime
 import Sound.Punctual.Output
-import Sound.Punctual.Action hiding ((>>),(<>),graph,defTime,outputs)
+import Sound.Punctual.Action hiding ((>>),(<>),graph,defTime)
 import qualified Sound.Punctual.Action as P
 import Sound.Punctual.Program
 
@@ -142,7 +142,8 @@ _0Arg p = p <|> fmap fst (functionApplication p $ reserved "_0")
 program :: H Program
 program = do
   xs <- concat <$> list actionOr_0
-  return $ emptyProgram { actions = IntMap.fromList $ zip [0..] xs }
+  let xs' = Data.List.filter (not . Data.List.null . Sound.Punctual.Action.outputs) xs
+  return $ emptyProgram { actions = IntMap.fromList $ zip [0..] xs' }
 
 actionOr_0 :: H [Action]
 actionOr_0 = _0Arg $ asum [
@@ -154,7 +155,7 @@ action :: H Action
 action = asum [
   duration_action <*> duration,
   defTime_action <*> defTime,
-  outputs_action <*> outputs,
+  outputs_action <*> Sound.Punctual.Parser.outputs,
   actionFromGraph <$> graph
   ]
 
@@ -199,7 +200,7 @@ defTime = _0Arg $ asum [
 
 outputs :: H [Output]
 outputs = _0Arg $ asum [
-  concat <$> list outputs,
+  concat <$> list Sound.Punctual.Parser.outputs,
   ((:[]) . Panned . realToFrac) <$> rationalOrInteger,
   reserved "left" >> return [Panned 0],
   reserved "right" >> return [Panned 1],
