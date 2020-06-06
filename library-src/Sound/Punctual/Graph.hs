@@ -13,6 +13,7 @@ data Graph =
   Fx | Fy | Fxy |
   Px | Py |
   Lo | Mid | Hi | ILo | IMid | IHi |
+  Rnd |
   Mono Graph |
   Rep Int Graph |
   UnRep Int Graph |
@@ -27,6 +28,9 @@ data Graph =
   Tri Graph |
   Saw Graph |
   Sqr Graph |
+  LFTri Graph |
+  LFSaw Graph |
+  LFSqr Graph |
   Point Graph |
   Distance Graph |
   MidiCps Graph |

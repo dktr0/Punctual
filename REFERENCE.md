@@ -1,20 +1,28 @@
 # Punctual Reference
 
-## Punctual Oscillators and Filters
+## Punctual Oscillators, Filters, and Noise
 
-sin [freq] -- sine wave
+sin [freq] -- sine wave, ranging from 1 to -1
 
-tri [freq] -- triangle wave
+tri [freq] -- triangle wave (in audio rendering, this will be band-limited - see also lftri, below)
 
-saw [freq] -- sawtooth wave
+saw [freq] -- sawtooth wave (in audio rendering, this will be band-limited - see also lfsaw, below)
 
-sqr [freq] -- square wave
+sqr [freq] -- square wave (in audio rendering, this will be band-limited - see also lfsqr, below)
+
+lftri [freq] -- "low frequency" triangle wave which unlike tri is not band-limited (in audio), and which goes from -1 to 1. In WebGL graphics output, tri and lftri are identical.
+
+lfsaw [freq] -- "low frequency" sawtooth wave which unlike saw is not band-limited (in audio), and which goes from -1 to 1. Likely useful as a phasor. In WebGL graphics output, saw and lfsaw are identical.
+
+lfsqr [freq] -- "low frequency" square wave which unlike sqr is not band-limited (in audio), and which goes from -1 to 1. In WebGL graphics output, sqr and lfsqr are identical.
 
 lpf [input] [freq] [ratio] -- lowpass filter at specified filter and bandwidth-ratio
 
 hpf [input] [freq] [ratio] -- highpass filter at specified filter and bandwidth-ratio
 
-(Note: filters are not implemented in graphics (WebGL) implementation yet.)
+rnd -- random, "white" noise ranging from -1 to 1
+
+(Note: filters and noise are not implemented in graphics (WebGL) implementation yet.)
 
 ## Punctual Graph Functions
 

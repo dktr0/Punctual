@@ -194,6 +194,31 @@ graphToSynthDef (Saw x) = do
   graphToSynthDef x >>= W.param W.Frequency s
   return s
 
+graphToSynthDef (LFTri (Constant x)) = W.oscillator W.Sine (x/2) >>= W.sinToTriWorklet
+graphToSynthDef (LFTri x) = do
+  s <- W.oscillator W.Sine 0
+  graphToSynthDef x >>= W.param W.Frequency s
+  W.sinToTriWorklet s
+
+graphToSynthDef (LFSaw (Constant x)) = do
+  y <- W.oscillator W.Sine (x*0.25)
+  z <- W.oscillator W.Sine (x*0.5)
+  W.sinToSawWorklet y z
+graphToSynthDef (LFSaw x) = do
+  y <- W.oscillator W.Sine 0
+  graphToSynthDef (x*0.25) >>= W.param W.Frequency y
+  z <- W.oscillator W.Sine 0
+  graphToSynthDef (x*0.5) >>= W.param W.Frequency z
+  W.sinToSawWorklet y z
+
+graphToSynthDef (LFSqr (Constant x)) = W.oscillator W.Sine x >>= W.sinToSqrWorklet
+graphToSynthDef (LFSqr x) = do
+  s <- W.oscillator W.Sine 0
+  graphToSynthDef x >>= W.param W.Frequency s
+  W.sinToSqrWorklet s
+
+graphToSynthDef Rnd = W.whiteNoiseWorklet
+
 graphToSynthDef (Sqr (Constant x)) = W.oscillator W.Square x
 graphToSynthDef (Sqr x) = do
   s <- W.oscillator W.Square 0
@@ -353,10 +378,14 @@ expandMultis (UnRep n x) = fmap ((/ fromIntegral n) . graphsToMono) $ chunksOf n
 -- unary functions
 expandMultis (Bipolar x) = fmap Bipolar $ expandMultis x
 expandMultis (Unipolar x) = fmap Unipolar $ expandMultis x
+expandMultis Rnd = [Rnd]
 expandMultis (Sin x) = fmap Sin (expandMultis x)
 expandMultis (Tri x) = fmap Tri (expandMultis x)
 expandMultis (Saw x) = fmap Saw (expandMultis x)
 expandMultis (Sqr x) = fmap Sqr (expandMultis x)
+expandMultis (LFTri x) = fmap LFTri (expandMultis x)
+expandMultis (LFSaw x) = fmap LFSaw (expandMultis x)
+expandMultis (LFSqr x) = fmap LFSqr (expandMultis x)
 expandMultis (MidiCps x) = fmap MidiCps (expandMultis x)
 expandMultis (CpsMidi x) = fmap CpsMidi (expandMultis x)
 expandMultis (DbAmp x) = fmap DbAmp (expandMultis x)
