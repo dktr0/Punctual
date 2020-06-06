@@ -203,7 +203,7 @@ outputs = _0Arg $ asum [
   concat <$> list Sound.Punctual.Parser.outputs,
   ((:[]) . Panned . realToFrac) <$> rationalOrInteger,
   reserved "audio" >> return [Splay],
-  reserved "video" >> return [HSV],
+  reserved "video" >> return [RGB],
   reserved "left" >> return [Panned 0],
   reserved "right" >> return [Panned 1],
   reserved "centre" >> return [Panned 0.5],
