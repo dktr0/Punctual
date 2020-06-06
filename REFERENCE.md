@@ -40,6 +40,10 @@ hpf [input] [freq] [ratio] -- highpass filter at specified filter and bandwidth-
 
 [graph] != [graph] -- not equal to (1 = true, 0 = false)
 
+max [graph] [graph] -- returns the maximum value from two graphs
+
+min [graph] [graph] -- returns the minimum value from two graphs
+
 abs [graph] -- absolute value of provided graph
 
 cpsmidi [graph] -- the MIDI note number corresponding to the provided frequency in Hertz

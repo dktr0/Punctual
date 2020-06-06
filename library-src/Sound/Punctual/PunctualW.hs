@@ -239,8 +239,15 @@ graphToSynthDef (Product x y) = do
   graphToSynthDef y >>= W.param W.Gain m
   return m
 
-graphToSynthDef (Max x y) = graphToSynthDef $ optimize $ (GreaterThanOrEqual x y * x) + (LessThan x y * y)
-graphToSynthDef (Min x y) = graphToSynthDef $ optimize $ (GreaterThanOrEqual x y * y) + (LessThan x y * x)
+graphToSynthDef (Max x y) = do
+  x' <- graphToSynthDef x
+  y' <- graphToSynthDef y
+  W.maxWorklet x' y'
+
+graphToSynthDef (Min x y) = do
+  x' <- graphToSynthDef x
+  y' <- graphToSynthDef y
+  W.minWorklet x' y'
 
 graphToSynthDef (Division x y) = do
   x' <- graphToSynthDef x
