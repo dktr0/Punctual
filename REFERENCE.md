@@ -72,6 +72,8 @@ bipolar [graph] -- input is rescaled as if input range was unipolar (0,1) and ou
 
 [centre] +- [offsetRatio] [input] -- bipolar (-1,1) input rescaled to range centre +- (offsetRatio * centre), e.g. a +- 0.5 ranges from 0.5a to 1.5a
 
+step [graph,graph,graph,...] [graph] -- given a list of graphs and a second, final, "modulating" graph, output the value of a selected graph from the list according to the second argument (drive with lfsaw to produce a simple step sequencer-like behaviour).
+
 sqrt [graph] -- returns the square root of the graph
 
 mono [graph] -- takes multi-channel graphs down to a single channel by summing/mixing
@@ -144,31 +146,31 @@ hsvb [r,g,b,...] -- convert every 3 channels of hue-saturation-value signal to 1
 
 ## Punctual Output Notations
 
-A Punctual statement does not cause audio or video output unless it ends with >> and an output notation. Here are the available output notations:
+A Punctual statement does not cause audio or video output unless it ends with >> and an output notation. 'audio' and 'video' are the two most commonly used outputs:
 
-\>> left -- audio output panned to the left (ie. to the first audio output connected to the system)
+\>> audio -- audio output: If multiple channels of audio are present, they are spread/panned "equidistantly" over the available audio outputs. (deprecated: this was formerly known as 'splay')
 
-\>> right -- audio output panned to the right (ie. to the second audio output connected to the system)
+\>> video -- video output: every three channels of signal are interpreted as red, green, and blue intensities (from 0 to 1); if only a one-channel signal is provided the value of that signal is used for all of red, green, and blue intensities; if a two-channel signal is provided the first channel is used for red and green, and the second channel is used for blue. (note: 'rgb' is a synonym for 'video')
 
-\>> centre -- audio output panned to the centre (ie. equal power panned between the first two connected audio outputs)
+There are a number of additional output types for particular purposes, as follows:
 
-\>> [number between 0 and 1] -- audio output panned somewhere between 1st audio output (0) and 2nd audio output (1)
+\>> left -- audio output panned to the left (ie. to the first audio output connected to the system). If multiple channels are present, they are mixed together before being sent to the output.
 
-Note: when presented with a multichannel signal for output, the panning outputs above will mix the multichannel signal down to mono before panning it.
+\>> right -- audio output panned to the right (ie. to the second audio output connected to the system). If multiple channels are present, they are mixed together before being sent to the output.
 
-\>> splay -- multiple channels of audio are spread "equidistantly" over the available audio outputs
+\>> centre -- audio output panned to the centre (ie. equal power panned between the first two connected audio outputs). If multiple channels are present, they are mixed together before being sent to the output.
 
-\>> red -- intensity of red colour (0 to 1)
+\>> [number between 0 and 1] -- audio output panned somewhere between 1st audio output (0) and 2nd audio output (1). If multiple channels are present, they are mixed together before being sent to the output.
 
-\>> green -- intensity of green colour (0 to 1)
+\>> red -- intensity of red colour (0 to 1). If multiple channels are present, they are mixed together before being sent to the output.
 
-\>> blue -- intensity of blue colour (0 to 1)
+\>> green -- intensity of green colour (0 to 1). If multiple channels are present, they are mixed together before being sent to the output.
 
-\>> rgb -- every three channels of signal are interpreted as red, green, and blue intensities (from 0 to 1); if only a one-channel signal is provided the value of that signal is used for all of red, green, and blue intensities; if a two-channel signal is provided the first channel is used for red and green, and the second channel is used for blue.
+\>> blue -- intensity of blue colour (0 to 1). If multiple channels are present, they are mixed together before being sent to the output.
 
 \>> alpha -- when not specified alpha defaults to 1, which will erase (overwrite) any previous/underlying layers of drawing in circumstances where "this" Punctual program is drawing after/over other layers of drawing (for example: multiple Punctual programs in different zones of an Estuary collaborative interface). 0 for alpha values will not erase/overwrite previously drawn layers - instead the previous intensities will be kept at their pre-existent level and newly provided intensities will be added.
 
-\>> hsv -- every three channels of signal are interpreted as hue, saturation, and value intensities
+\>> hsv -- every three channels of signal are interpreted as hue, saturation, and value intensities. (Note: one does not need to use an hsv output in order to work with colour from an HSV standpoint - one can also use the built-in functions 'rgbhsv' and 'hsvrgb' to go back and forth between RGB and HSV colour models, using 'video' [RGB] for the final output.)
 
 \>> hue
 

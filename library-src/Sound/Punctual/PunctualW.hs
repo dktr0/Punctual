@@ -337,14 +337,16 @@ graphToSynthDef (Between (Multi [r1,r2]) x) = graphToSynthDef g -- ***** THIS IS
   where g = (GreaterThan r2 r1) * (GreaterThan x r1) * (LessThan x r2) +
             (GreaterThan r1 r2) * (GreaterThan x r2) * (LessThan x r1)
 
-graphToSynthDef (Step x y) | length x == 0 = W.constantSource 0
-                           | length x == 1 = W.constantSource (head x)
-                           | otherwise = do
-  let n = Constant $ fromIntegral $ length x
-  let y' = Bipolar ((Floor $ Unipolar y * n) / (n-1))
-  y'' <- graphToSynthDef $ optimize y'
-  W.waveShaper (Right $ W.listToArraySpec x) W.NoOversampling y''
-
+graphToSynthDef (Step [] _) = W.constantSource 0
+graphToSynthDef (Step (x:[]) _) = graphToSynthDef x
+graphToSynthDef (Step xs (Constant y)) = do
+  let y' = max (min y 0.99999999) 0
+  let y'' = floor (y' * fromIntegral (length xs))
+  graphToSynthDef (xs!!y'')
+graphToSynthDef (Step xs y) = do
+  xs' <- mapM graphToSynthDef xs
+  y' <- graphToSynthDef y
+  W.stepWorklet xs' y'
 
 graphToSynthDef (LinLin (Multi [Constant min1,Constant max1]) (Multi [Constant min2,Constant max2]) x) = graphToSynthDef $ optimize $ (x - Constant min1) * c + Constant min2
   where c | (max1 - min1) /= 0 = Constant $ (max2 - min2) / (max1 - min1)

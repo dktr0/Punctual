@@ -137,7 +137,16 @@ graphToGLSL texMap (VLine x w) = expandWith (\(a,_) (b,_) -> ("vline("<>a<>","<>
 graphToGLSL texMap (HLine y w) = expandWith (\(a,_) (b,_) -> ("hline("<>a<>","<>b<>")",GLFloat)) (toGLFloats $ graphToGLSL texMap y) (toGLFloats $ graphToGLSL texMap w)
 graphToGLSL texMap (Clip r x) = expandWith (\(r',_) (b,t) -> ("clip("<>r'<>","<>b<>")",t)) (toVec2s $ graphToGLSL texMap r) (graphToGLSL texMap x)
 graphToGLSL texMap (Between r x) = expandWith (\(r',_) (b,t) -> ("between("<>r'<>","<>b<>")",t)) (toVec2s $ graphToGLSL texMap r) (graphToGLSL texMap x)
-graphToGLSL texMap (Step xs y) = fmap (\(a,_) -> (stepGLSL xs a,GLFloat)) $ toGLFloats $ graphToGLSL texMap y
+graphToGLSL texMap (Step [] _) = graphToGLSL texMap (Constant 0)
+graphToGLSL texMap (Step (x:[]) _) = graphToGLSL texMap x
+graphToGLSL texMap (Step xs (Constant y)) =
+  let y' = max (min y 0.99999999) 0
+      y'' = floor (y' * fromIntegral (length xs))
+  in graphToGLSL texMap (xs!!y'')
+graphToGLSL texMap (Step xs y) =
+  let xs' = fmap (graphToGLSL texMap) xs -- [GLSL]
+  in fmap (\(a,_) -> (stepGLSL xs' a,GLFloat)) $ toGLFloats $ graphToGLSL texMap y
+
 -- ternary functions
 graphToGLSL texMap (ILine xy1 xy2 w) = ternaryShaderFunction "iline" texMap xy1 xy2 w
 graphToGLSL texMap (Line xy1 xy2 w) = ternaryShaderFunction "line" texMap xy1 xy2 w
@@ -146,9 +155,11 @@ graphToGLSL texMap (IfThenElse x y z) = zipWith3 (\(a,t) (b,_) (c,_) -> ("ifthen
   where (x',y',z') = alignGLSL3 (graphToGLSL texMap x) (graphToGLSL texMap y) (graphToGLSL texMap z)
 graphToGLSL _ _ = []
 
-stepGLSL :: [Double] -> Builder -> Builder
-stepGLSL xs y = interspersePluses "0." $ zipWith f xs ([0..]::[Int])
-  where f x n = showb x <> "*_step(" <> showb (length xs) <> "," <> showb n <> "," <> y <> ")"
+stepGLSL :: [GLSL] -> Builder -> Builder
+stepGLSL xs y = interspersePluses "0." $ zipWith f xs' ([0..]::[Int])
+  where
+    xs' = fmap (glslToFloatBuilder 0) xs
+    f x n = x <> "*_step(" <> showb (length xs') <> "," <> showb n <> "," <> y <> ")"
 
 -- note: GLSL functions/ops implemented using unaryShaderFunction must exist in versions specialized for float, vec2, and vec3
 unaryShaderFunction :: Builder -> Map Text Int -> Graph -> GLSL

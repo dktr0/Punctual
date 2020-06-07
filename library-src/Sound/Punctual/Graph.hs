@@ -60,7 +60,7 @@ data Graph =
   Between Graph Graph |
   VLine Graph Graph |
   HLine Graph Graph |
-  Step [Double] Graph |
+  Step [Graph] Graph |
   IfThenElse Graph Graph Graph |
   ILine Graph Graph Graph |
   Line Graph Graph Graph |

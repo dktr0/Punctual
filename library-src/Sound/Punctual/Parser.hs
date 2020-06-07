@@ -297,7 +297,7 @@ graph2 = asum [
   reserved "fb" >> return Fb,
   textureRef_graph_graph <*> textureRef,
   int_graph_graph <*> int,
-  lDouble_graph_graph <*> list double,
+  lGraph_graph_graph <*> list graph,
   graph3 <*> graph
   ]
 
@@ -338,8 +338,8 @@ graph4 = asum [
   reserved "line" >> return Line
   ]
 
-lDouble_graph_graph :: H ([Double] -> Graph -> Graph)
-lDouble_graph_graph = reserved "step" >> return Step
+lGraph_graph_graph :: H ([Graph] -> Graph -> Graph)
+lGraph_graph_graph = reserved "step" >> return Step
 
 int_graph_graph :: H (Int -> Graph -> Graph)
 int_graph_graph = asum [
