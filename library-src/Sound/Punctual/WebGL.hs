@@ -47,7 +47,8 @@ data PunctualWebGL = PunctualWebGL {
   mainPrograms :: IntMap.IntMap AsyncProgram,
   prevPrograms :: IntMap.IntMap Program, -- note: these are Punctual programs, above two lines are GL AsyncPrograms so quite different...
   currPrograms :: IntMap.IntMap Program,
-  textureMaps :: IntMap.IntMap (Map Text Int),
+  textureMapsEval :: IntMap.IntMap (Map Text Int),
+  textureMapsDraw :: IntMap.IntMap (Map Text Int),
   firstZone :: Int,
   -- audio analysis
   needsAudioInputAnalysis :: Bool,
@@ -140,15 +141,15 @@ getAudioOutputAnalysis st = case (audioOutputAnalyser st) of
 
 
 -- given a list of requested texture sources (images) and the previous map of requested texture sources
--- request any textures we don't already have AND delete any textures we no longer need
+-- request any textures we don't already have
+-- Note: deleting of unused textures disactivated, ie. to cache them against imminent reuse
+-- Later we should rework so that unused textures are *eventually* "garbage-collected".
 
 updateTextures :: Set Text -> Map Text WebGLTexture -> GL (Map Text WebGLTexture)
 updateTextures texSet prevTextures = do
   let x = Map.fromSet id texSet
   newTextures <- mapM loadTexture $ Map.difference x prevTextures
-  let continuingTextures = Map.intersection prevTextures x
-  mapM_ deleteTexture $ Map.difference prevTextures x
-  return $ Map.union newTextures continuingTextures
+  return $ Map.union newTextures prevTextures
 
 loadTexture :: Text -> GL WebGLTexture
 loadTexture t = do
@@ -195,7 +196,8 @@ newPunctualWebGL mic out res _brightness ctx = runGL ctx $ do
     mainPrograms = IntMap.empty,
     prevPrograms = IntMap.empty,
     currPrograms = IntMap.empty,
-    textureMaps = IntMap.empty,
+    textureMapsEval = IntMap.empty,
+    textureMapsDraw = IntMap.empty,
     firstZone = 0,
     needsAudioInputAnalysis = False,
     needsAudioOutputAnalysis = False,
@@ -277,7 +279,7 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
   let prevProgram' = maybe emptyProgram id prevProgram
   let progTexSet = Set.union (textureSet p) (textureSet prevProgram')
   let progTexMap = Map.fromList $ zip (Set.elems progTexSet) [0..]
-  let newTextureMaps = IntMap.insert z progTexMap $ textureMaps st
+  let newTextureMaps = IntMap.insert z progTexMap $ textureMapsEval st
   let newFragmentShader = fragmentShader tempo progTexMap prevProgram' p
   -- liftIO $ T.putStrLn $ newFragmentShader
 
@@ -291,7 +293,7 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
     currPrograms = newCurrPrograms,
     mainPrograms = IntMap.insert z newAsync (mainPrograms st),
     textures = newTextures,
-    textureMaps = newTextureMaps,
+    textureMapsEval = newTextureMaps,
     firstZone = head $ IntMap.keys newCurrPrograms, -- recalculate which zone is first in drawing order so that defaultAlpha can be correct
     needsAudioInputAnalysis = programNeedsAudioInputAnalysis p || prevProgramsNeedAudioInputAnalysis,
     needsAudioOutputAnalysis = programNeedsAudioOutputAnalysis p || prevProgramsNeedAudioOutputAnalysis
@@ -305,36 +307,40 @@ drawPunctualWebGL ctx t z st = runGL ctx $ do
   let mainAttribs = ["p"]
   let prevAsync = IntMap.findWithDefault emptyAsyncProgram z $ mainPrograms st
   (newProgramReady,asyncProgram) <- useAsyncProgram prevAsync mainUniforms mainAttribs
-  when newProgramReady $ do
-    let program = fromJust $ activeProgram asyncProgram
-    p <- getAttribLocation program "p"
-    bindBufferArray $ triangleStrip st
-    vertexAttribPointer p
-    enableVertexAttribArray p
+  st' <- case newProgramReady of
+    False -> return st
+    True -> do
+      let program = fromJust $ activeProgram asyncProgram
+      p <- getAttribLocation program "p"
+      bindBufferArray $ triangleStrip st
+      vertexAttribPointer p
+      enableVertexAttribArray p
+      let texMap = IntMap.findWithDefault Map.empty z $ textureMapsEval st
+      return $ st { textureMapsDraw = IntMap.insert z texMap $ textureMapsDraw st }
   when (isJust $ activeProgram asyncProgram) $ do
     -- bind textures to uniforms representing textures in the program
     let uMap = uniformsMap asyncProgram
-    let texs = IntMap.findWithDefault (Map.empty) z $ textureMaps st -- Map Text Int
-    sequence_ $ mapWithKey (\k a -> bindTex (a+1) (textures st ! k) (uMap ! ("tex" <> showt a))) texs
+    let texs = IntMap.findWithDefault (Map.empty) z $ textureMapsDraw st' -- Map Text Int
+    sequence_ $ mapWithKey (\k a -> bindTex (a+1) (textures st' ! k) (uMap ! ("tex" <> showt a))) texs
     --  clearColor 0.0 0.0 0.0 1.0 -- probably should comment this back in?
     --  clearColorBuffer -- probably should comment this back in?
     uniform1fAsync asyncProgram "t" (realToFrac t)
-    (lo,mid,hi) <- liftIO $ getAudioOutputAnalysis st
-    (ilo,imid,ihi) <- liftIO $ getAudioInputAnalysis st
+    (lo,mid,hi) <- liftIO $ getAudioOutputAnalysis st'
+    (ilo,imid,ihi) <- liftIO $ getAudioInputAnalysis st'
     uniform1fAsync asyncProgram "lo" lo
     uniform1fAsync asyncProgram "hi" hi
     uniform1fAsync asyncProgram "mid" mid
     uniform1fAsync asyncProgram "ilo" ilo
     uniform1fAsync asyncProgram "imid" imid
     uniform1fAsync asyncProgram "ihi" ihi
-    let defaultAlpha = if z == firstZone st then 1.0 else 0.0
+    let defaultAlpha = if z == firstZone st' then 1.0 else 0.0
     uniform1fAsync asyncProgram "_defaultAlpha" defaultAlpha
-    pingPongFrameBuffers 0 (uniformsMap asyncProgram ! "_fb") st
-    let (w,h) = pixels (resolution st)
+    pingPongFrameBuffers 0 (uniformsMap asyncProgram ! "_fb") st'
+    let (w,h) = pixels (resolution st')
     uniform2fAsync asyncProgram "res" (fromIntegral w) (fromIntegral h)
     viewport 0 0 w h
     drawArraysTriangleStrip 0 4
-  return $ st { mainPrograms = IntMap.insert z asyncProgram (mainPrograms st) }
+  return $ st' { mainPrograms = IntMap.insert z asyncProgram (mainPrograms st') }
 
 
 pingPongFrameBuffers :: Int -> WebGLUniformLocation -> PunctualWebGL -> GL ()
