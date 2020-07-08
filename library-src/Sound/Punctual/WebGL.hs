@@ -311,11 +311,11 @@ drawPunctualWebGL ctx t z st = runGL ctx $ do
     bindBufferArray $ triangleStrip st
     vertexAttribPointer p
     enableVertexAttribArray p
+  when (isJust $ activeProgram asyncProgram) $ do
     -- bind textures to uniforms representing textures in the program
     let uMap = uniformsMap asyncProgram
     let texs = IntMap.findWithDefault (Map.empty) z $ textureMaps st -- Map Text Int
     sequence_ $ mapWithKey (\k a -> bindTex a (textures st ! k) (uMap ! ("tex" <> showt a))) texs
-  when (isJust $ activeProgram asyncProgram) $ do
     --  clearColor 0.0 0.0 0.0 1.0 -- probably should comment this back in?
     --  clearColorBuffer -- probably should comment this back in?
     uniform1fAsync asyncProgram "t" (realToFrac t)

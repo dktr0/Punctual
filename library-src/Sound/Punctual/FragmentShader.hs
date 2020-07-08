@@ -112,8 +112,8 @@ graphToGLSL texMap (RgbH x) = fmap (\(b,_) -> ("rgbhsv("<>b<>").x",GLFloat)) $ t
 graphToGLSL texMap (RgbS x) = fmap (\(b,_) -> ("rgbhsv("<>b<>").y",GLFloat)) $ toVec3s $ graphToGLSL texMap x
 graphToGLSL texMap (RgbV x) = fmap (\(b,_) -> ("rgbhsv("<>b<>").z",GLFloat)) $ toVec3s $ graphToGLSL texMap x
 graphToGLSL texMap (Fb xy) = fmap (\(b,_) -> ("tex(0,"<>b<>")",Vec3)) $ toVec2s $ graphToGLSL texMap xy
-graphToGLSL texMap (Tex t xy) = fmap (\(b,_) -> ("tex(" <> showb n <> "," <> b <> ")",Vec3)) $ toVec2s $ graphToGLSL texMap xy
-  where n = Map.findWithDefault 1 t texMap
+graphToGLSL texMap (Tex t xy) = fmap (\(b,_) -> ("texture2D(tex" <> showb n <> ",fract(unipolar(" <> b <> "))).xyz",Vec3)) $ toVec2s $ graphToGLSL texMap xy
+  where n = min 14 $ max 0 $ Map.findWithDefault 0 t texMap
 graphToGLSL texMap (Point xy) = fmap (\(b,_) -> ("point(" <> b <> ")",GLFloat)) $ toVec2s $ graphToGLSL texMap xy
 graphToGLSL texMap (Distance xy) = fmap (\(b,_) -> ("distance(" <> b <> ",fxy())",GLFloat)) $ toVec2s $ graphToGLSL texMap xy
 
@@ -285,24 +285,6 @@ header
    \float fy() { return bipolar(gl_FragCoord.y/res.y); }\
    \vec2 fxy() { return bipolar(gl_FragCoord.xy/res); }\
    \vec2 uv() { return (gl_FragCoord.xy/res); }\
-   \vec3 tex(int n,vec2 xy_) {\
-   \ vec2 xy = fract(unipolar(xy_));\
-   \ if(n==0)return texture2D(tex0,xy).xyz; else\
-   \ if(n==1)return texture2D(tex1,xy).xyz; else\
-   \ if(n==2)return texture2D(tex2,xy).xyz; else\
-   \ if(n==3)return texture2D(tex3,xy).xyz; else\
-   \ if(n==4)return texture2D(tex4,xy).xyz; else\
-   \ if(n==5)return texture2D(tex5,xy).xyz; else\
-   \ if(n==6)return texture2D(tex6,xy).xyz; else\
-   \ if(n==7)return texture2D(tex7,xy).xyz; else\
-   \ if(n==8)return texture2D(tex8,xy).xyz; else\
-   \ if(n==9)return texture2D(tex9,xy).xyz; else\
-   \ if(n==10)return texture2D(tex10,xy).xyz; else\
-   \ if(n==11)return texture2D(tex11,xy).xyz; else\
-   \ if(n==12)return texture2D(tex12,xy).xyz; else\
-   \ if(n==13)return texture2D(tex13,xy).xyz; else\
-   \ if(n==14)return texture2D(tex14,xy).xyz; else\
-   \ return vec3(0.);}\
    \vec3 fb(float r){\
    \  vec3 x = texture2D(_fb,uv()).xyz * r;\
    \  return vec3(x.x > 0.1 ? x.x : 0.,x.y > 0.1 ? x.y : 0.,x.z > 0.1 ? x.z : 0.);}\
@@ -344,7 +326,7 @@ header
    \vec2 gate(vec2 x,vec2 y){return vec2(gate(x.x,y.x),gate(x.y,y.y));}\
    \vec3 gate(vec3 x,vec3 y){return vec3(gate(x.x,y.x),gate(x.y,y.y),gate(x.z,y.z));}\
    \float _step(int n,int x,float y){return float(x==int((y*0.5+0.5)*float(n)));}\
-   \float xFadeNew(float t1,float t2){if(t>t2)return 1.;if(t<t1)return 0.;return((t-t1)/(t2-t1));}\
+   \float xFadeNew(float t1,float t2){return clamp((t-t1)/(t2-t1),0.,1.);}\
    \float xFadeOld(float t1,float t2){return 1.-xFadeNew(t1,t2);}\
    \vec3 xFadeNewHsv(float t1,float t2){return vec3(1.,1.,xFadeNew(t1,t2));}\
    \vec3 xFadeOldHsv(float t1,float t2){return vec3(1.,1.,xFadeOld(t1,t2));}\
