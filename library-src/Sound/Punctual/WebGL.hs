@@ -276,7 +276,7 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
   newTextures <- updateTextures allTextures (textures st)
   let prevProgram' = maybe emptyProgram id prevProgram
   let progTexSet = Set.union (textureSet p) (textureSet prevProgram')
-  let progTexMap = Map.fromList $ zip (Set.elems progTexSet) [1..]
+  let progTexMap = Map.fromList $ zip (Set.elems progTexSet) [0..]
   let newTextureMaps = IntMap.insert z progTexMap $ textureMaps st
   let newFragmentShader = fragmentShader tempo progTexMap prevProgram' p
   -- liftIO $ T.putStrLn $ newFragmentShader
@@ -315,7 +315,7 @@ drawPunctualWebGL ctx t z st = runGL ctx $ do
     -- bind textures to uniforms representing textures in the program
     let uMap = uniformsMap asyncProgram
     let texs = IntMap.findWithDefault (Map.empty) z $ textureMaps st -- Map Text Int
-    sequence_ $ mapWithKey (\k a -> bindTex a (textures st ! k) (uMap ! ("tex" <> showt a))) texs
+    sequence_ $ mapWithKey (\k a -> bindTex (a+1) (textures st ! k) (uMap ! ("tex" <> showt a))) texs
     --  clearColor 0.0 0.0 0.0 1.0 -- probably should comment this back in?
     --  clearColorBuffer -- probably should comment this back in?
     uniform1fAsync asyncProgram "t" (realToFrac t)
