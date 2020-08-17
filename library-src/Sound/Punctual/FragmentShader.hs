@@ -402,7 +402,7 @@ continuingAction tempo eTime texMap i newAction oldAction = line1 <> line2 <> li
     xfo = xFadeOld t1 t2
     line2 = "if(t<" <> showb t1 <> ")" <> varName <> "=" <> oldText' <> ";\n"
     line3 = "else if(t>" <> showb t2 <> ")" <> varName <> "=" <> newText <> ";\n"
-    line4 = "else " <> varName <> "=" <> oldText' <> "*" <> xfo <> "+" <> newText <> "*" <> xfn <> ";\n"
+    line4 = "else " <> varName <> "=(" <> oldText' <> ")*" <> xfo <> "+(" <> newText <> ")*" <> xfn <> ";\n"
 
 discontinuedAction :: (AudioTime,Double) -> AudioTime -> Map Text Int -> Int -> Action -> Builder
 discontinuedAction _ eTime texMap i oldAction = line1 <> line2 <> line3
@@ -416,7 +416,7 @@ discontinuedAction _ eTime texMap i oldAction = line1 <> line2 <> line3
     xfo | isHsv oldAction = xFadeOldHsv t1 t2
         | otherwise = xFadeOld t1 t2
     line2 = "if(t<" <> showb t1 <> ")" <> varName <> "=" <> oldText <> ";\n"
-    line3 = "else if(t<=" <> showb t2 <> ")" <> varName <> "=" <> oldText <> "*" <> xfo <> ";\n"
+    line3 = "else if(t<=" <> showb t2 <> ")" <> varName <> "=(" <> oldText <> ")*" <> xfo <> ";\n"
 
 addedAction :: (AudioTime,Double) -> AudioTime -> Map Text Int -> Int -> Action -> Builder
 addedAction tempo eTime texMap i newAction = line1 <> line2 <> line3
@@ -430,7 +430,7 @@ addedAction tempo eTime texMap i newAction = line1 <> line2 <> line3
     xfn | isHsv newAction = xFadeNewHsv t1 t2
         | otherwise = xFadeNew t1 t2
     line2 = "if(t>=" <> showb t2 <> ")" <> varName <> "=" <> newText <> ";\n"
-    line3 = "else if(t>" <> showb t1 <> ")" <> varName <> "=" <> newText <> "*" <> xfn <> ";\n"
+    line3 = "else if(t>" <> showb t1 <> ")" <> varName <> "=(" <> newText <> ")*" <> xfn <> ";\n"
 
 xFadeOld :: AudioTime -> AudioTime -> Builder
 xFadeOld t1 t2 = "xFadeOld(" <> showb t1 <> "," <> showb t2 <> ")"
