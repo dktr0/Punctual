@@ -116,6 +116,8 @@ graphToGLSL texMap (Tex t xy) = fmap (\(b,_) -> ("texture2D(tex" <> showb n <> "
   where n = min 14 $ max 0 $ Map.findWithDefault 0 t texMap
 graphToGLSL texMap (Point xy) = fmap (\(b,_) -> ("point(" <> b <> ")",GLFloat)) $ toVec2s $ graphToGLSL texMap xy
 graphToGLSL texMap (Distance xy) = fmap (\(b,_) -> ("distance(" <> b <> ",fxy())",GLFloat)) $ toVec2s $ graphToGLSL texMap xy
+graphToGLSL texMap (FFT x) = fmap (\(b,_) -> ("texture2D(_fft," <> <> ")",GLFLoat)) $ toGLFloats $ graphToGLSL texMap x
+graphToGLSL texMap (IFFT x) = fmap (\(b,_) -> ("texture2D(_ifft," <> <> ")",GLFLoat)) $ toGLFloats $ graphToGLSL texMap x
 
 -- binary functions
 graphToGLSL texMap (Sum x y) = binaryShaderOp "+" texMap x y
@@ -272,7 +274,8 @@ header
    \uniform float t;\
    \uniform lowp vec2 res;\
    \uniform sampler2D _fb;\
-   \uniform sampler2D tex0,tex1,tex2,tex3,tex4,tex5,tex6,tex7,tex8,tex9,tex10,tex11,tex12,tex13,tex14;\
+   \uniform sampler2D _fft,_ifft;\
+   \uniform sampler2D tex0,tex1,tex2,tex3,tex4,tex5,tex6,tex7,tex8,tex9,tex10,tex11,tex12;\
    \uniform float lo,mid,hi,ilo,imid,ihi;\
    \uniform float _defaultAlpha;\
    \float bipolar(float a) { return a * 2. - 1.; }\

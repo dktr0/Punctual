@@ -14,6 +14,7 @@ data Graph =
   Px | Py |
   Lo | Mid | Hi | ILo | IMid | IHi |
   Rnd |
+  FFT Graph | IFFT Graph |
   Mono Graph |
   Rep Int Graph |
   UnRep Int Graph |

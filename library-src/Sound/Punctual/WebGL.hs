@@ -303,7 +303,7 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
 
 drawPunctualWebGL :: GLContext -> AudioTime -> Int -> PunctualWebGL -> IO PunctualWebGL
 drawPunctualWebGL ctx t z st = runGL ctx $ do
-  let mainUniforms = ["t","res","_fb","tex0","tex1","tex2","tex3","tex4","tex5","tex6","tex7","tex8","tex9","tex10","tex11","tex12","tex13","tex14","lo","mid","hi","ilo","imid","ihi","_defaultAlpha"]
+  let mainUniforms = ["t","res","_fb","_fft","_ifft","tex0","tex1","tex2","tex3","tex4","tex5","tex6","tex7","tex8","tex9","tex10","tex11","tex12","lo","mid","hi","ilo","imid","ihi","_defaultAlpha"]
   let mainAttribs = ["p"]
   let prevAsync = IntMap.findWithDefault emptyAsyncProgram z $ mainPrograms st
   (newProgramReady,asyncProgram) <- useAsyncProgram prevAsync mainUniforms mainAttribs

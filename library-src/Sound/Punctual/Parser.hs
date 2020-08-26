@@ -295,6 +295,8 @@ graph2 = asum [
   reserved "distance" >> return Distance,
   reserved "point" >> return Point,
   reserved "fb" >> return Fb,
+  reserved "fft" >> return FFT,
+  reserved "ifft" >> return IFFT,
   textureRef_graph_graph <*> textureRef,
   int_graph_graph <*> int,
   lGraph_graph_graph <*> list graph,
