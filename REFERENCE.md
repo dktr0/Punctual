@@ -115,6 +115,22 @@ tex "https://url-to-image-file" [x,y,...] -- accesses a texture built from the i
 
 texhsv "https://url-to-image-file" [x,y,...] -- accesses a texture built from the image file in question as hue-saturation-value (3-channel signal)
 
+hi -- analysis of how much power there is in the highest frequencies of the spectrum of the current sound output. Result is unipolar (0 to 1).
+
+mid -- analysis of how much power there is in the middle frequencies of the spectrum of the current sound output. Result is unipolar (0 to 1).
+
+lo -- analysis of how much power there is in the lowest frequencies of the spectrum of the current sound output. Result is unipolar (0 to 1).
+
+ihi -- analysis of how much power there is in the highest frequencies of the spectrum of the current sound input. Result is unipolar (0 to 1).
+
+imid -- analysis of how much power there is in the middle frequencies of the spectrum of the current sound input. Result is unipolar (0 to 1).
+
+ilo -- analysis of how much power there is in the lowest frequencies of the spectrum of the current sound input. Result is unipolar (0 to 1).
+
+fft [graph] -- detailed spectrum analysis (Fast Fourier Transform) of the current sound output. Graph argument is bipolar (-1 to 1) where -1 represents lowest possible frequency and 1 represents highest. Result is unipolar (0 to 1).
+
+ifft [graph] -- detailed frequency analysis (Fast Fourier Transform) of the current sound input. Graph argument is bipolar (-1 to 1) where -1 represents lowest possible frequency and 1 represents highest. Result is unipolar (0 to 1.)
+
 rgbhsv [r,g,b,...] -- convert every 3 channels of red-green-blue signal to hue-saturation-value
 
 hsvrgb [h,s,v,...] -- convert every 3 channels of hue-saturation-value signal to red-green-blue
