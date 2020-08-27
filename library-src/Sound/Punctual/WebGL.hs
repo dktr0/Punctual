@@ -20,6 +20,7 @@ import GHCJS.DOM.Types hiding (Text)
 import Data.Maybe
 import Data.Semigroup ((<>))
 import Data.Text (Text)
+import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import TextShow
 import Data.Map as Map
@@ -127,7 +128,9 @@ getAudioInputAnalysis glCtx st = case (audioInputAnalyser st) of
     x <- getLo a
     y <- getMid a
     z <- getHi a
-    _fftToTexture (_webGLRenderingContext glCtx) a (ifftTexture st)
+    let rCtx = _webGLRenderingContext glCtx
+    _activeTexture2 rCtx
+    _fftToTexture rCtx a (ifftTexture st)
     return (x,y,z)
   Nothing -> return (0,0,0)
 
@@ -139,7 +142,9 @@ getAudioOutputAnalysis glCtx st = case (audioOutputAnalyser st) of
     x <- getLo a
     y <- getMid a
     z <- getHi a
-    _fftToTexture (_webGLRenderingContext glCtx) a (fftTexture st)
+    let rCtx = _webGLRenderingContext glCtx
+    _activeTexture1 rCtx
+    _fftToTexture rCtx a (fftTexture st)
     return (x,y,z)
   Nothing -> return (0,0,0)
 
@@ -150,16 +155,6 @@ foreign import javascript safe
   \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_WRAP_T, $1.CLAMP_TO_EDGE);\
   \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_MIN_FILTER, $1.LINEAR);"
   _fftToTexture :: WebGLRenderingContext -> JSVal -> WebGLTexture -> IO ()
-
-{-
-const alignment = 1;
-  gl.pixelStorei(gl.UNPACK_ALIGNMENT, alignment);
-
-  l.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, numSamples, 1, 0,
-                gl.LUMINANCE, gl.UNSIGNED_BYTE, audioData);
-  -}
-
-
 
 -- given a list of requested texture sources (images) and the previous map of requested texture sources
 -- request any textures we don't already have
@@ -345,14 +340,20 @@ drawPunctualWebGL ctx t z st = runGL ctx $ do
       return $ st { textureMapsDraw = IntMap.insert z texMap $ textureMapsDraw st }
   when (isJust $ activeProgram asyncProgram) $ do
     let program = fromJust $ activeProgram asyncProgram
-    bindTex 1 (fftTexture st') =<< getUniformLocation program "_fft"
-    bindTex 2 (ifftTexture st') =<< getUniformLocation program "_ifft"
+    fftLoc <- getUniformLocation program "_fft"
+    ifftLoc <- getUniformLocation program "_ifft"
+    bindTex 1 (fftTexture st') fftLoc
+    bindTex 2 (ifftTexture st') ifftLoc
     -- bind textures to uniforms representing textures in the program
     let uMap = uniformsMap asyncProgram
     let texs = IntMap.findWithDefault (Map.empty) z $ textureMapsDraw st' -- Map Text Int
-    sequence_ $ mapWithKey (\k a -> bindTex (a+3) (textures st' ! k) (uMap ! ("tex" <> showt a))) texs
-    --  clearColor 0.0 0.0 0.0 1.0 -- probably should comment this back in?
-    --  clearColorBuffer -- probably should comment this back in?
+    let bindTex' k a = do
+          let textureSlot = a + 3
+          let theTexture = textures st' ! k
+          let uniformName = "tex" <> showt a
+          let uniformLoc = uMap ! uniformName
+          bindTex textureSlot theTexture uniformLoc
+    sequence_ $ mapWithKey bindTex' texs
     uniform1fAsync asyncProgram "t" (realToFrac t)
     (lo,mid,hi) <- liftIO $ getAudioOutputAnalysis ctx st'
     (ilo,imid,ihi) <- liftIO $ getAudioInputAnalysis ctx st'
@@ -364,7 +365,7 @@ drawPunctualWebGL ctx t z st = runGL ctx $ do
     uniform1fAsync asyncProgram "ihi" ihi
     let defaultAlpha = if z == firstZone st' then 1.0 else 0.0
     uniform1fAsync asyncProgram "_defaultAlpha" defaultAlpha
-    pingPongFrameBuffers 0 (uniformsMap asyncProgram ! "_fb") st'
+    pingPongFrameBuffers (uniformsMap asyncProgram ! "_fb") st'
     let (w,h) = pixels (resolution st')
     uniform2fAsync asyncProgram "res" (fromIntegral w) (fromIntegral h)
     viewport 0 0 w h
@@ -372,12 +373,12 @@ drawPunctualWebGL ctx t z st = runGL ctx $ do
   return $ st' { mainPrograms = IntMap.insert z asyncProgram (mainPrograms st') }
 
 
-pingPongFrameBuffers :: Int -> WebGLUniformLocation -> PunctualWebGL -> GL ()
-pingPongFrameBuffers i l st = do
+pingPongFrameBuffers :: WebGLUniformLocation -> PunctualWebGL -> GL ()
+pingPongFrameBuffers l st = do
   let p = pingPong st
   let fb = if p then (fst $ fb0 st) else (fst $ fb1 st)
   let t = if p then (snd $ fb1 st) else (snd $ fb0 st)
-  bindTex i t l
+  bindTex 0 t l
   bindFramebuffer fb
 
 
