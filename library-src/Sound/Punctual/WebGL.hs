@@ -76,7 +76,7 @@ maybeActivateAudioInputAnalysis :: PunctualWebGL -> IO PunctualWebGL
 maybeActivateAudioInputAnalysis st = case (needsAudioInputAnalysis st && isNothing (audioInputAnalyser st) && isJust (microphoneNode st)) of
   True -> do
     T.putStrLn "Punctual: activating audio input analysis"
-    x <- MusicW.liftAudioIO $ createAnalyser 128 0.5
+    x <- MusicW.liftAudioIO $ createAnalyser 1024 0.5
     y <- arrayForAnalysis x
     connectNodes (fromJust $ microphoneNode st) x
     return $ st {
@@ -100,7 +100,7 @@ maybeActivateAudioOutputAnalysis :: PunctualWebGL -> IO PunctualWebGL
 maybeActivateAudioOutputAnalysis st = case (needsAudioOutputAnalysis st && isNothing (audioOutputAnalyser st) && isJust (audioOutputNode st)) of
   True -> do
     T.putStrLn "Punctual: activating audio output analysis"
-    x <- MusicW.liftAudioIO $ createAnalyser 128 0.5
+    x <- MusicW.liftAudioIO $ createAnalyser 1024 0.5
     y <- arrayForAnalysis x
     connectNodes (fromJust $ audioOutputNode st) x
     return $ st {
@@ -426,13 +426,13 @@ foreign import javascript unsafe
   getFloatFrequencyData :: MusicW.Node -> JSVal -> IO ()
 
 foreign import javascript unsafe
-  "var acc=0; for(var x=0;x<1;x++) { acc=acc+$1[x] }; acc=acc/256; $r = acc"
+  "var acc=0; for(var x=0;x<8;x++) { acc=acc+$1[x] }; acc=acc/(8*256); $r = acc"
   getLo :: JSVal -> IO Double
 
 foreign import javascript unsafe
-  "var acc=0; for(var x=1;x<10;x++) { acc=acc+$1[x] }; acc=acc/(9*256); $r = acc"
+  "var acc=0; for(var x=8;x<80;x++) { acc=acc+$1[x] }; acc=acc/(72*256); $r = acc"
   getMid :: JSVal -> IO Double
 
 foreign import javascript unsafe
-  "var acc=0; for(var x=10;x<64;x++) { acc=acc+$1[x] }; acc=acc/(54*256); $r = acc"
+  "var acc=0; for(var x=80;x<512;x++) { acc=acc+$1[x] }; acc=acc/(432*256); $r = acc"
   getHi :: JSVal -> IO Double
