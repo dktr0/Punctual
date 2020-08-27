@@ -39,6 +39,8 @@ data PunctualWebGL = PunctualWebGL {
   resolution :: Resolution,
   brightness :: Double,
   triangleStrip :: WebGLBuffer,
+  fftTexture :: WebGLTexture,
+  ifftTexture :: WebGLTexture,
   textures :: Map Text WebGLTexture,
   fb0 :: (WebGLFramebuffer,WebGLTexture),
   fb1 :: (WebGLFramebuffer,WebGLTexture),
@@ -117,27 +119,46 @@ maybeDisactivateAudioOutputAnalysis st = case ((not $ needsAudioOutputAnalysis s
     }
   False -> return st
 
-getAudioInputAnalysis :: PunctualWebGL -> IO (Double,Double,Double)
-getAudioInputAnalysis st = case (audioInputAnalyser st) of
+getAudioInputAnalysis :: GLContext -> PunctualWebGL -> IO (Double,Double,Double)
+getAudioInputAnalysis glCtx st = case (audioInputAnalyser st) of
   Just n -> do
     let a = fromJust $ audioInputArray st
     getByteFrequencyData n a
     x <- getLo a
     y <- getMid a
     z <- getHi a
+    _fftToTexture (_webGLRenderingContext glCtx) a (ifftTexture st)
     return (x,y,z)
   Nothing -> return (0,0,0)
 
-getAudioOutputAnalysis :: PunctualWebGL -> IO (Double,Double,Double)
-getAudioOutputAnalysis st = case (audioOutputAnalyser st) of
+getAudioOutputAnalysis :: GLContext -> PunctualWebGL -> IO (Double,Double,Double)
+getAudioOutputAnalysis glCtx st = case (audioOutputAnalyser st) of
   Just n -> do
     let a = fromJust $ audioOutputArray st
     getByteFrequencyData n a
     x <- getLo a
     y <- getMid a
     z <- getHi a
+    _fftToTexture (_webGLRenderingContext glCtx) a (fftTexture st)
     return (x,y,z)
   Nothing -> return (0,0,0)
+
+foreign import javascript safe
+  "$1.bindTexture($1.TEXTURE_2D, $3);\
+  \$1.texImage2D($1.TEXTURE_2D, 0, $1.LUMINANCE, 64, 1, 0, $1.LUMINANCE, $1.UNSIGNED_BYTE, $2);\
+  \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_WRAP_S, $1.CLAMP_TO_EDGE);\
+  \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_WRAP_T, $1.CLAMP_TO_EDGE);\
+  \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_MIN_FILTER, $1.LINEAR);"
+  _fftToTexture :: WebGLRenderingContext -> JSVal -> WebGLTexture -> IO ()
+
+{-
+const alignment = 1;
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, alignment);
+
+  l.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, numSamples, 1, 0,
+                gl.LUMINANCE, gl.UNSIGNED_BYTE, audioData);
+  -}
+
 
 
 -- given a list of requested texture sources (images) and the previous map of requested texture sources
@@ -179,6 +200,9 @@ newPunctualWebGL mic out res _brightness ctx = runGL ctx $ do
   ts <- createBuffer
   bindBufferArray ts
   liftIO $ bufferDataArrayStatic glCtx
+  -- create textures to hold output fft (FFT) and input fft (IFFT) data
+  oFFT <- createTexture
+  iFFT <- createTexture
   -- create two framebuffers to ping-pong between as backbuffer/feedback
   frameBuffer0 <- makeFrameBufferTexture res
   frameBuffer1 <- makeFrameBufferTexture res
@@ -188,6 +212,8 @@ newPunctualWebGL mic out res _brightness ctx = runGL ctx $ do
     resolution = res,
     brightness = _brightness,
     triangleStrip = ts,
+    fftTexture = oFFT,
+    ifftTexture = iFFT,
     textures = Map.empty,
     fb0 = frameBuffer0,
     fb1 = frameBuffer1,
@@ -318,15 +344,18 @@ drawPunctualWebGL ctx t z st = runGL ctx $ do
       let texMap = IntMap.findWithDefault Map.empty z $ textureMapsEval st
       return $ st { textureMapsDraw = IntMap.insert z texMap $ textureMapsDraw st }
   when (isJust $ activeProgram asyncProgram) $ do
+    let program = fromJust $ activeProgram asyncProgram
+    bindTex 1 (fftTexture st') =<< getUniformLocation program "_fft"
+    bindTex 2 (ifftTexture st') =<< getUniformLocation program "_ifft"
     -- bind textures to uniforms representing textures in the program
     let uMap = uniformsMap asyncProgram
     let texs = IntMap.findWithDefault (Map.empty) z $ textureMapsDraw st' -- Map Text Int
-    sequence_ $ mapWithKey (\k a -> bindTex (a+1) (textures st' ! k) (uMap ! ("tex" <> showt a))) texs
+    sequence_ $ mapWithKey (\k a -> bindTex (a+3) (textures st' ! k) (uMap ! ("tex" <> showt a))) texs
     --  clearColor 0.0 0.0 0.0 1.0 -- probably should comment this back in?
     --  clearColorBuffer -- probably should comment this back in?
     uniform1fAsync asyncProgram "t" (realToFrac t)
-    (lo,mid,hi) <- liftIO $ getAudioOutputAnalysis st'
-    (ilo,imid,ihi) <- liftIO $ getAudioInputAnalysis st'
+    (lo,mid,hi) <- liftIO $ getAudioOutputAnalysis ctx st'
+    (ilo,imid,ihi) <- liftIO $ getAudioInputAnalysis ctx st'
     uniform1fAsync asyncProgram "lo" lo
     uniform1fAsync asyncProgram "hi" hi
     uniform1fAsync asyncProgram "mid" mid
@@ -392,7 +421,11 @@ foreign import javascript unsafe
   getByteFrequencyData :: MusicW.Node -> JSVal -> IO ()
 
 foreign import javascript unsafe
-  "var acc=0; for(var x=0;x<1;x++) { acc=acc+$1[x] }; acc=acc/(1*256); $r = acc"
+  "$1.getFloatFrequencyData($2);"
+  getFloatFrequencyData :: MusicW.Node -> JSVal -> IO ()
+
+foreign import javascript unsafe
+  "var acc=0; for(var x=0;x<1;x++) { acc=acc+$1[x] }; acc=acc/256; $r = acc"
   getLo :: JSVal -> IO Double
 
 foreign import javascript unsafe
