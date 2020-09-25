@@ -61,7 +61,7 @@ exprToGLFloats (Vec4 b deps) = [GLFloat (b <> ".x") deps,GLFloat (b <> ".y") dep
 --  GLFloat is repeated
 --  last value of Vec2 is repeated
 --  Vec3 is identity function
---   Vec4 drops last component
+--  Vec4 drops last component
 exprToVec3 :: Expr -> Expr
 exprToVec3 (GLFloat b deps) = Vec3 ("vec3(" <> b <> ")") deps
 exprToVec3 (Vec2 b deps) = Vec3 (b <> ".xyy") deps
@@ -112,17 +112,28 @@ toGLFloats (Exprs xs) = Exprs $ Prelude.concat $ fmap exprToGLFloats xs
 -- 10 channels would become 3 Vec3s followed by a single GLFloat
 -- alignVec3s :: Exprs -> Exprs
 
+data Alignment = AlignVec2 | AlignVec3 | AlignVec4 | AlignLeft | AlignRight | AlignMostCompact
+
 -- *** TODO ***
-{- instance Num Exprs where
-  (Exprs xs) + (Exprs ys) = ???
-    ...align the channel count and underlying types of xs and ys...
-    ...then zipWith "+" in between each item of xs' and ys'...
-    ...dependencies are the union of all input dependencies....
-  (Exprs xs) - (Exprs ys) = ???
-  (Exprs xs) * (Exprs ys) = ???
-  abs (Exprs xs) = ???
-  signum (Exprs xs) = ???
-  fromInteger x = ??? -}
+alignExprs :: Alignment -> Exprs -> Exprs -> (Exprs,Exprs)
+alignExprs AlignVec2 x y = ...
+alignExprs AlignVec3 x y = ...
+alignExprs AlignVec4 x y = ...
+alignExprs AlignLeft x y = ...
+alignExprs AlignRight x y = ...
+alignExprs AlignMostCompact x y = ...
+
+
+addExprs :: Alignment -> Exprs -> Exprs -> Exprs
+addExprs a x y =
+  let (Exprs xs,Exprs ys) = alignExprs a x y
+  zipWith (  ) xs ys
+
+-- subtractExprs :: Alignment -> Exprs -> Exprs -> Exprs
+
+-- multiplyExprs :: Alignment -> Exprs -> Exprs -> Exprs
+
+
 
 -- As we write a fragment shader, basically we will be accumulating Expr(s) that are
 -- assigned to variables in the underlying GLSL types. So we make a monad to represent
