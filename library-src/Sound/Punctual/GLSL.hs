@@ -7,7 +7,7 @@ module Sound.Punctual.GLSL where
 -- A fundamental goal is elegantly bridging the gap between GLSL's 4 basic float types
 -- and the multi-channel expressions of Punctual (which are not limited to 1-4 channels).
 
-import Data.Text as T hiding (zipWith,length)
+import Data.Text.Lazy as T hiding (zipWith,length,cycle)
 import TextShow
 import Data.Set as Set
 import Data.IntMap as IntMap
@@ -383,4 +383,22 @@ test = do
   let y = constantFloat 0.5
   let z = constantFloat 0.7
   w <- multiplyExprs [x,y,z] [constantFloat 2.0]
-  texture2D 7 w
+  ts <- texture2D 7 w
+  toGLFloats ts
+
+realizeAssignment :: Int -> Expr -> Builder
+realizeAssignment n (GLFloat b _) = "float _" <> showb n <> "=" <> b <> ";\n"
+realizeAssignment n (Vec2 b _) = "vec2 _" <> showb n <> "=" <> b <> ";\n"
+realizeAssignment n (Vec3 b _) = "vec3 _" <> showb n <> "=" <> b <> ";\n"
+realizeAssignment n (Vec4 b _) = "vec4 _" <> showb n <> "=" <> b <> ";\n"
+
+realizeExpr :: Expr -> Builder
+realizeExpr (GLFloat b _) = showb b <> "\n"
+realizeExpr (Vec2 b _) = showb b <> "\n"
+realizeExpr (Vec3 b _) = showb b <> "\n"
+realizeExpr (Vec4 b _) = showb b <> "\n"
+
+prettyPrint :: ([Expr],IntMap Expr) -> Text
+prettyPrint (xs,vs) = toLazyText $ v <> x
+  where v = Foldable.fold $ IntMap.mapWithKey realizeAssignment vs
+        x = Foldable.fold $ fmap realizeExpr xs

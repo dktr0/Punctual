@@ -58,6 +58,7 @@ toVec3s ((x,GLFloat):xs) = ("vec3("<>x<>")",Vec3):(toVec3s xs)
 toVec3s xs = toVec3s $ toGLFloats xs
 
 
+
 graphToGLSL :: Map Text Int -> Graph -> GLSL
 
 -- basics: multi, mono, constants, uniforms
@@ -446,6 +447,12 @@ xFadeOldHsv t1 t2 = "xFadeOldHsv(" <> showb t1 <> "," <> showb t2 <> ")"
 
 xFadeNewHsv :: AudioTime -> AudioTime -> Builder
 xFadeNewHsv t1 t2 = "xFadeNewHsv(" <> showb t1 <> "," <> showb t2 <> ")"
+
+-- *** thought experiment: trying to re-write overly simplified version of fragmentShader in GLSL monad
+actionsToGLSL :: (AudioTime,Double) -> Map Text Int -> IntMap Action -> GLSL ()
+actionsToGLSL tempo texMap p = do
+  let xs = actions p
+
 
 fragmentShader :: (AudioTime,Double) -> Map Text Int -> Program -> Program -> Text
 fragmentShader _ _ _ newProgram | isJust (directGLSL newProgram) = toText header <> fromJust (directGLSL newProgram)
