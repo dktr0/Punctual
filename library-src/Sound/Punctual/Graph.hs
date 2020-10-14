@@ -34,6 +34,7 @@ data Graph =
   LFSqr Graph |
   Point Graph |
   Distance Graph |
+  Prox Graph |
   MidiCps Graph |
   CpsMidi Graph |
   DbAmp Graph |

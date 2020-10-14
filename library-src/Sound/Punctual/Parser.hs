@@ -292,7 +292,9 @@ graph2 = asum [
   reserved "rgbr" >> return RgbR,
   reserved "rgbg" >> return RgbG,
   reserved "rgbb" >> return RgbB,
-  reserved "distance" >> return Distance,
+  reserved "distance" >> return Distance, -- deprecated
+  reserved "dist" >> return Distance,
+  reserved "prox" >> return Prox,
   reserved "point" >> return Point,
   reserved "fb" >> return Fb,
   reserved "fft" >> modify (\s -> s { audioOutputAnalysis = True } ) >> return FFT,

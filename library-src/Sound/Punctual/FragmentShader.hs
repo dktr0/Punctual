@@ -116,6 +116,7 @@ graphToGLSL texMap (Tex t xy) = fmap (\(b,_) -> ("texture2D(tex" <> showb n <> "
   where n = min 14 $ max 0 $ Map.findWithDefault 0 t texMap
 graphToGLSL texMap (Point xy) = fmap (\(b,_) -> ("point(" <> b <> ")",GLFloat)) $ toVec2s $ graphToGLSL texMap xy
 graphToGLSL texMap (Distance xy) = fmap (\(b,_) -> ("distance(" <> b <> ",fxy())",GLFloat)) $ toVec2s $ graphToGLSL texMap xy
+graphToGLSL texMap (Prox xy) = fmap (\(b,_) -> ("prox(" <> b <> ",fxy())",GLFloat)) $ toVec2s $ graphToGLSL texMap xy
 graphToGLSL texMap (FFT x) = fmap (\(b,_) -> ("texture2D(_fft,vec2(unipolar(" <> b <> "),0.5)).x",GLFloat)) $ toGLFloats $ graphToGLSL texMap x
 graphToGLSL texMap (IFFT x) = fmap (\(b,_) -> ("texture2D(_ifft,vec2(unipolar(" <> b <> "),0.5)).x",GLFloat)) $ toGLFloats $ graphToGLSL texMap x
 
@@ -325,6 +326,7 @@ header
    \float _lte(float x,float y){return float(x<=y);}\
    \vec2 _lte(vec2 x,vec2 y){return vec2(bvec2(x.x<=y.x,x.y<=y.y));}\
    \vec3 _lte(vec3 x,vec3 y){return vec3(bvec3(x.x<=y.x,x.y<=y.y,x.z<=y.z));}\
+   \float prox(vec2 x,vec2 y){return clamp((2.828427-distance(x,y))/2.828427,0.,1.);}\
    \float gate(float x,float y){return float(abs(x)<abs(y))*y;}\
    \vec2 gate(vec2 x,vec2 y){return vec2(gate(x.x,y.x),gate(x.y,y.y));}\
    \vec3 gate(vec3 x,vec3 y){return vec3(gate(x.x,y.x),gate(x.y,y.y),gate(x.z,y.z));}\
