@@ -60,6 +60,13 @@ with pkgs.haskell.lib;
       rev = "bd5daf365086a4b3a75af9ad9c0b6dedf687f48a";
      }) {});
 
+    tempi = dontHaddock (self.callCabal2nix "tempi" (pkgs.fetchFromGitHub {
+        owner = "dktr0";
+        repo = "tempi";
+        sha256 = "0z4fjdnl7riivw77pl8wypw1a98av3nhpmw0z5g2a1q2kjja0sfp";
+        rev = "9513df2ed323ebaff9b85b72215a1e726ede1e96";
+     }) {});
+
   };
 
 })

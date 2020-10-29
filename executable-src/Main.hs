@@ -7,7 +7,8 @@ import Control.Monad.Trans
 import Control.Monad.Fix
 import Reflex.Dom hiding (getKeyEvent,preventDefault)
 import Reflex.Dom.Contrib.KeyEvent
-import Data.Time.Clock
+import Data.Time
+import Data.Tempo
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -90,11 +91,13 @@ bodyElement = do
 
 
 performEvaluate :: (PerformEvent t m, MonadIO (Performable m)) => MVar RenderState -> Event t Text -> m ()
-performEvaluate mv e = performEvent_ $ fmap (liftIO . f) e
-  where
-    f x = do
-      rs <- takeMVar mv
-      putMVar mv $ rs { toParse = Just x }
+performEvaluate mv e = performEvent_ $ ffor e $ \x -> liftIO $ do
+  tNow <- getCurrentTime
+  rs <- takeMVar mv
+  putMVar mv $ rs {
+    toParse = Just x,
+    tEval = tNow
+  }
 
 
 hideableDiv :: (DomBuilder t m, PostBuild t m) => Dynamic t Bool -> Text -> m a -> m a
@@ -111,7 +114,9 @@ data RenderState = RenderState {
   punctualW :: PunctualW,
   punctualWebGL :: PunctualWebGL,
   fps :: MovingAverage,
-  t0 :: AudioTime,
+  t0 :: UTCTime,
+  tEval :: UTCTime,
+  tempo :: Tempo,
   tPrevAnimationFrame :: UTCTime
 }
 
@@ -125,8 +130,8 @@ forkRenderThreads canvas = do
   connectNodes gain comp
   connectNodes comp dest
   ac <- getGlobalAudioContext
-  t0audio <- liftAudioIO $ audioTime
-  let iW = emptyPunctualW ac gain 2 -- hard coded stereo for now
+  tNow <- getCurrentTime
+  let iW = emptyPunctualW ac gain 2 tNow -- hard coded stereo for now
   -- create PunctualWebGL for animation
   glc <- newGLContext canvas
   initialPunctualWebGL <- newPunctualWebGL (Just mic) (Just comp) FHD 1.0 glc
@@ -140,7 +145,9 @@ forkRenderThreads canvas = do
     punctualW = iW,
     punctualWebGL = initialPunctualWebGL,
     fps = newAverage 60,
-    t0 = t0audio,
+    t0 = tNow,
+    tEval = tNow,
+    tempo = Tempo { freq=0.5, time=tNow, Data.Tempo.count=0},
     tPrevAnimationFrame = t0system
   }
   forkIO $ mainRenderThread mv
@@ -160,7 +167,7 @@ mainRenderThread mv = do
 parseIfNecessary :: RenderState -> IO RenderState
 parseIfNecessary rs = if (isNothing $ toParse rs) then return rs else do
   let x = fromJust $ toParse rs
-  now <- liftAudioIO $ audioTime
+  now <- getCurrentTime
   let p = parse now x
   return $ rs {
     toParse = Nothing,
@@ -171,11 +178,10 @@ parseIfNecessary rs = if (isNothing $ toParse rs) then return rs else do
 updateIfNecessary :: RenderState -> IO RenderState
 updateIfNecessary rs = if (isNothing $ toUpdate rs) then return rs else do
   let x = fromJust $ toUpdate rs
-  let t = (t0 rs, 0.5) -- hard-coded for now...
-  nW <- liftAudioIO $ updatePunctualW (punctualW rs) t x
+  nW <- liftAudioIO $ updatePunctualW (punctualW rs) (tempo rs) x
   nGL <- setResolution (glCtx rs) FHD (punctualWebGL rs)
   nGL' <- setBrightness 1.0 nGL
-  nGL'' <- evaluatePunctualWebGL (glCtx rs) t 1 x nGL'
+  nGL'' <- evaluatePunctualWebGL (glCtx rs) (tempo rs) 1 x nGL'
   return $ rs {
     toUpdate = Nothing,
     punctualW = nW,
@@ -188,9 +194,9 @@ animationThread mv _ = do
   t1system <- getCurrentTime
   let tDiff = diffUTCTime t1system (tPrevAnimationFrame rs)
   let newFps = updateAverage (fps rs) $ 1 / realToFrac tDiff
-  t1audio <- liftAudioIO $ audioTime
+  -- t1audio <- liftAudioIO $ audioTime
   let pwgl = punctualWebGL rs
-  nGL <- drawPunctualWebGL (glCtx rs) t1audio 1 pwgl
+  nGL <- drawPunctualWebGL (glCtx rs) (tempo rs) t1system 1 pwgl
   nGL' <- displayPunctualWebGL (glCtx rs) nGL
   putMVar mv $ rs {
     tPrevAnimationFrame = t1system,

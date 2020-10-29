@@ -16,6 +16,7 @@ import Control.Monad.State
 import Control.Monad.Except
 import Data.Maybe
 import Control.Applicative
+import Data.Time
 
 import Sound.Punctual.AudioTime
 import Sound.Punctual.Extent
@@ -28,11 +29,11 @@ import qualified Sound.Punctual.Action as P
 import Sound.Punctual.Program
 
 
-parse :: AudioTime -> Text -> Either String Program
+parse :: UTCTime -> Text -> Either String Program
 parse eTime x = do
   let (x',pragmas) = extractPragmas x
   if (elem "glsl" pragmas) then do
-    return $ emptyProgram { directGLSL = Just x' }
+    return $ (emptyProgram eTime) { directGLSL = Just x' }
   else parseProgram eTime $ T.unpack x'
 
 extractPragmas :: Text -> (Text,[Text])
@@ -44,16 +45,15 @@ extractPragmas t = (newText,pragmas)
     newText = T.unlines $ fmap fst xs
     pragmas = concat $ fmap snd xs
 
-parseProgram :: AudioTime -> String -> Either String Program
+parseProgram :: UTCTime -> String -> Either String Program
 parseProgram eTime x = do
   let x' = intercalate "," $ fmap (++ " _0") $ splitOn ";" x
   let x'' = "[" ++ x' ++ "\n]"
-  (p,st) <- parseHaskellish program emptyParserState x''
+  (p,st) <- parseHaskellish (program eTime) emptyParserState x''
   return $ p {
     textureSet = textureRefs st,
     programNeedsAudioInputAnalysis = audioInputAnalysis st,
-    programNeedsAudioOutputAnalysis = audioOutputAnalysis st,
-    evalTime = eTime
+    programNeedsAudioOutputAnalysis = audioOutputAnalysis st
   }
 
 
@@ -139,11 +139,11 @@ haskellSrcExtsParseMode = defaultParseMode {
 _0Arg :: H a -> H a
 _0Arg p = p <|> fmap fst (functionApplication p $ reserved "_0")
 
-program :: H Program
-program = do
+program :: UTCTime -> H Program
+program eTime = do
   xs <- concat <$> list actionOr_0
   let xs' = Data.List.filter (not . Data.List.null . Sound.Punctual.Action.outputs) xs
-  return $ emptyProgram { actions = IntMap.fromList $ zip [0..] xs' }
+  return $ (emptyProgram eTime) { actions = IntMap.fromList $ zip [0..] xs' }
 
 actionOr_0 :: H [Action]
 actionOr_0 = _0Arg $ asum [
@@ -177,24 +177,24 @@ action_defTime_action = reserved "@@" >> return (@@)
 action_outputs_action :: H (Action -> [Output] -> Action)
 action_outputs_action = reserved ">>" >> return (P.>>)
 
-double :: H Double
-double = asum [
+number :: H Rational
+number = asum [
   realToFrac <$> rationalOrInteger,
-  reverseApplication double (reserved "m" >> return midicps),
-  reverseApplication double (reserved "db" >> return dbamp)
+  reverseApplication number (reserved "m" >> return (realToFrac.midicps.realToFrac)),
+  reverseApplication number (reserved "db" >> return (realToFrac.dbamp.realToFrac))
   ]
 
 duration :: H Duration
 duration = _0Arg $ asum [
-  Seconds <$> double,
-  reverseApplication double (reserved "s" >> return Seconds),
-  reverseApplication double (reserved "ms" >> return (\x -> Seconds $ x/1000.0)),
-  reverseApplication double (reserved "c" >> return Cycles)
+  Seconds <$> rationalOrInteger,
+  reverseApplication number (reserved "s" >> return Seconds),
+  reverseApplication number (reserved "ms" >> return (\x -> Seconds $ x/1000.0)),
+  reverseApplication number (reserved "c" >> return Cycles)
   ]
 
 defTime :: H DefTime
 defTime = _0Arg $ asum [
-  (\(x,y) -> Quant x y) <$> Language.Haskellish.tuple double duration,
+  (\(x,y) -> Quant x y) <$> Language.Haskellish.tuple number duration,
   After <$> duration
   ]
 
@@ -237,6 +237,11 @@ graph = _0Arg $ asum [
   (Constant . fromIntegral) <$> integer,
   Multi <$> list graph,
   multiSeries,
+  reserved "cps" >> return Cps,
+  reserved "time" >> return Time,
+  reserved "beat" >> return Beat,
+  reserved "etime" >> return ETime,
+  reserved "ebeat" >> return EBeat,
   reserved "rnd" >> return Rnd,
   reserved "fx" >> return Fx,
   reserved "fy" >> return Fy,

@@ -13,6 +13,7 @@ data Graph =
   Fx | Fy | Fxy |
   Px | Py |
   Lo | Mid | Hi | ILo | IMid | IHi |
+  Cps | Time | Beat | EBeat | ETime |
   Rnd |
   FFT Graph | IFFT Graph |
   Mono Graph |

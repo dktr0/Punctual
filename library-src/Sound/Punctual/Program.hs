@@ -7,8 +7,8 @@ import Data.Set as Set
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Control.DeepSeq
+import Data.Time
 
-import Sound.Punctual.AudioTime
 import Sound.Punctual.Action
 
 data Program = Program {
@@ -17,15 +17,15 @@ data Program = Program {
   programNeedsAudioInputAnalysis :: Bool,
   programNeedsAudioOutputAnalysis :: Bool,
   actions :: IntMap Action,
-  evalTime :: AudioTime
+  evalTime :: UTCTime
   } deriving (Show, Eq, Generic, NFData)
 
-emptyProgram :: Program
-emptyProgram = Program {
+emptyProgram :: UTCTime -> Program
+emptyProgram _t0 = Program {
   directGLSL = Nothing,
   textureSet = Set.empty,
   programNeedsAudioInputAnalysis = False,
   programNeedsAudioOutputAnalysis = False,
   actions = IntMap.empty,
-  evalTime = 0
+  evalTime = _t0
 }

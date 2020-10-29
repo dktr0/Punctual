@@ -4,8 +4,9 @@ module Sound.Punctual.Action where
 
 import GHC.Generics (Generic)
 import Control.DeepSeq
+import Data.Time
+import Data.Tempo
 
-import Sound.Punctual.AudioTime
 import Sound.Punctual.Graph
 import Sound.Punctual.DefTime
 import Sound.Punctual.Transition
@@ -36,11 +37,11 @@ a @@ d = a { defTime = d }
 (>>) :: Action -> [Output] -> Action
 a >> o = a { outputs = o ++ outputs a }
 
-actionToTimes :: (AudioTime,Double) -> AudioTime -> Action -> (AudioTime,AudioTime)
-actionToTimes tempo@(_,cps) eTime x = (t1,t2)
+actionToTimes :: Tempo -> UTCTime -> Action -> (UTCTime,UTCTime)
+actionToTimes tempo eTime x = (t1,t2)
   where
     t1 = calculateT1 tempo eTime (defTime x)
-    t2 = (transitionToXfade cps $ transition x) + t1
+    t2 = addUTCTime (transitionToXfade tempo $ transition x) t1
 
 actionOutputsAudio :: Action -> Bool
 actionOutputsAudio = outputsAudio . outputs

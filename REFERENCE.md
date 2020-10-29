@@ -24,6 +24,20 @@ rnd -- random, "white" noise ranging from -1 to 1
 
 (Note: filters and noise are not implemented in graphics (WebGL) implementation yet.)
 
+## Punctual Functions related to Time and Tempo
+
+These functions are currently graphics (WebGL) only, and will return 0 when translated to audio (an audio implementation is planned, however).
+
+cps -- equivalent to the current tempo in cycles per second (in the standalone version of Punctual this will always be 0.5, but when Punctual is used inside Estuary it will be whatever the tempo has been set to).
+
+time -- how much time in seconds has passed since "beat 0" of the tempo (in the standalone version of Punctual beat 0 is when you load the web page; in Estuary beat 0 can be anytime in history, but is usually the time at which a collaborative ensemble was created).
+
+beat -- how many beats have passed since beat 0 of the tempo
+
+etime -- how much time in seconds has passed since code was last evaluated
+
+ebeat -- how much time has passed since code was last evaluated, expressed in beats/cycles relative to the current tempo
+
 ## Punctual Graph Functions
 
 [graph] * [graph] -- multiplication

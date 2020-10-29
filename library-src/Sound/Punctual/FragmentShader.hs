@@ -10,6 +10,8 @@ import Data.Map as Map
 import Data.Foldable as Foldable
 import Data.Maybe
 import Data.List.Split
+import Data.Time
+import Data.Tempo
 
 import Sound.Punctual.AudioTime
 import Sound.Punctual.Graph
@@ -78,6 +80,11 @@ graphToGLSL _ Hi = [("hi",GLFloat)]
 graphToGLSL _ ILo = [("ilo",GLFloat)]
 graphToGLSL _ IMid = [("imid",GLFloat)]
 graphToGLSL _ IHi = [("ihi",GLFloat)]
+graphToGLSL _ Cps = [("_cps",GLFloat)]
+graphToGLSL _ Time = [("_time",GLFloat)]
+graphToGLSL _ Beat = [("_beat",GLFloat)]
+graphToGLSL _ ETime = [("_etime",GLFloat)]
+graphToGLSL _ EBeat = [("_ebeat",GLFloat)]
 
 -- unary functions
 graphToGLSL texMap (Bipolar x) = unaryShaderFunction "bipolar" texMap x
@@ -272,13 +279,12 @@ defaultFragmentShader = (toText header) <> "void main() { gl_FragColor = vec4(0.
 header :: Builder
 header
  = "precision mediump float;\
-   \uniform float t;\
    \uniform lowp vec2 res;\
    \uniform sampler2D _fb;\
    \uniform sampler2D _fft,_ifft;\
    \uniform sampler2D tex0,tex1,tex2,tex3,tex4,tex5,tex6,tex7,tex8,tex9,tex10,tex11,tex12;\
    \uniform float lo,mid,hi,ilo,imid,ihi;\
-   \uniform float _defaultAlpha;\
+   \uniform float _defaultAlpha,_cps,_time,_etime,_beat,_ebeat;\
    \float bipolar(float a) { return a * 2. - 1.; }\
    \vec2 bipolar(vec2 a) { return a * 2. - 1.; }\
    \vec3 bipolar(vec3 a) { return a * 2. - 1.; }\
@@ -292,10 +298,10 @@ header
    \vec3 fb(float r){\
    \  vec3 x = texture2D(_fb,uv()).xyz * r;\
    \  return vec3(x.x > 0.1 ? x.x : 0.,x.y > 0.1 ? x.y : 0.,x.z > 0.1 ? x.z : 0.);}\
-   \float sin_(float f) { return sin(f*3.14159265*2.*t);}\
-   \vec2 sin_(vec2 f) { return sin(f*3.14159265*2.*t);}\
-   \vec3 sin_(vec3 f) { return sin(f*3.14159265*2.*t);}\
-   \float phasor(float f) { return (t*f - floor(t*f));}\
+   \float sin_(float f) { return sin(f*3.14159265*2.*_time);}\
+   \vec2 sin_(vec2 f) { return sin(f*3.14159265*2.*_time);}\
+   \vec3 sin_(vec3 f) { return sin(f*3.14159265*2.*_time);}\
+   \float phasor(float f) { return (_time*f - floor(_time*f));}\
    \float tri(float f) { float p = phasor(f); return p < 0.5 ? p*4.-1. : 1.-((p-0.5)*4.) ;}\
    \float saw(float f) { return phasor(f)*2.-1.;}\
    \float sqr(float f) { float p = phasor(f); return p < 0.5 ? -1. : 1.;}\
@@ -331,7 +337,7 @@ header
    \vec2 gate(vec2 x,vec2 y){return vec2(gate(x.x,y.x),gate(x.y,y.y));}\
    \vec3 gate(vec3 x,vec3 y){return vec3(gate(x.x,y.x),gate(x.y,y.y),gate(x.z,y.z));}\
    \float _step(int n,int x,float y){return float(x==int((y*0.5+0.5)*float(n)));}\
-   \float xFadeNew(float t1,float t2){return clamp((t-t1)/(t2-t1),0.,1.);}\
+   \float xFadeNew(float t1,float t2){return clamp((_etime-t1)/(t2-t1),0.,1.);}\
    \float xFadeOld(float t1,float t2){return 1.-xFadeNew(t1,t2);}\
    \vec3 xFadeNewHsv(float t1,float t2){return vec3(1.,1.,xFadeNew(t1,t2));}\
    \vec3 xFadeOldHsv(float t1,float t2){return vec3(1.,1.,xFadeOld(t1,t2));}\
@@ -386,7 +392,7 @@ isVec3 x = elem RGB (outputs x) || elem HSV (outputs x)
 isHsv :: Action -> Bool
 isHsv x = elem HSV (outputs x)
 
-continuingAction :: (AudioTime,Double) -> AudioTime -> Map Text Int -> Int -> Action -> Action -> Builder
+continuingAction :: Tempo -> UTCTime -> Map Text Int -> Int -> Action -> Action -> Builder
 continuingAction tempo eTime texMap i newAction oldAction = line1 <> line2 <> line3 <> line4
   where
     typeText | isVec3 newAction = "vec3"
@@ -403,27 +409,31 @@ continuingAction tempo eTime texMap i newAction oldAction = line1 <> line2 <> li
     oldText' | fromRGBtoHSV = "rgbhsv(" <> oldText <> ")"
              | fromHSVtoRGB = "hsvrgb(" <> oldText <> ")"
              | otherwise = oldText
-    xfn = xFadeNew t1 t2
-    xfo = xFadeOld t1 t2
-    line2 = "if(t<" <> showb t1 <> ")" <> varName <> "=" <> oldText' <> ";\n"
-    line3 = "else if(t>" <> showb t2 <> ")" <> varName <> "=" <> newText <> ";\n"
+    xfn = xFadeNew eTime t1 t2
+    xfo = xFadeOld eTime t1 t2
+    t1' = realToFrac (diffUTCTime t1 eTime) :: Double
+    t2' = realToFrac (diffUTCTime t2 eTime) :: Double
+    line2 = "if(_etime<" <> showb t1' <> ")" <> varName <> "=" <> oldText' <> ";\n"
+    line3 = "else if(_etime>" <> showb t2' <> ")" <> varName <> "=" <> newText <> ";\n"
     line4 = "else " <> varName <> "=(" <> oldText' <> ")*" <> xfo <> "+(" <> newText <> ")*" <> xfn <> ";\n"
 
-discontinuedAction :: (AudioTime,Double) -> AudioTime -> Map Text Int -> Int -> Action -> Builder
-discontinuedAction _ eTime texMap i oldAction = line1 <> line2 <> line3
+discontinuedAction :: UTCTime -> Map Text Int -> Int -> Action -> Builder
+discontinuedAction eTime texMap i oldAction = line1 <> line2 <> line3
   where
     varName = "_" <> showb i
     line1 | isVec3 oldAction = "vec3 " <> varName <> "=vec3(0.);\n"
           | otherwise = "float " <> varName <> "=0.;\n"
-    (t1,t2) = (eTime,0.5 + eTime) -- 0.5 sec
+    (t1,t2) = (eTime,addUTCTime 0.5 eTime) -- 0.5 sec
     oldText | isVec3 oldAction = actionToVec3 texMap oldAction
             | otherwise = actionToFloat texMap oldAction
-    xfo | isHsv oldAction = xFadeOldHsv t1 t2
-        | otherwise = xFadeOld t1 t2
-    line2 = "if(t<" <> showb t1 <> ")" <> varName <> "=" <> oldText <> ";\n"
-    line3 = "else if(t<=" <> showb t2 <> ")" <> varName <> "=(" <> oldText <> ")*" <> xfo <> ";\n"
+    xfo | isHsv oldAction = xFadeOldHsv eTime t1 t2
+        | otherwise = xFadeOld eTime t1 t2
+    t1' = realToFrac (diffUTCTime t1 eTime) :: Double
+    t2' = realToFrac (diffUTCTime t2 eTime) :: Double
+    line2 = "if(_etime<" <> showb t1' <> ")" <> varName <> "=" <> oldText <> ";\n"
+    line3 = "else if(_etime<=" <> showb t2' <> ")" <> varName <> "=(" <> oldText <> ")*" <> xfo <> ";\n"
 
-addedAction :: (AudioTime,Double) -> AudioTime -> Map Text Int -> Int -> Action -> Builder
+addedAction :: Tempo -> UTCTime -> Map Text Int -> Int -> Action -> Builder
 addedAction tempo eTime texMap i newAction = line1 <> line2 <> line3
   where
     varName = "_" <> showb i
@@ -432,35 +442,51 @@ addedAction tempo eTime texMap i newAction = line1 <> line2 <> line3
     (t1,t2) = actionToTimes tempo eTime newAction
     newText | isVec3 newAction = actionToVec3 texMap newAction
             | otherwise = actionToFloat texMap newAction
-    xfn | isHsv newAction = xFadeNewHsv t1 t2
-        | otherwise = xFadeNew t1 t2
-    line2 = "if(t>=" <> showb t2 <> ")" <> varName <> "=" <> newText <> ";\n"
-    line3 = "else if(t>" <> showb t1 <> ")" <> varName <> "=(" <> newText <> ")*" <> xfn <> ";\n"
+    xfn | isHsv newAction = xFadeNewHsv eTime t1 t2
+        | otherwise = xFadeNew eTime t1 t2
+    t1' = realToFrac (diffUTCTime t1 eTime) :: Double
+    t2' = realToFrac (diffUTCTime t2 eTime) :: Double
+    line2 = "if(_etime>=" <> showb t2' <> ")" <> varName <> "=" <> newText <> ";\n"
+    line3 = "else if(_etime>" <> showb t1' <> ")" <> varName <> "=(" <> newText <> ")*" <> xfn <> ";\n"
 
-xFadeOld :: AudioTime -> AudioTime -> Builder
-xFadeOld t1 t2 = "xFadeOld(" <> showb t1 <> "," <> showb t2 <> ")"
 
-xFadeNew :: AudioTime -> AudioTime -> Builder
-xFadeNew t1 t2 = "xFadeNew(" <> showb t1 <> "," <> showb t2 <> ")"
+xFadeOld :: UTCTime -> UTCTime -> UTCTime -> Builder
+xFadeOld eTime t1 t2 = "xFadeOld(" <> t1' <> "," <> t2' <> ")"
+  where
+    t1' = showb $ ((realToFrac $ diffUTCTime t1 eTime) :: Double)
+    t2' = showb $ ((realToFrac $ diffUTCTime t2 eTime) :: Double)
 
-xFadeOldHsv :: AudioTime -> AudioTime -> Builder
-xFadeOldHsv t1 t2 = "xFadeOldHsv(" <> showb t1 <> "," <> showb t2 <> ")"
+xFadeNew :: UTCTime -> UTCTime -> UTCTime -> Builder
+xFadeNew eTime t1 t2 = "xFadeNew(" <> t1' <> "," <> t2' <> ")"
+  where
+    t1' = showb $ ((realToFrac $ diffUTCTime t1 eTime) :: Double)
+    t2' = showb $ ((realToFrac $ diffUTCTime t2 eTime) :: Double)
 
-xFadeNewHsv :: AudioTime -> AudioTime -> Builder
-xFadeNewHsv t1 t2 = "xFadeNewHsv(" <> showb t1 <> "," <> showb t2 <> ")"
+xFadeOldHsv :: UTCTime -> UTCTime -> UTCTime -> Builder
+xFadeOldHsv eTime t1 t2 = "xFadeOldHsv(" <> t1' <> "," <> t2' <> ")"
+  where
+    t1' = showb $ ((realToFrac $ diffUTCTime t1 eTime) :: Double)
+    t2' = showb $ ((realToFrac $ diffUTCTime t2 eTime) :: Double)
 
-fragmentShader :: (AudioTime,Double) -> Map Text Int -> Program -> Program -> Text
+xFadeNewHsv :: UTCTime -> UTCTime -> UTCTime -> Builder
+xFadeNewHsv eTime t1 t2 = "xFadeNewHsv(" <> t1' <> "," <> t2' <> ")"
+  where
+    t1' = showb $ ((realToFrac $ diffUTCTime t1 eTime) :: Double)
+    t2' = showb $ ((realToFrac $ diffUTCTime t2 eTime) :: Double)
+
+
+fragmentShader :: Tempo -> Map Text Int -> Program -> Program -> Text
 fragmentShader _ _ _ newProgram | isJust (directGLSL newProgram) = toText header <> fromJust (directGLSL newProgram)
 fragmentShader tempo texMap oldProgram newProgram = toText $ header <> body
   where
-    eTime = 0.2 + (evalTime newProgram)
+    eTime = evalTime newProgram
     -- generate maps of previous, current and all relevant expressions
     oldActions = IntMap.filter actionOutputsWebGL $ actions oldProgram
     newActions = IntMap.filter actionOutputsWebGL $ actions newProgram
     allActions = IntMap.union newActions oldActions
     -- generate GLSL shader code for each action, with crossfades
     continuingSources = Foldable.fold $ IntMap.intersectionWithKey (continuingAction tempo eTime texMap) newActions oldActions
-    discontinuedSources = Foldable.fold $ IntMap.mapWithKey (discontinuedAction tempo eTime texMap) $ IntMap.difference oldActions newActions
+    discontinuedSources = Foldable.fold $ IntMap.mapWithKey (discontinuedAction eTime texMap) $ IntMap.difference oldActions newActions
     newSources = Foldable.fold $ IntMap.mapWithKey (addedAction tempo eTime texMap) $ IntMap.difference newActions oldActions
     allSources = continuingSources <> discontinuedSources <> newSources
     -- generate GLSL shader code that maps the sources to outputs
