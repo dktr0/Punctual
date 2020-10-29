@@ -1,34 +1,35 @@
 code size summary per package:
 
-base:                    485005
-bytestring-0.10.8.2-FBklFuapa1a7kq4yflY7Bt:93781
-containers-0.6.0.1-BAqcfV1UBBeCIRjPbUYeSG:213558
+base:                    489271
+bytestring-0.10.8.2-FBklFuapa1a7kq4yflY7Bt:92264
+containers-0.6.0.1-BAqcfV1UBBeCIRjPbUYeSG:213443
 dependent-map-0.3-82DTUQPsubeFMPg64cnlKg:49477
-dependent-sum-0.6.2.0-7ro4RTDuvwj7KvAIN0tbai:4047
-ghc-prim:                312559
+dependent-sum-0.6.2.0-7ro4RTDuvwj7KvAIN0tbai:4201
+ghc-prim:                312664
 ghcjs-base-0.2.0.0-94o7qH5GqxYIuAX83RduIv:1458
 ghcjs-dom-jsffi-0.9.2.0-LhqmrnYZ728DFrIvvqEjAk:21018
 ghcjs-prim-0.1.1.0-EXzjGVHQlAS2XAXcu0iCbS:4194
-haskell-src-exts-1.21.0-DsLjfIdnuhDB9rbXFZ7Qmq:2052660
-haskellish-0.2.3-1rqQWzXEKfS6OkSkh2Gv4h:920
-integer-gmp:             70263
+haskell-src-exts-1.21.0-DsLjfIdnuhDB9rbXFZ7Qmq:2053000
+haskellish-0.2.3-1rqQWzXEKfS6OkSkh2Gv4h:1235
+integer-gmp:             70658
 main:                    7037
-musicw-0.3.5.2-3dW2dD8t1yb8k8P5YnxqU3:162293
+musicw-0.3.5.2-3dW2dD8t1yb8k8P5YnxqU3:162269
 pretty-1.1.3.6-HCbdzOHqNpW5RoNxlHyeg5:482
-primitive-0.6.3.0-KfguiTuxgILGqu8JEOpKRI:2968
-punctual-0.0.0.1-KBnB2iJHmgaGKqaTl8QBNn:530911
+primitive-0.6.3.0-KfguiTuxgILGqu8JEOpKRI:2226
+punctual-0.0.0.1-HFwCsF2fhImD2JROjKHcGk:568739
 ref-tf-0.4.0.1-4fEDYopgtHB1kxZabrLLUM:1
-reflex-0.6.2.4-5yZIMPComPJIRLAlmqrSE5:510494
+reflex-0.6.2.4-5yZIMPComPJIRLAlmqrSE5:510109
 reflex-dom-contrib-0.6-EzMUHZZmTmJKoY8IWemlOb:1829
-reflex-dom-core-0.5.2.0-GkO8KmFBylOAmRGw6IXoPy:795670
-semialign-1-5skbPxNQj8D3AvF6riHMVM:21920
-split-0.2.3.3-qfkf36CxAn5AsxYzbuLkg:1848
-text-1.2.3.0-G7RNccSav6I3egGIwK0cpP:118069
+reflex-dom-core-0.5.2.0-GkO8KmFBylOAmRGw6IXoPy:795173
+semialign-1-5skbPxNQj8D3AvF6riHMVM:21961
+split-0.2.3.3-qfkf36CxAn5AsxYzbuLkg:7277
+tempi-1.0.2.0-51gTh5sRaywHJHU1eWQl53:1848
+text-1.2.3.0-G7RNccSav6I3egGIwK0cpP:118068
 text-show-3.7.5-KwULiPtPzFNcaYnUwuXRO:3432
 these-1-3AW2YEk4PYiLdgZ7ikQ0ki:706
-time-1.8.0.2-3d3i5aGvKEfEHwUSNgliL4:3948
+time-1.8.0.2-3d3i5aGvKEfEHwUSNgliL4:4769
 transformers-0.5.6.2-KaPP0fdMTwBF02jPgfEE5s:4589
-unbounded-delays-0.1.1.0-3OIBWhvs3opCI9f4squMMQ:98510
+unbounded-delays-0.1.1.0-3OIBWhvs3opCI9f4squMMQ:98537
 
 
 code size per module:
@@ -44,11 +45,11 @@ base
     Data.Functor.Product:               1293
     Data.Maybe:                         2728
     Data.OldList:                       1
-    Data.Proxy:                         5312
+    Data.Proxy:                         5317
     Data.Semigroup.Internal:            1
     Data.Tuple:                         1
     Data.Type.Coercion:                 1
-    Data.Type.Equality:                 40521
+    Data.Type.Equality:                 40520
     Data.Typeable.Internal:             9868
     Foreign.C.Error:                    876
     Foreign.Marshal.Alloc:              2503
@@ -56,14 +57,15 @@ base
     GHC.Arr:                            2552
     GHC.Base:                           455
     GHC.Char:                           5866
-    GHC.Conc.Sync:                      7510
+    GHC.Conc.Sync:                      7511
     GHC.Enum:                           839
     GHC.Err:                            5759
     GHC.Exception:                      2331
     GHC.Exception.Type:                 4854
     GHC.Fingerprint:                    546
-    GHC.Fingerprint.Type:               68931
-    GHC.Float:                          10753
+    GHC.Fingerprint.Type:               70044
+    GHC.Float:                          2453
+    GHC.Float.ConversionUtils:          10753
     GHC.Foreign:                        161
     GHC.ForeignPtr:                     1298
     GHC.IO:                             506
@@ -77,8 +79,8 @@ base
     GHC.IO.Encoding.UTF8:               10808
     GHC.IO.Exception:                   24529
     GHC.IO.FD:                          8100
-    GHC.IO.Handle:                      4466
-    GHC.IO.Handle.FD:                   32001
+    GHC.IO.Handle:                      4467
+    GHC.IO.Handle.FD:                   32002
     GHC.IO.Handle.Internals:            17262
     GHC.IO.Handle.Text:                 1906
     GHC.IO.Handle.Types:                86
@@ -89,19 +91,19 @@ base
     GHC.MVar:                           559
     GHC.Maybe:                          634
     GHC.Num:                            113
-    GHC.Ptr:                            8141
-    GHC.Read:                           19221
+    GHC.Ptr:                            7963
+    GHC.Read:                           20090
     GHC.Real:                           255
     GHC.STRef:                          21559
     GHC.Show:                           3900
     GHC.Stack.CCS:                      488
-    GHC.Stack.Types:                    8823
+    GHC.Stack.Types:                    8824
     GHC.TopHandler:                     3467
     GHC.Unicode:                        1
     GHC.Weak:                           1
     GHC.Word:                           762
     System.IO:                          13161
-    System.Posix.Internals:             12858
+    System.Posix.Internals:             12859
     Text.ParserCombinators.ReadP:       1
     Text.ParserCombinators.ReadPrec:    786
     Text.Read:                          29715
@@ -109,13 +111,13 @@ base
     Unsafe.Coerce:                      4154
 
 bytestring-0.10.8.2-FBklFuapa1a7kq4yflY7Bt
-    Data.ByteString.Internal:           93781
+    Data.ByteString.Internal:           92264
 
 containers-0.6.0.1-BAqcfV1UBBeCIRjPbUYeSG
     Data.IntMap.Internal:               38565
     Data.IntMap.Strict:                 71498
     Data.Map.Internal:                  29806
-    Data.Set.Internal:                  73689
+    Data.Set.Internal:                  73574
 
 dependent-map-0.3-82DTUQPsubeFMPg64cnlKg
     Data.Dependent.Map:                 49476
@@ -124,14 +126,14 @@ dependent-map-0.3-82DTUQPsubeFMPg64cnlKg
 dependent-sum-0.6.2.0-7ro4RTDuvwj7KvAIN0tbai
     Data.Dependent.Sum:                 1150
     Data.GADT.Compare:                  2156
-    Data.Some:                          741
+    Data.Some:                          895
 
 ghc-prim
     GHC.CString:                        4958
     GHC.Classes:                        451
     GHC.IntWord64:                      1610
     GHC.Tuple:                          173
-    GHC.Types:                          305367
+    GHC.Types:                          305472
 
 ghcjs-base-0.2.0.0-94o7qH5GqxYIuAX83RduIv
     Data.JSString:                      1
@@ -163,23 +165,23 @@ ghcjs-prim-0.1.1.0-EXzjGVHQlAS2XAXcu0iCbS
 haskell-src-exts-1.21.0-DsLjfIdnuhDB9rbXFZ7Qmq
     Language.Haskell.Exts.Comments:     1494
     Language.Haskell.Exts.ExtScheme:    52204
-    Language.Haskell.Exts.Extension:    68416
-    Language.Haskell.Exts.Fixity:       352329
-    Language.Haskell.Exts.InternalLexer:734377
+    Language.Haskell.Exts.Extension:    68417
+    Language.Haskell.Exts.Fixity:       352445
+    Language.Haskell.Exts.InternalLexer:734380
     Language.Haskell.Exts.InternalParser:19333
-    Language.Haskell.Exts.ParseMonad:   70126
-    Language.Haskell.Exts.ParseSyntax:  239923
+    Language.Haskell.Exts.ParseMonad:   70154
+    Language.Haskell.Exts.ParseSyntax:  240148
     Language.Haskell.Exts.ParseUtils:   2312
-    Language.Haskell.Exts.Parser:       248479
+    Language.Haskell.Exts.Parser:       248491
     Language.Haskell.Exts.Pretty:       11903
-    Language.Haskell.Exts.SrcLoc:       232225
-    Language.Haskell.Exts.Syntax:       19539
+    Language.Haskell.Exts.SrcLoc:       232121
+    Language.Haskell.Exts.Syntax:       19598
 
 haskellish-0.2.3-1rqQWzXEKfS6OkSkh2Gv4h
-    Language.Haskellish:                920
+    Language.Haskellish:                1235
 
 integer-gmp
-    GHC.Integer.Logarithms.Internals:   68159
+    GHC.Integer.Logarithms.Internals:   68554
     GHC.Integer.Type:                   2104
 
 main
@@ -187,10 +189,10 @@ main
     MovingAverage:                      3793
 
 musicw-0.3.5.2-3dW2dD8t1yb8k8P5YnxqU3
-    Sound.MusicW.AudioContext:          33509
+    Sound.MusicW.AudioContext:          33375
     Sound.MusicW.Node:                  23075
     Sound.MusicW.Synth:                 21086
-    Sound.MusicW.SynthDef:              15839
+    Sound.MusicW.SynthDef:              15949
     Sound.MusicW.Transformations:       24244
     Sound.MusicW.Worklets:              44540
 
@@ -199,23 +201,22 @@ pretty-1.1.3.6-HCbdzOHqNpW5RoNxlHyeg5
     Text.PrettyPrint.HughesPJ:          1
 
 primitive-0.6.3.0-KfguiTuxgILGqu8JEOpKRI
-    Control.Monad.Primitive:            2968
+    Control.Monad.Primitive:            2226
 
-punctual-0.0.0.1-KBnB2iJHmgaGKqaTl8QBNn
-    Sound.Punctual.Action:              60007
-    Sound.Punctual.AsyncProgram:        5414
+punctual-0.0.0.1-HFwCsF2fhImD2JROjKHcGk
+    Sound.Punctual.Action:              60038
+    Sound.Punctual.AsyncProgram:        8096
     Sound.Punctual.DefTime:             1
-    Sound.Punctual.Duration:            315
-    Sound.Punctual.Extent:              128993
+    Sound.Punctual.Duration:            132431
     Sound.Punctual.FragmentShader:      3810
     Sound.Punctual.GL:                  30320
     Sound.Punctual.Graph:               2757
-    Sound.Punctual.Output:              50621
-    Sound.Punctual.Parser:              1
-    Sound.Punctual.Program:             95593
+    Sound.Punctual.Output:              52377
+    Sound.Punctual.Parser:              264
+    Sound.Punctual.Program:             100101
     Sound.Punctual.PunctualW:           1
-    Sound.Punctual.Resolution:          1
-    Sound.Punctual.Transition:          153076
+    Sound.Punctual.Resolution:          949
+    Sound.Punctual.Transition:          177593
     Sound.Punctual.WebGL:               1
 
 ref-tf-0.4.0.1-4fEDYopgtHB1kxZabrLLUM
@@ -235,17 +236,17 @@ reflex-0.6.2.4-5yZIMPComPJIRLAlmqrSE5
     Reflex.NotReady.Class:              1
     Reflex.Patch.Class:                 5651
     Reflex.Patch.DMap:                  17472
-    Reflex.Patch.DMapWithMove:          5121
+    Reflex.Patch.DMapWithMove:          5171
     Reflex.Patch.IntMap:                428
     Reflex.Patch.Map:                   1680
     Reflex.Patch.MapWithMove:           37634
     Reflex.PerformEvent.Base:           1634
     Reflex.PerformEvent.Class:          23335
     Reflex.PostBuild.Base:              1
-    Reflex.PostBuild.Class:             65066
+    Reflex.PostBuild.Class:             64762
     Reflex.Requester.Base:              1
-    Reflex.Requester.Class:             303281
-    Reflex.Spider.Internal:             14608
+    Reflex.Requester.Class:             303842
+    Reflex.Spider.Internal:             13916
     Reflex.Time:                        9183
     Reflex.TriggerEvent.Base:           1
     Reflex.TriggerEvent.Class:          254
@@ -256,7 +257,7 @@ reflex-dom-contrib-0.6-EzMUHZZmTmJKoY8IWemlOb
 reflex-dom-core-0.5.2.0-GkO8KmFBylOAmRGw6IXoPy
     Foreign.JavaScript.TH:              1642
     Reflex.Dom.Builder.Class:           133396
-    Reflex.Dom.Builder.Class.Events:    566751
+    Reflex.Dom.Builder.Class.Events:    566254
     Reflex.Dom.Builder.Immediate:       33628
     Reflex.Dom.Main:                    15629
     Reflex.Dom.Old:                     39755
@@ -264,10 +265,13 @@ reflex-dom-core-0.5.2.0-GkO8KmFBylOAmRGw6IXoPy
     Reflex.Dom.Widget.Input:            2401
 
 semialign-1-5skbPxNQj8D3AvF6riHMVM
-    Data.Semialign.Internal:            21920
+    Data.Semialign.Internal:            21961
 
 split-0.2.3.3-qfkf36CxAn5AsxYzbuLkg
-    Data.List.Split.Internals:          1848
+    Data.List.Split.Internals:          7277
+
+tempi-1.0.2.0-51gTh5sRaywHJHU1eWQl53
+    Data.Tempo:                         1848
 
 text-1.2.3.0-G7RNccSav6I3egGIwK0cpP
     Data.Text:                          400
@@ -279,7 +283,7 @@ text-1.2.3.0-G7RNccSav6I3egGIwK0cpP
     Data.Text.Internal.Lazy:            751
     Data.Text.Lazy:                     20683
     Data.Text.Lazy.Builder.Int:         1
-    Data.Text.Lazy.Builder.RealFloat:   64270
+    Data.Text.Lazy.Builder.RealFloat:   64269
 
 text-show-3.7.5-KwULiPtPzFNcaYnUwuXRO
     TextShow.Data.Floating:             3327
@@ -290,9 +294,9 @@ these-1-3AW2YEk4PYiLdgZ7ikQ0ki
     Data.These:                         706
 
 time-1.8.0.2-3d3i5aGvKEfEHwUSNgliL4
-    Data.Time.Clock.Internal.CTimeval:  409
+    Data.Time.Clock.Internal.CTimeval:  220
     Data.Time.Clock.Internal.NominalDiffTime:1
-    Data.Time.Clock.Internal.UTCTime:   1625
+    Data.Time.Clock.Internal.UTCTime:   2635
     Data.Time.Clock.POSIX:              1005
     Data.Time.Clock.System:             908
 
@@ -302,9 +306,9 @@ transformers-0.5.6.2-KaPP0fdMTwBF02jPgfEE5s
     Control.Monad.Trans.State.Strict:   1704
 
 unbounded-delays-0.1.1.0-3OIBWhvs3opCI9f4squMMQ
-    Control.Concurrent.Thread.Delay:    98510
+    Control.Concurrent.Thread.Delay:    98537
 
 
 
-packed metadata: 4350191
+packed metadata: 4391600
 
