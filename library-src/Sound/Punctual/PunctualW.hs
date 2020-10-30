@@ -53,21 +53,24 @@ utcAudioTimePair = do
 utcToAudioTime :: TimePair -> UTCTime -> AudioTime
 utcToAudioTime (utcT,audioT) x = audioT + (realToFrac $ diffUTCTime x utcT)
 
+utcToSafeAudioTime :: TimePair -> UTCTime -> AudioTime
+utcToSafeAudioTime (utcT,audioT) x = max (audioT + (realToFrac $ diffUTCTime x utcT)) 0
 
 updatePunctualW :: PunctualW -> Tempo -> Program -> W.AudioContextIO PunctualW
 updatePunctualW s tempo p = do
   timePair <- utcAudioTimePair
   let evalTime' = evalTime p
-  let aLittleLater = addUTCTime 0.050 evalTime'
   let xs = IntMap.filter actionOutputsAudio $ actions p
   let dest = punctualDestination s
-  mapM_ (deleteSynth timePair evalTime' evalTime' aLittleLater) $ difference (prevSynthsNodes s) xs -- delete synths no longer present
+  let aLittleLater = addUTCTime 0.2 evalTime'
+  let laterStill = addUTCTime 0.05 aLittleLater
+  mapM_ (deleteSynth timePair aLittleLater laterStill) $ difference (prevSynthsNodes s) xs -- delete synths no longer present
   addedSynthsNodes <- mapM (addNewSynth timePair dest tempo evalTime') $ difference xs (prevSynthsNodes s) -- add synths newly present
   let continuingSynthsNodes = intersection (prevSynthsNodes s) xs
   updatedSynthsNodes <- sequence $ intersectionWith (updateSynth timePair dest tempo evalTime') continuingSynthsNodes xs
   newSynthsNodes <- return $! IntMap.union addedSynthsNodes updatedSynthsNodes
   when (not $ silentSynthLaunched s) $ do
-    W.playSynth dest (utcToAudioTime timePair evalTime') $ W.constantSource 0 >>= W.audioOut
+    W.playSynth dest (utcToSafeAudioTime timePair evalTime') $ W.constantSource 0 >>= W.audioOut
     return ()
   return $ s {
     prevSynthsNodes = newSynthsNodes,
@@ -83,15 +86,19 @@ addNewSynth timePair dest tempo eTime a = do
 updateSynth :: AudioIO m => TimePair -> W.Node -> Tempo -> UTCTime -> (Synth m, W.Node) -> Action -> m (Synth m, W.Node)
 updateSynth timePair dest tempo eTime prevSynthNode a = do
   let (xfadeStart,xfadeEnd) = actionToTimes tempo eTime a
-  deleteSynth timePair eTime xfadeStart xfadeEnd prevSynthNode
+  deleteSynth timePair xfadeStart xfadeEnd prevSynthNode
   addSynth timePair dest xfadeStart xfadeStart xfadeEnd a
+
 
 addSynth :: AudioIO m => TimePair -> W.Node -> UTCTime -> UTCTime -> UTCTime -> Action -> m (Synth m, W.Node)
 addSynth timePair dest startTime xfadeStart xfadeEnd a = do
-  let startTime' = utcToAudioTime timePair startTime
-  let xfadeStart' = (utcToAudioTime timePair xfadeStart) - startTime'
-  let xfadeEnd' = (utcToAudioTime timePair xfadeEnd) - startTime'
-  (newNodeRef,newSynth) <- W.playSynth dest startTime' $ do
+  let startTimeUnsafe = utcToAudioTime timePair startTime
+  let xfadeStart' = max 0 $ (utcToAudioTime timePair xfadeStart) - startTimeUnsafe
+  let xfadeEnd' = max 0.001 $ (utcToAudioTime timePair xfadeEnd) - startTimeUnsafe
+  now <- W.audioTime
+  let nearFuture = now + 0.005
+  let startTimeSafe = max nearFuture startTimeUnsafe
+  (newNodeRef,newSynth) <- W.playSynth dest startTimeSafe $ do
     gainNode <- graphToSynthDef' $ graph a
     W.setParam W.Gain 0.0 0.0 gainNode
     W.setParam W.Gain 0.0 xfadeStart' gainNode
@@ -113,16 +120,17 @@ connectSynthToOutput nRef Splay = do
   W.audioOut y
 connectSynthToOutput _ _ = return ()
 
-deleteSynth :: MonadIO m => TimePair -> UTCTime -> UTCTime -> UTCTime -> (Synth m, W.Node) -> m ()
-deleteSynth timePair eTime xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
-  let eTime' = utcToAudioTime timePair eTime
-  let xfadeStart' = utcToAudioTime timePair xfadeStart
-  let xfadeEnd' = utcToAudioTime timePair xfadeEnd
-  W.setValueAtTime prevGainNode W.Gain 1.0 xfadeStart'
+deleteSynth :: MonadIO m => TimePair -> UTCTime -> UTCTime -> (Synth m, W.Node) -> m ()
+deleteSynth timePair xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
+  W.setValueAtTime prevGainNode W.Gain 1.0 $ utcToSafeAudioTime timePair xfadeStart
+  let xfadeEnd' = utcToSafeAudioTime timePair xfadeEnd
   W.linearRampToValueAtTime prevGainNode W.Gain 0.0 xfadeEnd'
-  W.stopSynth xfadeEnd' prevSynth
-  let microseconds = ceiling $ (xfadeEnd' - eTime' + 0.3) * 1000000
-  --  ^ = kill synth 100ms after fade out
+  W.stopSynth (xfadeEnd' + 0.01) prevSynth
+  -- now schedule disconnect for 310 ms after end of fade out, or 500 ms from now, whichever comes later
+  let timeOfDisconnect = addUTCTime 0.31 xfadeEnd
+  tNow <- liftIO getCurrentTime
+  let timeTillDisconnect = max (realToFrac (diffUTCTime timeOfDisconnect tNow) :: Double) 0.5
+  let microseconds = ceiling $ timeTillDisconnect * 1000000
   liftIO $ forkIO $ do
     threadDelay microseconds
     W.disconnectSynth prevSynth
