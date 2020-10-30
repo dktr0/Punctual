@@ -160,6 +160,7 @@ optimize (AmpDb x) = optimize' $ AmpDb $ optimize x
 optimize (Abs x) = Abs $ optimize x
 optimize (Sqrt x) = Sqrt $ optimize x
 optimize (Floor x) = Floor $ optimize x
+optimize (Ceil x) = Ceil $ optimize x
 optimize (Fract x) = Fract $ optimize x
 optimize (Sum x y) = optimize' $ Sum (optimize x) (optimize y)
 optimize (Product x y) = optimize' $ Product (optimize x) (optimize y)
@@ -346,7 +347,7 @@ graphToSynthDef (Pow x y) = do
   W.powWorklet x' y'
 
 graphToSynthDef (Floor x) = graphToSynthDef x >>= W.floorWorklet
-
+graphToSynthDef (Ceil x) = graphToSynthDef x >>= W.ceilWorklet
 graphToSynthDef (Fract x) = graphToSynthDef x >>= W.fractWorklet
 
 graphToSynthDef (Clip (Multi [r1,r2]) x) = do -- *** THIS IS PRETTY HACKY
@@ -417,6 +418,7 @@ expandMultis (AmpDb x) = fmap AmpDb (expandMultis x)
 expandMultis (Abs x) = fmap Abs (expandMultis x)
 expandMultis (Sqrt x) = fmap Sqrt (expandMultis x)
 expandMultis (Floor x) = fmap Floor (expandMultis x)
+expandMultis (Ceil x) = fmap Ceil (expandMultis x)
 expandMultis (Fract x) = fmap Fract (expandMultis x)
 -- binary functions
 expandMultis (Product x y) = expandWith' Product x y

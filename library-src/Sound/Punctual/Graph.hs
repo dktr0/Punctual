@@ -43,6 +43,7 @@ data Graph =
   Abs Graph |
   Sqrt Graph |
   Floor Graph |
+  Ceil Graph |
   Fract Graph |
   Product Graph Graph |
   Sum Graph Graph |

@@ -103,6 +103,7 @@ graphToGLSL texMap (AmpDb x) = unaryShaderFunction "ampdb" texMap x
 graphToGLSL texMap (Abs x) = unaryShaderFunction "abs" texMap x
 graphToGLSL texMap (Sqrt x) = unaryShaderFunction "sqrt" texMap x
 graphToGLSL texMap (Floor x) = unaryShaderFunction "floor" texMap x
+graphToGLSL texMap (Ceil x) = unaryShaderFunction "ceil" texMap x
 graphToGLSL texMap (Fract x) = unaryShaderFunction "fract" texMap x
 graphToGLSL texMap (HsvRgb x) = fmap (\(b,_) -> ("hsvrgb("<>b<>")",Vec3))  $ toVec3s $ graphToGLSL texMap x
 graphToGLSL texMap (RgbHsv x) = fmap (\(b,_) -> ("rgbhsv("<>b<>")",Vec3))  $ toVec3s $ graphToGLSL texMap x

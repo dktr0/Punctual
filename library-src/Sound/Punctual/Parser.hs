@@ -282,6 +282,7 @@ graph2 = asum [
   reserved "ampdb" >> return AmpDb,
   reserved "sqrt" >> return Sqrt,
   reserved "floor" >> return Floor,
+  reserved "ceil" >> return Ceil,
   reserved "fract" >> return Fract,
   reserved "hsvrgb" >> return HsvRgb,
   reserved "rgbhsv" >> return RgbHsv,

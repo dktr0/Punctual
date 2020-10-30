@@ -68,6 +68,12 @@ min [graph] [graph] -- returns the minimum value from two graphs
 
 abs [graph] -- absolute value of provided graph
 
+floor [graph] -- the first whole number below the value of the argument, eg. given 2.3 the return value would be 2.0
+
+ceil [graph] -- the first whole number above the value of the argument, eg. given 2.3 the return value would be 3.0
+
+fract [graph] - the fractional part of the argument, eg. given 2.3 the return value would be 0.3
+
 cpsmidi [graph] -- the MIDI note number corresponding to the provided frequency in Hertz
 
 midicps [graph] -- the frequency in Hertz corresponding to the provided MIDI note number
