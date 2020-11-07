@@ -341,6 +341,7 @@ graph4 :: H (Graph -> Graph -> Graph -> Graph)
 graph4 = asum [
   reserved "lpf" >> return LPF,
   reserved "hpf" >> return HPF,
+  reserved "bpf" >> return BPF,
   reserved "~~" >> return modulatedRangeGraph,
   reserved "+-" >> return (+-),
   reserved "linlin" >> return LinLin,

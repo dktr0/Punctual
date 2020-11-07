@@ -190,6 +190,7 @@ optimize (IfThenElse x y z) = IfThenElse (optimize x) (optimize y) (optimize z)
 optimize (LinLin x y z) = LinLin (optimize x) (optimize y) (optimize z)
 optimize (LPF x y z) = LPF (optimize x) (optimize y) (optimize z)
 optimize (HPF x y z) = HPF (optimize x) (optimize y) (optimize z)
+optimize (BPF x y z) = BPF (optimize x) (optimize y) (optimize z)
 optimize x = x
 
 graphToSynthDef' :: AudioIO m => Graph -> SynthDef m NodeRef
@@ -282,6 +283,21 @@ graphToSynthDef (HPF i f (Constant q)) = do
   return x
 graphToSynthDef (HPF i f q) = do
   x <- graphToSynthDef i >>= W.biquadFilter (W.HighPass 0 0)
+  graphToSynthDef f >>= W.param W.Frequency x
+  graphToSynthDef q >>= W.param W.Q x
+  return x
+
+graphToSynthDef (BPF i (Constant f) (Constant q)) = graphToSynthDef i >>= W.biquadFilter (W.BandPass f q)
+graphToSynthDef (BPF i (Constant f) q) = do
+  x <- graphToSynthDef i >>= W.biquadFilter (W.BandPass f 0)
+  graphToSynthDef q >>= W.param W.Q x
+  return x
+graphToSynthDef (BPF i f (Constant q)) = do
+  x <- graphToSynthDef i >>= W.biquadFilter (W.BandPass 0 q)
+  graphToSynthDef f >>= W.param W.Frequency x
+  return x
+graphToSynthDef (BPF i f q) = do
+  x <- graphToSynthDef i >>= W.biquadFilter (W.BandPass 0 0)
   graphToSynthDef f >>= W.param W.Frequency x
   graphToSynthDef q >>= W.param W.Q x
   return x
@@ -463,6 +479,7 @@ expandMultis (LinLin r1 r2 x) = zipWith3 LinLin r1' r2' x' -- *** VERY HACKY
     r2' = fmap (\(a,b) -> Multi [a,b] ) $ listIntoTuples $ take n $ cycle $ expandMultis r2
 expandMultis (LPF i f q) = expandWith3' LPF i f q
 expandMultis (HPF i f q) = expandWith3' HPF i f q
+expandMultis (BPF i f q) = expandWith3' BPF i f q
 expandMultis (IfThenElse x y z) = expandWith3' IfThenElse x y z
 expandMultis _ = []
 

@@ -69,8 +69,7 @@ data Graph =
   ILine Graph Graph Graph |
   Line Graph Graph Graph |
   LinLin Graph Graph Graph |
-  LPF Graph Graph Graph |
-  HPF Graph Graph Graph
+  LPF Graph Graph Graph | HPF Graph Graph Graph | BPF Graph Graph Graph
   deriving (Show,Eq,Generic,NFData)
 
 instance Num Graph where

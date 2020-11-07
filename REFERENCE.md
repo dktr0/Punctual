@@ -16,9 +16,11 @@ lfsaw [freq] -- "low frequency" sawtooth wave which unlike saw is not band-limit
 
 lfsqr [freq] -- "low frequency" square wave which unlike sqr is not band-limited (in audio), and which goes from -1 to 1. In WebGL graphics output, sqr and lfsqr are identical.
 
-lpf [input] [freq] [ratio] -- lowpass filter at specified filter and bandwidth-ratio
+lpf [input] [freq] [Q] -- lowpass filter at specified filter and Q
 
-hpf [input] [freq] [ratio] -- highpass filter at specified filter and bandwidth-ratio
+hpf [input] [freq] [Q] -- highpass filter at specified filter and Q
+
+bpf [input] [freq] [Q] -- bandpass filter at specified filter and Q
 
 rnd -- random, "white" noise ranging from -1 to 1
 
