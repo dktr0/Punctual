@@ -4,7 +4,7 @@ module Sound.Punctual.PunctualW where
 
 -- This module provides an implementation of Punctual using MusicW as an underlying synthesis library
 
-import Control.Monad (when)
+import Control.Monad (when,forM)
 import Control.Monad.IO.Class
 import Control.Concurrent
 import Data.IntMap.Strict as IntMap
@@ -55,6 +55,14 @@ utcToAudioTime (utcT,audioT) x = audioT + (realToFrac $ diffUTCTime x utcT)
 
 utcToSafeAudioTime :: TimePair -> UTCTime -> AudioTime
 utcToSafeAudioTime (utcT,audioT) x = max (audioT + (realToFrac $ diffUTCTime x utcT)) 0
+
+deletePunctualW :: PunctualW -> W.AudioContextIO ()
+deletePunctualW st = do
+  timePair@(utcNow,_) <- utcAudioTimePair
+  let xfadeStart = addUTCTime 0.050 utcNow
+  let xfadeEnd = addUTCTime 0.010 utcNow
+  forM (prevSynthsNodes st) $ deleteSynth timePair xfadeStart xfadeEnd
+  return ()
 
 updatePunctualW :: PunctualW -> Tempo -> Program -> W.AudioContextIO PunctualW
 updatePunctualW s tempo p = do
