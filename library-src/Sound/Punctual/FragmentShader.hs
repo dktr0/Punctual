@@ -13,7 +13,6 @@ import Data.List.Split
 import Data.Time
 import Data.Tempo
 
-import Sound.Punctual.AudioTime
 import Sound.Punctual.Graph
 import Sound.Punctual.Output
 import Sound.Punctual.Action hiding ((<>),(>>))

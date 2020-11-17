@@ -18,7 +18,6 @@ import Data.Maybe
 import Control.Applicative
 import Data.Time
 
-import Sound.Punctual.AudioTime
 import Sound.Punctual.Extent
 import Sound.Punctual.Graph
 import Sound.Punctual.Duration

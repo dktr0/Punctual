@@ -6,6 +6,7 @@ module Sound.Punctual.WebGL
   setResolution,
   setBrightness,
   evaluatePunctualWebGL,
+  deletePunctualWebGL,
   drawPunctualWebGL,
   displayPunctualWebGL,
   arrayForAnalysis,
@@ -20,7 +21,6 @@ import GHCJS.DOM.Types hiding (Text)
 import Data.Maybe
 import Data.Semigroup ((<>))
 import Data.Text (Text)
-import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import TextShow
 import Data.Map as Map
@@ -31,7 +31,6 @@ import Sound.MusicW as MusicW hiding (createBuffer,AudioTime)
 import Data.Time
 import Data.Tempo
 
-import Sound.Punctual.AudioTime
 import Sound.Punctual.Program
 import Sound.Punctual.FragmentShader
 import Sound.Punctual.GL
@@ -292,6 +291,22 @@ setResolution ctx r st = if r == resolution st then return st else runGL ctx $ d
 setBrightness :: Double -> PunctualWebGL -> IO PunctualWebGL
 setBrightness _brightness st = return $ st { brightness = _brightness }
 
+deletePunctualWebGL :: GLContext -> Int -> PunctualWebGL -> IO PunctualWebGL
+deletePunctualWebGL ctx z st = runGL ctx $ do
+  case IntMap.lookup z (mainPrograms st) of
+    Just x -> deleteAsyncProgram x
+    Nothing -> return ()
+  let newCurrPrograms = IntMap.delete z $ currPrograms st
+  return $ st {
+    prevPrograms = IntMap.delete z $ prevPrograms st,
+    currPrograms = newCurrPrograms,
+    mainPrograms = IntMap.delete z $ mainPrograms st,
+    textureMapsEval = IntMap.delete z $ textureMapsEval st,
+    textureMapsDraw = IntMap.delete z $ textureMapsDraw st,
+    evalTimes = IntMap.delete z $ evalTimes st,
+    firstZone = head $ IntMap.keys newCurrPrograms
+  }
+
 evaluatePunctualWebGL :: GLContext -> Tempo -> Int -> Program -> PunctualWebGL -> IO PunctualWebGL
 evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
   let newCurrPrograms = IntMap.insert z p $ currPrograms st
@@ -403,7 +418,7 @@ pingPongFrameBuffers l st = do
 
 
 displayPunctualWebGL :: GLContext -> PunctualWebGL -> IO PunctualWebGL
-displayPunctualWebGL ctx st = runGL ctx $ do
+displayPunctualWebGL ctx st = if (IntMap.null $ currPrograms st) then (return st) else runGL ctx $ do
   let postUniforms = ["res","tex","brightness"]
   let postAttribs = ["p"]
   (newProgramReady,asyncProgram) <- useAsyncProgram (postProgram st) postUniforms postAttribs
@@ -423,6 +438,7 @@ displayPunctualWebGL ctx st = runGL ctx $ do
     uniform2fAsync asyncProgram "res" (fromIntegral w) (fromIntegral h)
     viewport 0 0 w h
     drawArraysTriangleStrip 0 4
+    return ()
   return $ st { postProgram = asyncProgram, pingPong = not (pingPong st) }
 
 
@@ -440,10 +456,6 @@ foreign import javascript unsafe
 foreign import javascript unsafe
   "$1.getByteFrequencyData($2);"
   getByteFrequencyData :: MusicW.Node -> JSVal -> IO ()
-
-foreign import javascript unsafe
-  "$1.getFloatFrequencyData($2);"
-  getFloatFrequencyData :: MusicW.Node -> JSVal -> IO ()
 
 foreign import javascript unsafe
   "var acc=0; for(var x=0;x<8;x++) { acc=acc+$1[x] }; acc=acc/(8*256); $r = acc"
