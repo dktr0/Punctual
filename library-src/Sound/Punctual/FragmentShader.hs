@@ -166,7 +166,7 @@ graphToGLSL texMap (IfThenElse x y z) = zipWith3 (\(a,t) (b,_) (c,_) -> ("ifthen
 graphToGLSL _ _ = []
 
 stepGLSL :: [GLSL] -> Builder -> Builder
-stepGLSL xs y = interspersePluses "0." $ zipWith f xs' ([0..]::[Int])
+stepGLSL xs y = "(" <> (interspersePluses "0." $ zipWith f xs' ([0..]::[Int])) <> ")"
   where
     xs' = fmap (glslToFloatBuilder 0) xs
     f x n = x <> "*_step(" <> showb (length xs') <> "," <> showb n <> "," <> y <> ")"
