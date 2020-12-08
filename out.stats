@@ -16,7 +16,7 @@ main:                    7037
 musicw-0.3.6-Jzp22qKjWLpK42lIaKkp0v:162655
 pretty-1.1.3.6-HCbdzOHqNpW5RoNxlHyeg5:482
 primitive-0.6.3.0-KfguiTuxgILGqu8JEOpKRI:2226
-punctual-0.0.0.1-Fu6eSrg6It25dFjhj4mYjv:572738
+punctual-0.0.0.1-Fu6eSrg6It25dFjhj4mYjv:573159
 ref-tf-0.4.0.1-4fEDYopgtHB1kxZabrLLUM:1
 reflex-0.6.2.4-5yZIMPComPJIRLAlmqrSE5:510062
 reflex-dom-contrib-0.6-EzMUHZZmTmJKoY8IWemlOb:1829
@@ -207,8 +207,8 @@ punctual-0.0.0.1-Fu6eSrg6It25dFjhj4mYjv
     Sound.Punctual.Action:              60038
     Sound.Punctual.AsyncProgram:        8096
     Sound.Punctual.DefTime:             1
-    Sound.Punctual.Duration:            132706
-    Sound.Punctual.FragmentShader:      3810
+    Sound.Punctual.Duration:            132720
+    Sound.Punctual.FragmentShader:      3902
     Sound.Punctual.GL:                  31196
     Sound.Punctual.Graph:               2757
     Sound.Punctual.Output:              52737
@@ -216,7 +216,7 @@ punctual-0.0.0.1-Fu6eSrg6It25dFjhj4mYjv
     Sound.Punctual.Program:             102591
     Sound.Punctual.PunctualW:           1
     Sound.Punctual.Resolution:          949
-    Sound.Punctual.Transition:          177591
+    Sound.Punctual.Transition:          177906
     Sound.Punctual.WebGL:               1
 
 ref-tf-0.4.0.1-4fEDYopgtHB1kxZabrLLUM
@@ -310,5 +310,5 @@ unbounded-delays-0.1.1.0-3OIBWhvs3opCI9f4squMMQ
 
 
 
-packed metadata: 4401798
+packed metadata: 4402593
 
