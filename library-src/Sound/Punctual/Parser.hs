@@ -224,7 +224,7 @@ definitions1H = do
   x <- Sound.Punctual.Parser.identifier
   m <- gets definitions1 -- Map Text Graph
   let xm = Map.lookup x m
-  if isJust xm then return (fromJust xm) else throwError ""
+  if isJust xm then return (fromJust xm) else nonFatal ""
 
 graph :: H Graph
 graph = _0Arg $ asum [
