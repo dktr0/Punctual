@@ -29,7 +29,7 @@ Library
       ghcjs-dom-jsffi,
       text,
       text-show,
-      haskellish >= 0.2.3 && <0.3,
+      haskellish >= 0.2.4.2 && <0.3,
       haskell-src-exts >= 1.21.0,
       transformers,
       deepseq,
@@ -67,7 +67,8 @@ test-suite tests
       base,
       microspec >= 0.2.1.3,
       punctual,
-      containers
+      containers,
+      time
   default-language: Haskell2010
 
 
