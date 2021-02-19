@@ -160,7 +160,7 @@ action :: H Action
 action = asum [
   duration_action <*> duration,
   defTime_action <*> defTime,
-  outputs_action <*> debugExp Sound.Punctual.Parser.outputs,
+  outputs_action <*> Sound.Punctual.Parser.outputs,
   actionFromGraph <$> graph
   ] <?> "expected Action"
 
