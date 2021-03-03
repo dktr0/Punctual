@@ -23,17 +23,17 @@ import qualified Sound.MusicW as W
 
 data PunctualW = PunctualW {
   punctualAudioContext :: AudioContext,
-  punctualDestination :: Node,
+  punctualIONodes :: (Node,Node),
   punctualChannels :: Int,
   silentSynthLaunched :: Bool,
   prevSynthsNodes :: IntMap (Synth W.AudioContextIO, Node),
   prevProgramW :: Program
   }
 
-emptyPunctualW :: AudioContext -> Node -> Int -> UTCTime -> PunctualW
-emptyPunctualW ac dest nchnls _t0 = PunctualW {
+emptyPunctualW :: AudioContext -> Node -> Node -> Int -> UTCTime -> PunctualW
+emptyPunctualW ac audioIn audioOut nchnls _t0 = PunctualW {
   punctualAudioContext = ac,
-  punctualDestination = dest,
+  punctualIONodes = (audioIn,audioOut),
   punctualChannels = nchnls,
   silentSynthLaunched = False,
   prevSynthsNodes = empty,
@@ -69,15 +69,17 @@ updatePunctualW s tempo p = do
   timePair <- utcAudioTimePair
   let evalTime' = evalTime p
   let xs = IntMap.filter actionOutputsAudio $ actions p
-  let dest = punctualDestination s
+  let ioNodes = punctualIONodes s
   let aLittleLater = addUTCTime 0.2 evalTime'
   let laterStill = addUTCTime 0.05 aLittleLater
   mapM_ (deleteSynth timePair aLittleLater laterStill) $ difference (prevSynthsNodes s) xs -- delete synths no longer present
-  addedSynthsNodes <- mapM (addNewSynth timePair dest tempo evalTime') $ difference xs (prevSynthsNodes s) -- add synths newly present
+  addedSynthsNodes <- mapM (addNewSynth timePair ioNodes tempo evalTime') $ difference xs (prevSynthsNodes s) -- add synths newly present
   let continuingSynthsNodes = intersection (prevSynthsNodes s) xs
-  updatedSynthsNodes <- sequence $ intersectionWith (updateSynth timePair dest tempo evalTime') continuingSynthsNodes xs
+  updatedSynthsNodes <- sequence $ intersectionWith (updateSynth timePair ioNodes tempo evalTime') continuingSynthsNodes xs
   newSynthsNodes <- return $! IntMap.union addedSynthsNodes updatedSynthsNodes
   when (not $ silentSynthLaunched s) $ do
+    let (_,dest) = ioNodes
+    -- *** could we use a variant of playSynth here that just uses the default destination since it's silent anyway?
     W.playSynth dest (utcToSafeAudioTime timePair evalTime') $ W.constantSource 0 >>= W.audioOut
     return ()
   return $ s {
@@ -86,28 +88,27 @@ updatePunctualW s tempo p = do
     silentSynthLaunched = True
     }
 
-addNewSynth :: AudioIO m => TimePair -> W.Node -> Tempo -> UTCTime -> Action -> m (Synth m, W.Node)
-addNewSynth timePair dest tempo eTime a = do
+addNewSynth :: AudioIO m => TimePair -> (W.Node,W.Node) -> Tempo -> UTCTime -> Action -> m (Synth m, W.Node)
+addNewSynth timePair ioNodes tempo eTime a = do
   let (xfadeStart,xfadeEnd) = actionToTimes tempo eTime a
-  addSynth timePair dest xfadeStart xfadeStart xfadeEnd a
+  addSynth timePair ioNodes xfadeStart xfadeStart xfadeEnd a
 
-updateSynth :: AudioIO m => TimePair -> W.Node -> Tempo -> UTCTime -> (Synth m, W.Node) -> Action -> m (Synth m, W.Node)
-updateSynth timePair dest tempo eTime prevSynthNode a = do
+updateSynth :: AudioIO m => TimePair -> (W.Node,W.Node) -> Tempo -> UTCTime -> (Synth m, W.Node) -> Action -> m (Synth m, W.Node)
+updateSynth timePair ioNodes tempo eTime prevSynthNode a = do
   let (xfadeStart,xfadeEnd) = actionToTimes tempo eTime a
   deleteSynth timePair xfadeStart xfadeEnd prevSynthNode
-  addSynth timePair dest xfadeStart xfadeStart xfadeEnd a
+  addSynth timePair ioNodes xfadeStart xfadeStart xfadeEnd a
 
-
-addSynth :: AudioIO m => TimePair -> W.Node -> UTCTime -> UTCTime -> UTCTime -> Action -> m (Synth m, W.Node)
-addSynth timePair dest startTime xfadeStart xfadeEnd a = do
+addSynth :: AudioIO m => TimePair -> (W.Node,W.Node) -> UTCTime -> UTCTime -> UTCTime -> Action -> m (Synth m, W.Node)
+addSynth timePair (audioIn,audioOut) startTime xfadeStart xfadeEnd a = do
   let startTimeUnsafe = utcToAudioTime timePair startTime
   let xfadeStart' = max 0 $ (utcToAudioTime timePair xfadeStart) - startTimeUnsafe
   let xfadeEnd' = max 0.001 $ (utcToAudioTime timePair xfadeEnd) - startTimeUnsafe
   now <- W.audioTime
   let nearFuture = now + 0.005
   let startTimeSafe = max nearFuture startTimeUnsafe
-  (newNodeRef,newSynth) <- W.playSynth dest startTimeSafe $ do
-    gainNode <- graphToSynthDef' $ graph a
+  (newNodeRef,newSynth) <- W.playSynth audioOut startTimeSafe $ do
+    gainNode <- graphToSynthDef' audioIn $ graph a
     W.setParam W.Gain 0.0 0.0 gainNode
     W.setParam W.Gain 0.0 xfadeStart' gainNode
     W.linearRampOnParam W.Gain 1.0 xfadeEnd' gainNode
@@ -201,224 +202,225 @@ optimize (HPF x y z) = HPF (optimize x) (optimize y) (optimize z)
 optimize (BPF x y z) = BPF (optimize x) (optimize y) (optimize z)
 optimize x = x
 
-graphToSynthDef' :: AudioIO m => Graph -> SynthDef m NodeRef
-graphToSynthDef' g = do
-  sd <- mapM (graphToSynthDef . optimize) $ expandMultis g
+graphToSynthDef' :: AudioIO m => W.Node -> Graph -> SynthDef m NodeRef
+graphToSynthDef' i g = do
+  sd <- mapM (graphToSynthDef i . optimize) $ expandMultis g
   case sd of
     [] -> W.constantSource 0 >>= W.gain 0
     _ -> W.channelMerger sd >>= W.gain 0
 
-graphToSynthDef :: AudioIO m => Graph -> SynthDef m NodeRef
-graphToSynthDef (Multi _) = error "internal error: graphToSynthDef should only be used post multi-channel expansion (can't handle Multi)"
-graphToSynthDef (Mono _) = error "internal error: graphToSynthDef should only be used post multi-channel expansion (can't handle Mono)"
-graphToSynthDef (Constant x) = W.constantSource x
+graphToSynthDef :: AudioIO m => W.Node -> Graph -> SynthDef m NodeRef
+graphToSynthDef _ (Multi _) = error "internal error: graphToSynthDef should only be used post multi-channel expansion (can't handle Multi)"
+graphToSynthDef _ (Mono _) = error "internal error: graphToSynthDef should only be used post multi-channel expansion (can't handle Mono)"
+graphToSynthDef _ (Constant x) = W.constantSource x
 
-graphToSynthDef (Bipolar x) = graphToSynthDef $ optimize $ x * 2 - 1
-graphToSynthDef (Unipolar x) = graphToSynthDef $ optimize $ x * 0.5 + 0.5
+graphToSynthDef i (Bipolar x) = graphToSynthDef i $ optimize $ x * 2 - 1
+graphToSynthDef i (Unipolar x) = graphToSynthDef i $ optimize $ x * 0.5 + 0.5
 
-graphToSynthDef (Sin (Constant x)) = W.oscillator W.Sine x
-graphToSynthDef (Sin x) = do
+graphToSynthDef i AudioIn = W.addNodeBuilder (0,1) $ return i
+
+graphToSynthDef _ (Sin (Constant x)) = W.oscillator W.Sine x
+graphToSynthDef i (Sin x) = do
   s <- W.oscillator W.Sine 0
-  graphToSynthDef x >>= W.param W.Frequency s
+  graphToSynthDef i x >>= W.param W.Frequency s
   return s
 
-graphToSynthDef (Tri (Constant x)) = W.oscillator W.Triangle x
-graphToSynthDef (Tri x) = do
+graphToSynthDef _ (Tri (Constant x)) = W.oscillator W.Triangle x
+graphToSynthDef i (Tri x) = do
   s <- W.oscillator W.Triangle 0
-  graphToSynthDef x >>= W.param W.Frequency s
+  graphToSynthDef i x >>= W.param W.Frequency s
   return s
 
-graphToSynthDef (Saw (Constant x)) = W.oscillator W.Sawtooth x
-graphToSynthDef (Saw x) = do
+graphToSynthDef _ (Saw (Constant x)) = W.oscillator W.Sawtooth x
+graphToSynthDef i (Saw x) = do
   s <- W.oscillator W.Sawtooth 0
-  graphToSynthDef x >>= W.param W.Frequency s
+  graphToSynthDef i x >>= W.param W.Frequency s
   return s
 
-graphToSynthDef (LFTri (Constant x)) = W.oscillator W.Sine (x/2) >>= W.sinToTriWorklet
-graphToSynthDef (LFTri x) = do
+graphToSynthDef _ (LFTri (Constant x)) = W.oscillator W.Sine (x/2) >>= W.sinToTriWorklet
+graphToSynthDef i (LFTri x) = do
   s <- W.oscillator W.Sine 0
-  graphToSynthDef x >>= W.param W.Frequency s
+  graphToSynthDef i x >>= W.param W.Frequency s
   W.sinToTriWorklet s
 
-graphToSynthDef (LFSaw (Constant x)) = do
+graphToSynthDef _ (LFSaw (Constant x)) = do
   y <- W.oscillator W.Sine (x*0.25)
   z <- W.oscillator W.Sine (x*0.5)
   W.sinToSawWorklet y z
-graphToSynthDef (LFSaw x) = do
+graphToSynthDef i (LFSaw x) = do
   y <- W.oscillator W.Sine 0
-  graphToSynthDef (x*0.25) >>= W.param W.Frequency y
+  graphToSynthDef i (x*0.25) >>= W.param W.Frequency y
   z <- W.oscillator W.Sine 0
-  graphToSynthDef (x*0.5) >>= W.param W.Frequency z
+  graphToSynthDef i (x*0.5) >>= W.param W.Frequency z
   W.sinToSawWorklet y z
 
-graphToSynthDef (LFSqr (Constant x)) = W.oscillator W.Sine x >>= W.sinToSqrWorklet
-graphToSynthDef (LFSqr x) = do
+graphToSynthDef _ (LFSqr (Constant x)) = W.oscillator W.Sine x >>= W.sinToSqrWorklet
+graphToSynthDef i (LFSqr x) = do
   s <- W.oscillator W.Sine 0
-  graphToSynthDef x >>= W.param W.Frequency s
+  graphToSynthDef i x >>= W.param W.Frequency s
   W.sinToSqrWorklet s
 
-graphToSynthDef Rnd = W.whiteNoiseWorklet
+graphToSynthDef _ Rnd = W.whiteNoiseWorklet
 
-graphToSynthDef (Sqr (Constant x)) = W.oscillator W.Square x
-graphToSynthDef (Sqr x) = do
+graphToSynthDef _ (Sqr (Constant x)) = W.oscillator W.Square x
+graphToSynthDef i (Sqr x) = do
   s <- W.oscillator W.Square 0
-  graphToSynthDef x >>= W.param W.Frequency s
+  graphToSynthDef i x >>= W.param W.Frequency s
   return s
 
-graphToSynthDef (LPF i (Constant f) (Constant q)) = graphToSynthDef i >>= W.biquadFilter (W.LowPass f q)
-graphToSynthDef (LPF i (Constant f) q) = do
-  x <- graphToSynthDef i >>= W.biquadFilter (W.LowPass f 0)
-  graphToSynthDef q >>= W.param W.Q x
+graphToSynthDef i (LPF filterIn (Constant f) (Constant q)) = graphToSynthDef i filterIn >>= W.biquadFilter (W.LowPass f q)
+graphToSynthDef i (LPF filterIn (Constant f) q) = do
+  x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.LowPass f 0)
+  graphToSynthDef i q >>= W.param W.Q x
   return x
-graphToSynthDef (LPF i f (Constant q)) = do
-  x <- graphToSynthDef i >>= W.biquadFilter (W.LowPass 0 q)
-  graphToSynthDef f >>= W.param W.Frequency x
+graphToSynthDef i (LPF filterIn f (Constant q)) = do
+  x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.LowPass 0 q)
+  graphToSynthDef i f >>= W.param W.Frequency x
   return x
-graphToSynthDef (LPF i f q) = do
-  x <- graphToSynthDef i >>= W.biquadFilter (W.LowPass 0 0)
-  graphToSynthDef f >>= W.param W.Frequency x
-  graphToSynthDef q >>= W.param W.Q x
-  return x
-
-graphToSynthDef (HPF i (Constant f) (Constant q)) = graphToSynthDef i >>= W.biquadFilter (W.HighPass f q)
-graphToSynthDef (HPF i (Constant f) q) = do
-  x <- graphToSynthDef i >>= W.biquadFilter (W.HighPass f 0)
-  graphToSynthDef q >>= W.param W.Q x
-  return x
-graphToSynthDef (HPF i f (Constant q)) = do
-  x <- graphToSynthDef i >>= W.biquadFilter (W.HighPass 0 q)
-  graphToSynthDef f >>= W.param W.Frequency x
-  return x
-graphToSynthDef (HPF i f q) = do
-  x <- graphToSynthDef i >>= W.biquadFilter (W.HighPass 0 0)
-  graphToSynthDef f >>= W.param W.Frequency x
-  graphToSynthDef q >>= W.param W.Q x
+graphToSynthDef i (LPF filterIn f q) = do
+  x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.LowPass 0 0)
+  graphToSynthDef i f >>= W.param W.Frequency x
+  graphToSynthDef i q >>= W.param W.Q x
   return x
 
-graphToSynthDef (BPF i (Constant f) (Constant q)) = graphToSynthDef i >>= W.biquadFilter (W.BandPass f q)
-graphToSynthDef (BPF i (Constant f) q) = do
-  x <- graphToSynthDef i >>= W.biquadFilter (W.BandPass f 0)
-  graphToSynthDef q >>= W.param W.Q x
+graphToSynthDef i (HPF filterIn (Constant f) (Constant q)) = graphToSynthDef i filterIn >>= W.biquadFilter (W.HighPass f q)
+graphToSynthDef i (HPF filterIn (Constant f) q) = do
+  x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.HighPass f 0)
+  graphToSynthDef i q >>= W.param W.Q x
   return x
-graphToSynthDef (BPF i f (Constant q)) = do
-  x <- graphToSynthDef i >>= W.biquadFilter (W.BandPass 0 q)
-  graphToSynthDef f >>= W.param W.Frequency x
+graphToSynthDef i (HPF filterIn f (Constant q)) = do
+  x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.HighPass 0 q)
+  graphToSynthDef i f >>= W.param W.Frequency x
   return x
-graphToSynthDef (BPF i f q) = do
-  x <- graphToSynthDef i >>= W.biquadFilter (W.BandPass 0 0)
-  graphToSynthDef f >>= W.param W.Frequency x
-  graphToSynthDef q >>= W.param W.Q x
+graphToSynthDef i (HPF filterIn f q) = do
+  x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.HighPass 0 0)
+  graphToSynthDef i f >>= W.param W.Frequency x
+  graphToSynthDef i q >>= W.param W.Q x
   return x
 
-graphToSynthDef (Sum x y) = W.mixSynthDefs $ fmap graphToSynthDef [x,y]
+graphToSynthDef i (BPF filterIn (Constant f) (Constant q)) = graphToSynthDef i filterIn >>= W.biquadFilter (W.BandPass f q)
+graphToSynthDef i (BPF filterIn (Constant f) q) = do
+  x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.BandPass f 0)
+  graphToSynthDef i q >>= W.param W.Q x
+  return x
+graphToSynthDef i (BPF filterIn f (Constant q)) = do
+  x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.BandPass 0 q)
+  graphToSynthDef i f >>= W.param W.Frequency x
+  return x
+graphToSynthDef i (BPF filterIn f q) = do
+  x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.BandPass 0 0)
+  graphToSynthDef i f >>= W.param W.Frequency x
+  graphToSynthDef i q >>= W.param W.Q x
+  return x
 
-graphToSynthDef (Product x (Constant y)) = graphToSynthDef x >>= W.gain y
-graphToSynthDef (Product (Constant x) y) = graphToSynthDef y >>= W.gain x
-graphToSynthDef (Product x y) = do
-  m <- graphToSynthDef x >>= W.gain 0.0
-  graphToSynthDef y >>= W.param W.Gain m
+graphToSynthDef i (Sum x y) = W.mixSynthDefs $ fmap (graphToSynthDef i) [x,y]
+
+graphToSynthDef i (Product x (Constant y)) = graphToSynthDef i x >>= W.gain y
+graphToSynthDef i (Product (Constant x) y) = graphToSynthDef i y >>= W.gain x
+graphToSynthDef i (Product x y) = do
+  m <- graphToSynthDef i x >>= W.gain 0.0
+  graphToSynthDef i y >>= W.param W.Gain m
   return m
 
-graphToSynthDef (Max x y) = do
-  x' <- graphToSynthDef x
-  y' <- graphToSynthDef y
+graphToSynthDef i (Max x y) = do
+  x' <- graphToSynthDef i x
+  y' <- graphToSynthDef i y
   W.maxWorklet x' y'
 
-graphToSynthDef (Min x y) = do
-  x' <- graphToSynthDef x
-  y' <- graphToSynthDef y
+graphToSynthDef i (Min x y) = do
+  x' <- graphToSynthDef i x
+  y' <- graphToSynthDef i y
   W.minWorklet x' y'
 
-graphToSynthDef (Division x y) = do
-  x' <- graphToSynthDef x
-  y' <- graphToSynthDef y
+graphToSynthDef i (Division x y) = do
+  x' <- graphToSynthDef i x
+  y' <- graphToSynthDef i y
   W.safeDivideWorklet x' y'
 
-graphToSynthDef (GreaterThan x y) = do
-  x' <- graphToSynthDef x
-  y' <- graphToSynthDef y
+graphToSynthDef i (GreaterThan x y) = do
+  x' <- graphToSynthDef i x
+  y' <- graphToSynthDef i y
   W.greaterThanWorklet x' y'
 
-graphToSynthDef (GreaterThanOrEqual x y) = do
-  x' <- graphToSynthDef x
-  y' <- graphToSynthDef y
+graphToSynthDef i (GreaterThanOrEqual x y) = do
+  x' <- graphToSynthDef i x
+  y' <- graphToSynthDef i y
   W.greaterThanOrEqualWorklet x' y'
 
-graphToSynthDef (LessThan x y) = do
-  x' <- graphToSynthDef x
-  y' <- graphToSynthDef y
+graphToSynthDef i (LessThan x y) = do
+  x' <- graphToSynthDef i x
+  y' <- graphToSynthDef i y
   W.lessThanWorklet x' y'
 
-graphToSynthDef (LessThanOrEqual x y) = do
-  x' <- graphToSynthDef x
-  y' <- graphToSynthDef y
+graphToSynthDef i (LessThanOrEqual x y) = do
+  x' <- graphToSynthDef i x
+  y' <- graphToSynthDef i y
   W.lessThanOrEqualWorklet x' y'
 
-graphToSynthDef (Equal x y) = do
-  x' <- graphToSynthDef x
-  y' <- graphToSynthDef y
+graphToSynthDef i (Equal x y) = do
+  x' <- graphToSynthDef i x
+  y' <- graphToSynthDef i y
   W.equalWorklet x' y'
 
-graphToSynthDef (NotEqual x y) = do
-  x' <- graphToSynthDef x
-  y' <- graphToSynthDef y
+graphToSynthDef i (NotEqual x y) = do
+  x' <- graphToSynthDef i x
+  y' <- graphToSynthDef i y
   W.notEqualWorklet x' y'
 
-graphToSynthDef (Gate x y) = graphToSynthDef $ optimize $ (LessThan (Abs x) (Abs y)) * y
-
-graphToSynthDef (MidiCps x) = graphToSynthDef x >>= W.midiCpsWorklet
-graphToSynthDef (CpsMidi x) = graphToSynthDef x >>= W.cpsMidiWorklet
-graphToSynthDef (DbAmp x) = graphToSynthDef x >>= W.dbAmpWorklet
-graphToSynthDef (AmpDb x) = graphToSynthDef x >>= W.ampDbWorklet
-graphToSynthDef (Abs x) = graphToSynthDef x >>= W.absWorklet
-graphToSynthDef (Sqrt x) = graphToSynthDef x >>= W.sqrtWorklet
-
-graphToSynthDef (Pow x y) = do
-  x' <- graphToSynthDef x
-  y' <- graphToSynthDef y
+graphToSynthDef i (Pow x y) = do
+  x' <- graphToSynthDef i x
+  y' <- graphToSynthDef i y
   W.powWorklet x' y'
 
-graphToSynthDef (Floor x) = graphToSynthDef x >>= W.floorWorklet
-graphToSynthDef (Ceil x) = graphToSynthDef x >>= W.ceilWorklet
-graphToSynthDef (Fract x) = graphToSynthDef x >>= W.fractWorklet
+graphToSynthDef i (Gate x y) = graphToSynthDef i $ optimize $ (LessThan (Abs x) (Abs y)) * y
 
-graphToSynthDef (Clip (Multi [r1,r2]) x) = do -- *** THIS IS PRETTY HACKY
-  r1' <- graphToSynthDef r1
-  r2' <- graphToSynthDef r2
-  x' <- graphToSynthDef x
+graphToSynthDef i (MidiCps x) = graphToSynthDef i x >>= W.midiCpsWorklet
+graphToSynthDef i (CpsMidi x) = graphToSynthDef i x >>= W.cpsMidiWorklet
+graphToSynthDef i (DbAmp x) = graphToSynthDef i x >>= W.dbAmpWorklet
+graphToSynthDef i (AmpDb x) = graphToSynthDef i x >>= W.ampDbWorklet
+graphToSynthDef i (Abs x) = graphToSynthDef i x >>= W.absWorklet
+graphToSynthDef i (Sqrt x) = graphToSynthDef i x >>= W.sqrtWorklet
+graphToSynthDef i (Floor x) = graphToSynthDef i x >>= W.floorWorklet
+graphToSynthDef i (Ceil x) = graphToSynthDef i x >>= W.ceilWorklet
+graphToSynthDef i (Fract x) = graphToSynthDef i x >>= W.fractWorklet
+
+graphToSynthDef i (Clip (Multi [r1,r2]) x) = do -- *** THIS IS PRETTY HACKY
+  r1' <- graphToSynthDef i r1
+  r2' <- graphToSynthDef i r2
+  x' <- graphToSynthDef i x
   W.clipWorklet r1' r2' x'
 
-graphToSynthDef (Between (Multi [r1,r2]) x) = graphToSynthDef g -- ***** THIS IS ALSO PRETTY HACKY
+graphToSynthDef i (Between (Multi [r1,r2]) x) = graphToSynthDef i g -- ***** THIS IS ALSO PRETTY HACKY
   where g = (GreaterThan r2 r1) * (GreaterThan x r1) * (LessThan x r2) +
             (GreaterThan r1 r2) * (GreaterThan x r2) * (LessThan x r1)
 
-graphToSynthDef (Step [] _) = W.constantSource 0
-graphToSynthDef (Step (x:[]) _) = graphToSynthDef x
-graphToSynthDef (Step xs (Constant y)) = do
+graphToSynthDef _ (Step [] _) = W.constantSource 0
+graphToSynthDef i (Step (x:[]) _) = graphToSynthDef i x
+graphToSynthDef i (Step xs (Constant y)) = do
   let y' = max (min y 0.99999999) 0
   let y'' = floor (y' * fromIntegral (length xs))
-  graphToSynthDef (xs!!y'')
-graphToSynthDef (Step xs y) = do
-  xs' <- mapM graphToSynthDef xs
-  y' <- graphToSynthDef y
+  graphToSynthDef i (xs!!y'')
+graphToSynthDef i (Step xs y) = do
+  xs' <- mapM (graphToSynthDef i) xs
+  y' <- graphToSynthDef i y
   W.stepWorklet xs' y'
 
-graphToSynthDef (LinLin (Multi [Constant min1,Constant max1]) (Multi [Constant min2,Constant max2]) x) = graphToSynthDef $ optimize $ (x - Constant min1) * c + Constant min2
+graphToSynthDef i (LinLin (Multi [Constant min1,Constant max1]) (Multi [Constant min2,Constant max2]) x) = graphToSynthDef i $ optimize $ (x - Constant min1) * c + Constant min2
   where c | (max1 - min1) /= 0 = Constant $ (max2 - min2) / (max1 - min1)
           | otherwise = Constant 0
-graphToSynthDef (LinLin (Multi [Constant min1,Constant max1]) (Multi [min2,max2]) x) = graphToSynthDef $ optimize $ (x - Constant min1) * (max2 - min2) * c + min2
+graphToSynthDef i (LinLin (Multi [Constant min1,Constant max1]) (Multi [min2,max2]) x) = graphToSynthDef i $ optimize $ (x - Constant min1) * (max2 - min2) * c + min2
   where c | (max1 - min1) /= 0 = Constant $ 1 / (max1 - min1)
           | otherwise = Constant 0
-graphToSynthDef (LinLin (Multi [min1,max1]) (Multi [min2,max2]) x) = graphToSynthDef $ optimize $ min2 + outputRange * proportion -- *** THIS IS ALSO VERY HACKY
+graphToSynthDef i (LinLin (Multi [min1,max1]) (Multi [min2,max2]) x) = graphToSynthDef i $ optimize $ min2 + outputRange * proportion -- *** THIS IS ALSO VERY HACKY
   where
     inputRange = max1 - min1
     outputRange = max2 - min2
     proportion = Division (x - min1) inputRange
 
-graphToSynthDef (IfThenElse x y z) = graphToSynthDef $ ((GreaterThan x 0)*y)+((LessThanOrEqual x 0)*z)
+graphToSynthDef i (IfThenElse x y z) = graphToSynthDef i $ ((GreaterThan x 0)*y)+((LessThanOrEqual x 0)*z)
 
 -- Graph constructors that have no meaning in the audio domain all produce a constant signal of 0
-graphToSynthDef _ = W.constantSource 0
+graphToSynthDef _ _ = W.constantSource 0
 
 
 -- Multi-channel expansion (and removal of some subgraphs that don't affect audio)
@@ -436,6 +438,7 @@ expandMultis (UnRep n x) = fmap ((/ fromIntegral n) . graphsToMono) $ chunksOf n
 expandMultis (Bipolar x) = fmap Bipolar $ expandMultis x
 expandMultis (Unipolar x) = fmap Unipolar $ expandMultis x
 expandMultis Rnd = [Rnd]
+expandMultis AudioIn = [AudioIn]
 expandMultis (Sin x) = fmap Sin (expandMultis x)
 expandMultis (Tri x) = fmap Tri (expandMultis x)
 expandMultis (Saw x) = fmap Saw (expandMultis x)

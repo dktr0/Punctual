@@ -131,7 +131,7 @@ forkRenderThreads canvas = do
   connectNodes comp dest
   ac <- getGlobalAudioContext
   tNow <- getCurrentTime
-  let iW = emptyPunctualW ac gain 2 tNow -- hard coded stereo for now
+  let iW = emptyPunctualW ac mic gain 2 tNow -- hard coded stereo for now
   -- create PunctualWebGL for animation
   glc <- newGLContext canvas
   initialPunctualWebGL <- newPunctualWebGL (Just mic) (Just comp) FHD 1.0 glc

@@ -138,11 +138,9 @@ haskellSrcExtsParseMode = defaultParseMode {
         ]
     }
 
--- *** WORKING HERE: figuring out if/how this _0 stuff is interfering with current problems
--- we flipped the order of the two choices here and it made a difference... which is... alarming!
 
 _0Arg :: H a -> H a
-_0Arg p = fmap fst (functionApplication p $ reserved "_0") <|> p
+_0Arg p = p <|> fmap fst (functionApplication p $ reserved "_0")
 
 program :: UTCTime -> H Program
 program eTime = do
@@ -247,6 +245,7 @@ graph = _0Arg $ asum [
   (Constant . fromIntegral) <$> integer,
   Multi <$> list graph,
   multiSeries,
+  reserved "audioin" >> return AudioIn,
   reserved "cps" >> return Cps,
   reserved "time" >> return Time,
   reserved "beat" >> return Beat,

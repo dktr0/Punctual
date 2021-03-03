@@ -15,6 +15,7 @@ data Graph =
   Lo | Mid | Hi | ILo | IMid | IHi |
   Cps | Time | Beat | EBeat | ETime |
   Rnd |
+  AudioIn |
   FFT Graph | IFFT Graph |
   Mono Graph |
   Rep Int Graph |
