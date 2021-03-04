@@ -1,6 +1,6 @@
 # Punctual Reference
 
-## Punctual Oscillators, Filters, and Noise
+## Punctual Oscillators, Filters, Noise, Audio Input
 
 sin [freq] -- sine wave, ranging from 1 to -1
 
@@ -23,6 +23,8 @@ hpf [input] [freq] [Q] -- highpass filter at specified filter and Q
 bpf [input] [freq] [Q] -- bandpass filter at specified filter and Q
 
 rnd -- random, "white" noise ranging from -1 to 1
+
+audioin -- input from the browser's microphone input (audio only, produces no result in fragment shaders)
 
 (Note: filters and noise are not implemented in graphics (WebGL) implementation yet.)
 
