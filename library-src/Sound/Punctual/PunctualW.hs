@@ -217,7 +217,7 @@ graphToSynthDef _ (Constant x) = W.constantSource x
 graphToSynthDef i (Bipolar x) = graphToSynthDef i $ optimize $ x * 2 - 1
 graphToSynthDef i (Unipolar x) = graphToSynthDef i $ optimize $ x * 0.5 + 0.5
 
-graphToSynthDef i AudioIn = W.addNodeBuilder (0,1) $ return i
+graphToSynthDef i AudioIn = W.externalNode i
 
 graphToSynthDef _ (Sin (Constant x)) = W.oscillator W.Sine x
 graphToSynthDef i (Sin x) = do

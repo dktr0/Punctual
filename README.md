@@ -13,7 +13,7 @@ Punctual was created by David Ogborn, building on top of the MusicW synthesis
 library (by David Ogborn, Spencer Park, Jamie Beverley, and others). Conceptually,
 Punctual extends the work of Julian Rohrhuber and others on SuperCollider's JITlib notations, as well as the work of Shawn Lawson on The Force.
 
-See also [REFERENCE.MD](REFERENCE.md) for what should be an up-to-date list of Punctual's functions.
+See also [REFERENCE.MD](REFERENCE.md) for what should be an up-to-date list of Punctual's functions, and [CHANGELOG.md](CHANGELOG.md) for a history of changes.
 
 # Audio Output
 
