@@ -24,7 +24,9 @@ bpf [input] [freq] [Q] -- bandpass filter at specified filter and Q
 
 rnd -- random, "white" noise ranging from -1 to 1
 
-audioin -- input from the browser's microphone input (audio only, produces no result in fragment shaders)
+audioin -- input from Punctual's audio input (normally, the "microphone"; audio only, equivalent to 0 in fragment shaders)
+
+delay [maxDelayTime] [delayTimes] [signals] -- audio delay line, delay signals by specified delay times which must be less than maxDelayTime (audio only, equivalent to 0 in fragment shaders)
 
 (Note: filters and noise are not implemented in graphics (WebGL) implementation yet.)
 
