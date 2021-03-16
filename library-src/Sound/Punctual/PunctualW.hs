@@ -200,6 +200,7 @@ optimize (LinLin x y z) = LinLin (optimize x) (optimize y) (optimize z)
 optimize (LPF x y z) = LPF (optimize x) (optimize y) (optimize z)
 optimize (HPF x y z) = HPF (optimize x) (optimize y) (optimize z)
 optimize (BPF x y z) = BPF (optimize x) (optimize y) (optimize z)
+optimize (Delay maxT t i) = Delay maxT (optimize t) (optimize i)
 optimize x = x
 
 graphToSynthDef' :: AudioIO m => W.Node -> Graph -> SynthDef m NodeRef
@@ -374,6 +375,17 @@ graphToSynthDef i (Pow x y) = do
 
 graphToSynthDef i (Gate x y) = graphToSynthDef i $ optimize $ (LessThan (Abs x) (Abs y)) * y
 
+graphToSynthDef i (Delay maxT (Constant t) (Constant x)) = graphToSynthDef i (Constant x)
+graphToSynthDef i (Delay maxT (Constant t) x) = do
+  x' <- graphToSynthDef i x
+  W.delay maxT x'
+graphToSynthDef i (Delay maxT t x) = do
+  t' <- graphToSynthDef i t
+  x' <- graphToSynthDef i x
+  theDelay <- W.delay maxT x'
+  W.param W.DelayTime theDelay t' -- *** TODO: this isn't working, delay time isn't changing (it's always maxTime)
+  return theDelay
+
 graphToSynthDef i (MidiCps x) = graphToSynthDef i x >>= W.midiCpsWorklet
 graphToSynthDef i (CpsMidi x) = graphToSynthDef i x >>= W.cpsMidiWorklet
 graphToSynthDef i (DbAmp x) = graphToSynthDef i x >>= W.dbAmpWorklet
@@ -469,6 +481,7 @@ expandMultis (Equal x y) = expandWith' Equal x y
 expandMultis (NotEqual x y) = expandWith' NotEqual x y
 expandMultis (Gate x y) = expandWith' Gate x y
 expandMultis (Pow x y) = expandWith' Pow x y
+expandMultis (Delay maxT t i) = expandWith' (Delay maxT) t i
 expandMultis (Clip r x) = zipWith Clip r' x' -- *** VERY HACKY
   where
     x' = expandMultis x

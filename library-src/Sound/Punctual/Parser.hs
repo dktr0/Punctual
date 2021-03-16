@@ -351,6 +351,7 @@ graph3 = asum [
   reserved "between" >> return Between,
   reserved "when" >> return Sound.Punctual.Graph.when,
   reserved "gate" >> return Gate,
+  double_graph_graph_graph <*> double,
   graph4 <*> graph
   ] <?> "expected Graph -> Graph -> Graph"
 
@@ -375,6 +376,9 @@ int_graph_graph = asum [
   reserved "unrep" >> return UnRep
   ]
 
+double_graph_graph_graph :: H (Double -> Graph -> Graph -> Graph)
+double_graph_graph_graph = reserved "delay" >> return Delay
+
 identifiedGraph :: H Graph
 identifiedGraph = do
   (_,i,g) <- binaryApplication (reserved "<<") Sound.Punctual.Parser.identifier  graph
@@ -387,6 +391,9 @@ identifier = Language.Haskellish.identifier
 
 int :: H Int
 int = (fromIntegral <$> integer) <?> "expected Int"
+
+double :: H Double
+double = (realToFrac <$> rationalOrInteger) <?> "expected Double"
 
 textureRef_graph_graph :: H (Text -> Graph -> Graph)
 textureRef_graph_graph = asum [
