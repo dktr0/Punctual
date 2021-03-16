@@ -163,6 +163,7 @@ graphToGLSL texMap (Line xy1 xy2 w) = ternaryShaderFunction "line" texMap xy1 xy
 graphToGLSL texMap (LinLin r1 r2 w) = ternaryShaderFunction "linlin" texMap r1 r2 w
 graphToGLSL texMap (IfThenElse x y z) = zipWith3 (\(a,t) (b,_) (c,_) -> ("ifthenelse("<>a<>","<>b<>","<>c<>")",t)) x' y' z'
   where (x',y',z') = alignGLSL3 (graphToGLSL texMap x) (graphToGLSL texMap y) (graphToGLSL texMap z)
+
 graphToGLSL _ _ = []
 
 stepGLSL :: [GLSL] -> Builder -> Builder

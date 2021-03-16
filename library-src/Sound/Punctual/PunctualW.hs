@@ -375,15 +375,14 @@ graphToSynthDef i (Pow x y) = do
 
 graphToSynthDef i (Gate x y) = graphToSynthDef i $ optimize $ (LessThan (Abs x) (Abs y)) * y
 
-graphToSynthDef i (Delay maxT (Constant t) (Constant x)) = graphToSynthDef i (Constant x)
 graphToSynthDef i (Delay maxT (Constant t) x) = do
   x' <- graphToSynthDef i x
-  W.delay maxT x'
+  W.delay maxT x' >>= W.setParam W.DelayTime t 0
 graphToSynthDef i (Delay maxT t x) = do
   t' <- graphToSynthDef i t
   x' <- graphToSynthDef i x
   theDelay <- W.delay maxT x'
-  W.param W.DelayTime theDelay t' -- *** TODO: this isn't working, delay time isn't changing (it's always maxTime)
+  W.param W.DelayTime theDelay t'
   return theDelay
 
 graphToSynthDef i (MidiCps x) = graphToSynthDef i x >>= W.midiCpsWorklet
