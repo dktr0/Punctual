@@ -187,6 +187,14 @@ hsvg [r,g,b,...] -- convert every 3 channels of hue-saturation-value signal to 1
 
 hsvb [r,g,b,...] -- convert every 3 channels of hue-saturation-value signal to 1 channel of blue
 
+tile [x,y] [...] -- repeat the image x times across the x axis, y times across the y axis (remaps fx & fy)
+
+zoom [x,y] [...] -- zoom in by x across the x axis, y across the y axis (remaps fx & fy)
+
+move [x,y] [...] -- move/shift/translate things by x across the x axis, y across the y axis (remaps fx & fy)
+
+spin [amount] [...] -- rotate around [0,0], amount is from 0 - 1 where 1 is all the way around circle (remaps fx & fy)
+
 
 ## Punctual Output Notations
 

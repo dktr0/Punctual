@@ -351,6 +351,10 @@ graph3 = asum [
   reserved "between" >> return Between,
   reserved "when" >> return Sound.Punctual.Graph.when,
   reserved "gate" >> return Gate,
+  reserved "zoom" >> return Zoom,
+  reserved "move" >> return Move,
+  reserved "tile" >> return Tile,
+  reserved "spin" >> return Spin,
   double_graph_graph_graph <*> double,
   graph4 <*> graph
   ] <?> "expected Graph -> Graph -> Graph"

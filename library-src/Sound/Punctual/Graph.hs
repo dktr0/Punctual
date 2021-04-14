@@ -12,6 +12,7 @@ data Graph =
   Multi [Graph] |
   Fx | Fy | Fxy |
   Px | Py |
+  Zoom Graph Graph | Move Graph Graph | Tile Graph Graph | Spin Graph Graph |
   Lo | Mid | Hi | ILo | IMid | IHi |
   Cps | Time | Beat | EBeat | ETime |
   Rnd |

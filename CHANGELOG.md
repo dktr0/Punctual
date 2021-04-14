@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.3.2:
+
+- new: added tile, zoom, move, spin (graphics only)
+
 0.3.1:
 
 - new: added 'delay' for delay lines (audio only)
