@@ -190,8 +190,8 @@ graphToGLSL env (Step xs y) =
   in fmap (\(a,_) -> (stepGLSL xs' a,GLFloat)) $ toGLFloats $ graphToGLSL env y
 
 -- ternary functions
-graphToGLSL env (ILine xy1 xy2 w) = ternaryShaderFunction "iline" env xy1 xy2 w
-graphToGLSL env (Line xy1 xy2 w) = ternaryShaderFunction "line" env xy1 xy2 w
+graphToGLSL env (ILine xy1 xy2 w) = ternaryShaderFunction' "iline" env xy1 xy2 w
+graphToGLSL env (Line xy1 xy2 w) = ternaryShaderFunction' "line" env xy1 xy2 w
 graphToGLSL env (LinLin r1 r2 w) = ternaryShaderFunction "linlin" env r1 r2 w
 graphToGLSL env (IfThenElse x y z) = zipWith3 (\(a,t) (b,_) (c,_) -> ("ifthenelse("<>a<>","<>b<>","<>c<>")",t)) x' y' z'
   where (x',y',z') = alignGLSL3 (graphToGLSL env x) (graphToGLSL env y) (graphToGLSL env z)
@@ -230,6 +230,14 @@ glslTypeToCast Vec3 = "vec3"
 -- note that ternaryShaderFunction is currently specialized for functions of the form: float f(vec2,vec2,float)
 ternaryShaderFunction :: Builder -> GLSLEnv -> Graph -> Graph -> Graph -> GLSL
 ternaryShaderFunction f env x y z = expandWith3 (\(a,_) (b,_) (c,_) -> (f<>"("<>a<>","<>b<>","<>c<>")",GLFloat)) x' y' z'
+  where
+    x' = toVec2s $ graphToGLSL env x
+    y' = toVec2s $ graphToGLSL env y
+    z' = toGLFloats $ graphToGLSL env z
+
+-- for use with functions that take fxy arguments (line,iline)
+ternaryShaderFunction' :: Builder -> GLSLEnv -> Graph -> Graph -> Graph -> GLSL
+ternaryShaderFunction' f env@(_,fxy) x y z = expandWith3 (\(a,_) (b,_) (c,_) -> (f<>"("<>a<>","<>b<>","<>c<>","<>(fst $ fxy!!0)<>")",GLFloat)) x' y' z'
   where
     x' = toVec2s $ graphToGLSL env x
     y' = toVec2s $ graphToGLSL env y

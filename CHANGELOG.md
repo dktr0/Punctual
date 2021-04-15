@@ -1,5 +1,8 @@
 # ChangeLog
 
+0.3.2.1:
+- bug fix relating to line, iline
+
 0.3.2:
 
 - new: added tile, zoom, move, spin (graphics only)
