@@ -16,8 +16,8 @@ import Control.Monad.State
 import Control.Monad.Except
 import Data.Maybe
 import Control.Applicative
+import Data.Time
 
-import Sound.Punctual.AudioTime
 import Sound.Punctual.Extent
 import Sound.Punctual.Graph
 import Sound.Punctual.Duration
@@ -28,11 +28,11 @@ import qualified Sound.Punctual.Action as P
 import Sound.Punctual.Program
 
 
-parse :: AudioTime -> Text -> Either String Program
+parse :: UTCTime -> Text -> Either String Program
 parse eTime x = do
   let (x',pragmas) = extractPragmas x
   if (elem "glsl" pragmas) then do
-    return $ emptyProgram { directGLSL = Just x' }
+    return $ (emptyProgram eTime) { directGLSL = Just x' }
   else parseProgram eTime $ T.unpack x'
 
 extractPragmas :: Text -> (Text,[Text])
@@ -44,16 +44,18 @@ extractPragmas t = (newText,pragmas)
     newText = T.unlines $ fmap fst xs
     pragmas = concat $ fmap snd xs
 
-parseProgram :: AudioTime -> String -> Either String Program
-parseProgram eTime x = do
+reformatProgramAsList :: String -> String
+reformatProgramAsList x =
   let x' = intercalate "," $ fmap (++ " _0") $ splitOn ";" x
-  let x'' = "[" ++ x' ++ "\n]"
-  (p,st) <- parseHaskellish program emptyParserState x''
+  in "[" ++ x' ++ "\n]"
+
+parseProgram :: UTCTime -> String -> Either String Program
+parseProgram eTime x = do
+  (p,st) <- parseHaskellish (program eTime) emptyParserState $ reformatProgramAsList x
   return $ p {
     textureSet = textureRefs st,
     programNeedsAudioInputAnalysis = audioInputAnalysis st,
-    programNeedsAudioOutputAnalysis = audioOutputAnalysis st,
-    evalTime = eTime
+    programNeedsAudioOutputAnalysis = audioOutputAnalysis st
   }
 
 
@@ -136,19 +138,20 @@ haskellSrcExtsParseMode = defaultParseMode {
         ]
     }
 
+
 _0Arg :: H a -> H a
 _0Arg p = p <|> fmap fst (functionApplication p $ reserved "_0")
 
-program :: H Program
-program = do
+program :: UTCTime -> H Program
+program eTime = do
   xs <- concat <$> list actionOr_0
   let xs' = Data.List.filter (not . Data.List.null . Sound.Punctual.Action.outputs) xs
-  return $ emptyProgram { actions = IntMap.fromList $ zip [0..] xs' }
+  return $ (emptyProgram eTime) { actions = IntMap.fromList $ zip [0..] xs' }
 
 actionOr_0 :: H [Action]
 actionOr_0 = _0Arg $ asum [
   reserved "_0" >> return [],
-  fmap (:[]) action
+  fmap pure action
   ]
 
 action :: H Action
@@ -157,7 +160,7 @@ action = asum [
   defTime_action <*> defTime,
   outputs_action <*> Sound.Punctual.Parser.outputs,
   actionFromGraph <$> graph
-  ]
+  ] <?> "expected Action"
 
 duration_action :: H (Duration -> Action)
 duration_action = action_duration_action <*> action
@@ -177,24 +180,24 @@ action_defTime_action = reserved "@@" >> return (@@)
 action_outputs_action :: H (Action -> [Output] -> Action)
 action_outputs_action = reserved ">>" >> return (P.>>)
 
-double :: H Double
-double = asum [
+number :: H Rational
+number = asum [
   realToFrac <$> rationalOrInteger,
-  reverseApplication double (reserved "m" >> return midicps),
-  reverseApplication double (reserved "db" >> return dbamp)
+  reverseApplication number (reserved "m" >> return (realToFrac.midicps.realToFrac)),
+  reverseApplication number (reserved "db" >> return (realToFrac.dbamp.realToFrac))
   ]
 
 duration :: H Duration
 duration = _0Arg $ asum [
-  Seconds <$> double,
-  reverseApplication double (reserved "s" >> return Seconds),
-  reverseApplication double (reserved "ms" >> return (\x -> Seconds $ x/1000.0)),
-  reverseApplication double (reserved "c" >> return Cycles)
+  Seconds <$> rationalOrInteger,
+  reverseApplication number (reserved "s" >> return Seconds),
+  reverseApplication number (reserved "ms" >> return (\x -> Seconds $ x/1000.0)),
+  reverseApplication number (reserved "c" >> return Cycles)
   ]
 
 defTime :: H DefTime
 defTime = _0Arg $ asum [
-  (\(x,y) -> Quant x y) <$> Language.Haskellish.tuple double duration,
+  (\(x,y) -> Quant x y) <$> Language.Haskellish.tuple number duration,
   After <$> duration
   ]
 
@@ -225,7 +228,12 @@ definitions1H = do
   x <- Sound.Punctual.Parser.identifier
   m <- gets definitions1 -- Map Text Graph
   let xm = Map.lookup x m
-  if isJust xm then return (fromJust xm) else throwError ""
+  if isJust xm then return (fromJust xm) else nonFatal ""
+
+debugExp :: Haskellish st a -> Haskellish st a
+debugExp h = do
+  e <- Language.Haskellish.exp
+  throwError $ T.pack $ show e
 
 graph :: H Graph
 graph = _0Arg $ asum [
@@ -237,6 +245,12 @@ graph = _0Arg $ asum [
   (Constant . fromIntegral) <$> integer,
   Multi <$> list graph,
   multiSeries,
+  reserved "audioin" >> return AudioIn,
+  reserved "cps" >> return Cps,
+  reserved "time" >> return Time,
+  reserved "beat" >> return Beat,
+  reserved "etime" >> return ETime,
+  reserved "ebeat" >> return EBeat,
   reserved "rnd" >> return Rnd,
   reserved "fx" >> return Fx,
   reserved "fy" >> return Fy,
@@ -249,9 +263,17 @@ graph = _0Arg $ asum [
   reserved "ilo" >> modify (\s -> s { audioInputAnalysis = True } ) >> return ILo,
   reserved "imid" >> modify (\s -> s { audioInputAnalysis = True } ) >> return IMid,
   reserved "ihi" >> modify (\s -> s { audioInputAnalysis = True } ) >> return IHi,
+  -- (reserved "sin" >> return Sin) <**!> graph,
   graph2 <*> graph,
   ifThenElseParser
-  ]
+  ] <?> "expected Graph"
+
+{- -- *** we've tested this and are pretty sure it's correct
+(<**!>) :: Haskellish st (a -> b) -> Haskellish st a -> Haskellish st b
+f <**!> x =
+  (f <*> required x) <|> -- 1. succeeds when f and x succeed, and are applied to each other
+  (f >> undermined x >> fatal "") -- 2. if f succeeds against the expression as a whole, force x to fail fatally
+-}
 
 ifThenElseParser :: H Graph
 ifThenElseParser = do
@@ -259,7 +281,7 @@ ifThenElseParser = do
   return $ IfThenElse a b c
 
 graph2 :: H (Graph -> Graph)
-graph2 = asum [
+graph2 = _0Arg $ asum [
   reserved "bipolar" >> return Bipolar,
   reserved "unipolar" >> return Unipolar,
   reserved "sin" >> return Sin,
@@ -277,6 +299,7 @@ graph2 = asum [
   reserved "ampdb" >> return AmpDb,
   reserved "sqrt" >> return Sqrt,
   reserved "floor" >> return Floor,
+  reserved "ceil" >> return Ceil,
   reserved "fract" >> return Fract,
   reserved "hsvrgb" >> return HsvRgb,
   reserved "rgbhsv" >> return RgbHsv,
@@ -292,16 +315,18 @@ graph2 = asum [
   reserved "rgbr" >> return RgbR,
   reserved "rgbg" >> return RgbG,
   reserved "rgbb" >> return RgbB,
-  reserved "distance" >> return Distance,
+  reserved "distance" >> return Distance, -- deprecated
+  reserved "dist" >> return Distance,
+  reserved "prox" >> return Prox,
   reserved "point" >> return Point,
   reserved "fb" >> return Fb,
   reserved "fft" >> modify (\s -> s { audioOutputAnalysis = True } ) >> return FFT,
   reserved "ifft" >> modify (\s -> s { audioInputAnalysis = True } ) >> return IFFT,
   textureRef_graph_graph <*> textureRef,
   int_graph_graph <*> int,
-  lGraph_graph_graph <*> list graph,
+  lGraph_graph_graph <*> (list graph <?> "expected list of Graphs"),
   graph3 <*> graph
-  ]
+  ] <?> "expected Graph -> Graph"
 
 graph3 :: H (Graph -> Graph -> Graph)
 graph3 = asum [
@@ -326,19 +351,25 @@ graph3 = asum [
   reserved "between" >> return Between,
   reserved "when" >> return Sound.Punctual.Graph.when,
   reserved "gate" >> return Gate,
+  reserved "zoom" >> return Zoom,
+  reserved "move" >> return Move,
+  reserved "tile" >> return Tile,
+  reserved "spin" >> return Spin,
+  double_graph_graph_graph <*> double,
   graph4 <*> graph
-  ]
+  ] <?> "expected Graph -> Graph -> Graph"
 
 graph4 :: H (Graph -> Graph -> Graph -> Graph)
 graph4 = asum [
   reserved "lpf" >> return LPF,
   reserved "hpf" >> return HPF,
+  reserved "bpf" >> return BPF,
   reserved "~~" >> return modulatedRangeGraph,
   reserved "+-" >> return (+-),
   reserved "linlin" >> return LinLin,
   reserved "iline" >> return ILine,
   reserved "line" >> return Line
-  ]
+  ] <?> "expected Graph -> Graph -> Graph -> Graph"
 
 lGraph_graph_graph :: H ([Graph] -> Graph -> Graph)
 lGraph_graph_graph = reserved "step" >> return Step
@@ -348,6 +379,9 @@ int_graph_graph = asum [
   reserved "rep" >> return Rep,
   reserved "unrep" >> return UnRep
   ]
+
+double_graph_graph_graph :: H (Double -> Graph -> Graph -> Graph)
+double_graph_graph_graph = reserved "delay" >> return Delay
 
 identifiedGraph :: H Graph
 identifiedGraph = do
@@ -360,7 +394,10 @@ identifier = Language.Haskellish.identifier
 -- TODO: reject identifiers that are reserved words
 
 int :: H Int
-int = fromIntegral <$> integer
+int = (fromIntegral <$> integer) <?> "expected Int"
+
+double :: H Double
+double = (realToFrac <$> rationalOrInteger) <?> "expected Double"
 
 textureRef_graph_graph :: H (Text -> Graph -> Graph)
 textureRef_graph_graph = asum [
@@ -369,10 +406,11 @@ textureRef_graph_graph = asum [
   ]
 
 textureRef :: H Text
-textureRef = do
+textureRef = (do
   t <- T.pack <$> string
   modify' $ \s -> s { textureRefs = Set.insert t $ textureRefs s }
   return t
+  ) <?> "expected texture URL"
 
 multiSeries :: H Graph
 multiSeries = (reserved "..." >> return f) <*> i <*> i

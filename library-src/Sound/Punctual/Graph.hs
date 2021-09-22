@@ -12,8 +12,11 @@ data Graph =
   Multi [Graph] |
   Fx | Fy | Fxy |
   Px | Py |
+  Zoom Graph Graph | Move Graph Graph | Tile Graph Graph | Spin Graph Graph |
   Lo | Mid | Hi | ILo | IMid | IHi |
+  Cps | Time | Beat | EBeat | ETime |
   Rnd |
+  AudioIn |
   FFT Graph | IFFT Graph |
   Mono Graph |
   Rep Int Graph |
@@ -34,6 +37,7 @@ data Graph =
   LFSqr Graph |
   Point Graph |
   Distance Graph |
+  Prox Graph |
   MidiCps Graph |
   CpsMidi Graph |
   DbAmp Graph |
@@ -41,6 +45,7 @@ data Graph =
   Abs Graph |
   Sqrt Graph |
   Floor Graph |
+  Ceil Graph |
   Fract Graph |
   Product Graph Graph |
   Sum Graph Graph |
@@ -66,8 +71,8 @@ data Graph =
   ILine Graph Graph Graph |
   Line Graph Graph Graph |
   LinLin Graph Graph Graph |
-  LPF Graph Graph Graph |
-  HPF Graph Graph Graph
+  LPF Graph Graph Graph | HPF Graph Graph Graph | BPF Graph Graph Graph |
+  Delay Double Graph Graph
   deriving (Show,Eq,Generic,NFData)
 
 instance Num Graph where

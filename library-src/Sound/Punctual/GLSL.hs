@@ -24,28 +24,20 @@ import Data.Foldable as Foldable hiding (length)
 type Deps = Set Int
 
 
--- Next, we define the type Expr which could represent any of the basic GLSL types, as
--- a combination of a (Text) Builder that represents the GLSL text of a given expression,
+-- GLSL is a strongly-typed language, so we'll need a type to represent GLSL types:
+
+data GLSLType = Vec4 | Vec3 | Vec2 | GLFloat deriving (Show)
+
+
+-- Next, we define the type Expr which represents a strongly-typed GLSL expressions
 -- together with a representation of its dependencies.
 
-data Expr =
-  Vec4 Builder Deps |
-  Vec3 Builder Deps |
-  Vec2 Builder Deps |
-  GLFloat Builder Deps
-  deriving (Show)
+data Expr = Expr {
+  glslType :: GLSLType,
+  builder :: Builder,
+  deps :: Deps
+  } deriving (Show)
 
-builder :: Expr -> Builder
-builder (Vec4 x _) = x
-builder (Vec3 x _) = x
-builder (Vec2 x _) = x
-builder (GLFloat x _) = x
-
-deps :: Expr -> Deps
-deps (Vec4 _ x) = x
-deps (Vec3 _ x) = x
-deps (Vec2 _ x) = x
-deps (GLFloat _ x) = x
 
 -- As we write a fragment shader, basically we will be accumulating Expr(s) that are
 -- assigned to variables in the underlying GLSL types. So we make a monad to represent
@@ -63,13 +55,14 @@ assign x = do
   m <- get
   let n = IntMap.size m -- *note* this assumes items are not removed from the map prior to any assignment
   put $ IntMap.insert n x m
-  return $ case x of
-    (Vec4 _ deps) -> Vec4 ("_" <> showb n) $ Set.union deps $ Set.singleton n
-    (Vec3 _ deps) -> Vec3 ("_" <> showb n) $ Set.union deps $ Set.singleton n
-    (Vec2 _ deps) -> Vec2 ("_" <> showb n) $ Set.union deps $ Set.singleton n
-    (GLFloat _ deps) -> GLFloat ("_" <> showb n) $ Set.union deps $ Set.singleton n
+  return $ Expr {
+    glslType = glslType x,
+    builder = builder x,
+    deps = Set.insert n (deps x)
+  }
 
 
+-- ** WORKING BELOW HERE, continuing to refactor for reorganization of Expr type ***
 
 instance Num Expr where
   x + y = binaryExprOp "+" x y

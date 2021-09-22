@@ -7,13 +7,13 @@ When definitions are changed, when and how they change can be explicitly indicat
 Punctual runs in a web browser, and is portable to any system with a browser that
 supports the Web Audio API (for sound) and WebGL (for video). While it can be used in a standalone way, it is also bundled inside the Estuary platform for collaborative live coding.
 
-The easiest way to try Punctual is to point your browser to https://dktr0.github.io/Punctual/ - you will find there a Punctual editor ready to go with no download or installation required. You can also download Punctual (eg. for use when you don't have Internet access) by downloading the most recent release here on Github, putting the Punctual.jsexe folder somewhere, then opening the index.html file in that folder when you are ready to start live coding. A third way to start using Punctual is via the Estuary test server at https://intramuros.mcmaster.ca (Chrome is *strongly* recommended; select Solo, then in one of the text editor panels select Punctual from the panel's drop down language selection menu). Using Punctual via Estuary makes it possible both to use it alongside other languages supported by Estuary, as well as to collaborate online with other artists.
+The easiest way to try Punctual is to point your browser to https://dktr0.github.io/Punctual/ - you will find there a Punctual editor ready to go with no download or installation required. Another way to start using Punctual is via the main Estuary server at https://estuary.mcmaster.ca (Chrome is *strongly* recommended; select Solo, then in one of the text editor panels select Punctual from the panel's drop down language selection menu). Using Punctual via Estuary makes it possible both to use it alongside other languages supported by Estuary, as well as to collaborate online with other artists. (It is also possible to download a Punctual release for offline use.)
 
 Punctual was created by David Ogborn, building on top of the MusicW synthesis
 library (by David Ogborn, Spencer Park, Jamie Beverley, and others). Conceptually,
 Punctual extends the work of Julian Rohrhuber and others on SuperCollider's JITlib notations, as well as the work of Shawn Lawson on The Force.
 
-See also [REFERENCE.MD](REFERENCE.md) for what should be an up-to-date list of Punctual's functions.
+See also [REFERENCE.MD](REFERENCE.md) for what should be an up-to-date list of Punctual's functions, and [CHANGELOG.md](CHANGELOG.md) for a history of changes.
 
 # Audio Output
 

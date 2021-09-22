@@ -128,6 +128,27 @@ useAsyncProgram a uniformNames attribNames = do
               attribsMap = newAttribsMap
             })
 
+deleteAsyncProgram :: AsyncProgram -> GL ()
+deleteAsyncProgram p = do
+  case nextProgram p of
+    Just x -> deleteProgram x
+    Nothing -> return ()
+  case nextVertexShader p of
+    Just x -> deleteShader x
+    Nothing -> return ()
+  case nextFragmentShader p of
+    Just x -> deleteShader x
+    Nothing -> return ()
+  case activeProgram p of
+    Just x -> deleteProgram x
+    Nothing -> return ()
+  case activeVertexShader p of
+    Just x -> deleteShader x
+    Nothing -> return ()
+  case activeFragmentShader p of
+    Just x -> deleteShader x
+    Nothing -> return ()
+
 uniform1fAsync :: AsyncProgram -> Text -> Double -> GL ()
 uniform1fAsync a n v = do
   let loc = Map.lookup n $ uniformsMap a

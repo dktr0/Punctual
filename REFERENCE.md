@@ -1,6 +1,6 @@
 # Punctual Reference
 
-## Punctual Oscillators, Filters, and Noise
+## Punctual Oscillators, Filters, Noise, Audio Input
 
 sin [freq] -- sine wave, ranging from 1 to -1
 
@@ -16,13 +16,33 @@ lfsaw [freq] -- "low frequency" sawtooth wave which unlike saw is not band-limit
 
 lfsqr [freq] -- "low frequency" square wave which unlike sqr is not band-limited (in audio), and which goes from -1 to 1. In WebGL graphics output, sqr and lfsqr are identical.
 
-lpf [input] [freq] [ratio] -- lowpass filter at specified filter and bandwidth-ratio
+lpf [input] [freq] [Q] -- lowpass filter at specified filter and Q
 
-hpf [input] [freq] [ratio] -- highpass filter at specified filter and bandwidth-ratio
+hpf [input] [freq] [Q] -- highpass filter at specified filter and Q
+
+bpf [input] [freq] [Q] -- bandpass filter at specified filter and Q
 
 rnd -- random, "white" noise ranging from -1 to 1
 
+audioin -- input from Punctual's audio input (normally, the "microphone"; audio only, equivalent to 0 in fragment shaders)
+
+delay [maxDelayTime] [delayTimes] [signals] -- audio delay line, delay signals by specified delay times which must be less than maxDelayTime (audio only, equivalent to 0 in fragment shaders)
+
 (Note: filters and noise are not implemented in graphics (WebGL) implementation yet.)
+
+## Punctual Functions related to Time and Tempo
+
+These functions are currently graphics (WebGL) only, and will return 0 when translated to audio (an audio implementation is planned, however).
+
+cps -- equivalent to the current tempo in cycles per second (in the standalone version of Punctual this will always be 0.5, but when Punctual is used inside Estuary it will be whatever the tempo has been set to).
+
+time -- how much time in seconds has passed since "beat 0" of the tempo (in the standalone version of Punctual beat 0 is when you load the web page; in Estuary beat 0 can be anytime in history, but is usually the time at which a collaborative ensemble was created).
+
+beat -- how many beats have passed since beat 0 of the tempo
+
+etime -- how much time in seconds has passed since code was last evaluated
+
+ebeat -- how much time has passed since code was last evaluated, expressed in beats/cycles relative to the current tempo
 
 ## Punctual Graph Functions
 
@@ -53,6 +73,12 @@ max [graph] [graph] -- returns the maximum value from two graphs
 min [graph] [graph] -- returns the minimum value from two graphs
 
 abs [graph] -- absolute value of provided graph
+
+floor [graph] -- the first whole number below the value of the argument, eg. given 2.3 the return value would be 2.0
+
+ceil [graph] -- the first whole number above the value of the argument, eg. given 2.3 the return value would be 3.0
+
+fract [graph] - the fractional part of the argument, eg. given 2.3 the return value would be 0.3
 
 cpsmidi [graph] -- the MIDI note number corresponding to the provided frequency in Hertz
 
@@ -95,7 +121,9 @@ px -- a nominal value for the width of a pixel
 
 py -- a nominal value for the height of a pixel
 
-distance [x,y,...] -- the distance from specified position to current fragment
+dist [x,y,...] -- the distance from specified position to current fragment
+
+prox [x,y,...] -- the "proximity" of specified position to current fragment; equivalent to (2.828427-dist[x,y,...])/2.828427, clamped to be between 0 and 1 (2.828427 is maximum on-screen distance)
 
 circle [x,y,...] [r] -- returns 1 when current fragment within a circle at x and y with radius r
 
@@ -158,6 +186,14 @@ hsvr [r,g,b,...] -- convert every 3 channels of hue-saturation-value signal to 1
 hsvg [r,g,b,...] -- convert every 3 channels of hue-saturation-value signal to 1 channel of green
 
 hsvb [r,g,b,...] -- convert every 3 channels of hue-saturation-value signal to 1 channel of blue
+
+tile [x,y] [...] -- repeat the image x times across the x axis, y times across the y axis (remaps fx & fy)
+
+zoom [x,y] [...] -- zoom in by x across the x axis, y across the y axis (remaps fx & fy)
+
+move [x,y] [...] -- move/shift/translate things by x across the x axis, y across the y axis (remaps fx & fy)
+
+spin [amount] [...] -- rotate around [0,0], amount is from 0 - 1 where 1 is all the way around circle (remaps fx & fy)
 
 
 ## Punctual Output Notations

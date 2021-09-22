@@ -1,5 +1,5 @@
 name:                punctual
-version:             0.0.0.1
+version:             0.3.2.1
 synopsis:            Live coding language
 description:         Please see README.md
 homepage:            http://github.com/dktr0/Punctual/blob/master/README.md
@@ -7,7 +7,7 @@ license:             GPL-3
 license-file:        LICENSE
 author:              David Ogborn
 maintainer:          ogbornd@mcmaster.ca
-copyright:           2018-20 David Ogborn
+copyright:           2018-21 David Ogborn
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.10
@@ -23,18 +23,19 @@ Library
       base,
       time,
       mtl,
-      musicw >= 0.3.5.2 && <0.4,
+      musicw >= 0.3.7 && <0.4,
       containers,
       ghcjs-base,
       ghcjs-dom-jsffi,
       text,
       text-show,
-      haskellish >= 0.2.3 && <0.3,
+      haskellish >= 0.2.4.2 && <0.3,
       haskell-src-exts >= 1.21.0,
       transformers,
       deepseq,
       criterion,
-      split >= 0.2.3.3 && < 0.3
+      split >= 0.2.3.3 && < 0.3,
+      tempi >= 1.0.1.1 && < 1.1
   GHC-Options:       -Wall -fwarn-tabs -fno-warn-unused-do-bind
   Exposed-modules:   Sound.Punctual.Extent
                      Sound.Punctual.AudioTime
@@ -66,7 +67,8 @@ test-suite tests
       base,
       microspec >= 0.2.1.3,
       punctual,
-      containers
+      containers,
+      time
   default-language: Haskell2010
 
 
@@ -92,7 +94,8 @@ executable punctual
       haskell-src-exts >= 1.21.0,
       transformers,
       deepseq,
-      split >= 0.2.3.3
+      split >= 0.2.3.3,
+      tempi >= 1.0.1.1 && < 1.1
   other-modules: MovingAverage
   default-language:  Haskell2010
 

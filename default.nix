@@ -41,9 +41,9 @@ with pkgs.haskell.lib;
      dontHaddock (self.callCabal2nix "musicw" (pkgs.fetchFromGitHub {
       owner = "dktr0";
       repo = "musicw";
-      sha256 = "1w3z5xcl56jvp3qb0fkmq0gzxyl8pdw131918n1yx2vgymzz4jh1";
-      rev = "e3f8d7e72047cf021315dc312efb77cd7a7f8a41";
-     }) {});
+      sha256 = "15hil1i5d089ahdp9jnwrykigcv7sdm93mlaj4laxwa49amjl4n0";
+      rev = "a765aaab02541072960184151c9f35f7a8c35328";
+    }) {});
 
     reflex-dom-contrib = dontHaddock (self.callCabal2nix "reflex-dom-contrib" (pkgs.fetchFromGitHub {
       owner = "reflex-frp";
@@ -56,8 +56,15 @@ with pkgs.haskell.lib;
      (self.callCabal2nix "haskellish" (pkgs.fetchFromGitHub {
       owner = "dktr0";
       repo = "Haskellish";
-      sha256 = "1lrw14v4n5cdk7b8la9z4bc9sh8n0496hb4s7fcbm6g7p5m8qc0j";
-      rev = "bd5daf365086a4b3a75af9ad9c0b6dedf687f48a";
+      sha256 = "0z4a2snqy7m8apfb3dawjjzbbkwk6llaaykxgc1wd3001rgxxg1b";
+      rev = "fb6c02a31f96e460866731ee058fbadcecabd7b7";
+     }) {});
+
+    tempi = dontHaddock (self.callCabal2nix "tempi" (pkgs.fetchFromGitHub {
+        owner = "dktr0";
+        repo = "tempi";
+        sha256 = "0z4fjdnl7riivw77pl8wypw1a98av3nhpmw0z5g2a1q2kjja0sfp";
+        rev = "9513df2ed323ebaff9b85b72215a1e726ede1e96";
      }) {});
 
   };

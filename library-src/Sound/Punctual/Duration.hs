@@ -5,4 +5,4 @@ module Sound.Punctual.Duration where
 import GHC.Generics (Generic)
 import Control.DeepSeq
 
-data Duration = Seconds Double | Cycles Double deriving (Show,Eq,Generic,NFData)
+data Duration = Seconds Rational | Cycles Rational deriving (Show,Eq,Generic,NFData)
