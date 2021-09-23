@@ -26,296 +26,274 @@ type Deps = Set Int
 
 -- GLSL is a strongly-typed language, so we'll need a type to represent GLSL types:
 
-data GLSLType = Vec4 | Vec3 | Vec2 | GLFloat deriving (Show)
+data GLSLType = Vec4 | Vec3 | Vec2 | GLFloat deriving (Eq, Show)
 
 
--- Next, we define the type Expr which represents a strongly-typed GLSL expressions
+-- Next, we define the type GLSLExpr which represents a strongly-typed GLSL expression
 -- together with a representation of its dependencies.
 
-data Expr = Expr {
+data GLSLExpr = GLSLExpr {
   glslType :: GLSLType,
   builder :: Builder,
   deps :: Deps
   } deriving (Show)
 
 
--- As we write a fragment shader, basically we will be accumulating Expr(s) that are
+-- As we write a fragment shader, basically we will be accumulating GLSLExpr(s) that are
 -- assigned to variables in the underlying GLSL types. So we make a monad to represent
 -- this sequential accumulation. The key operation in this monad is 'assign' which
--- assigns the contents of an Expr to an automagically-named GLSL variable, and returns
--- the (n.b. different) Expr that would be used to access that variable in subsequent operations.
+-- assigns the contents of a GLSLExpr to an automagically-named GLSL variable, and returns
+-- the (n.b. different) GLSLExpr that would be used to access that variable in subsequent operations.
 
-type GLSL = State (IntMap Expr)
+type GLSL = State (IntMap GLSLExpr)
 
-runGLSL :: GLSL a -> (a,IntMap Expr)
+runGLSL :: GLSL a -> (a,IntMap GLSLExpr)
 runGLSL x = runState x IntMap.empty
 
-assign :: Expr -> GLSL Expr
+assign :: GLSLExpr -> GLSL GLSLExpr
 assign x = do
   m <- get
   let n = IntMap.size m -- *note* this assumes items are not removed from the map prior to any assignment
   put $ IntMap.insert n x m
-  return $ Expr {
+  return $ GLSLExpr {
     glslType = glslType x,
     builder = builder x,
     deps = Set.insert n (deps x)
   }
 
 
--- ** WORKING BELOW HERE, continuing to refactor for reorganization of Expr type ***
-
-instance Num Expr where
+instance Num GLSLExpr where
   x + y = binaryExprOp "+" x y
   x - y = binaryExprOp "-" x y
   x * y = binaryExprOp "*" x y
-  abs x = exprFunction "abs" x
-  signum x = exprFunction "sign" x
+  abs x = unaryExprFunction "abs" x
+  signum x = unaryExprFunction "sign" x
   fromInteger x = constantFloat $ fromIntegral x
 
--- produce a new Expr of the same underlying type by applying a function a -> a
-exprFunction :: Builder -> Expr -> Expr
-exprFunction b (GLFloat x xDeps) = GLFloat (b <> "(" <> x <> ")") xDeps
-exprFunction b (Vec2 x xDeps) = Vec2 (b <> "(" <> x <> ")") xDeps
-exprFunction b (Vec3 x xDeps) = Vec3 (b <> "(" <> x <> ")") xDeps
-exprFunction b (Vec4 x xDeps) = Vec4 (b <> "(" <> x <> ")") xDeps
+constantFloat :: Double -> GLSLExpr
+constantFloat x = GLSLExpr GLFloat (showb x) Set.empty
 
-binaryExprOp :: Builder -> Expr -> Expr -> Expr
-binaryExprOp op (GLFloat a aDeps) (GLFloat b bDeps) = GLFloat ("(" <> a <> op <> b <> ")") $ Set.union aDeps bDeps
-binaryExprOp op (Vec2 a aDeps) (Vec2 b bDeps) = Vec2 ("(" <> a <> op <> b <> ")") $ Set.union aDeps bDeps
-binaryExprOp op (GLFloat a aDeps) (Vec2 b bDeps) = Vec2 ("(" <> a <> op <> b <> ")") $ Set.union aDeps bDeps
-binaryExprOp op (Vec2 a aDeps) (GLFloat b bDeps) = Vec2 ("(" <> a <> op <> b <> ")") $ Set.union aDeps bDeps
-binaryExprOp op (Vec3 a aDeps) (Vec3 b bDeps) = Vec3 ("(" <> a <> op <> b <> ")") $ Set.union aDeps bDeps
-binaryExprOp op (GLFloat a aDeps) (Vec3 b bDeps) = Vec3 ("(" <> a <> op <> b <> ")") $ Set.union aDeps bDeps
-binaryExprOp op (Vec3 a aDeps) (GLFloat b bDeps) = Vec3 ("(" <> a <> op <> b <> ")") $ Set.union aDeps bDeps
-binaryExprOp op (Vec4 a aDeps) (Vec4 b bDeps) = Vec4 ("(" <> a <> op <> b <> ")") $ Set.union aDeps bDeps
-binaryExprOp op (GLFloat a aDeps) (Vec4 b bDeps) = Vec4 ("(" <> a <> op <> b <> ")") $ Set.union aDeps bDeps
-binaryExprOp op (Vec4 a aDeps) (GLFloat b bDeps) = Vec4 ("(" <> a <> op <> b <> ")") $ Set.union aDeps bDeps
-binaryExprOp op _ _ = error "binaryExprOp called with mismatched vector types"
+-- produce a new GLSLExpr of the same underlying type by applying a function a -> a
+unaryExprFunction :: Builder -> GLSLExpr -> GLSLExpr
+unaryExprFunction b x = GLSLExpr {
+  glslType = glslType x,
+  builder = b <> "(" <> builder x <> ")",
+  deps = deps x
+  }
 
-exprChannels :: Expr -> Int
-exprChannels (Vec4 _ _) = 4
-exprChannels (Vec3 _ _) = 3
-exprChannels (Vec2 _ _) = 2
-exprChannels (GLFloat _ _) = 1
+-- produce a new GLSLExpr by combining two GLSLExpr-s, eg. via arithmetic operators
+binaryExprOp :: Builder -> GLSLExpr -> GLSLExpr -> GLSLExpr
+binaryExprOp op e1 e2 = GLSLExpr {
+  glslType = binaryExprOpType (glslType e1) (glslType e2),
+  builder = "(" <> builder e1 <> op <> builder e2 <> ")",
+  deps = Set.union (deps e1) (deps e2)
+  }
 
-exprsChannels :: [Expr] -> Int
+binaryExprOpType :: GLSLType -> GLSLType -> GLSLType
+binaryExprOpType GLFloat GLFloat = GLFloat
+binaryExprOpType Vec2 Vec2 = Vec2
+binaryExprOpType GLFloat Vec2 = Vec2
+binaryExprOpType Vec2 GLFloat = Vec2
+binaryExprOpType Vec3 Vec3 = Vec3
+binaryExprOpType GLFloat Vec3 = Vec3
+binaryExprOpType Vec3 GLFloat = Vec3
+binaryExprOpType Vec4 Vec4 = Vec4
+binaryExprOpType GLFloat Vec4 = Vec4
+binaryExprOpType Vec4 GLFloat = Vec4
+binaryExprOpType _ _ = error "binaryExprOpType called with mismatched vector types"
+
+exprChannels :: GLSLExpr -> Int
+exprChannels (GLSLExpr Vec4 _ _) = 4
+exprChannels (GLSLExpr Vec3 _ _) = 3
+exprChannels (GLSLExpr Vec2 _ _) = 2
+exprChannels (GLSLExpr GLFloat _ _) = 1
+
+exprsChannels :: [GLSLExpr] -> Int
 exprsChannels xs = sum $ fmap exprChannels xs
 
-swizzleX x = GLFloat (builder x <> ".x") (deps x)
-swizzleY x = GLFloat (builder x <> ".y") (deps x)
-swizzleZ x = GLFloat (builder x <> ".z") (deps x)
-swizzleW x = GLFloat (builder x <> ".w") (deps x)
-swizzleXY x = Vec2 (builder x <> ".xy") (deps x)
-swizzleYZ x = Vec2 (builder x <> ".yz") (deps x)
-swizzleZW x = Vec2 (builder x <> ".zw") (deps x)
-swizzleXYZ x = Vec3 (builder x <> ".xyz") (deps x)
-swizzleYZW x = Vec3 (builder x <> ".yzw") (deps x)
-swizzleXYY x = Vec3 (builder x <> ".xyy") (deps x)
-swizzleXYYY x = Vec4 (builder x <> ".xyyy") (deps x)
-swizzleXYZZ x = Vec4 (builder x <> ".xyzz") (deps x)
+-- note: the swizzle_ definitions don't perform any type-checking on the expression
+-- they are given. However, this is probably something we should add!
 
-exprToGLFloat :: Expr -> Expr
-exprToGLFloat x@(GLFloat _ _) = x
-exprToGLFloat x@(Vec2 _ _) = swizzleX x
-exprToGLFloat x@(Vec3 _ _) = swizzleX x
-exprToGLFloat x@(Vec4 _ _) = swizzleX x
+swizzleX :: GLSLExpr -> GLSLExpr
+swizzleX x = GLSLExpr GLFloat (builder x <> ".x") $ deps x
 
-exprToVec2 :: Expr -> Expr
-exprToVec2 (GLFloat b deps) = Vec2 ("vec2(" <> b <> ")") deps
-exprToVec2 x@(Vec2 _ _) = x
-exprToVec2 x@(Vec3 _ _) = swizzleXY x
-exprToVec2 x@(Vec4 _ _) = swizzleXY x
+swizzleY :: GLSLExpr -> GLSLExpr
+swizzleY x = GLSLExpr GLFloat (builder x <> ".y") $ deps x
 
-exprToVec3 :: Expr -> Expr
-exprToVec3 (GLFloat b deps) = Vec3 ("vec3(" <> b <> ")") deps
-exprToVec3 x@(Vec2 _ _) = swizzleXYY x
-exprToVec3 x@(Vec3 _ _) = x
-exprToVec3 x@(Vec4 _ _) = swizzleXYZ x
+swizzleZ :: GLSLExpr -> GLSLExpr
+swizzleZ x = GLSLExpr GLFloat (builder x <> ".z") $ deps x
 
-exprToVec4 :: Expr -> Expr
-exprToVec4 (GLFloat b deps) = Vec4 ("vec4(" <> b <> ")") deps
-exprToVec4 x@(Vec2 _ _) = swizzleXYYY x
-exprToVec4 x@(Vec3 _ _) = swizzleXYZZ x
-exprToVec4 x@(Vec4 _ _) = x
+swizzleW :: GLSLExpr -> GLSLExpr
+swizzleW x = GLSLExpr GLFloat (builder x <> ".w") $ deps x
 
-exprExprToVec2 :: Expr -> Expr -> Expr
-exprExprToVec2 (GLFloat x xDeps) (GLFloat y yDeps) = Vec2 b (Set.union xDeps yDeps)
+swizzleXY :: GLSLExpr -> GLSLExpr
+swizzleXY x = GLSLExpr Vec2 (builder x <> ".xy") $ deps x
+
+swizzleYZ :: GLSLExpr -> GLSLExpr
+swizzleYZ x = GLSLExpr Vec2 (builder x <> ".yz") $ deps x
+
+swizzleZW :: GLSLExpr -> GLSLExpr
+swizzleZW x = GLSLExpr Vec2 (builder x <> ".zw") $ deps x
+
+swizzleXYZ :: GLSLExpr -> GLSLExpr
+swizzleXYZ x = GLSLExpr Vec3 (builder x <> ".xyz") $ deps x
+
+swizzleYZW :: GLSLExpr -> GLSLExpr
+swizzleYZW x = GLSLExpr Vec3 (builder x <> ".yzw") $ deps x
+
+swizzleXYY :: GLSLExpr -> GLSLExpr
+swizzleXYY x = GLSLExpr Vec3 (builder x <> ".xyy") $ deps x
+
+swizzleXYYY :: GLSLExpr -> GLSLExpr
+swizzleXYYY x = GLSLExpr Vec4 (builder x <> ".xyyy") $ deps x
+
+swizzleXYZZ :: GLSLExpr -> GLSLExpr
+swizzleXYZZ x = GLSLExpr Vec4 (builder x <> ".xyzz") $ deps x
+
+-- convert any GLSLExpr to an GLSLExpr containing a GLFloat, by discarding "channels" after the first one
+exprToGLFloat :: GLSLExpr -> GLSLExpr
+exprToGLFloat x
+  | glslType x == GLFloat = x
+  | otherwise = swizzleX x
+
+-- convert any GLSLExpr to an GLSLExpr containing a Vec2, by repeating or discarding channels
+exprToVec2 :: GLSLExpr -> GLSLExpr
+exprToVec2 x
+  | glslType x == GLFloat = GLSLExpr Vec2 ("vec2(" <> builder x <> ")") $ deps x
+  | glslType x == Vec2 = x
+  | otherwise = swizzleXY x
+
+-- convert any GLSLExpr to an GLSLExpr containing a Vec3, by repeating or discarding channels
+exprToVec3 :: GLSLExpr -> GLSLExpr
+exprToVec3 x
+  | glslType x == GLFloat = GLSLExpr Vec3 ("vec3(" <> builder x <> ")") $ deps x
+  | glslType x == Vec2 = swizzleXYY x
+  | glslType x == Vec3 = x
+  | otherwise = swizzleXYZ x
+
+-- convert any GLSLExpr to an GLSLExpr containing a Vec4, by repeating channels
+exprToVec4 :: GLSLExpr -> GLSLExpr
+exprToVec4 x
+  | glslType x == GLFloat = GLSLExpr Vec4 ("vec4(" <> builder x <> ")") $ deps x
+  | glslType x == Vec2 = swizzleXYYY x
+  | glslType x == Vec3 = swizzleXYZZ x
+  | otherwise = x
+
+
+
+-- assemble a GLSLExpr containing a Vec2 by combining two GLSLExpr-s
+exprExprToVec2 :: GLSLExpr -> GLSLExpr -> GLSLExpr
+exprExprToVec2 (GLSLExpr GLFloat x xDeps) (GLSLExpr GLFloat y yDeps) = GLSLExpr Vec2 b $ Set.union xDeps yDeps
   where b = "vec2(" <> x <> "," <> y <> ")"
 exprExprToVec2 _ _ = error "exprExprToVec2 called with inappropriate types"
 
-exprExprToVec3 :: Expr -> Expr -> Expr
-exprExprToVec3 (GLFloat x xDeps) (Vec2 y yDeps) = Vec3 b (Set.union xDeps yDeps)
+-- assemble a GLSLExpr containing a Vec3 by combining two GLSLExpr-s
+exprExprToVec3 :: GLSLExpr -> GLSLExpr -> GLSLExpr
+exprExprToVec3 (GLSLExpr GLFloat x xDeps) (GLSLExpr Vec2 y yDeps) = GLSLExpr Vec3 b $ Set.union xDeps yDeps
   where b = "vec3(" <> x <> "," <> y <> ")"
-exprExprToVec3 (Vec2 x xDeps) (GLFloat y yDeps) = Vec3 b (Set.union xDeps yDeps)
+exprExprToVec3 (GLSLExpr Vec2 x xDeps) (GLSLExpr GLFloat y yDeps) = GLSLExpr Vec3 b (Set.union xDeps yDeps)
   where b = "vec3(" <> x <> "," <> y <> ")"
 exprExprToVec3 _ _ = error "exprExprToVec3 called with inappropriate types"
 
-exprExprToVec4 :: Expr -> Expr -> Expr
-exprExprToVec4 (GLFloat x xDeps) (Vec3 y yDeps) = Vec4 b (Set.union xDeps yDeps)
+-- assemble a GLSLExpr containing a Vec4 by combining two GLSLExpr-s
+exprExprToVec4 :: GLSLExpr -> GLSLExpr -> GLSLExpr
+exprExprToVec4 (GLSLExpr GLFloat x xDeps) (GLSLExpr Vec3 y yDeps) = GLSLExpr Vec4 b $ Set.union xDeps yDeps
   where b = "vec4(" <> x <> "," <> y <> ")"
-exprExprToVec4 (Vec2 x xDeps) (Vec2 y yDeps) = Vec4 b (Set.union xDeps yDeps)
+exprExprToVec4 (GLSLExpr Vec2 x xDeps) (GLSLExpr Vec2 y yDeps) = GLSLExpr Vec4 b $ Set.union xDeps yDeps
   where b = "vec4(" <> x <> "," <> y <> ")"
-exprExprToVec4 (Vec3 x xDeps) (GLFloat y yDeps) = Vec4 b (Set.union xDeps yDeps)
+exprExprToVec4 (GLSLExpr Vec3 x xDeps) (GLSLExpr GLFloat y yDeps) = GLSLExpr Vec4 b $ Set.union xDeps yDeps
   where b = "vec4(" <> x <> "," <> y <> ")"
 exprExprToVec4 _ _ = error "exprExprToVec4 called with inappropriate types"
 
 
--- given any Expr, coerce it into a [Expr] containing a GLFloat for each channel of the
--- provided value, regardless of the original underlying types.
-exprToGLFloats :: Expr -> GLSL [Expr]
-exprToGLFloats x@(GLFloat _ _) = return [x]
-exprToGLFloats x@(Vec2 _ _) = do
-  x' <- assign x
-  return [swizzleX x',swizzleY x']
-exprToGLFloats x@(Vec3 _ _) = do
-  x' <- assign x
-  return [swizzleX x',swizzleY x',swizzleZ x']
-exprToGLFloats x@(Vec4 _ _) = do
-  x' <- assign x
-  return [swizzleX x',swizzleY x',swizzleZ x',swizzleW x']
+-- from any non-zero number of GLSLExprs, return a GLSLExpr containing a single GLFloat by
+-- separating all of the channels of the input expressions and then summing them.
+-- note: toGLFloat, pre-finishing present refactor, is used in only one place in FragmentShader.hs (for "mono")
+toGLFloat :: [GLSLExpr] -> GLSL GLSLExpr
+toGLFloat [] = error "toGLFloat can't be used with empty [GLSLExpr]"
+toGLFloat xs = align GLFloat xs >>= (return . sumExprs)
 
-
-constantFloat :: Double -> Expr
-constantFloat x = GLFloat (showb x) Set.empty
-
-sumExprs :: [Expr] -> Expr
-sumExprs [] = error "sumExprs can't be used with empty [Expr]"
+-- note: sumExprs, pre-finishing present refactor, is used only by toGLFloat above, itself only used in "mono"
+-- both of these definitions might be removed pending alternate implementations of "mono", then
+sumExprs :: [GLSLExpr] -> GLSLExpr
+sumExprs [] = error "sumExprs can't be used with empty [GLSLExpr]"
 sumExprs xs = Foldable.foldr1 (+) xs
 
-toGLFloat :: [Expr] -> GLSL Expr
-toGLFloat [] = error "toGLFloat can't be used with empty [Expr]"
-toGLFloat xs = toGLFloats xs >>= (return . sumExprs)
 
-toVec2 :: [Expr] -> GLSL Expr
-toVec2 [] = error "toVec2 can't be used with empty [Expr]"
-toVec2 xs = toVec2s xs >>= (return . sumExprs)
+-- align: given a GLSLType and a list of GLSLExpr-s, produce a new list of
+-- GLSLExpr-s where every expression is of the provided type, potentially
+-- repeating "channels" at the end in order to fill out the last item.
 
-toVec3 :: [Expr] -> GLSL Expr
-toVec3 [] = error "toVec3 can't be used with empty [Expr]"
-toVec3 xs = toVec3s xs >>= (return . sumExprs)
-
-toVec4 :: [Expr] -> GLSL Expr
-toVec4 [] = error "toVec4 can't be used with empty [Expr]"
-toVec4 xs = toVec4s xs >>= (return . sumExprs)
+align :: GLSLType -> [GLSLExpr] -> GLSL [GLSLExpr]
+align _ [] = return []
+align t xs = do
+  (x,xs') <- splitAligned t xs
+  xs'' <- align t xs'
+  return (x:xs'')
 
 
--- whatever the input types are, divide their channels into individual GLFloats
--- if the input Exprs is empty, so is the result
-toGLFloats :: [Expr] -> GLSL [Expr]
-toGLFloats [] = return []
-toGLFloats (x@(GLFloat _ _):xs) = do
-  xs' <- toGLFloats xs
-  return (x:xs')
-toGLFloats (x@(Vec2 _ _):xs) = do
+-- splitAligned: given a GLSLType and a non-empty list of GLSLExpr-s, "pop" stuff from the
+-- head of the list in such a way that a specific GLSLType is guaranteed, returning
+-- both a GLSLExpr that is guaranteed to be of the requested type, and a list that
+-- represents stuff not consumed by this "alignment" operation.
+
+splitAligned :: GLSLType -> [GLSLExpr] -> GLSL (GLSLExpr,[GLSLExpr])
+splitAligned _ [] = error "splitAligned called with empty list"
+
+-- 1. when the requested type is at the head of the list, simply separate head & tail of list
+splitAligned t (x:xs) | t == glslType x = return (x,xs)
+
+-- 2. when the list has one item that is smaller than requested type, repeat channels to provide type
+splitAligned Vec2 (x@(GLSLExpr GLFloat _ _):[]) = return (exprToVec2 x,[])
+splitAligned Vec3 (x@(GLSLExpr GLFloat _ _):[]) = return (exprToVec3 x,[])
+splitAligned Vec3 (x@(GLSLExpr Vec2 _ _):[]) = return (exprToVec3 x,[])
+splitAligned Vec4 (x@(GLSLExpr GLFloat _ _):[]) = return (exprToVec4 x,[])
+splitAligned Vec4 (x@(GLSLExpr Vec2 _ _):[]) = return (exprToVec4 x,[])
+splitAligned Vec4 (x@(GLSLExpr Vec3 _ _):[]) = return (exprToVec4 x,[])
+
+-- 3. when the requested item is smaller than the type at head of list, split it by assigning and swizzling
+splitAligned GLFloat (x@(GLSLExpr Vec2 _ _):xs) = do
   x' <- assign x
-  xs' <- toGLFloats xs
-  return $ (swizzleX x'):(swizzleY x'):xs'
-toGLFloats (x@(Vec3 _ _):xs) = do
+  return (swizzleX x',(swizzleY x'):xs)
+splitAligned GLFloat (x@(GLSLExpr Vec3 _ _):xs) = do
   x' <- assign x
-  xs' <- toGLFloats xs
-  return $ (swizzleX x'):(swizzleY x'):(swizzleZ x'):xs'
-toGLFloats (x@(Vec4 _ _):xs) = do
+  return (swizzleX x',(swizzleYZ x'):xs)
+splitAligned GLFloat (x@(GLSLExpr Vec4 _ _):xs) = do
   x' <- assign x
-  xs' <- toGLFloats xs
-  return $ (swizzleX x'):(swizzleY x'):(swizzleZ x'):(swizzleW x'):xs'
-
-
--- whatever the input types are, produce Vec2s/Vec3s/Vec4s by realigning into groups of 2/3/4
--- "missing channels" to complete an incomplete final group are repetitions of last value
--- if the input is empty, so is the result
-toVec2s :: [Expr] -> GLSL [Expr]
-toVec2s [] = return []
-toVec2s xs = do
-  (x,xs') <- takeVec2 xs
-  xs'' <- toVec2s xs'
-  return $ x : xs''
-
-toVec3s :: [Expr] -> GLSL [Expr]
-toVec3s [] = return []
-toVec3s xs = do
-  (x,xs') <- takeVec3 xs
-  xs'' <- toVec3s xs'
-  return $ x : xs''
-
-toVec4s :: [Expr] -> GLSL [Expr]
-toVec4s [] = return []
-toVec4s xs = do
-  (x,xs') <- takeVec4 xs
-  xs'' <- toVec4s xs'
-  return $ x : xs''
-
-takeGLFloat :: [Expr] -> GLSL (Expr,[Expr])
-takeGLFloat [] = error "takeGLFloat called with empty list"
-takeGLFloat (x@(GLFloat _ _):xs) = return (x,xs)
-takeGLFloat (x@(Vec2 _ _):xs) = do
+  return (swizzleX x',(swizzleYZW x'):xs)
+splitAligned Vec2 (x@(GLSLExpr Vec3 _ _):xs) = do
   x' <- assign x
-  let a = swizzleX x'
-  let b = swizzleY x'
-  return (a,b:xs)
-takeGLFloat (x@(Vec3 _ _):xs) = do
+  return (swizzleXY x',(swizzleZ x'):xs)
+splitAligned Vec2 (x@(GLSLExpr Vec4 _ _):xs) = do
   x' <- assign x
-  let a = swizzleX x'
-  let b = swizzleYZ x'
-  return (a,b:xs)
-takeGLFloat (x@(Vec4 _ _):xs) = do
+  return (swizzleXY x',(swizzleZW x'):xs)
+splitAligned Vec3 (x@(GLSLExpr Vec4 _ _):xs) = do
   x' <- assign x
-  let a = swizzleX x'
-  let b = swizzleYZW x'
-  return (a,b:xs)
+  return (swizzleXYZ x',(swizzleW x'):xs)
 
-takeVec2 :: [Expr] -> GLSL (Expr,[Expr])
-takeVec2 [] = error "takeVec2 called with empty list"
-takeVec2 (x@(GLFloat _ _):[]) = return (exprToVec2 x,[])
-takeVec2 (x@(GLFloat _ _):xs) = do
-  (y,xs') <- takeGLFloat xs
+-- 4. when the requested item is larger than the type at the head of the list (n>=2), call splitAligned
+-- recursively to provide a second value that, combined with the first, produces requested type
+splitAligned Vec2 (x@(GLSLExpr GLFloat _ _):xs) = do
+  (y,xs') <- splitAligned GLFloat xs
   return (exprExprToVec2 x y,xs')
-takeVec2 (x@(Vec2 _ _):xs) = return (x,xs)
-takeVec2 (x@(Vec3 _ _):xs) = do
-  x' <- assign x
-  let a = swizzleXY x'
-  let b = swizzleZ x'
-  return (a,b:xs)
-takeVec2 (x@(Vec4 _ _):xs) = do
-  x' <- assign x
-  let a = swizzleXY x'
-  let b = swizzleZW x'
-  return (a,b:xs)
-
-takeVec3 :: [Expr] -> GLSL (Expr,[Expr])
-takeVec3 [] = error "takeVec3 called with empty list"
-takeVec3 (x@(GLFloat _ _):[]) = return (exprToVec3 x,[])
-takeVec3 (x@(GLFloat _ _):xs) = do
-  (y,xs') <- takeVec2 xs
+splitAligned Vec3 (x@(GLSLExpr GLFloat _ _):xs) = do
+  (y,xs') <- splitAligned Vec2 xs
   return (exprExprToVec3 x y,xs')
-takeVec3 (x@(Vec2 _ _):[]) = return (exprToVec3 x,[])
-takeVec3 (x@(Vec2 _ _):xs) = do
-  (y,xs') <- takeGLFloat xs
+splitAligned Vec3 (x@(GLSLExpr Vec2 _ _):xs) = do
+  (y,xs') <- splitAligned GLFloat xs
   return (exprExprToVec3 x y,xs')
-takeVec3 (x@(Vec3 _ _):xs) = return (x,xs)
-takeVec3 (x@(Vec4 _ _):xs) = do
-  x' <- assign x
-  let a = swizzleXYZ x'
-  let b = swizzleW x'
-  return (a,b:xs)
-
-takeVec4 :: [Expr] -> GLSL (Expr,[Expr])
-takeVec4 [] = error "takeVec4 called with empty list"
-takeVec4 (x@(GLFloat _ _):[]) = return (exprToVec4 x,[])
-takeVec4 (x@(GLFloat _ _):xs) = do
-  (y,xs') <- takeVec3 xs
+splitAligned Vec4 (x@(GLSLExpr GLFloat _ _):xs) = do
+  (y,xs') <- splitAligned Vec3 xs
   return (exprExprToVec4 x y,xs')
-takeVec4 (x@(Vec2 _ _):[]) = return (exprToVec4 x,[])
-takeVec4 (x@(Vec2 _ _):xs) = do
-  (y,xs') <- takeVec2 xs
+splitAligned Vec4 (x@(GLSLExpr Vec2 _ _):xs) = do
+  (y,xs') <- splitAligned Vec2 xs
   return (exprExprToVec4 x y,xs')
-takeVec4 (x@(Vec3 _ _):[]) = return (exprToVec4 x,[])
-takeVec4 (x@(Vec3 _ _):xs) = do
-  (y,xs') <- takeGLFloat xs
+splitAligned Vec4 (x@(GLSLExpr Vec3 _ _):xs) = do
+  (y,xs') <- splitAligned GLFloat xs
   return (exprExprToVec4 x y,xs')
-takeVec4 (x@(Vec4 _ _):xs) = return (x,xs)
 
-
-alignExprs :: [Expr] -> [Expr] -> GLSL ([Expr],[Expr])
+-- this could use a better name...
+alignExprs :: [GLSLExpr] -> [GLSLExpr] -> GLSL ([GLSLExpr],[GLSLExpr])
 alignExprs x y = do
   let xChnls = exprsChannels x
   let yChnls = exprsChannels y
@@ -328,70 +306,73 @@ alignExprs x y = do
       x' <- alignToModel y (cycle x)
       return (x',y)
 
-alignToModel :: [Expr] -> [Expr] -> GLSL [Expr]
+-- this could also use a better name...
+alignToModel :: [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
 alignToModel [] _ = return []
 alignToModel _ [] = error "alignToModel ran out of expressions in second argument"
-alignToModel (m@(GLFloat _ _):ms) xs = do
-  (x',xs') <- takeGLFloat xs
+alignToModel (m@(GLSLExpr GLFloat _ _):ms) xs = do
+  (x',xs') <- splitAligned GLFloat xs
   xs'' <- alignToModel ms xs'
   return $ x' : xs''
-alignToModel (m@(Vec2 _ _):ms) xs = do
-  (x',xs') <- takeVec2 xs
+alignToModel (m@(GLSLExpr Vec2 _ _):ms) xs = do
+  (x',xs') <- splitAligned Vec2 xs
   xs'' <- alignToModel ms xs'
   return $ x' : xs''
-alignToModel (m@(Vec3 _ _):ms) xs = do
-  (x',xs') <- takeVec3 xs
+alignToModel (m@(GLSLExpr Vec3 _ _):ms) xs = do
+  (x',xs') <- splitAligned Vec3 xs
   xs'' <- alignToModel ms xs'
   return $ x' : xs''
-alignToModel (m@(Vec4 _ _):ms) xs = do
-  (x',xs') <- takeVec4 xs
+alignToModel (m@(GLSLExpr Vec4 _ _):ms) xs = do
+  (x',xs') <- splitAligned Vec4 xs
   xs'' <- alignToModel ms xs'
   return $ x' : xs''
 
 
 -- texture access is always assigned to variable, since it is an expensive operation
-texture2D :: Int -> [Expr] -> GLSL [Expr]
+texture2D :: Int -> [GLSLExpr] -> GLSL [GLSLExpr]
 texture2D n xs = do
-  xs' <- toVec2s xs
-  mapM assign $ fmap (\x -> Vec3 ("texture2D(" <> showb n <> "," <> builder x <> ").xyz") (deps x)) xs'
+  xs' <- align Vec2 xs
+  mapM assign $ fmap (\x -> GLSLExpr Vec3 ("texture2D(" <> showb n <> "," <> builder x <> ").xyz") (deps x)) xs'
 
-addExprs :: [Expr] -> [Expr] -> GLSL [Expr]
+-- not actually used anywhere yet?
+addExprs :: [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
 addExprs xs ys = do
   (xs',ys') <- alignExprs xs ys
   return $ zipWith (+) xs' ys'
 
-subtractExprs :: [Expr] -> [Expr] -> GLSL [Expr]
+-- not actually used anywhere yet?
+subtractExprs :: [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
 subtractExprs xs ys = do
   (xs',ys') <- alignExprs xs ys
   return $ zipWith (-) xs' ys'
 
-multiplyExprs :: [Expr] -> [Expr] -> GLSL [Expr]
+-- not actually used anywhere yet? (apart from 'test' below)
+multiplyExprs :: [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
 multiplyExprs xs ys = do
   (xs',ys') <- alignExprs xs ys
   return $ zipWith (*) xs' ys'
 
-test :: GLSL [Expr]
+
+test :: GLSL [GLSLExpr]
 test = do
-  let x = constantFloat 0.3
-  let y = constantFloat 0.5
-  let z = constantFloat 0.7
-  w <- multiplyExprs [x,y,z] [constantFloat 2.0]
+  w <- multiplyExprs [constantFloat 0.3,constantFloat 0.5,constantFloat 0.7] [constantFloat 2.0]
+  -- ** TODO need to make Fractional instance for GLSLExpr to cleanup line above
   ts <- texture2D 7 w
-  toGLFloats ts
+  align GLFloat ts
 
-realizeAssignment :: Int -> Expr -> Builder
-realizeAssignment n (GLFloat b _) = "float _" <> showb n <> "=" <> b <> ";\n"
-realizeAssignment n (Vec2 b _) = "vec2 _" <> showb n <> "=" <> b <> ";\n"
-realizeAssignment n (Vec3 b _) = "vec3 _" <> showb n <> "=" <> b <> ";\n"
-realizeAssignment n (Vec4 b _) = "vec4 _" <> showb n <> "=" <> b <> ";\n"
+realizeAssignment :: Int -> GLSLExpr -> Builder
+realizeAssignment n (GLSLExpr GLFloat b _) = "float _" <> showb n <> "=" <> b <> ";\n"
+realizeAssignment n (GLSLExpr Vec2 b _) = "vec2 _" <> showb n <> "=" <> b <> ";\n"
+realizeAssignment n (GLSLExpr Vec3 b _) = "vec3 _" <> showb n <> "=" <> b <> ";\n"
+realizeAssignment n (GLSLExpr Vec4 b _) = "vec4 _" <> showb n <> "=" <> b <> ";\n"
 
-realizeExpr :: Expr -> Builder
-realizeExpr (GLFloat b _) = showb b <> "\n"
-realizeExpr (Vec2 b _) = showb b <> "\n"
-realizeExpr (Vec3 b _) = showb b <> "\n"
-realizeExpr (Vec4 b _) = showb b <> "\n"
+realizeExpr :: GLSLExpr -> Builder
+realizeExpr (GLSLExpr GLFloat b _) = showb b <> "\n"
+realizeExpr (GLSLExpr Vec2 b _) = showb b <> "\n"
+realizeExpr (GLSLExpr Vec3 b _) = showb b <> "\n"
+realizeExpr (GLSLExpr Vec4 b _) = showb b <> "\n"
 
-prettyPrint :: ([Expr],IntMap Expr) -> Text
+prettyPrint :: ([GLSLExpr],IntMap GLSLExpr) -> Text
 prettyPrint (xs,vs) = toLazyText $ v <> x
   where v = Foldable.fold $ IntMap.mapWithKey realizeAssignment vs
         x = Foldable.fold $ fmap realizeExpr xs
