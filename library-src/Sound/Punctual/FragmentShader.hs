@@ -58,7 +58,7 @@ graphToGLSL env (Mono x) = do
 
 -- *** WORKING BELOW HERE, continuing refactor given new GLSL module
 
-graphToGLSL env (Rep n x) = concat $ fmap (replicate n) $ graphToGLSL env x
+  graphToGLSL env (Rep n x) = concat $ fmap (replicate n) $ graphToGLSL env x
 graphToGLSL _ (UnRep _ 0) = []
 graphToGLSL env (UnRep n x) = fmap (\bs -> ("((" <> interspersePluses "0." (fmap fst bs) <> ")/" <> showb n <> ".)",GLFloat)) $ chunksOf n $ toGLFloats $ graphToGLSL env x
 
