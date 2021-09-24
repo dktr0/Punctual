@@ -17,77 +17,51 @@ import Sound.Punctual.Graph
 import Sound.Punctual.Output
 import Sound.Punctual.Action hiding ((<>),(>>))
 import Sound.Punctual.Program
-
-data GLSLType = GLFloat | Vec2 | Vec3
-
-type GLSL = [(Builder,GLSLType)]
-
-glslToFloatBuilder :: Double -> GLSL -> Builder
-glslToFloatBuilder def xs = interspersePluses (showb def) $ fmap fst $ toGLFloats xs
-
-glslToVec3Builder :: Double -> GLSL -> Builder
-glslToVec3Builder def xs = interspersePluses ("vec3(" <> showb def <> ")") $ fmap fst $ toVec3s xs
-
-interspersePluses :: Foldable t => Builder -> t Builder -> Builder
-interspersePluses zero xs = if Foldable.null xs then zero else Foldable.foldr1 (\a b -> a <> "+" <> b) xs
-
-toGLFloat :: GLSL -> GLSL
-toGLFloat [] = []
-toGLFloat xs = [(glslToFloatBuilder 0 xs,GLFloat)]
-
-toGLFloats :: GLSL -> GLSL
-toGLFloats [] = []
-toGLFloats ((x,GLFloat):xs) = (x,GLFloat):(toGLFloats xs)
-toGLFloats ((x,Vec2):xs) = (x<>".x",GLFloat):(x<>".y",GLFloat):(toGLFloats xs)
-toGLFloats ((x,Vec3):xs) = (x<>".x",GLFloat):(x<>".y",GLFloat):(x<>".z",GLFloat):(toGLFloats xs)
-
-toVec2s :: GLSL -> GLSL
-toVec2s [] = []
-toVec2s ((x,Vec2):xs) = (x,Vec2):(toVec2s xs)
-toVec2s ((x,GLFloat):(y,GLFloat):xs) = ("vec2("<>x<>","<>y<>")",Vec2):(toVec2s xs)
-toVec2s ((x,GLFloat):xs) = ("vec2("<>x<>")",Vec2):(toVec2s xs)
-toVec2s xs = toVec2s $ toGLFloats xs
-
-toVec3s :: GLSL -> GLSL
-toVec3s [] = []
-toVec3s ((x,Vec3):xs) = (x,Vec3):(toVec3s xs)
-toVec3s ((x,GLFloat):(y,Vec2):xs) = ("vec3("<>x<>","<>y<>")",Vec3):(toVec3s xs)
-toVec3s ((x,Vec2):(y,GLFloat):xs) = ("vec3("<>x<>","<>y<>")",Vec3):(toVec3s xs)
-toVec3s ((x,GLFloat):(y,GLFloat):(z,GLFloat):xs) = ("vec3("<>x<>","<>y<>","<>z<>")",Vec3):(toVec3s xs)
-toVec3s ((x,GLFloat):(y,GLFloat):xs) = ("vec3("<>x<>",vec2("<>y<>"))",Vec3):(toVec3s xs)
-toVec3s ((x,GLFloat):xs) = ("vec3("<>x<>")",Vec3):(toVec3s xs)
-toVec3s xs = toVec3s $ toGLFloats xs
+import Sound.Punctual.GLSL
 
 
+type GraphEnv = (Map Text Int, [GLSLExpr]) -- texture map, fxy expressions
 
-graphToGLSL :: Map Text Int -> Graph -> GLSL
-type GLSLEnv = (Map Text Int, GLSL) -- texture map, fxy expressions
+graphToGLSL :: GraphEnv -> Graph -> GLSL [GLSLExpr]
 
-graphToGLSL :: GLSLEnv -> Graph -> GLSL
+-- constants and uniforms
+graphToGLSL _ (Constant x) = return $ constantFloat x
+graphToGLSL _ Px = return [glFloat "1./res.x"]
+graphToGLSL _ Py = return [glFloat "1./res.y"]
+graphToGLSL _ Lo = return [glFloat "lo"]
+graphToGLSL _ Mid = return [glFloat "mid"]
+graphToGLSL _ Hi = return [glFloat "hi"]
+graphToGLSL _ ILo = return [glFloat "ilo"]
+graphToGLSL _ IMid = return [glFloat "imid"]
+graphToGLSL _ IHi = return [glFloat "ihi"]
+graphToGLSL _ Cps = return [glFloat "_cps"]
+graphToGLSL _ Time = return [glFloat "_time"]
+graphToGLSL _ Beat = return [glFloat "_beat"]
+graphToGLSL _ ETime = return [glFloat "_etime"]
+graphToGLSL _ EBeat = return [glFloat "_ebeat"]
+graphToGLSL (_,fxy) Fx = return $ fmap swizzleX fxy
+graphToGLSL (_,fxy) Fy = return $ fmap swizzleY fxy
+graphToGLSL (_,fxy) Fxy = return fxy
 
--- basics: multi, mono, constants, uniforms
-graphToGLSL env (Multi xs) = concat $ fmap (graphToGLSL env) xs
-graphToGLSL env (Mono x) = toGLFloat $ (graphToGLSL env) x
-graphToGLSL _ (Constant x) = [(showb x,GLFloat)]
+graphToGLSL env (Multi xs) = do
+  xs' <- mapM (graphToGLSL env) xs
+  return $ concat xs'
+
+graphToGLSL env (Mono x) = do
+  x' <- graphToGLSL env x
+  case x' of
+    [] -> return $ constantFloat 0
+    _ -> do
+      xs <- align GLFloat x'
+      return $ Foldable.foldr1 (+) xs
+
+
+-- *** WORKING BELOW HERE, continuing refactor given new GLSL module
+
 graphToGLSL env (Rep n x) = concat $ fmap (replicate n) $ graphToGLSL env x
 graphToGLSL _ (UnRep _ 0) = []
 graphToGLSL env (UnRep n x) = fmap (\bs -> ("((" <> interspersePluses "0." (fmap fst bs) <> ")/" <> showb n <> ".)",GLFloat)) $ chunksOf n $ toGLFloats $ graphToGLSL env x
-graphToGLSL (_,fxy) Fx = fmap (\(b,_) -> (b <> ".x",GLFloat)) fxy
-graphToGLSL (_,fxy) Fy = fmap (\(b,_) -> (b <> ".y",GLFloat)) fxy
-graphToGLSL (_,fxy) Fxy = fxy
-graphToGLSL _ Px = [("1./res.x",GLFloat)]
-graphToGLSL _ Py = [("1./res.y",GLFloat)]
-graphToGLSL _ Lo = [("lo",GLFloat)]
-graphToGLSL _ Mid = [("mid",GLFloat)]
-graphToGLSL _ Hi = [("hi",GLFloat)]
-graphToGLSL _ ILo = [("ilo",GLFloat)]
-graphToGLSL _ IMid = [("imid",GLFloat)]
-graphToGLSL _ IHi = [("ihi",GLFloat)]
-graphToGLSL _ Cps = [("_cps",GLFloat)]
-graphToGLSL _ Time = [("_time",GLFloat)]
-graphToGLSL _ Beat = [("_beat",GLFloat)]
-graphToGLSL _ ETime = [("_etime",GLFloat)]
-graphToGLSL _ EBeat = [("_ebeat",GLFloat)]
+
 
 -- unary functions
 graphToGLSL env (Bipolar x) = unaryShaderFunction "bipolar" env x

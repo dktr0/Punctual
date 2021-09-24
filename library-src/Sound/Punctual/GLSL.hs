@@ -38,6 +38,14 @@ data GLSLExpr = GLSLExpr {
   deps :: Deps
   } deriving (Show)
 
+-- a convenience function for making a no-dependency GLFloat
+glFloat :: Builder -> GLSLExpr
+glFloat b = GLSLExpr GLFloat b Set.empty
+
+-- and another one for doing the same thing from a Haskell Double
+constantFloat :: Double -> GLSLExpr
+constantFloat x = GLSLExpr GLFloat (showb x) Set.empty
+
 
 -- As we write a fragment shader, basically we will be accumulating GLSLExpr(s) that are
 -- assigned to variables in the underlying GLSL types. So we make a monad to represent
@@ -70,8 +78,6 @@ instance Num GLSLExpr where
   signum x = unaryExprFunction "sign" x
   fromInteger x = constantFloat $ fromIntegral x
 
-constantFloat :: Double -> GLSLExpr
-constantFloat x = GLSLExpr GLFloat (showb x) Set.empty
 
 -- produce a new GLSLExpr of the same underlying type by applying a function a -> a
 unaryExprFunction :: Builder -> GLSLExpr -> GLSLExpr
@@ -204,20 +210,6 @@ exprExprToVec4 (GLSLExpr Vec2 x xDeps) (GLSLExpr Vec2 y yDeps) = GLSLExpr Vec4 b
 exprExprToVec4 (GLSLExpr Vec3 x xDeps) (GLSLExpr GLFloat y yDeps) = GLSLExpr Vec4 b $ Set.union xDeps yDeps
   where b = "vec4(" <> x <> "," <> y <> ")"
 exprExprToVec4 _ _ = error "exprExprToVec4 called with inappropriate types"
-
-
--- from any non-zero number of GLSLExprs, return a GLSLExpr containing a single GLFloat by
--- separating all of the channels of the input expressions and then summing them.
--- note: toGLFloat, pre-finishing present refactor, is used in only one place in FragmentShader.hs (for "mono")
-toGLFloat :: [GLSLExpr] -> GLSL GLSLExpr
-toGLFloat [] = error "toGLFloat can't be used with empty [GLSLExpr]"
-toGLFloat xs = align GLFloat xs >>= (return . sumExprs)
-
--- note: sumExprs, pre-finishing present refactor, is used only by toGLFloat above, itself only used in "mono"
--- both of these definitions might be removed pending alternate implementations of "mono", then
-sumExprs :: [GLSLExpr] -> GLSLExpr
-sumExprs [] = error "sumExprs can't be used with empty [GLSLExpr]"
-sumExprs xs = Foldable.foldr1 (+) xs
 
 
 -- align: given a GLSLType and a list of GLSLExpr-s, produce a new list of
