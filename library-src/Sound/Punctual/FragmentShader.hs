@@ -22,9 +22,14 @@ import Sound.Punctual.GLSL
 
 type GraphEnv = (Map Text Int, [GLSLExpr]) -- texture map, fxy expressions
 
+-- graphToGLSL MUST return a non-empty list, so
+-- generally speaking, in cases where there is no meaningful return value,
+-- the return value will be a one-item list containing a 0 :: GLFloat
+
 graphToGLSL :: GraphEnv -> Graph -> GLSL [GLSLExpr]
 
 -- constants and uniforms
+
 graphToGLSL _ (Constant x) = return $ constantFloat x
 graphToGLSL _ Px = return [glFloat "1./res.x"]
 graphToGLSL _ Py = return [glFloat "1./res.y"]
@@ -43,6 +48,8 @@ graphToGLSL (_,fxy) Fx = return $ fmap swizzleX fxy
 graphToGLSL (_,fxy) Fy = return $ fmap swizzleY fxy
 graphToGLSL (_,fxy) Fxy = return fxy
 
+-- multichannel operations: multi, mono, rep, unrep
+
 graphToGLSL env (Multi xs) = do
   xs' <- mapM (graphToGLSL env) xs
   return $ concat xs'
@@ -50,18 +57,21 @@ graphToGLSL env (Multi xs) = do
 graphToGLSL env (Mono x) = do
   x' <- graphToGLSL env x
   case x' of
-    [] -> return $ constantFloat 0
+    [] -> return 0
     _ -> do
       xs <- align GLFloat x'
-      return $ Foldable.foldr1 (+) xs
+      return [ Foldable.foldr1 (+) xs ]
+
+graphToGLSL env (Rep n x) = graphToGLSL env $ concat $ replicate n x
+
+graphToGLSL _ (UnRep 0 _) = return 0
+graphToGLSL env (UnRep n x) = do
+  x' <- graphToGLSL env x
+  x'' <- align GLFloat x'
+  return $ fmap (Foldable.foldr1 (+)) chunksOf n x''
 
 
--- *** WORKING BELOW HERE, continuing refactor given new GLSL module
-
-  graphToGLSL env (Rep n x) = concat $ fmap (replicate n) $ graphToGLSL env x
-graphToGLSL _ (UnRep _ 0) = []
-graphToGLSL env (UnRep n x) = fmap (\bs -> ("((" <> interspersePluses "0." (fmap fst bs) <> ")/" <> showb n <> ".)",GLFloat)) $ chunksOf n $ toGLFloats $ graphToGLSL env x
-
+-- WORKING BELOW HERE --
 
 -- unary functions
 graphToGLSL env (Bipolar x) = unaryShaderFunction "bipolar" env x
