@@ -70,47 +70,63 @@ graphToGLSL env (UnRep n x) = do
   x'' <- align GLFloat x'
   return $ fmap (Foldable.foldr1 (+)) chunksOf n x''
 
-
--- WORKING BELOW HERE --
-
 -- unary functions
-graphToGLSL env (Bipolar x) = unaryShaderFunction "bipolar" env x
-graphToGLSL env (Unipolar x) = unaryShaderFunction "unipolar" env x
-graphToGLSL env (Sin x) = unaryShaderFunction "sin_" env x
-graphToGLSL env (Tri x) = fmap (\(b,_) -> ("tri(" <> b <> ")",GLFloat)) $ toGLFloats $ graphToGLSL env x
-graphToGLSL env (Saw x) = fmap (\(b,_) -> ("saw(" <> b <> ")",GLFloat)) $ toGLFloats $ graphToGLSL env x
-graphToGLSL env (Sqr x) = fmap (\(b,_) -> ("sqr(" <> b <> ")",GLFloat)) $ toGLFloats $ graphToGLSL env x
-graphToGLSL env (LFTri x) = graphToGLSL env (Tri x)
-graphToGLSL env (LFSaw x) = graphToGLSL env (Saw x)
-graphToGLSL env (LFSqr x) = graphToGLSL env (Sqr x)
-graphToGLSL env (MidiCps x) = unaryShaderFunction "midicps" env x
-graphToGLSL env (CpsMidi x) = unaryShaderFunction "cpsmidi" env x
-graphToGLSL env (DbAmp x) = unaryShaderFunction "dbamp" env x
-graphToGLSL env (AmpDb x) = unaryShaderFunction "ampdb" env x
-graphToGLSL env (Abs x) = unaryShaderFunction "abs" env x
-graphToGLSL env (Sqrt x) = unaryShaderFunction "sqrt" env x
-graphToGLSL env (Floor x) = unaryShaderFunction "floor" env x
-graphToGLSL env (Ceil x) = unaryShaderFunction "ceil" env x
-graphToGLSL env (Fract x) = unaryShaderFunction "fract" env x
-graphToGLSL env (HsvRgb x) = fmap (\(b,_) -> ("hsvrgb("<>b<>")",Vec3))  $ toVec3s $ graphToGLSL env x
-graphToGLSL env (RgbHsv x) = fmap (\(b,_) -> ("rgbhsv("<>b<>")",Vec3))  $ toVec3s $ graphToGLSL env x
-graphToGLSL env (HsvH x) = fmap (\(b,_) -> (b<>".x",GLFloat)) $ toVec3s $ graphToGLSL env x
-graphToGLSL env (HsvS x) = fmap (\(b,_) -> (b<>".y",GLFloat)) $ toVec3s $ graphToGLSL env x
-graphToGLSL env (HsvV x) = fmap (\(b,_) -> (b<>".z",GLFloat)) $ toVec3s $ graphToGLSL env x
-graphToGLSL env (HsvR x) = fmap (\(b,_) -> ("hsvrgb("<>b<>").x",GLFloat)) $ toVec3s $ graphToGLSL env x
-graphToGLSL env (HsvG x) = fmap (\(b,_) -> ("hsvrgb("<>b<>").y",GLFloat)) $ toVec3s $ graphToGLSL env x
-graphToGLSL env (HsvB x) = fmap (\(b,_) -> ("hsvrgb("<>b<>").z",GLFloat)) $ toVec3s $ graphToGLSL env x
-graphToGLSL env (RgbR x) = fmap (\(b,_) -> (b<>".x",GLFloat)) $ toVec3s $ graphToGLSL env x
-graphToGLSL env (RgbG x) = fmap (\(b,_) -> (b<>".y",GLFloat)) $ toVec3s $ graphToGLSL env x
-graphToGLSL env (RgbB x) = fmap (\(b,_) -> (b<>".z",GLFloat)) $ toVec3s $ graphToGLSL env x
-graphToGLSL env (RgbH x) = fmap (\(b,_) -> ("rgbhsv("<>b<>").x",GLFloat)) $ toVec3s $ graphToGLSL env x
-graphToGLSL env (RgbS x) = fmap (\(b,_) -> ("rgbhsv("<>b<>").y",GLFloat)) $ toVec3s $ graphToGLSL env x
-graphToGLSL env (RgbV x) = fmap (\(b,_) -> ("rgbhsv("<>b<>").z",GLFloat)) $ toVec3s $ graphToGLSL env x
-graphToGLSL env (Fb xy) = fmap (\(b,_) -> ("texture2D(_fb,fract(unipolar("<>b<>"))).xyz",Vec3)) $ toVec2s $ graphToGLSL env xy
-graphToGLSL env@(texMap,fxy) (Tex t xy) = fmap (\(b,_) -> ("texture2D(tex" <> showb n <> ",fract(unipolar(" <> b <> "))).xyz",Vec3)) $ toVec2s $ graphToGLSL env xy
+graphToGLSL env (Bipolar x) = unaryFunctionToGLSL "bipolar" Nothing x
+graphToGLSL env (Unipolar x) = unaryFunctionToGLSL "unipolar" Nothing x
+graphToGLSL env (Sin x) = unaryFunctionToGLSL "sin_" Nothing x
+graphToGLSL env (MidiCps x) = unaryFunctionToGLSL "midicps" Nothing x
+graphToGLSL env (CpsMidi x) = unaryFunctionToGLSL "cpsmidi" Nothing x
+graphToGLSL env (DbAmp x) = unaryFunctionToGLSL "dbamp" Nothing x
+graphToGLSL env (AmpDb x) = unaryFunctionToGLSL "ampdb" Nothing x
+graphToGLSL env (Abs x) = unaryFunctionToGLSL "abs" Nothing x
+graphToGLSL env (Sqrt x) = unaryFunctionToGLSL "sqrt" Nothing x
+graphToGLSL env (Floor x) = unaryFunctionToGLSL "floor" Nothing x
+graphToGLSL env (Ceil x) = unaryFunctionToGLSL "ceil" Nothing x
+graphToGLSL env (Fract x) = unaryFunctionToGLSL "fract" Nothing x
+graphToGLSL env (Tri x) = unaryFunctionToGLSL "tri" (Just GLFloat) x
+graphToGLSL env (Saw x) = unaryFunctionToGLSL "tri" (Just GLFloat) x
+graphToGLSL env (Sqr x) = unaryFunctionToGLSL "sqr" (Just GLFloat) x
+graphToGLSL env (LFTri x) = unaryFunctionToGLSL "tri" (Just GLFloat) x
+graphToGLSL env (LFSaw x) = unaryFunctionToGLSL "saw" (Just GLFloat) x
+graphToGLSL env (LFSqr x) = unaryFunctionToGLSL "sqr" (Just GLFloat) x
+graphToGLSL env (HsvRgb x) = unaryFunctionToGLSL "hsvrgb" (Just Vec3) x
+graphToGLSL env (RgbHsv x) = unaryFunctionToGLSL "rgbhsv" (Just Vec3) x
+graphToGLSL env (HsvH x) = graphToGLSL env x >>= align Vec3 >>= return . fmap swizzleX
+graphToGLSL env (HsvS x) = graphToGLSL env x >>= align Vec3 >>= return . fmap swizzleY
+graphToGLSL env (HsvV x) = graphToGLSL env x >>= align Vec3 >>= return . fmap swizzleZ
+graphToGLSL env (HsvR x) = graphToGLSL env (HsvRgb x) >>= return . fmap swizzleX
+graphToGLSL env (HsvG x) = graphToGLSL env (HsvRgb x) >>= return . fmap swizzleY
+graphToGLSL env (HsvB x) = graphToGLSL env (HsvRgb x) >>= return . fmap swizzleZ
+graphToGLSL env (RgbR x) = graphToGLSL env (HsvH x)
+graphToGLSL env (RgbG x) = graphToGLSL env (HsvS x)
+graphToGLSL env (RgbB x) = graphToGLSL env (HsvV x)
+graphToGLSL env (RgbH x) = graphToGLSL env (RgbHsv x) >>= return . fmap swizzleX
+graphToGLSL env (RgbS x) = graphToGLSL env (RgbHsv x) >>= return . fmap swizzleY
+graphToGLSL env (RgbV x) = graphToGLSL env (RgbHsv x) >>= return . fmap swizzleZ
+
+-- unary functions that access textures
+
+graphToGLSL env@(texMap,fxy) (Tex t xy) = graphToGLSL env xy >>= texture2D (showb n)
   where n = min 14 $ max 0 $ Map.findWithDefault 0 t texMap
-graphToGLSL env (FFT x) = fmap (\(b,_) -> ("texture2D(_fft,vec2(unipolar(" <> b <> "),0.5)).x",GLFloat)) $ toGLFloats $ graphToGLSL env x
-graphToGLSL env (IFFT x) = fmap (\(b,_) -> ("texture2D(_ifft,vec2(unipolar(" <> b <> "),0.5)).x",GLFloat)) $ toGLFloats $ graphToGLSL env x
+
+graphToGLSL env (Fb xy) = graphToGLSL env xy >>= texture2D "_fb"
+
+graphToGLSL env (FFT x) = do
+  a <- graphToGLSL env (Unipolar x)
+  b <- align GLFloat a
+  c <- *** TODO *** ... now for each of x'' turn into a vec2 by pairing with 0 ...
+  d <- texture2D "_fft"
+  return $ swizzleX d
+
+graphToGLSL env (IFFT x) = do
+  a <- graphToGLSL env (Unipolar x)
+  b <- align GLFloat a
+  c <- *** TODO *** ... now for each of x'' turn into a vec2 by pairing with 0 ...
+  d <- texture2D "_ifft"
+  return $ swizzleX d
+
+-- *** WORKING BELOW HERE ***
+
 
 -- unary functions dependent on position
 graphToGLSL env@(_,fxy) (Point xy) = fmap (\(b,_) -> ("point("<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) $ toVec2s $ graphToGLSL env xy
@@ -183,6 +199,18 @@ graphToGLSL env (IfThenElse x y z) = zipWith3 (\(a,t) (b,_) (c,_) -> ("ifthenels
   where (x',y',z') = alignGLSL3 (graphToGLSL env x) (graphToGLSL env y) (graphToGLSL env z)
 
 graphToGLSL _ _ = []
+
+
+unaryFunctionToGLSL :: Builder -> Maybe GLSLType -> Graph
+unaryFunctionToGLSL b alignment x = do
+  x' <- graphToGLSL env x
+  x'' <- case alignment of
+    Nothing -> return x'
+    GLFloat -> align GLFloat x'
+    Vec2 -> align Vec2 x'
+    Vec3 -> align Vec3 x'
+    Vec4 -> align Vec4 x'
+  return $ fmap (unaryExprFunction b) x''
 
 
 stepGLSL :: [GLSL] -> Builder -> Builder
@@ -318,9 +346,11 @@ header
    \float bipolar(float a) { return a * 2. - 1.; }\
    \vec2 bipolar(vec2 a) { return a * 2. - 1.; }\
    \vec3 bipolar(vec3 a) { return a * 2. - 1.; }\
+   \vec4 bipolar(vec4 a) { return a * 2. - 1.; }\
    \float unipolar(float a) { return (a + 1.) * 0.5; }\
    \vec2 unipolar(vec2 a) { return (a + 1.) * 0.5; }\
    \vec3 unipolar(vec3 a) { return (a + 1.) * 0.5; }\
+   \vec4 unipolar(vec4 a) { return (a + 1.) * 0.5; }\
    \float fx() { return bipolar(gl_FragCoord.x/res.x); }\
    \float fy() { return bipolar(gl_FragCoord.y/res.y); }\
    \vec2 _fxy() { return bipolar(gl_FragCoord.xy/res); }\
@@ -331,6 +361,7 @@ header
    \float sin_(float f) { return sin(f*3.14159265*2.*_time);}\
    \vec2 sin_(vec2 f) { return sin(f*3.14159265*2.*_time);}\
    \vec3 sin_(vec3 f) { return sin(f*3.14159265*2.*_time);}\
+   \vec4 sin_(vec4 f) { return sin(f*3.14159265*2.*_time);}\
    \float phasor(float f) { return (_time*f - floor(_time*f));}\
    \float tri(float f) { float p = phasor(f); return p < 0.5 ? p*4.-1. : 1.-((p-0.5)*4.) ;}\
    \float saw(float f) { return phasor(f)*2.-1.;}\
@@ -338,15 +369,19 @@ header
    \float midicps(float x) { return 440. * pow(2.,(x-69.)/12.); }\
    \vec2 midicps(vec2 x) { return 440. * pow(vec2(2.),(x-69.)/12.); }\
    \vec3 midicps(vec3 x) { return 440. * pow(vec3(2.),(x-69.)/12.); }\
+   \vec4 midicps(vec4 x) { return 440. * pow(vec4(2.),(x-69.)/12.); }\
    \float cpsmidi(float x) { return 69. + (12. * log2(x/440.)); }\
    \vec2 cpsmidi(vec2 x) { return 69. + (12. * log2(x/440.)); }\
    \vec3 cpsmidi(vec3 x) { return 69. + (12. * log2(x/440.)); }\
+   \vec4 cpsmidi(vec4 x) { return 69. + (12. * log2(x/440.)); }\
    \float dbamp(float x) { return pow(10.,x/20.); }\
    \vec2 dbamp(vec2 x) { return pow(vec2(10.),x/20.); }\
    \vec3 dbamp(vec3 x) { return pow(vec3(10.),x/20.); }\
+   \vec4 dbamp(vec4 x) { return pow(vec4(10.),x/20.); }\
    \float ampdb(float x) { return 20. * log(x) / log(10.); }\
    \vec2 ampdb(vec2 x) { return 20. * log(x) / log(10.); }\
    \vec3 ampdb(vec3 x) { return 20. * log(x) / log(10.); }\
+   \vec4 ampdb(vec4 x) { return 20. * log(x) / log(10.); }\
    \float ifthenelse(float x,float y,float z){return float(x>0.)*y+float(x<=0.)*z;}\
    \vec2 ifthenelse(vec2 x,vec2 y,vec2 z){return vec2(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y));}\
    \vec3 ifthenelse(vec3 x,vec3 y,vec3 z){return vec3(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y),ifthenelse(x.z,y.z,z.z));}\

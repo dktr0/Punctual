@@ -321,10 +321,11 @@ alignToModel (m@(GLSLExpr Vec4 _ _):ms) xs = do
 
 
 -- texture access is always assigned to variable, since it is an expensive operation
-texture2D :: Int -> [GLSLExpr] -> GLSL [GLSLExpr]
-texture2D n xs = do
-  xs' <- align Vec2 xs
-  mapM assign $ fmap (\x -> GLSLExpr Vec3 ("texture2D(" <> showb n <> "," <> builder x <> ").xyz") (deps x)) xs'
+-- note: position arguments are bipolar (an implicit/internal conversion to unipolar is baked in)
+texture2D :: Builder -> [GLSLExpr] -> GLSL [GLSLExpr]
+texture2D n xy = do
+  xy' <- align Vec2 xs
+  mapM assign $ fmap (\x -> GLSLExpr Vec3 ("texture2D(" <> n <> ",fract(unipolar(" <> builder x <> "))).xyz") (deps x)) xy'
 
 -- not actually used anywhere yet?
 addExprs :: [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
