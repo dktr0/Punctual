@@ -112,20 +112,16 @@ graphToGLSL env@(texMap,fxy) (Tex t xy) = graphToGLSL env xy >>= texture2D (show
 graphToGLSL env (Fb xy) = graphToGLSL env xy >>= texture2D "_fb"
 
 graphToGLSL env (FFT x) = do
-  a <- graphToGLSL env (Unipolar x)
-  b <- align GLFloat a
-  c <- *** TODO *** ... now for each of x'' turn into a vec2 by pairing with 0 ...
-  d <- texture2D "_fft" ...
-  return $ swizzleX d
+  a <- graphToGLSL env (Unipolar x) >>= align GLFloat
+  let b = zipWith exprExprToVec2 a (repeat 0)
+  texture2D "_fft" b >>= (return . swizzleX)
 
 graphToGLSL env (IFFT x) = do
-  a <- graphToGLSL env (Unipolar x)
-  b <- align GLFloat a
-  c <- *** TODO *** ... now for each of x'' turn into a vec2 by pairing with 0 ...
-  d <- texture2D "_ifft" ...
-  return $ swizzleX d
+  a <- graphToGLSL env (Unipolar x) >>= align GLFloat
+  let b = zipWith exprExprToVec2 a (repeat 0)
+  texture2D "_ifft" b >>= (return . swizzleX)
 
--- unary functions that also access position 
+-- unary functions that also access position
 graphToGLSL env (Point xy) = unaryFunctionWithPosition env "point" xy
 graphToGLSL env (Distance xy) = unaryFunctionWithPosition env "distance" xy
 graphToGLSL env (Prox xy) = unaryFunctionWithPosition env "prox" xy
