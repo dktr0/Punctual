@@ -115,23 +115,24 @@ graphToGLSL env (FFT x) = do
   a <- graphToGLSL env (Unipolar x)
   b <- align GLFloat a
   c <- *** TODO *** ... now for each of x'' turn into a vec2 by pairing with 0 ...
-  d <- texture2D "_fft"
+  d <- texture2D "_fft" ...
   return $ swizzleX d
 
 graphToGLSL env (IFFT x) = do
   a <- graphToGLSL env (Unipolar x)
   b <- align GLFloat a
   c <- *** TODO *** ... now for each of x'' turn into a vec2 by pairing with 0 ...
-  d <- texture2D "_ifft"
+  d <- texture2D "_ifft" ...
   return $ swizzleX d
+
+-- unary functions that also access position 
+graphToGLSL env (Point xy) = unaryFunctionWithPosition env "point" xy
+graphToGLSL env (Distance xy) = unaryFunctionWithPosition env "distance" xy
+graphToGLSL env (Prox xy) = unaryFunctionWithPosition env "prox" xy
+fmap (\(b,_) -> ("prox("<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) $ toVec2s $ graphToGLSL env xy
 
 -- *** WORKING BELOW HERE ***
 
-
--- unary functions dependent on position
-graphToGLSL env@(_,fxy) (Point xy) = fmap (\(b,_) -> ("point("<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) $ toVec2s $ graphToGLSL env xy
-graphToGLSL env@(_,fxy) (Distance xy) = fmap (\(b,_) -> ("distance("<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) $ toVec2s $ graphToGLSL env xy
-graphToGLSL env@(_,fxy) (Prox xy) = fmap (\(b,_) -> ("prox("<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) $ toVec2s $ graphToGLSL env xy
 
 -- binary functions
 graphToGLSL (texMap,fxy) (Zoom a b) = graphToGLSL (texMap,fxy'') b
@@ -211,6 +212,21 @@ unaryFunctionToGLSL b alignment x = do
     Vec3 -> align Vec3 x'
     Vec4 -> align Vec4 x'
   return $ fmap (unaryExprFunction b) x''
+
+unaryFunctionWithPosition :: GraphEnv -> Builder -> Graph -> GLSL [GLSLExpr]
+unaryFunctionWithPosition env@(_,fxy) b x = do
+  xs <- graphToGLSL env x >>= align Vec2
+  let f fxy' x' = GLSLExpr {
+    glslType = GLFloat,
+    builder = b <> "(" <> builder x' <> "," <> builder fxy' <> ")",
+    deps = Set.union (deps a) (deps b)
+    }
+  return $ prism f fxy xs -- for each combination of fxy and x'' apply the function and collect the GLFloat result ...
+
+-- apply a binary function to every possible combination of two lists
+prism :: (a -> a -> a) -> [a] -> [a] -> [a]
+prism f xs ys = fmap (\(x,y) -> f x y) $ [ (x,y) | x <- xs, y <- ys]
+
 
 
 stepGLSL :: [GLSL] -> Builder -> Builder
