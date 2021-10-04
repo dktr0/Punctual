@@ -129,13 +129,29 @@ fmap (\(b,_) -> ("prox("<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) $ toVec2s $ grap
 
 -- *** WORKING BELOW HERE ***
 
-
 -- binary functions
-graphToGLSL (texMap,fxy) (Zoom a b) = graphToGLSL (texMap,fxy'') b
+-- NEW:
+
+f :: GLSLType -> (Builder -> Builder -> Builder) -> GLSLExpr -> GLSLExpr -> GLSLExpr
+f t f x y = GLSLExpr {
+  glslType = t,
+  builder = f (builder x) (builder y),
+  deps = Set.union (deps x) (deps y)
+  }
+
+graphToGLSL env@(texMap,fxy) (Zoom a b) = do
+  a' <- graphToGLSL env a >>= align Vec2
+  let g x y = "(" <>
+  let fxy' = prism (f Vec2 g) fxy a'
+  graphToGLSL (texMap,fxy') b
+
+-- OLD:
+graphToGLSL (texMap,fxy'') b
   where
     a' = toVec2s $ graphToGLSL (texMap,fxy) a  -- :: GLSL = [(Builder,GLSLType)]
     (a'',fxy') = alignGLSL a' fxy
     fxy'' = zipWith (\(c,_) (d,_) -> ("("<>d<>"/"<>c<>")",Vec2)) a'' fxy'
+
 graphToGLSL (texMap,fxy) (Move a b) = graphToGLSL (texMap,fxy'') b
   where
     a' = toVec2s $ graphToGLSL (texMap,fxy) a  -- :: GLSL = [(Builder,GLSLType)]
