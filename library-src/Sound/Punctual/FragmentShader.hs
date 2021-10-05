@@ -121,54 +121,18 @@ graphToGLSL env (IFFT x) = do
   let b = zipWith exprExprToVec2 a (repeat 0)
   texture2D "_ifft" b >>= (return . swizzleX)
 
--- unary functions that also access position
+-- unary functions that access position
 graphToGLSL env (Point xy) = unaryFunctionWithPosition env "point" xy
 graphToGLSL env (Distance xy) = unaryFunctionWithPosition env "distance" xy
 graphToGLSL env (Prox xy) = unaryFunctionWithPosition env "prox" xy
-fmap (\(b,_) -> ("prox("<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) $ toVec2s $ graphToGLSL env xy
 
--- *** WORKING BELOW HERE ***
+-- unary transformations of position (technically binary functions, then)
+graphToGLSL env (Zoom a b) = unaryPositionTransform zoom env a b
+graphToGLSL env (Move a b) = unaryPositionTransform move env a b
+graphToGLSL env (Tile a b) = unaryPositionTransform tile env a b
+graphToGLSL env (Spin a b) = unaryPositionTransform spin env a b
 
--- binary functions
--- NEW:
-
-f :: GLSLType -> (Builder -> Builder -> Builder) -> GLSLExpr -> GLSLExpr -> GLSLExpr
-f t f x y = GLSLExpr {
-  glslType = t,
-  builder = f (builder x) (builder y),
-  deps = Set.union (deps x) (deps y)
-  }
-
-graphToGLSL env@(texMap,fxy) (Zoom a b) = do
-  a' <- graphToGLSL env a >>= align Vec2
-  let g x y = "(" <>
-  let fxy' = prism (f Vec2 g) fxy a'
-  graphToGLSL (texMap,fxy') b
-
--- OLD:
-graphToGLSL (texMap,fxy'') b
-  where
-    a' = toVec2s $ graphToGLSL (texMap,fxy) a  -- :: GLSL = [(Builder,GLSLType)]
-    (a'',fxy') = alignGLSL a' fxy
-    fxy'' = zipWith (\(c,_) (d,_) -> ("("<>d<>"/"<>c<>")",Vec2)) a'' fxy'
-
-graphToGLSL (texMap,fxy) (Move a b) = graphToGLSL (texMap,fxy'') b
-  where
-    a' = toVec2s $ graphToGLSL (texMap,fxy) a  -- :: GLSL = [(Builder,GLSLType)]
-    (a'',fxy') = alignGLSL a' fxy
-    fxy'' = zipWith (\(c,_) (d,_) -> ("("<>c<>"-"<>d<>")",Vec2)) a'' fxy'
-graphToGLSL (texMap,fxy) (Tile a b) = graphToGLSL (texMap,fxy'') b
-  where
-    a' = toVec2s $ graphToGLSL (texMap,fxy) a  -- :: GLSL = [(Builder,GLSLType)]
-    (a'',fxy') = alignGLSL a' fxy
-    fxy'' = zipWith (\(c,_) (d,_) -> ("tile("<>c<>","<>d<>")",Vec2)) a'' fxy'
-graphToGLSL (texMap,fxy) (Spin a b) = graphToGLSL (texMap,fxy') b
-  where
-    a' = toGLFloats $ graphToGLSL (texMap,fxy) a  -- :: GLSL = [(Builder,GLSLType)]
-    -- fxy is assumed to be only Vec2s, so...
-    -- ?? what happens when number of a' is different than number of fxy Vec2s though ??
-    fxy' = zipWith (\(c,_) (d,_) -> ("spin("<>c<>","<>d<>")",Vec2)) a' fxy
-
+-- (simple) binary functions
 graphToGLSL env (Sum x y) = binaryShaderOp "+" env x y
 graphToGLSL env (Max x y) = binaryShaderFunction "max" env x y
 graphToGLSL env (Min x y) = binaryShaderFunction "min" env x y
@@ -183,33 +147,52 @@ graphToGLSL env (NotEqual x y) = binaryShaderOpBool "!=" env x y
 graphToGLSL env (Gate x y) = binaryShaderFunction "gate" env x y
 graphToGLSL env (Pow x y) = binaryShaderFunction "pow" env x y
 
+graphToGLSL env (Clip r x) = do
+  r' <- graphToGLSL env r >>= align Vec2
+  x' <- graphToGLSL env x
+  return $ prism clip r' x'
 
--- ** TODO: working here, need to figure out how to apply all of the positions represented in fxy, not just the first!
--- ** note that some (but not all) of the graph constructors that use ternaryShaderFunction need to be reworked also, along the same lines
+graphToGLSL env (Between r x) = do
+  r' <- graphToGLSL env r >>= align Vec2
+  x' <- graphToGLSL env x
+  return $ prism between r' x'
 
-graphToGLSL env@(_,fxy) (Rect xy wh) = expandWith (\(a,_) (b,_) -> ("rect("<>a<>","<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) (toVec2s $ graphToGLSL env xy) (toVec2s $ graphToGLSL env wh)
-graphToGLSL env@(_,fxy) (Circle xy r) = expandWith (\(a,_) (b,_) -> ("circle("<>a<>","<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) (toVec2s $ graphToGLSL env xy) (toGLFloats $ graphToGLSL env r)
-graphToGLSL env@(_,fxy) (VLine x w) = expandWith (\(a,_) (b,_) -> ("vline("<>a<>","<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) (toGLFloats $ graphToGLSL env x) (toGLFloats $ graphToGLSL env w)
-graphToGLSL env@(_,fxy) (HLine y w) = expandWith (\(a,_) (b,_) -> ("hline("<>a<>","<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) (toGLFloats $ graphToGLSL env y) (toGLFloats $ graphToGLSL env w)
-
-graphToGLSL env (Clip r x) = expandWith (\(r',_) (b,t) -> ("clip("<>r'<>","<>b<>")",t)) (toVec2s $ graphToGLSL env r) (graphToGLSL env x)
-graphToGLSL env (Between r x) = expandWith (\(r',_) (b,t) -> ("between("<>r'<>","<>b<>")",t)) (toVec2s $ graphToGLSL env r) (graphToGLSL env x)
-graphToGLSL env (Step [] _) = graphToGLSL env (Constant 0)
+graphToGLSL env (Step [] _) = return 0
 graphToGLSL env (Step (x:[]) _) = graphToGLSL env x
 graphToGLSL env (Step xs (Constant y)) =
   let y' = max (min y 0.99999999) 0
       y'' = floor (y' * fromIntegral (length xs))
   in graphToGLSL env (xs!!y'')
-graphToGLSL env (Step xs y) =
-  let xs' = fmap (graphToGLSL env) xs -- [GLSL]
-  in fmap (\(a,_) -> (stepGLSL xs' a,GLFloat)) $ toGLFloats $ graphToGLSL env y
+graphToGLSL env (Step xs y) = do
+  xs' <- mapM (graphToGLSL env) xs -- :: [[GLSLExpr]]
+  let xs'' = concat $ fmap (align GLFloat) xs' -- [GLSLExpr] where all are GLFloat
 
--- ternary functions
-graphToGLSL env (ILine xy1 xy2 w) = ternaryShaderFunction' "iline" env xy1 xy2 w
-graphToGLSL env (Line xy1 xy2 w) = ternaryShaderFunction' "line" env xy1 xy2 w
+  -- *** WORKING HERE ***
+  
+  let f x n = showb x <> "*_step(" <> showb (length xs') <> "," <> showb n <> "," <> y <> ")"
+  return $ GLSLExpr {
+    glslType = GLFloat,
+    deps = Set.union (deps y) (...all deps of each element of xs''...),
+    builder =
+  }
+
+
+-- binary functions (with position)
+-- ** TODO: working here, need to figure out how to apply all of the positions represented in fxy, not just the first!
+-- ** note that some (but not all) of the graph constructors that use ternaryShaderFunction need to be reworked also, along the same lines
+graphToGLSL env@(_,fxy) (Rect xy wh) = expandWith (\(a,_) (b,_) -> ("rect("<>a<>","<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) (toVec2s $ graphToGLSL env xy) (toVec2s $ graphToGLSL env wh)
+graphToGLSL env@(_,fxy) (Circle xy r) = expandWith (\(a,_) (b,_) -> ("circle("<>a<>","<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) (toVec2s $ graphToGLSL env xy) (toGLFloats $ graphToGLSL env r)
+graphToGLSL env@(_,fxy) (VLine x w) = expandWith (\(a,_) (b,_) -> ("vline("<>a<>","<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) (toGLFloats $ graphToGLSL env x) (toGLFloats $ graphToGLSL env w)
+graphToGLSL env@(_,fxy) (HLine y w) = expandWith (\(a,_) (b,_) -> ("hline("<>a<>","<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) (toGLFloats $ graphToGLSL env y) (toGLFloats $ graphToGLSL env w)
+
+-- (simple) ternary functions
 graphToGLSL env (LinLin r1 r2 w) = ternaryShaderFunction "linlin" env r1 r2 w
 graphToGLSL env (IfThenElse x y z) = zipWith3 (\(a,t) (b,_) (c,_) -> ("ifthenelse("<>a<>","<>b<>","<>c<>")",t)) x' y' z'
   where (x',y',z') = alignGLSL3 (graphToGLSL env x) (graphToGLSL env y) (graphToGLSL env z)
+
+-- ternary functions with position
+graphToGLSL env (ILine xy1 xy2 w) = ternaryShaderFunction' "iline" env xy1 xy2 w
+graphToGLSL env (Line xy1 xy2 w) = ternaryShaderFunction' "line" env xy1 xy2 w
 
 graphToGLSL _ _ = []
 
@@ -239,13 +222,43 @@ unaryFunctionWithPosition env@(_,fxy) b x = do
 prism :: (a -> a -> a) -> [a] -> [a] -> [a]
 prism f xs ys = fmap (\(x,y) -> f x y) $ [ (x,y) | x <- xs, y <- ys]
 
+unaryPositionTransform :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
+unaryPositionTransform f env@(texMap,fxy) a b = do
+  a' <- graphToGLSL env a >>= align Vec2
+  let fxy' = prism f fxy x'
+  graphToGLSL (texMap,fxy') b
+
+-- both arguments must represent Vec2
+zoom :: GLSLExpr -> GLSLExpr -> GLSLExpr
+zoom fxy a = GLSLExpr { glslType = Vec2, builder = b, deps = Set.union (deps fxy) (deps a) }
+  where b = "(" <> builder fxy <> "/" <> builder a <> ")"
+
+-- both arguments must represent Vec2
+move :: GLSLExpr -> GLSLExpr -> GLSLExpr
+move fxy a = GLSLExpr { glslType = Vec2, builder = b, deps = Set.union (deps fxy) (deps a) }
+  where b = "(" <> builder a <> "-" <> builder fxy <> ")"
+
+-- both arguments must represent Vec2
+tile :: GLSLExpr -> GLSLExpr -> GLSLExpr
+tile fxy a = GLSLExpr { glslType = Vec2, builder = b, deps = Set.union (deps fxy) (deps a) }
+  where b = "tile(" <> builder a <> "," <> builder fxy <> ")"
+
+-- both arguments must represent Vec2
+spin :: GLSLExpr -> GLSLExpr -> GLSLExpr
+spin fxy a = GLSLExpr { glslType = Vec2, builder = b, deps = Set.union (deps fxy) (deps a) }
+  where b = "spin(" <> builder a <> "," <> builder fxy <> ")"
+
+-- r (the clipping range) is expected to be Vec2, x can be any type
+clip :: GLSLExpr -> GLSLExpr -> GLSLExpr
+clip r x = GLSLExpr { glslType = glslType x, builder = b, deps = Set.union (deps r) (deps x) }
+  where b = "clip(" <> builder r <> "," <> builder x <> ")"
+
+-- r (the range to test if something is between) is expected to be Vec2, x can be any type
+between :: GLSLExpr -> GLSLExpr -> GLSLExpr
+between r x = GLSLExpr { glslType = glslType x, builder = b, deps = Set.union (deps r) (deps x) }
+  where b = "between(" <> builder r <> "," <> builder x <> ")"
 
 
-stepGLSL :: [GLSL] -> Builder -> Builder
-stepGLSL xs y = "(" <> (interspersePluses "0." $ zipWith f xs' ([0..]::[Int])) <> ")"
-  where
-    xs' = fmap (glslToFloatBuilder 0) xs
-    f x n = x <> "*_step(" <> showb (length xs') <> "," <> showb n <> "," <> y <> ")"
 
 -- note: GLSL functions/ops implemented using unaryShaderFunction must exist in versions specialized for float, vec2, and vec3
 unaryShaderFunction :: Builder -> GLSLEnv -> Graph -> GLSL
@@ -455,14 +468,14 @@ header
    \float clip(vec2 r,float x){return clamp(x,r.x,r.y);}\
    \vec2 clip(vec2 r,vec2 x){return clamp(x,r.x,r.y);}\
    \vec3 clip(vec2 r,vec3 x){return clamp(x,r.x,r.y);}\
+   \vec4 clip(vec2 r,vec4 x){return clamp(x,r.x,r.y);}\
    \float between(vec2 r,float x) {\
    \ if(r.y>=r.x && x>=r.x && x<=r.y) return 1.;\
    \ if(r.x>=r.y && x>=r.y && x<=r.x) return 1.;\
    \ return 0.;}\
-   \vec2 between(vec2 r,vec2 x){\
-   \ return vec2(between(r,x.x),between(r,x.y));}\
-   \vec3 between(vec2 r,vec3 x){\
-   \ return vec3(between(r,x.x),between(r,x.y),between(r,x.z));}\
+   \vec2 between(vec2 r,vec2 x){ return vec2(between(r,x.x),between(r,x.y));}\
+   \vec3 between(vec2 r,vec3 x){ return vec3(between(r,x.x),between(r,x.y),between(r,x.z));}\
+   \vec4 between(vec2 r,vec4 x){ return vec4(between(r,x.x),between(r,x.y),between(r,x.z),between(r,x.w));}\
    \float line(vec2 xy1,vec2 xy2,float w,vec2 fxy) {\
    \ float m;\
    \ if(xy1.x == xy2.x) m = between(vec2(xy1.y,xy2.y),fxy.y);\
