@@ -165,16 +165,9 @@ graphToGLSL env (Step xs (Constant y)) =
   in graphToGLSL env (xs!!y'')
 graphToGLSL env (Step xs y) = do
   xs' <- mapM (graphToGLSL env) xs -- :: [[GLSLExpr]]
-  let xs'' = concat $ fmap (align GLFloat) xs' -- [GLSLExpr] where all are GLFloat
-
-  -- *** WORKING HERE ***
-  
-  let f x n = showb x <> "*_step(" <> showb (length xs') <> "," <> showb n <> "," <> y <> ")"
-  return $ GLSLExpr {
-    glslType = GLFloat,
-    deps = Set.union (deps y) (...all deps of each element of xs''...),
-    builder =
-  }
+  let xs'' = concat $ fmap (align GLFloat) xs' -- :: [GLSLExpr] where all are GLFloat
+  y' <- graphToGLSL env y >> align GLFloat -- :: [GLSLExpr] where all are GLFloat
+  return $ fmap (step xs'') y'
 
 
 -- binary functions (with position)
@@ -219,7 +212,7 @@ unaryFunctionWithPosition env@(_,fxy) b x = do
   return $ prism f fxy xs -- for each combination of fxy and x'' apply the function and collect the GLFloat result ...
 
 -- apply a binary function to every possible combination of two lists
-prism :: (a -> a -> a) -> [a] -> [a] -> [a]
+prism :: (a -> b -> c) -> [a] -> [b] -> [c]
 prism f xs ys = fmap (\(x,y) -> f x y) $ [ (x,y) | x <- xs, y <- ys]
 
 unaryPositionTransform :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
@@ -257,6 +250,18 @@ clip r x = GLSLExpr { glslType = glslType x, builder = b, deps = Set.union (deps
 between :: GLSLExpr -> GLSLExpr -> GLSLExpr
 between r x = GLSLExpr { glslType = glslType x, builder = b, deps = Set.union (deps r) (deps x) }
   where b = "between(" <> builder r <> "," <> builder x <> ")"
+
+-- xs is expected to have 2 or more members (and must have at least one), all GLSLExpr :: GLFloat
+step :: [GLSLExpr] -> GLSLExpr -> GLSLExpr
+step xs y = foldr1 (+) xs''
+  where
+    nTotal = length xs
+    xs' = zip xs (0..)
+    xs'' = ffor xs $ \(x,n) -> x * _step nTotal n y
+
+_step :: Int -> Int -> GLSLExpr -> GLSLExpr
+_step nTotal n y = GLSLExpr { glslType = GLFloat, builder = b, deps = deps y }
+  where b = "_step(" <> showb nTotal <> "," <> showb n <> "," <> builder y <> ")",
 
 
 
