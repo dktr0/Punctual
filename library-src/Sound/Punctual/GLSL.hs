@@ -46,6 +46,14 @@ glFloat b = GLSLExpr GLFloat b Set.empty
 constantFloat :: Double -> GLSLExpr
 constantFloat x = GLSLExpr GLFloat (showb x) Set.empty
 
+-- unsafe because performs no checking that the indicated cast is valid GLSL
+unsafeCast :: GLSLType -> GLSLExpr -> GLSLExpr
+unsafeCast t x = GLSLExpr { glslType = t, builder = f t <> "(" <> builder x <> ")", deps = deps x }
+  where
+    f GLFloat = "float"
+    f Vec2 = "vec2"
+    f Vec3 = "vec3"
+    f Vec4 = "vec4"
 
 -- As we write a fragment shader, basically we will be accumulating GLSLExpr(s) that are
 -- assigned to variables in the underlying GLSL types. So we make a monad to represent
@@ -81,10 +89,19 @@ instance Num GLSLExpr where
 
 -- produce a new GLSLExpr of the same underlying type by applying a function a -> a
 unaryExprFunction :: Builder -> GLSLExpr -> GLSLExpr
-unaryExprFunction b x = GLSLExpr {
+unaryExprFunction funcName x = GLSLExpr {
   glslType = glslType x,
-  builder = b <> "(" <> builder x <> ")",
+  builder = funcName <> "(" <> builder x <> ")",
   deps = deps x
+  }
+
+-- produce a new GLSLExpr by combining two GLSLExpr-s, eg. via arithmetic operators
+-- note that result type follows same logic as binaryExprOp/binaryExprOpType below...
+binaryExprFunction :: Builder -> GLSLExpr -> GLSLExpr -> GLSLExpr
+binaryExprFunction funcName e1 e2 = GLSLExpr {
+  glslType = binaryExprOpType (glslType e1) (glslType e2),
+  builder = funcName <> "(" <> builder e1 <> "," <> builder e2 <> ")",
+  deps = Set.union (deps e1) (deps e2)
   }
 
 -- produce a new GLSLExpr by combining two GLSLExpr-s, eg. via arithmetic operators

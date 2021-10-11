@@ -71,26 +71,26 @@ graphToGLSL env (UnRep n x) = do
   return $ fmap (Foldable.foldr1 (+)) chunksOf n x''
 
 -- unary functions
-graphToGLSL env (Bipolar x) = unaryFunctionToGLSL "bipolar" Nothing x
-graphToGLSL env (Unipolar x) = unaryFunctionToGLSL "unipolar" Nothing x
-graphToGLSL env (Sin x) = unaryFunctionToGLSL "sin_" Nothing x
-graphToGLSL env (MidiCps x) = unaryFunctionToGLSL "midicps" Nothing x
-graphToGLSL env (CpsMidi x) = unaryFunctionToGLSL "cpsmidi" Nothing x
-graphToGLSL env (DbAmp x) = unaryFunctionToGLSL "dbamp" Nothing x
-graphToGLSL env (AmpDb x) = unaryFunctionToGLSL "ampdb" Nothing x
-graphToGLSL env (Abs x) = unaryFunctionToGLSL "abs" Nothing x
-graphToGLSL env (Sqrt x) = unaryFunctionToGLSL "sqrt" Nothing x
-graphToGLSL env (Floor x) = unaryFunctionToGLSL "floor" Nothing x
-graphToGLSL env (Ceil x) = unaryFunctionToGLSL "ceil" Nothing x
-graphToGLSL env (Fract x) = unaryFunctionToGLSL "fract" Nothing x
-graphToGLSL env (Tri x) = unaryFunctionToGLSL "tri" (Just GLFloat) x
-graphToGLSL env (Saw x) = unaryFunctionToGLSL "tri" (Just GLFloat) x
-graphToGLSL env (Sqr x) = unaryFunctionToGLSL "sqr" (Just GLFloat) x
-graphToGLSL env (LFTri x) = unaryFunctionToGLSL "tri" (Just GLFloat) x
-graphToGLSL env (LFSaw x) = unaryFunctionToGLSL "saw" (Just GLFloat) x
-graphToGLSL env (LFSqr x) = unaryFunctionToGLSL "sqr" (Just GLFloat) x
-graphToGLSL env (HsvRgb x) = unaryFunctionToGLSL "hsvrgb" (Just Vec3) x
-graphToGLSL env (RgbHsv x) = unaryFunctionToGLSL "rgbhsv" (Just Vec3) x
+graphToGLSL env (Bipolar x) = graphToGLSL env x >>= unaryFunction "unipolar"
+graphToGLSL env (Unipolar x) = graphToGLSL env x >>= unaryFunction "unipolar"
+graphToGLSL env (Sin x) = graphToGLSL env x >>= unaryFunction "sin_"
+graphToGLSL env (MidiCps x) = graphToGLSL env x >>= unaryFunction "midicps"
+graphToGLSL env (CpsMidi x) = graphToGLSL env x >>= unaryFunction "cpsmidi"
+graphToGLSL env (DbAmp x) = graphToGLSL env x >>= unaryFunction "dbamp"
+graphToGLSL env (AmpDb x) = graphToGLSL env x >>= unaryFunction "ampdb"
+graphToGLSL env (Abs x) = graphToGLSL env x >>= unaryFunction "abs"
+graphToGLSL env (Sqrt x) = graphToGLSL env x >>= unaryFunction "sqrt"
+graphToGLSL env (Floor x) = graphToGLSL env x >>= unaryFunction "floor"
+graphToGLSL env (Ceil x) = graphToGLSL env x >>= unaryFunction "ceil"
+graphToGLSL env (Fract x) = graphToGLSL env x >>= unaryFunction "fract"
+graphToGLSL env (Tri x) = graphToGLSL env x >>= align GLFloat >>= unaryFunction "tri"
+graphToGLSL env (Saw x) = graphToGLSL env x >>= align GLFloat >>= unaryFunction "saw"
+graphToGLSL env (Sqr x) = graphToGLSL env x >>= align GLFloat >>= unaryFunction "sqr"
+graphToGLSL env (LFTri x) = graphToGLSL env x >>= align GLFloat >>= unaryFunction "tri"
+graphToGLSL env (LFSaw x) = graphToGLSL env x >>= align GLFloat >>= unaryFunction "saw"
+graphToGLSL env (LFSqr x) = graphToGLSL env x >>= align GLFloat >>= unaryFunction "sqr"
+graphToGLSL env (HsvRgb x) = graphToGLSL env x >>= align Vec3 >>= unaryFunction "hsvrgb"
+graphToGLSL env (RgbHsv x) = graphToGLSL env x >>= align Vec3 >>= unaryFunction "rgbhsv"
 graphToGLSL env (HsvH x) = graphToGLSL env x >>= align Vec3 >>= return . fmap swizzleX
 graphToGLSL env (HsvS x) = graphToGLSL env x >>= align Vec3 >>= return . fmap swizzleY
 graphToGLSL env (HsvV x) = graphToGLSL env x >>= align Vec3 >>= return . fmap swizzleZ
@@ -133,29 +133,29 @@ graphToGLSL env (Tile a b) = unaryPositionTransform tile env a b
 graphToGLSL env (Spin a b) = unaryPositionTransform spin env a b
 
 -- (simple) binary functions
-graphToGLSL env (Sum x y) = binaryShaderOp "+" env x y
-graphToGLSL env (Max x y) = binaryShaderFunction "max" env x y
-graphToGLSL env (Min x y) = binaryShaderFunction "min" env x y
-graphToGLSL env (Product x y) = binaryShaderOp "*" env x y
-graphToGLSL env (Division x y) = binaryShaderOp "/" env x y
-graphToGLSL env (GreaterThan x y) = binaryShaderFunction "_gt" env x y
-graphToGLSL env (GreaterThanOrEqual x y) = binaryShaderFunction "_gte" env x y
-graphToGLSL env (LessThan x y) = binaryShaderFunction "_lt" env x y
-graphToGLSL env (LessThanOrEqual x y) = binaryShaderFunction "_lte" env x y
-graphToGLSL env (Equal x y) = binaryShaderOpBool "==" env x y
-graphToGLSL env (NotEqual x y) = binaryShaderOpBool "!=" env x y
-graphToGLSL env (Gate x y) = binaryShaderFunction "gate" env x y
-graphToGLSL env (Pow x y) = binaryShaderFunction "pow" env x y
+graphToGLSL env (Sum x y) = binaryOp "+" env x y
+graphToGLSL env (Max x y) = binaryFunction "max" env x y
+graphToGLSL env (Min x y) = binaryFunction "min" env x y
+graphToGLSL env (Product x y) = binaryOp "*" env x y
+graphToGLSL env (Division x y) = binaryOp "/" env x y
+graphToGLSL env (GreaterThan x y) = binaryFunction "_gt" env x y
+graphToGLSL env (GreaterThanOrEqual x y) = binaryFunction "_gte" env x y
+graphToGLSL env (LessThan x y) = binaryFunction "_lt" env x y
+graphToGLSL env (LessThanOrEqual x y) = binaryFunction "_lte" env x y
+graphToGLSL env (Equal x y) = binaryOpBool "==" env x y
+graphToGLSL env (NotEqual x y) = binaryOpBool "!=" env x y
+graphToGLSL env (Gate x y) = binaryFunction "gate" env x y
+graphToGLSL env (Pow x y) = binaryFunction "pow" env x y
 
 graphToGLSL env (Clip r x) = do
   r' <- graphToGLSL env r >>= align Vec2
   x' <- graphToGLSL env x
-  return $ prism clip r' x'
+  return [ clip r'' x'' | r'' <- r', x'' <- x' ]
 
 graphToGLSL env (Between r x) = do
   r' <- graphToGLSL env r >>= align Vec2
   x' <- graphToGLSL env x
-  return $ prism between r' x'
+  return [ between r'' x'' | r'' <- r', x'' <- x' ]
 
 graphToGLSL env (Step [] _) = return 0
 graphToGLSL env (Step (x:[]) _) = graphToGLSL env x
@@ -166,74 +166,115 @@ graphToGLSL env (Step xs (Constant y)) =
 graphToGLSL env (Step xs y) = do
   xs' <- mapM (graphToGLSL env) xs -- :: [[GLSLExpr]]
   let xs'' = concat $ fmap (align GLFloat) xs' -- :: [GLSLExpr] where all are GLFloat
-  y' <- graphToGLSL env y >> align GLFloat -- :: [GLSLExpr] where all are GLFloat
+  y' <- graphToGLSL env y >>= align GLFloat -- :: [GLSLExpr] where all are GLFloat
   return $ fmap (step xs'') y'
 
 -- binary functions, with position
 
 graphToGLSL env (Rect xy wh) = do
-  xy' <- graphToGLSL env xy >> align Vec2
-  wh' <- graphToGLSL env wh >> align Vec2
+  xy' <- graphToGLSL env xy >>= align Vec2
+  wh' <- graphToGLSL env wh >>= align Vec2
   binaryFunctionWithPosition "rect" env xy' wh'
 
 graphToGLSL env (Circle xy r) =
-  xy' <- graphToGLSL env xy >> align Vec2
-  r' <- graphToGLSL env r >> align GLFloat
+  xy' <- graphToGLSL env xy >>= align Vec2
+  r' <- graphToGLSL env r >>= align GLFloat
   binaryFunctionWithPosition "circle" env xy' r'
 
 graphToGLSL env (VLine x w) = do
-  x' <- graphToGLSL env x >> align GLFloat
-  w' <- graphToGLSL env w >> align GLFloat
+  x' <- graphToGLSL env x >>= align GLFloat
+  w' <- graphToGLSL env w >>= align GLFloat
   binaryFunctionWithPosition "vline" env x' w'
 
 graphToGLSL env (HLine y w) = do
-  y' <- graphToGLSL env y >> align GLFloat
-  w' <- graphToGLSL env w >> align GLFloat
+  y' <- graphToGLSL env y >>= align GLFloat
+  w' <- graphToGLSL env w >>= align GLFloat
   binaryFunctionWithPosition "hline" env y' w'
 
-
 -- (simple) ternary functions
-graphToGLSL env (LinLin r1 r2 w) = ternaryShaderFunction "linlin" env r1 r2 w
-graphToGLSL env (IfThenElse x y z) = zipWith3 (\(a,t) (b,_) (c,_) -> ("ifthenelse("<>a<>","<>b<>","<>c<>")",t)) x' y' z'
-  where (x',y',z') = alignGLSL3 (graphToGLSL env x) (graphToGLSL env y) (graphToGLSL env z)
+graphToGLSL env (LinLin r1 r2 w) = do
+  r1' <- graphToGLSL env r1 >>= align Vec2
+  r2' <- graphToGLSL env r2 >>= align Vec2
+  w' <- graphToGLSL env w >>= align GLFloat
+  return [ linlin r1'' r2'' w'' | r1'' <- r1', r2'' <- r2', w'' <- w' ]
+
+-- get all channels of a result branch per channel of condition, by
+-- aligning result branches to each other + aligning condition to GLFloat
+graphToGLSL env (IfThenElse x y z) = do
+  x' <- graphToGLSL env x >>= align GLFloat
+  y' <- graphToGLSL env y
+  z' <- graphToGLSL env z
+  (y'',z'') <- alignExprs y' z'
+  return [ ifthenelse x'' yz | x'' <- x', yz <- zip y'' z'']
 
 -- ternary functions with position
-graphToGLSL env (ILine xy1 xy2 w) = ternaryShaderFunction' "iline" env xy1 xy2 w
-graphToGLSL env (Line xy1 xy2 w) = ternaryShaderFunction' "line" env xy1 xy2 w
 
-graphToGLSL _ _ = []
+graphToGLSL env (ILine xy1 xy2 w) = do
+  xy1' <- graphToGLSL env xy1 >>= align Vec2
+  xy2' <- graphToGLSL env xy2 >>= align Vec2
+  w' <- graphToGLSL env w >>= align GLFloat
+  return [ iline xy1'' xy2'' w'' | xy1'' <- xy1', xy2'' <- xy2', w'' <- w ]
+
+graphToGLSL env (Line xy1 xy2 w) = do
+  xy1' <- graphToGLSL env xy1 >>= align Vec2
+  xy2' <- graphToGLSL env xy2 >>= align Vec2
+  w' <- graphToGLSL env w >>= align GLFloat
+  return [ line xy1'' xy2'' w'' | xy1'' <- xy1', xy2'' <- xy2', w'' <- w ]
+
+graphToGLSL _ _ = return 0
 
 
-unaryFunctionToGLSL :: Builder -> Maybe GLSLType -> Graph
-unaryFunctionToGLSL b alignment x = do
-  x' <- graphToGLSL env x
-  x'' <- case alignment of
-    Nothing -> return x'
-    GLFloat -> align GLFloat x'
-    Vec2 -> align Vec2 x'
-    Vec3 -> align Vec3 x'
-    Vec4 -> align Vec4 x'
-  return $ fmap (unaryExprFunction b) x''
+unaryFunction :: Builder -> [GLSLExpr] -> GLSL [GLSLExpr]
+unaryFunction funcName x = return $ fmap (unaryExprFunction funcName) x
 
 unaryFunctionWithPosition :: GraphEnv -> Builder -> Graph -> GLSL [GLSLExpr]
-unaryFunctionWithPosition env@(_,fxy) b x = do
+unaryFunctionWithPosition env@(_,fxy) funcName x = do
   xs <- graphToGLSL env x >>= align Vec2
   let f fxy' x' = GLSLExpr {
     glslType = GLFloat,
-    builder = b <> "(" <> builder x' <> "," <> builder fxy' <> ")",
-    deps = Set.union (deps a) (deps b)
+    builder = funcName <> "(" <> builder x' <> "," <> builder fxy' <> ")",
+    deps = Set.union (deps fxy') (deps x')
     }
-  return $ prism f fxy xs -- for each combination of fxy and x'' apply the function and collect the GLFloat result ...
-
--- apply a binary function to every possible combination of two lists
-prism :: (a -> b -> c) -> [a] -> [b] -> [c]
-prism f xs ys = fmap (\(x,y) -> f x y) $ [ (x,y) | x <- xs, y <- ys]
+  return [ f a b | a <- fxy, b <- xs ]
 
 unaryPositionTransform :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
 unaryPositionTransform f env@(texMap,fxy) a b = do
   a' <- graphToGLSL env a >>= align Vec2
-  let fxy' = prism f fxy x'
-  graphToGLSL (texMap,fxy') b
+  graphToGLSL (texMap,[ f fxy' a'' | fxy' <- fxy, a'' <- a' ]) b
+
+binaryFunction :: Builder -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
+binaryFunction funcName env x y = do
+  x' <- graphToGLSL env x
+  y' <- graphToGLSL env y
+  (x'',y'') <- alignExprs x' y'
+  return $ zipWith (binaryExprFunction funcName) x'' y''
+
+binaryOp :: Builder -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
+binaryOp opName env x y = do
+  x' <- graphToGLSL env x
+  y' <- graphToGLSL env y
+  (x'',y'') <- alignExprs x' y'
+  return $ zipWith (binaryExprOp opName) x'' y''
+
+-- like binaryOp except the op named by opName returns a bool/bvec2/bvec3/bvec4 that is cast to GLFloat/Vec2/Vec3/Vec4
+binaryOpBool :: Builder -> GLSLEnv -> Graph -> Graph -> GLSL [GLSLExpr]
+binaryOpBool opName env x y = do
+  x' <- graphToGLSL env x
+  y' <- graphToGLSL env y
+  (x'',y'') <- alignExprs x' y'
+  let z = zipWith (binaryExprOp opName) x'' y'' -- note: GLSLExpr types will be (momentarily) wrong at this point
+  let f x = unsafeCast (glslType x) x -- ie. explicitly cast a GLSLExpr to its indicated type
+  return $ fmap f z
+
+binaryFunctionWithPosition :: Builder -> GraphEnv -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
+binaryFunctionWithPosition funcName (_,fxys) as bs = do
+  let f a b c = GLSLExpr {
+    glslType = GLFloat,
+    deps = Set.union (deps a) $ Set.union (deps b) (deps c),
+    builder = funcName <> "(" <> builder a <> "," <> builder b <> "," <> builder c <> ")"
+    }
+  return [ f a b c | a <- as, b <- bs, c <- fxys ]
+
 
 -- both arguments must represent Vec2
 zoom :: GLSLExpr -> GLSLExpr -> GLSLExpr
@@ -277,127 +318,31 @@ _step :: Int -> Int -> GLSLExpr -> GLSLExpr
 _step nTotal n y = GLSLExpr { glslType = GLFloat, builder = b, deps = deps y }
   where b = "_step(" <> showb nTotal <> "," <> showb n <> "," <> builder y <> ")",
 
-binaryFunctionWithPosition :: Builder -> GraphEnv -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
-binaryFunctionWithPosition b (_,fxys) as bs = do
-  let f a b c = GLSLExpr {
-    glslType = GLFloat,
-    deps = Set.union (deps a) $ Set.union (deps b) (deps c),
-    builder = "rect(" <> builder a <> "," <> builder b <> "," <> builder c <> ")"
-    }
-  return [ f a b c | a <- as, b <- bs, c <- fxys ]
+linlin :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
+linlin r1 r2 w = GLSLExpr { glslType = GLFloat, builder = b, deps = Set.union (deps r1) $ Set.union (deps r2) (deps w)}
+  where b = "linlin(" <> builder r1 <> "," <> builder r2 <> "," <> builder w <> ")"
+
+ifthenelse :: GLSLExpr -> (GLSLExpr,GLSLExpr) -> GLSLExpr
+ifthenelse c (r1,r2) = GLSLExpr { glslType = glslType r1, builder = b, deps = Set.union (deps c) $ Set.unions (deps r1) (deps r2) }
+  where b = "ifthenelse(" <> builder c <> "," <> builder r1 <> "," <> builder r2 <> ")"
+
+iline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
+iline xy1 xy2 w = GLSLEXpr { glslType = GLFLoat, builder = b, deps = Set.union (deps xy1) $ Set.union (deps xy2) (deps w) }
+  where b = "iline(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> ")"
+
+line :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
+line xy1 xy2 w = GLSLEXpr { glslType = GLFLoat, builder = b, deps = Set.union (deps xy1) $ Set.union (deps xy2) (deps w) }
+  where b = "line(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> ")"
 
 
--- *** WORKING BELOW HERE ***
+defaultFxy :: GLSLExpr
+defaultFxy = GLSLExpr { glslType = Vec2, builder = "_fxy()", deps = Set.empty }
 
--- note: GLSL functions/ops implemented using unaryShaderFunction must exist in versions specialized for float, vec2, and vec3
-unaryShaderFunction :: Builder -> GLSLEnv -> Graph -> GLSL
-unaryShaderFunction f env x = fmap (\(b,t) -> (f <> "(" <> b <> ")",t)) $ graphToGLSL env x
-
-binaryShaderFunction :: Builder -> GLSLEnv -> Graph -> Graph -> GLSL
-binaryShaderFunction f env x y = zipWith (\(a,t) (b,_) -> (f<>"("<>a<>","<>b<>")",t)) x' y'
-  where (x',y') = alignGLSL (graphToGLSL env x) (graphToGLSL env y)
-
-binaryShaderOp :: Builder -> GLSLEnv -> Graph -> Graph -> GLSL
-binaryShaderOp f env x y = zipWith (\(a,t) (b,_) -> ("("<>a<>f<>b<>")",t)) x' y'
-  where (x',y') = alignGLSL (graphToGLSL env x) (graphToGLSL env y)
-
--- like binaryShaderOp except the function f returns a bool/bvec2/bvec3 that gets cast to GLFloat/Vec2/Vec3
-binaryShaderOpBool :: Builder -> GLSLEnv -> Graph -> Graph -> GLSL
-binaryShaderOpBool f env x y = zipWith (\(a,t) (b,_) -> (glslTypeToCast t<>"("<>a<>f<>b<>")",t)) x' y'
-  where (x',y') = alignGLSL (graphToGLSL env x) (graphToGLSL env y)
-
-glslTypeToCast :: GLSLType -> Builder
-glslTypeToCast GLFloat = "float"
-glslTypeToCast Vec2 = "vec2"
-glslTypeToCast Vec3 = "vec3"
-
--- note that ternaryShaderFunction is currently specialized for functions of the form: float f(vec2,vec2,float)
-ternaryShaderFunction :: Builder -> GLSLEnv -> Graph -> Graph -> Graph -> GLSL
-ternaryShaderFunction f env x y z = expandWith3 (\(a,_) (b,_) (c,_) -> (f<>"("<>a<>","<>b<>","<>c<>")",GLFloat)) x' y' z'
-  where
-    x' = toVec2s $ graphToGLSL env x
-    y' = toVec2s $ graphToGLSL env y
-    z' = toGLFloats $ graphToGLSL env z
-
--- for use with functions that take fxy arguments (line,iline)
-ternaryShaderFunction' :: Builder -> GLSLEnv -> Graph -> Graph -> Graph -> GLSL
-ternaryShaderFunction' f env@(_,fxy) x y z = expandWith3 (\(a,_) (b,_) (c,_) -> (f<>"("<>a<>","<>b<>","<>c<>","<>(fst $ fxy!!0)<>")",GLFloat)) x' y' z'
-  where
-    x' = toVec2s $ graphToGLSL env x
-    y' = toVec2s $ graphToGLSL env y
-    z' = toGLFloats $ graphToGLSL env z
-
-glslChannels :: GLSL -> Int
-glslChannels ((_,Vec3):xs) = 3 + glslChannels xs
-glslChannels ((_,Vec2):xs) = 2 + glslChannels xs
-glslChannels ((_,GLFloat):xs) = 1 + glslChannels xs
-glslChannels _ = 0
-
-alignGLSL :: GLSL -> GLSL -> (GLSL,GLSL)
-alignGLSL a b = if aIsModel then (a, cycleGLSL a b) else (cycleGLSL b a, b)
-  where aIsModel = (glslChannels a > glslChannels b) || ((glslChannels a == glslChannels b) && (length a <= length b))
-
-alignGLSL3 :: GLSL -> GLSL -> GLSL -> (GLSL,GLSL,GLSL)
-alignGLSL3 a b c = if aIsModel then (a, cycleGLSL a b, cycleGLSL a c) else (if bIsModel then (cycleGLSL b a, b, cycleGLSL b c) else (cycleGLSL c a,cycleGLSL c b,c))
-  where
-    aOverB = (glslChannels a > glslChannels b) || ((glslChannels a == glslChannels b) && (length a <= length b))
-    aOverC = (glslChannels a > glslChannels c) || ((glslChannels a == glslChannels c) && (length a <= length c))
-    bOverC = (glslChannels b > glslChannels c) || ((glslChannels b == glslChannels c) && (length b <= length c))
-    aIsModel = aOverB && aOverC
-    bIsModel = (not aOverB) && bOverC
-
--- cycle through the builders in a in a way that matches the model of m
-cycleGLSL :: GLSL -> GLSL -> GLSL
-cycleGLSL m a = f (fmap snd m) (cycle a)
-  where
-    f [] _ = []
-    f (GLFloat:ms) ((x,GLFloat):xs) = (x,GLFloat):(f ms xs)
-    f (GLFloat:ms) ((x,Vec2):xs) = (x <> ".x",GLFloat) : (f ms $ (x <> ".y",GLFloat):xs)
-    f (GLFloat:ms) ((x,Vec3):xs) = (x <> ".x",GLFloat) : (f ms $ (x <> ".yz",Vec2):xs)
-    f (Vec2:ms) ((x,Vec2):xs) = (x,Vec2):(f ms xs)
-    f (Vec2:ms) ((x,Vec3):xs) = (x <> ".xy",Vec2) : (f ms $ (x <> ".z",GLFloat):xs)
-    f (Vec2:ms) ((x,GLFloat):(y,GLFloat):xs) = ("vec2(" <> x <> "," <> y <> ")",Vec2) : (f ms xs)
-    f (Vec2:ms) ((x,GLFloat):(y,Vec2):xs) = ("vec2(" <> x <> "," <> y <> ".x)",Vec2) : (f ms $ (y <> ".y",GLFloat):xs)
-    f (Vec2:ms) ((x,GLFloat):(y,Vec3):xs) = ("vec2(" <> x <> "," <> y <> ".x)",Vec2) : (f ms $ (y <> ".yz",Vec2):xs)
-    f (Vec3:ms) ((x,Vec3):xs) = (x,Vec3):(f ms xs)
-    f (Vec3:ms) ((x,Vec2):(y,GLFloat):xs) = ("vec3(" <> x <> "," <> y <> ")",Vec3) : (f ms xs)
-    f (Vec3:ms) ((x,Vec2):(y,Vec2):xs) = ("vec3(" <> x <> "," <> y <> ".x)",Vec3) : (f ms $ (y <> ".y",GLFloat):xs)
-    f (Vec3:ms) ((x,Vec2):(y,Vec3):xs) = ("vec3(" <> x <> "," <> y <> ".x)",Vec3) : (f ms $ (y <> ".yz",Vec2):xs)
-    f (Vec3:ms) ((x,GLFloat):(y,GLFloat):(z,GLFloat):xs) = ("vec3(" <> x <> "," <> y <> "," <> z <> ")",Vec3) : (f ms xs)
-    f (Vec3:ms) ((x,GLFloat):(y,GLFloat):(z,Vec2):xs) = ("vec3(" <> x <> "," <> y <> "," <> z <> ".x)",Vec3) : (f ms $ (z <> ".y",GLFloat):xs)
-    f (Vec3:ms) ((x,GLFloat):(y,GLFloat):(z,Vec3):xs) = ("vec3(" <> x <> "," <> y <> "," <> z <> ".x)",Vec3) : (f ms $ (z <> ".yz",Vec2):xs)
-    f (Vec3:ms) ((x,GLFloat):(y,Vec2):xs) = ("vec3(" <> x <> "," <> y <> ")",Vec3) : (f ms xs)
-    f (Vec3:ms) ((x,GLFloat):(y,Vec3):xs) = ("vec3(" <> x <> "," <> y <> ".xy)",Vec3) : (f ms $ (y <> ".z",GLFloat):xs)
-    f _ _ = error "strange error in alignGLSL"
-
-
-expandWith :: (a -> b -> c) -> [a] -> [b] -> [c]
-expandWith _ [] _ = []
-expandWith _ _ [] = []
-expandWith f xs ys = zipWith f xs' ys'
-  where
-    n = max (length xs) (length ys)
-    xs' = Prelude.take n $ cycle xs -- *** TODO: not quite right, we mean to extend last element instead
-    ys' = Prelude.take n $ cycle ys
-
-expandWith3 :: (a -> b -> c -> d) -> [a] -> [b] -> [c] -> [d]
-expandWith3 _ [] _ _ = []
-expandWith3 _ _ [] _ = []
-expandWith3 _ _ _ [] = []
-expandWith3 f xs ys zs = zipWith3 f xs' ys' zs'
-  where
-    n = maximum [length xs,length ys,length zs]
-    xs' = Prelude.take n $ cycle xs -- *** TODO: not quite right, we mean to extend last element instead
-    ys' = Prelude.take n $ cycle ys
-    zs' = Prelude.take n $ cycle zs
-
-
-defaultFxy :: GLSL
-defaultFxy = [("_fxy()",Vec2)]
-
+-- ?? still necessary after refactor ??
 actionToFloat :: Map Text Int -> Action -> Builder
 actionToFloat texMap = glslToFloatBuilder 0 . graphToGLSL (texMap,defaultFxy) . graph
 
+-- ?? still necessary after refactor ??
 actionToVec3 :: Map Text Int -> Action -> Builder
 actionToVec3 texMap = glslToVec3Builder 0 . graphToGLSL (texMap,defaultFxy) . graph
 
