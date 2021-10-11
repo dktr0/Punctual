@@ -492,26 +492,29 @@ hsvrgb = unaryExprFunction "hsvrgb"
 -- *** TODO: prior to GLSL-refactor... addedAction, discontinuedAction, continuingAction
 -- all used a GLSL if-then-else as an optimization, we probably should restore this ***
 
-addedAction :: Tempo -> UTCTime -> Map Text Int -> Int -> Action -> GLSL GLSLExpr
-addedAction tempo eTime texMap i newAction = do
+addedAction :: Tempo -> UTCTime -> Map Text Int -> Int -> Action -> GLSL (GLSLExpr,[Output])
+addedAction tempo eTime texMap _ newAction = do
   actionExpr <- actionToGLSL texMap newAction
   let (t1,t2) = actionToTimes tempo eTime newAction
-  assign $ actionExpr * xFadeNew eTime t1 t2
+  r <- assign $ actionExpr * xFadeNew eTime t1 t2
+  return (r, outputs newAction)
 
-discontinuedAction :: UTCTime -> Map Text Int -> Int -> Action -> GLSL GLSLExpr
-discontinuedAction eTime texMap i oldAction = do
+discontinuedAction :: UTCTime -> Map Text Int -> Int -> Action -> GLSL (GLSLExpr,[Output])
+discontinuedAction eTime texMap _ oldAction = do
   actionExpr <- actionToGLSL texMap oldAction
   let (t1,t2) = (eTime,addUTCTime 0.5 eTime) -- 0.5 sec fadeout
-  assign $ actionExpr * xFadeOld eTime t1 t2
+  r <- assign $ actionExpr * xFadeOld eTime t1 t2
+  return (r, outputs oldAction)
 
-continuingAction :: Tempo -> UTCTime -> Map Text Int -> Int -> Action -> Action -> GLSL GLSLExpr
-continuingAction tempo eTime texMap i newAction oldAction = do
+continuingAction :: Tempo -> UTCTime -> Map Text Int -> Int -> Action -> Action -> GLSL (GLSLExpr,[Output])
+continuingAction tempo eTime texMap _ newAction oldAction = do
   oldExpr <- actionToGLSL texMap oldAction
   newExpr <- actionToGLSL texMap newAction
   let (t1,t2) = actionToTimes tempo eTime newAction
   let oldExpr' = oldExpr * xFadeOld eTime t1 t2
   let newExpr' = newExpr * xFadeNew eTime t1 t2
-  assign $ oldExpr' + newExpr'
+  r <- assign $ oldExpr' + newExpr'
+  return (r, outputs newAction)
 
 xFadeOld :: UTCTime -> UTCTime -> UTCTime -> GLSLExpr
 xFadeOld = xFadeFunction "xFadeOld"
@@ -526,50 +529,45 @@ xFadeFunction funcName eTime t1 t2 = GLSLExpr { glslType = GLFloat, builder = b,
     t2' = showb $ ((realToFrac $ diffUTCTime t2 eTime) :: Double)
     b = funcName <> "(" <> t1' <> "," <> t2' <> ")"
 
+-- the resulting GLSLExpr is what should be assigned to gl_FragColor
+fragmentShaderGLSL :: Tempo -> Map Text Int -> Program -> Program -> GLSL GLSLExpr
+fragmentShaderGLSL tempo texMap oldProgram newProgram = do
+  let eTime = evalTime newProgram
+
+  -- generate maps of previous, current and all relevant expressions
+  let oldActions = IntMap.filter actionOutputsWebGL $ actions oldProgram
+  let newActions = IntMap.filter actionOutputsWebGL $ actions newProgram
+  let allActions = IntMap.union newActions oldActions
+
+  -- generate a GLSLExpr for all actions, with crossfades
+  continuingExprs <- sequence $ IntMap.intersectionWithKey (continuingAction tempo eTime texMap) newActions oldActions
+  discontinuedExprs <- sequence $ IntMap.mapWithKey (discontinuedAction eTime texMap) $ IntMap.difference oldActions newActions
+  newExprs <- sequence $ IntMap.mapWithKey (addedAction tempo eTime texMap) $ IntMap.difference newActions oldActions
+  let allExprs = IntMap.elems $ continuingExprs <> discontinuedExprs <> newExprs -- :: GLSL [ (GLSLExpr,[Output]) ]
+
+  -- generate GLSL shader code that maps the sources to outputs
+  red <- generateOutput Red 0 allExprs
+  green <- generateOutput Green 0 allExprs
+  blue <- generateOutput Blue 0 allExprs
+  let _defaultAlpha = GLSLExpr { glslType = GLFloat, builder = "_defaultAlpha", deps = Set.empty }
+  alpha <- generateOutput Alpha _defaultAlpha allExprs
+  fdbk <- generateOutput Fdbk 0 allExprs
+  let fdbk' = GLSLExpr { glslType = Vec3, builder = "fb(" <> builder fdbk <> ")", deps = deps fdbk }
+  hsv <- generateOutput HSV (exprToVec3 0) allExprs
+  rgb <- generateOutput RGB (exprToVec3 0) allExprs
+  let rgb' = exprExprExprToVec3 red green blue + hsv + rgb + fdbk'
+  return $ exprExprToVec4 rgb' alpha
+
+
+-- *** SHOULD BE optimized to avoid the 'assign' when the list of relevant outputs is empty
+generateOutput :: Output -> GLSLExpr -> [(GLSLExpr,[Output])] -> GLSL GLSLExpr
+generateOutput o zeroExpr allExprs = assign $ Foldable.foldr (+) zeroExpr $ fmap fst $ Prelude.filter (elem o . snd) allExprs
+
+
+
 {-
-generateOutput :: Output -> Builder -> Builder -> IntMap Action -> Builder
-generateOutput o typeDecl zeroBuilder xs = typeDecl <> "=" <> interspersePluses zeroBuilder xs' <> ";\n"
-  where xs' = IntMap.mapWithKey (\k _ -> "_" <> showb k) $ IntMap.filter (elem o . outputs) xs
-
-generateOutput :: Output -> IntMap Action -> GLSL GLSLExpr
-generateOutput o xs = do
-  let xs' = IntMap.filter (elem o . outputs) xs
--}
-
-{-
-
-fragmentShader :: (AudioTime,Double) -> Map Text Int -> Program -> Program -> Text
 fragmentShader :: Tempo -> Map Text Int -> Program -> Program -> Text
 fragmentShader _ _ _ newProgram | isJust (directGLSL newProgram) = toText header <> fromJust (directGLSL newProgram)
-fragmentShader tempo texMap oldProgram newProgram = toText $ header <> body
-  where
-    eTime = evalTime newProgram
-    -- generate maps of previous, current and all relevant expressions
-    oldActions = IntMap.filter actionOutputsWebGL $ actions oldProgram
-    newActions = IntMap.filter actionOutputsWebGL $ actions newProgram
-    allActions = IntMap.union newActions oldActions
-    -- generate GLSL shader code for each action, with crossfades
-    continuingSources = Foldable.fold $ IntMap.intersectionWithKey (continuingAction tempo eTime texMap) newActions oldActions
-    discontinuedSources = Foldable.fold $ IntMap.mapWithKey (discontinuedAction eTime texMap) $ IntMap.difference oldActions newActions
-    newSources = Foldable.fold $ IntMap.mapWithKey (addedAction tempo eTime texMap) $ IntMap.difference newActions oldActions
-    allSources = continuingSources <> discontinuedSources <> newSources
-    -- generate GLSL shader code that maps the sources to outputs
-    red = generateOutput Red "float red" "0." allActions
-    green = generateOutput Green "float green" "0." allActions
-    blue = generateOutput Blue "float blue" "0." allActions
-    hue = generateOutput Hue "float hue" "0." allActions
-    saturation = generateOutput Saturation "float saturation" "0." allActions
-    value = generateOutput Value "float value" "0." allActions
-    alpha = generateOutput Alpha "float alpha" "_defaultAlpha" allActions
-    hsv = generateOutput HSV "vec3 hsv" "vec3(0.,0.,0.)" allActions
-    rgb = generateOutput RGB "vec3 rgb" "vec3(0.,0.,0.)" allActions
-    fdbk = generateOutput Fdbk "float fdbk" "0." allActions
-    allOutputs = red <> green <> blue <> hue <> saturation <> value <> hsv <> rgb <> alpha <> fdbk
-    --
-    body = "void main() {\n" <> allSources <> allOutputs <> "gl_FragColor = vec4(vec3(red,green,blue)+rgb+fb(fdbk)+hsvrgb(hsv+vec3(hue,saturation,value)),alpha);}"
-
-generateOutput :: Output -> Builder -> Builder -> IntMap Action -> Builder
-generateOutput o typeDecl zeroBuilder xs = typeDecl <> "=" <> interspersePluses zeroBuilder xs' <> ";\n"
-  where xs' = IntMap.mapWithKey (\k _ -> "_" <> showb k) $ IntMap.filter (elem o . outputs) xs
-
+fragmentShader tempo texMap oldProgram newProgram = .... something with fragmentShaderGLSL... toText $ header <> body
+-- body = "void main() {\n" <> allSources <> allOutputs <> "gl_FragColor = vec4(vec3(red,green,blue)+rgb+fb(fdbk)+hsvrgb(hsv),alpha);}"
 -}

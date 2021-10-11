@@ -228,6 +228,12 @@ exprExprToVec4 (GLSLExpr Vec3 x xDeps) (GLSLExpr GLFloat y yDeps) = GLSLExpr Vec
   where b = "vec4(" <> x <> "," <> y <> ")"
 exprExprToVec4 _ _ = error "exprExprToVec4 called with inappropriate types"
 
+exprExprExprToVec3 :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
+exprExprExprToVec3 (GLSLExpr GLFloat x xDeps) (GLSLExpr GLFloat y yDeps) (GLSLExpr GLFloat z zDeps) = GLSLExpr {
+  glslType = Vec3,
+  builder = "vec3(" <> x <> "," <> y <> "," <> z <> ")",
+  deps = Set.union xDeps $ Set.union yDeps zDeps
+  }
 
 -- align: given a GLSLType and a list of GLSLExpr-s, produce a new list of
 -- GLSLExpr-s where every expression is of the provided type, potentially
