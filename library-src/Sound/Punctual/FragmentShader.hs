@@ -24,6 +24,10 @@ import Sound.Punctual.GLSL
 
 type GraphEnv = (Map Text Int, [GLSLExpr]) -- texture map, fxy expressions
 
+testGraphEnv :: GraphEnv
+testGraphEnv = (Map.empty,[defaultFxy] )
+
+
 -- graphToGLSL MUST return a non-empty list, so
 -- generally speaking, in cases where there is no meaningful return value,
 -- the return value will be a one-item list containing a 0 :: GLFloat
@@ -463,112 +467,76 @@ header
    \ return vec2(fxy.x*ct-fxy.y*st,fxy.y*ct+fxy.x*st);}"
    -- thanks to http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl for the HSV-RGB conversion algorithms above!
 
-{-
+
+actionToGLSL :: Map Text Int -> Action -> GLSL GLSLExpr
+actionToGLSL texMap a = do
+  b <- graphToGLSL (texMap,[defaultFxy]) $ graph a
+  let actionType = if isVec3 a then Vec3 else GLFloat
+  c <- align actionType b
+  let d = foldr1 (+) c
+  assign $ if isHsv a then hsvrgb d else d
+
+defaultFxy :: GLSLExpr
+defaultFxy = GLSLExpr { glslType = Vec2, builder = "_fxy()", deps = Set.empty }
+
 isVec3 :: Action -> Bool
 isVec3 x = elem RGB (outputs x) || elem HSV (outputs x)
 
 isHsv :: Action -> Bool
 isHsv x = elem HSV (outputs x)
 
--- ?? still necessary after refactor ??
-actionToFloat :: Map Text Int -> Action -> Builder
-actionToFloat texMap = glslToFloatBuilder 0 . graphToGLSL (texMap,defaultFxy) . graph
-
--- ?? still necessary after refactor ??
-actionToVec3 :: Map Text Int -> Action -> Builder
-actionToVec3 texMap = glslToVec3Builder 0 . graphToGLSL (texMap,defaultFxy) . graph
-
-defaultFxy :: GLSLExpr
-defaultFxy = GLSLExpr { glslType = Vec2, builder = "_fxy()", deps = Set.empty }
-
-continuingAction :: Tempo -> UTCTime -> Map Text Int -> Int -> Action -> Action -> Builder
-continuingAction tempo eTime texMap i newAction oldAction = line1 <> line2 <> line3 <> line4
-  where
-    typeText | isVec3 newAction = "vec3"
-             | otherwise = "float"
-    varName = "_" <> showb i
-    line1 = typeText <> " " <> varName <> ";\n"
-    (t1,t2) = actionToTimes tempo eTime newAction
-    oldText | isVec3 newAction = actionToVec3 texMap oldAction
-            | otherwise = actionToFloat texMap oldAction
-    newText | isVec3 newAction = actionToVec3 texMap newAction
-            | otherwise = actionToFloat texMap newAction
-    fromRGBtoHSV = (not $ isHsv oldAction) && isHsv newAction && isVec3 newAction -- convert old output to HSV
-    fromHSVtoRGB = isHsv oldAction && (not $ isHsv newAction) && isVec3 newAction -- convert old output to RGB
-    oldText' | fromRGBtoHSV = "rgbhsv(" <> oldText <> ")"
-             | fromHSVtoRGB = "hsvrgb(" <> oldText <> ")"
-             | otherwise = oldText
-    xfn = xFadeNew eTime t1 t2
-    xfo = xFadeOld eTime t1 t2
-    t1' = realToFrac (diffUTCTime t1 eTime) :: Double
-    t2' = realToFrac (diffUTCTime t2 eTime) :: Double
-    line2 = "if(_etime<" <> showb t1' <> ")" <> varName <> "=" <> oldText' <> ";\n"
-    line3 = "else if(_etime>" <> showb t2' <> ")" <> varName <> "=" <> newText <> ";\n"
-    line4 = "else " <> varName <> "=(" <> oldText' <> ")*" <> xfo <> "+(" <> newText <> ")*" <> xfn <> ";\n"
-
-discontinuedAction :: UTCTime -> Map Text Int -> Int -> Action -> Builder
-discontinuedAction eTime texMap i oldAction = line1 <> line2 <> line3
-  where
-    varName = "_" <> showb i
-    line1 | isVec3 oldAction = "vec3 " <> varName <> "=vec3(0.);\n"
-          | otherwise = "float " <> varName <> "=0.;\n"
-    (t1,t2) = (eTime,addUTCTime 0.5 eTime) -- 0.5 sec
-    oldText | isVec3 oldAction = actionToVec3 texMap oldAction
-            | otherwise = actionToFloat texMap oldAction
-    xfo | isHsv oldAction = xFadeOldHsv eTime t1 t2
-        | otherwise = xFadeOld eTime t1 t2
-    t1' = realToFrac (diffUTCTime t1 eTime) :: Double
-    t2' = realToFrac (diffUTCTime t2 eTime) :: Double
-    line2 = "if(_etime<" <> showb t1' <> ")" <> varName <> "=" <> oldText <> ";\n"
-    line3 = "else if(_etime<=" <> showb t2' <> ")" <> varName <> "=(" <> oldText <> ")*" <> xfo <> ";\n"
-
-addedAction :: Tempo -> UTCTime -> Map Text Int -> Int -> Action -> Builder
-addedAction tempo eTime texMap i newAction = line1 <> line2 <> line3
-  where
-    varName = "_" <> showb i
-    line1 | isVec3 newAction = "vec3 " <> varName <> "=vec3(0.);\n"
-          | otherwise = "float " <> varName <> "=0.;\n"
-    (t1,t2) = actionToTimes tempo eTime newAction
-    newText | isVec3 newAction = actionToVec3 texMap newAction
-            | otherwise = actionToFloat texMap newAction
-    xfn | isHsv newAction = xFadeNewHsv eTime t1 t2
-        | otherwise = xFadeNew eTime t1 t2
-    t1' = realToFrac (diffUTCTime t1 eTime) :: Double
-    t2' = realToFrac (diffUTCTime t2 eTime) :: Double
-    line2 = "if(_etime>=" <> showb t2' <> ")" <> varName <> "=" <> newText <> ";\n"
-    line3 = "else if(_etime>" <> showb t1' <> ")" <> varName <> "=(" <> newText <> ")*" <> xfn <> ";\n"
+hsvrgb :: GLSLExpr -> GLSLExpr
+hsvrgb = unaryExprFunction "hsvrgb"
 
 
-xFadeOld :: UTCTime -> UTCTime -> UTCTime -> Builder
-xFadeOld eTime t1 t2 = "xFadeOld(" <> t1' <> "," <> t2' <> ")"
+-- *** TODO: prior to GLSL-refactor... addedAction, discontinuedAction, continuingAction
+-- all used a GLSL if-then-else as an optimization, we probably should restore this ***
+
+addedAction :: Tempo -> UTCTime -> Map Text Int -> Int -> Action -> GLSL GLSLExpr
+addedAction tempo eTime texMap i newAction = do
+  actionExpr <- actionToGLSL texMap newAction
+  let (t1,t2) = actionToTimes tempo eTime newAction
+  assign $ actionExpr * xFadeNew eTime t1 t2
+
+discontinuedAction :: UTCTime -> Map Text Int -> Int -> Action -> GLSL GLSLExpr
+discontinuedAction eTime texMap i oldAction = do
+  actionExpr <- actionToGLSL texMap oldAction
+  let (t1,t2) = (eTime,addUTCTime 0.5 eTime) -- 0.5 sec fadeout
+  assign $ actionExpr * xFadeOld eTime t1 t2
+
+continuingAction :: Tempo -> UTCTime -> Map Text Int -> Int -> Action -> Action -> GLSL GLSLExpr
+continuingAction tempo eTime texMap i newAction oldAction = do
+  oldExpr <- actionToGLSL texMap oldAction
+  newExpr <- actionToGLSL texMap newAction
+  let (t1,t2) = actionToTimes tempo eTime newAction
+  let oldExpr' = oldExpr * xFadeOld eTime t1 t2
+  let newExpr' = newExpr * xFadeNew eTime t1 t2
+  assign $ oldExpr' + newExpr'
+
+xFadeOld :: UTCTime -> UTCTime -> UTCTime -> GLSLExpr
+xFadeOld = xFadeFunction "xFadeOld"
+
+xFadeNew :: UTCTime -> UTCTime -> UTCTime -> GLSLExpr
+xFadeNew = xFadeFunction "xFadeNew"
+
+xFadeFunction :: Builder -> UTCTime -> UTCTime -> UTCTime -> GLSLExpr
+xFadeFunction funcName eTime t1 t2 = GLSLExpr { glslType = GLFloat, builder = b, deps = Set.empty}
   where
     t1' = showb $ ((realToFrac $ diffUTCTime t1 eTime) :: Double)
     t2' = showb $ ((realToFrac $ diffUTCTime t2 eTime) :: Double)
+    b = funcName <> "(" <> t1' <> "," <> t2' <> ")"
 
-xFadeNew :: UTCTime -> UTCTime -> UTCTime -> Builder
-xFadeNew eTime t1 t2 = "xFadeNew(" <> t1' <> "," <> t2' <> ")"
-  where
-    t1' = showb $ ((realToFrac $ diffUTCTime t1 eTime) :: Double)
-    t2' = showb $ ((realToFrac $ diffUTCTime t2 eTime) :: Double)
+{-
+generateOutput :: Output -> Builder -> Builder -> IntMap Action -> Builder
+generateOutput o typeDecl zeroBuilder xs = typeDecl <> "=" <> interspersePluses zeroBuilder xs' <> ";\n"
+  where xs' = IntMap.mapWithKey (\k _ -> "_" <> showb k) $ IntMap.filter (elem o . outputs) xs
 
-xFadeOldHsv :: UTCTime -> UTCTime -> UTCTime -> Builder
-xFadeOldHsv eTime t1 t2 = "xFadeOldHsv(" <> t1' <> "," <> t2' <> ")"
-  where
-    t1' = showb $ ((realToFrac $ diffUTCTime t1 eTime) :: Double)
-    t2' = showb $ ((realToFrac $ diffUTCTime t2 eTime) :: Double)
+generateOutput :: Output -> IntMap Action -> GLSL GLSLExpr
+generateOutput o xs = do
+  let xs' = IntMap.filter (elem o . outputs) xs
+-}
 
-xFadeNewHsv :: UTCTime -> UTCTime -> UTCTime -> Builder
-xFadeNewHsv eTime t1 t2 = "xFadeNewHsv(" <> t1' <> "," <> t2' <> ")"
-  where
-    t1' = showb $ ((realToFrac $ diffUTCTime t1 eTime) :: Double)
-    t2' = showb $ ((realToFrac $ diffUTCTime t2 eTime) :: Double)
-
-
--- *** thought experiment: trying to re-write overly simplified version of fragmentShader in GLSL monad
-actionsToGLSL :: (AudioTime,Double) -> Map Text Int -> IntMap Action -> GLSL ()
-actionsToGLSL tempo texMap p = do
-  let xs = actions p
-
+{-
 
 fragmentShader :: (AudioTime,Double) -> Map Text Int -> Program -> Program -> Text
 fragmentShader :: Tempo -> Map Text Int -> Program -> Program -> Text
