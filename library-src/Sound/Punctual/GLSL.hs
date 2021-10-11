@@ -341,7 +341,7 @@ alignToModel (m@(GLSLExpr Vec4 _ _):ms) xs = do
 -- note: position arguments are bipolar (an implicit/internal conversion to unipolar is baked in)
 texture2D :: Builder -> [GLSLExpr] -> GLSL [GLSLExpr]
 texture2D n xy = do
-  xy' <- align Vec2 xs
+  xy' <- align Vec2 xy
   mapM assign $ fmap (\x -> GLSLExpr Vec3 ("texture2D(" <> n <> ",fract(unipolar(" <> builder x <> "))).xyz") (deps x)) xy'
 
 -- not actually used anywhere yet?
@@ -367,7 +367,7 @@ test :: GLSL [GLSLExpr]
 test = do
   w <- multiplyExprs [constantFloat 0.3,constantFloat 0.5,constantFloat 0.7] [constantFloat 2.0]
   -- ** TODO need to make Fractional instance for GLSLExpr to cleanup line above
-  ts <- texture2D 7 w
+  ts <- texture2D (showb (7 :: Int)) w
   align GLFloat ts
 
 realizeAssignment :: Int -> GLSLExpr -> Builder

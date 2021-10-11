@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
 
-module Sound.Punctual.FragmentShader (fragmentShader,defaultFragmentShader) where
+module Sound.Punctual.FragmentShader where
 
 import Data.IntMap.Strict as IntMap
 import Data.Text (Text)
@@ -12,6 +12,8 @@ import Data.Maybe
 import Data.List.Split
 import Data.Time
 import Data.Tempo
+import Data.Set as Set
+
 
 import Sound.Punctual.Graph
 import Sound.Punctual.Output
@@ -30,7 +32,7 @@ graphToGLSL :: GraphEnv -> Graph -> GLSL [GLSLExpr]
 
 -- constants and uniforms
 
-graphToGLSL _ (Constant x) = return $ constantFloat x
+graphToGLSL _ (Constant x) = return [ constantFloat x ]
 graphToGLSL _ Px = return [glFloat "1./res.x"]
 graphToGLSL _ Py = return [glFloat "1./res.y"]
 graphToGLSL _ Lo = return [glFloat "lo"]
@@ -57,18 +59,18 @@ graphToGLSL env (Multi xs) = do
 graphToGLSL env (Mono x) = do
   x' <- graphToGLSL env x
   case x' of
-    [] -> return 0
+    [] -> return [constantFloat 0]
     _ -> do
       xs <- align GLFloat x'
       return [ Foldable.foldr1 (+) xs ]
 
-graphToGLSL env (Rep n x) = graphToGLSL env $ concat $ replicate n x
+graphToGLSL env (Rep n x) = (mapM (graphToGLSL env) $ replicate n x) >>= return . concat
 
-graphToGLSL _ (UnRep 0 _) = return 0
+graphToGLSL _ (UnRep 0 _) = return [constantFloat 0]
 graphToGLSL env (UnRep n x) = do
   x' <- graphToGLSL env x
   x'' <- align GLFloat x'
-  return $ fmap (Foldable.foldr1 (+)) chunksOf n x''
+  return $ fmap (Foldable.foldr1 (+)) $ chunksOf n x''
 
 -- unary functions
 graphToGLSL env (Bipolar x) = graphToGLSL env x >>= unaryFunction "unipolar"
@@ -113,13 +115,15 @@ graphToGLSL env (Fb xy) = graphToGLSL env xy >>= texture2D "_fb"
 
 graphToGLSL env (FFT x) = do
   a <- graphToGLSL env (Unipolar x) >>= align GLFloat
-  let b = zipWith exprExprToVec2 a (repeat 0)
-  texture2D "_fft" b >>= (return . swizzleX)
+  let b = zipWith exprExprToVec2 a (repeat 0) -- [GLSLExpr] where each is a Vec2
+  c <- texture2D "_fft" b
+  return $ fmap swizzleX c
 
 graphToGLSL env (IFFT x) = do
   a <- graphToGLSL env (Unipolar x) >>= align GLFloat
   let b = zipWith exprExprToVec2 a (repeat 0)
-  texture2D "_ifft" b >>= (return . swizzleX)
+  c <- texture2D "_ifft" b
+  return $ fmap swizzleX c
 
 -- unary functions that access position
 graphToGLSL env (Point xy) = unaryFunctionWithPosition env "point" xy
@@ -157,7 +161,7 @@ graphToGLSL env (Between r x) = do
   x' <- graphToGLSL env x
   return [ between r'' x'' | r'' <- r', x'' <- x' ]
 
-graphToGLSL env (Step [] _) = return 0
+graphToGLSL env (Step [] _) = return [constantFloat 0]
 graphToGLSL env (Step (x:[]) _) = graphToGLSL env x
 graphToGLSL env (Step xs (Constant y)) =
   let y' = max (min y 0.99999999) 0
@@ -165,7 +169,7 @@ graphToGLSL env (Step xs (Constant y)) =
   in graphToGLSL env (xs!!y'')
 graphToGLSL env (Step xs y) = do
   xs' <- mapM (graphToGLSL env) xs -- :: [[GLSLExpr]]
-  let xs'' = concat $ fmap (align GLFloat) xs' -- :: [GLSLExpr] where all are GLFloat
+  xs'' <- mapM (align GLFloat) xs' >>= return . concat -- :: [GLSLExpr] where all are GLFloat
   y' <- graphToGLSL env y >>= align GLFloat -- :: [GLSLExpr] where all are GLFloat
   return $ fmap (step xs'') y'
 
@@ -176,7 +180,7 @@ graphToGLSL env (Rect xy wh) = do
   wh' <- graphToGLSL env wh >>= align Vec2
   binaryFunctionWithPosition "rect" env xy' wh'
 
-graphToGLSL env (Circle xy r) =
+graphToGLSL env (Circle xy r) = do
   xy' <- graphToGLSL env xy >>= align Vec2
   r' <- graphToGLSL env r >>= align GLFloat
   binaryFunctionWithPosition "circle" env xy' r'
@@ -213,15 +217,15 @@ graphToGLSL env (ILine xy1 xy2 w) = do
   xy1' <- graphToGLSL env xy1 >>= align Vec2
   xy2' <- graphToGLSL env xy2 >>= align Vec2
   w' <- graphToGLSL env w >>= align GLFloat
-  return [ iline xy1'' xy2'' w'' | xy1'' <- xy1', xy2'' <- xy2', w'' <- w ]
+  return [ iline xy1'' xy2'' w'' | xy1'' <- xy1', xy2'' <- xy2', w'' <- w' ]
 
 graphToGLSL env (Line xy1 xy2 w) = do
   xy1' <- graphToGLSL env xy1 >>= align Vec2
   xy2' <- graphToGLSL env xy2 >>= align Vec2
   w' <- graphToGLSL env w >>= align GLFloat
-  return [ line xy1'' xy2'' w'' | xy1'' <- xy1', xy2'' <- xy2', w'' <- w ]
+  return [ line xy1'' xy2'' w'' | xy1'' <- xy1', xy2'' <- xy2', w'' <- w' ]
 
-graphToGLSL _ _ = return 0
+graphToGLSL _ _ = return [constantFloat 0]
 
 
 unaryFunction :: Builder -> [GLSLExpr] -> GLSL [GLSLExpr]
@@ -257,7 +261,7 @@ binaryOp opName env x y = do
   return $ zipWith (binaryExprOp opName) x'' y''
 
 -- like binaryOp except the op named by opName returns a bool/bvec2/bvec3/bvec4 that is cast to GLFloat/Vec2/Vec3/Vec4
-binaryOpBool :: Builder -> GLSLEnv -> Graph -> Graph -> GLSL [GLSLExpr]
+binaryOpBool :: Builder -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
 binaryOpBool opName env x y = do
   x' <- graphToGLSL env x
   y' <- graphToGLSL env y
@@ -311,40 +315,29 @@ step :: [GLSLExpr] -> GLSLExpr -> GLSLExpr
 step xs y = foldr1 (+) xs''
   where
     nTotal = length xs
-    xs' = zip xs (0..)
-    xs'' = ffor xs $ \(x,n) -> x * _step nTotal n y
+    xs' = zip xs [0..]
+    xs'' = fmap (\(x,n) -> x * _step nTotal n y) xs'
 
 _step :: Int -> Int -> GLSLExpr -> GLSLExpr
 _step nTotal n y = GLSLExpr { glslType = GLFloat, builder = b, deps = deps y }
-  where b = "_step(" <> showb nTotal <> "," <> showb n <> "," <> builder y <> ")",
+  where b = "_step(" <> showb nTotal <> "," <> showb n <> "," <> builder y <> ")"
 
 linlin :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
 linlin r1 r2 w = GLSLExpr { glslType = GLFloat, builder = b, deps = Set.union (deps r1) $ Set.union (deps r2) (deps w)}
   where b = "linlin(" <> builder r1 <> "," <> builder r2 <> "," <> builder w <> ")"
 
 ifthenelse :: GLSLExpr -> (GLSLExpr,GLSLExpr) -> GLSLExpr
-ifthenelse c (r1,r2) = GLSLExpr { glslType = glslType r1, builder = b, deps = Set.union (deps c) $ Set.unions (deps r1) (deps r2) }
+ifthenelse c (r1,r2) = GLSLExpr { glslType = glslType r1, builder = b, deps = Set.union (deps c) $ Set.union (deps r1) (deps r2) }
   where b = "ifthenelse(" <> builder c <> "," <> builder r1 <> "," <> builder r2 <> ")"
 
 iline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-iline xy1 xy2 w = GLSLEXpr { glslType = GLFLoat, builder = b, deps = Set.union (deps xy1) $ Set.union (deps xy2) (deps w) }
+iline xy1 xy2 w = GLSLExpr { glslType = GLFloat, builder = b, deps = Set.union (deps xy1) $ Set.union (deps xy2) (deps w) }
   where b = "iline(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> ")"
 
 line :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-line xy1 xy2 w = GLSLEXpr { glslType = GLFLoat, builder = b, deps = Set.union (deps xy1) $ Set.union (deps xy2) (deps w) }
+line xy1 xy2 w = GLSLExpr { glslType = GLFloat, builder = b, deps = Set.union (deps xy1) $ Set.union (deps xy2) (deps w) }
   where b = "line(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> ")"
 
-
-defaultFxy :: GLSLExpr
-defaultFxy = GLSLExpr { glslType = Vec2, builder = "_fxy()", deps = Set.empty }
-
--- ?? still necessary after refactor ??
-actionToFloat :: Map Text Int -> Action -> Builder
-actionToFloat texMap = glslToFloatBuilder 0 . graphToGLSL (texMap,defaultFxy) . graph
-
--- ?? still necessary after refactor ??
-actionToVec3 :: Map Text Int -> Action -> Builder
-actionToVec3 texMap = glslToVec3Builder 0 . graphToGLSL (texMap,defaultFxy) . graph
 
 defaultFragmentShader :: Text
 defaultFragmentShader = (toText header) <> "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"
@@ -470,11 +463,23 @@ header
    \ return vec2(fxy.x*ct-fxy.y*st,fxy.y*ct+fxy.x*st);}"
    -- thanks to http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl for the HSV-RGB conversion algorithms above!
 
+{-
 isVec3 :: Action -> Bool
 isVec3 x = elem RGB (outputs x) || elem HSV (outputs x)
 
 isHsv :: Action -> Bool
 isHsv x = elem HSV (outputs x)
+
+-- ?? still necessary after refactor ??
+actionToFloat :: Map Text Int -> Action -> Builder
+actionToFloat texMap = glslToFloatBuilder 0 . graphToGLSL (texMap,defaultFxy) . graph
+
+-- ?? still necessary after refactor ??
+actionToVec3 :: Map Text Int -> Action -> Builder
+actionToVec3 texMap = glslToVec3Builder 0 . graphToGLSL (texMap,defaultFxy) . graph
+
+defaultFxy :: GLSLExpr
+defaultFxy = GLSLExpr { glslType = Vec2, builder = "_fxy()", deps = Set.empty }
 
 continuingAction :: Tempo -> UTCTime -> Map Text Int -> Int -> Action -> Action -> Builder
 continuingAction tempo eTime texMap i newAction oldAction = line1 <> line2 <> line3 <> line4
@@ -598,3 +603,5 @@ fragmentShader tempo texMap oldProgram newProgram = toText $ header <> body
 generateOutput :: Output -> Builder -> Builder -> IntMap Action -> Builder
 generateOutput o typeDecl zeroBuilder xs = typeDecl <> "=" <> interspersePluses zeroBuilder xs' <> ";\n"
   where xs' = IntMap.mapWithKey (\k _ -> "_" <> showb k) $ IntMap.filter (elem o . outputs) xs
+
+-}
