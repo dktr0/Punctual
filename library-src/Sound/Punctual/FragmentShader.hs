@@ -169,14 +169,28 @@ graphToGLSL env (Step xs y) = do
   y' <- graphToGLSL env y >> align GLFloat -- :: [GLSLExpr] where all are GLFloat
   return $ fmap (step xs'') y'
 
+-- binary functions, with position
 
--- binary functions (with position)
--- ** TODO: working here, need to figure out how to apply all of the positions represented in fxy, not just the first!
--- ** note that some (but not all) of the graph constructors that use ternaryShaderFunction need to be reworked also, along the same lines
-graphToGLSL env@(_,fxy) (Rect xy wh) = expandWith (\(a,_) (b,_) -> ("rect("<>a<>","<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) (toVec2s $ graphToGLSL env xy) (toVec2s $ graphToGLSL env wh)
-graphToGLSL env@(_,fxy) (Circle xy r) = expandWith (\(a,_) (b,_) -> ("circle("<>a<>","<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) (toVec2s $ graphToGLSL env xy) (toGLFloats $ graphToGLSL env r)
-graphToGLSL env@(_,fxy) (VLine x w) = expandWith (\(a,_) (b,_) -> ("vline("<>a<>","<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) (toGLFloats $ graphToGLSL env x) (toGLFloats $ graphToGLSL env w)
-graphToGLSL env@(_,fxy) (HLine y w) = expandWith (\(a,_) (b,_) -> ("hline("<>a<>","<>b<>","<>(fst $ fxy!!0)<>")",GLFloat)) (toGLFloats $ graphToGLSL env y) (toGLFloats $ graphToGLSL env w)
+graphToGLSL env (Rect xy wh) = do
+  xy' <- graphToGLSL env xy >> align Vec2
+  wh' <- graphToGLSL env wh >> align Vec2
+  binaryFunctionWithPosition "rect" env xy' wh'
+
+graphToGLSL env (Circle xy r) =
+  xy' <- graphToGLSL env xy >> align Vec2
+  r' <- graphToGLSL env r >> align GLFloat
+  binaryFunctionWithPosition "circle" env xy' r'
+
+graphToGLSL env (VLine x w) = do
+  x' <- graphToGLSL env x >> align GLFloat
+  w' <- graphToGLSL env w >> align GLFloat
+  binaryFunctionWithPosition "vline" env x' w'
+
+graphToGLSL env (HLine y w) = do
+  y' <- graphToGLSL env y >> align GLFloat
+  w' <- graphToGLSL env w >> align GLFloat
+  binaryFunctionWithPosition "hline" env y' w'
+
 
 -- (simple) ternary functions
 graphToGLSL env (LinLin r1 r2 w) = ternaryShaderFunction "linlin" env r1 r2 w
@@ -263,7 +277,17 @@ _step :: Int -> Int -> GLSLExpr -> GLSLExpr
 _step nTotal n y = GLSLExpr { glslType = GLFloat, builder = b, deps = deps y }
   where b = "_step(" <> showb nTotal <> "," <> showb n <> "," <> builder y <> ")",
 
+binaryFunctionWithPosition :: Builder -> GraphEnv -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
+binaryFunctionWithPosition b (_,fxys) as bs = do
+  let f a b c = GLSLExpr {
+    glslType = GLFloat,
+    deps = Set.union (deps a) $ Set.union (deps b) (deps c),
+    builder = "rect(" <> builder a <> "," <> builder b <> "," <> builder c <> ")"
+    }
+  return [ f a b c | a <- as, b <- bs, c <- fxys ]
 
+
+-- *** WORKING BELOW HERE ***
 
 -- note: GLSL functions/ops implemented using unaryShaderFunction must exist in versions specialized for float, vec2, and vec3
 unaryShaderFunction :: Builder -> GLSLEnv -> Graph -> GLSL
