@@ -80,7 +80,9 @@ graphToGLSL env (UnRep n x) = do
 -- unary functions
 graphToGLSL env (Bipolar x) = graphToGLSL env x >>= unaryFunction "unipolar"
 graphToGLSL env (Unipolar x) = graphToGLSL env x >>= unaryFunction "unipolar"
-graphToGLSL env (Sin x) = graphToGLSL env x >>= unaryFunction "sin_"
+graphToGLSL env (Sin x) = do
+  x' <- graphToGLSL env x >>= alignMax
+  unaryFunction "sin" $ fmap ((*) (constantFloat 3.14159265 * constantFloat 2 * _time)) x'
 graphToGLSL env (MidiCps x) = graphToGLSL env x >>= unaryFunction "midicps"
 graphToGLSL env (CpsMidi x) = graphToGLSL env x >>= unaryFunction "cpsmidi"
 graphToGLSL env (DbAmp x) = graphToGLSL env x >>= unaryFunction "dbamp"
@@ -373,10 +375,6 @@ header
    \vec3 fb(float r){\
    \  vec3 x = texture2D(_fb,uv()).xyz * r;\
    \  return vec3(x.x > 0.1 ? x.x : 0.,x.y > 0.1 ? x.y : 0.,x.z > 0.1 ? x.z : 0.);}\
-   \float sin_(float f) { return sin(f*3.14159265*2.*_time);}\
-   \vec2 sin_(vec2 f) { return sin(f*3.14159265*2.*_time);}\
-   \vec3 sin_(vec3 f) { return sin(f*3.14159265*2.*_time);}\
-   \vec4 sin_(vec4 f) { return sin(f*3.14159265*2.*_time);}\
    \float phasor(float f) { return (_time*f - floor(_time*f));}\
    \float tri(float f) { float p = phasor(f); return p < 0.5 ? p*4.-1. : 1.-((p-0.5)*4.) ;}\
    \float saw(float f) { return phasor(f)*2.-1.;}\
@@ -468,6 +466,8 @@ header
    \ return vec2(fxy.x*ct-fxy.y*st,fxy.y*ct+fxy.x*st);}"
    -- thanks to http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl for the HSV-RGB conversion algorithms above!
 
+_time :: GLSLExpr
+_time = GLSLExpr { glslType = GLFloat, builder = "_time", deps = Set.empty }
 
 actionToGLSL :: Map Text Int -> Action -> GLSL GLSLExpr
 actionToGLSL texMap a = do

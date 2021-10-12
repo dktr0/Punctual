@@ -246,6 +246,19 @@ align t xs = do
   xs'' <- align t xs'
   return (x:xs'')
 
+-- alignMax: given a list of GLSLExpr-s regroup them to use the biggest
+-- underlying types, eg. 7 channels would be a Vec4 followed by a Vec3
+alignMax :: [GLSLExpr] -> GLSL [GLSLExpr]
+alignMax xs
+  | exprsChannels xs == 0 = return []
+  | exprsChannels xs == 1 = (pure . fst) <$> splitAligned GLFloat xs
+  | exprsChannels xs == 2 = (pure . fst) <$> splitAligned Vec2 xs
+  | exprsChannels xs == 3 = (pure . fst) <$> splitAligned Vec3 xs
+  | exprsChannels xs >= 4 = do
+      (y,ys) <- splitAligned Vec4 xs
+      ys' <- alignMax ys
+      return (y:ys')
+
 
 -- splitAligned: given a GLSLType and a non-empty list of GLSLExpr-s, "pop" stuff from the
 -- head of the list in such a way that a specific GLSLType is guaranteed, returning
@@ -258,7 +271,12 @@ splitAligned _ [] = error "splitAligned called with empty list"
 -- 1. when the requested type is at the head of the list, simply separate head & tail of list
 splitAligned t (x:xs) | t == glslType x = return (x,xs)
 
--- 2. when the list has one item that is smaller than requested type, repeat channels to provide type
+-- 2. when the requested item can be constructed exactly from items at the head of the list in various ways, do that
+splitAligned Vec3 (x@(GLSLExpr GLFloat _ _):y@(GLSLExpr GLFloat _ _):z@(GLSLExpr GLFloat _ _):xs) = do
+  return (exprExprExprToVec3 x y z, xs)
+-- *** TODO: there are many more patterns that should be matched here.
+
+-- 3. when the list has one item that is smaller than requested type, repeat channels to provide type
 splitAligned Vec2 (x@(GLSLExpr GLFloat _ _):[]) = return (exprToVec2 x,[])
 splitAligned Vec3 (x@(GLSLExpr GLFloat _ _):[]) = return (exprToVec3 x,[])
 splitAligned Vec3 (x@(GLSLExpr Vec2 _ _):[]) = return (exprToVec3 x,[])
@@ -266,7 +284,8 @@ splitAligned Vec4 (x@(GLSLExpr GLFloat _ _):[]) = return (exprToVec4 x,[])
 splitAligned Vec4 (x@(GLSLExpr Vec2 _ _):[]) = return (exprToVec4 x,[])
 splitAligned Vec4 (x@(GLSLExpr Vec3 _ _):[]) = return (exprToVec4 x,[])
 
--- 3. when the requested item is smaller than the type at head of list, split it by assigning and swizzling
+
+-- 4. when the requested item is smaller than the type at head of list, split it by assigning and swizzling
 splitAligned GLFloat (x@(GLSLExpr Vec2 _ _):xs) = do
   x' <- assign x
   return (swizzleX x',(swizzleY x'):xs)
@@ -286,7 +305,7 @@ splitAligned Vec3 (x@(GLSLExpr Vec4 _ _):xs) = do
   x' <- assign x
   return (swizzleXYZ x',(swizzleW x'):xs)
 
--- 4. when the requested item is larger than the type at the head of the list (n>=2), call splitAligned
+-- 3. when the requested item is larger than the type at the head of the list (n>=2), call splitAligned
 -- recursively to provide a second value that, combined with the first, produces requested type
 splitAligned Vec2 (x@(GLSLExpr GLFloat _ _):xs) = do
   (y,xs') <- splitAligned GLFloat xs
