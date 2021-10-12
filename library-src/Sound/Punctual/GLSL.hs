@@ -73,7 +73,7 @@ assign x = do
   put $ IntMap.insert n x m
   return $ GLSLExpr {
     glslType = glslType x,
-    builder = builder x,
+    builder = "_" <> showb n,
     deps = Set.insert n (deps x)
   }
 
@@ -381,6 +381,9 @@ realizeAssignment n (GLSLExpr GLFloat b _) = "float _" <> showb n <> "=" <> b <>
 realizeAssignment n (GLSLExpr Vec2 b _) = "vec2 _" <> showb n <> "=" <> b <> ";\n"
 realizeAssignment n (GLSLExpr Vec3 b _) = "vec3 _" <> showb n <> "=" <> b <> ";\n"
 realizeAssignment n (GLSLExpr Vec4 b _) = "vec4 _" <> showb n <> "=" <> b <> ";\n"
+
+realizeAssignments :: IntMap GLSLExpr -> Builder
+realizeAssignments xs = Foldable.fold $ IntMap.mapWithKey realizeAssignment xs
 
 realizeExpr :: GLSLExpr -> Builder
 realizeExpr (GLSLExpr GLFloat b _) = showb b <> "\n"

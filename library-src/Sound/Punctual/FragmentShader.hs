@@ -530,6 +530,7 @@ xFadeFunction funcName eTime t1 t2 = GLSLExpr { glslType = GLFloat, builder = b,
     t2' = showb $ ((realToFrac $ diffUTCTime t2 eTime) :: Double)
     b = funcName <> "(" <> t1' <> "," <> t2' <> ")"
 
+
 -- the resulting GLSLExpr is what should be assigned to gl_FragColor
 fragmentShaderGLSL :: Tempo -> Map Text Int -> Program -> Program -> GLSL GLSLExpr
 fragmentShaderGLSL tempo texMap oldProgram newProgram = do
@@ -559,10 +560,12 @@ fragmentShaderGLSL tempo texMap oldProgram newProgram = do
   let rgb' = exprExprExprToVec3 red green blue + hsv + rgb + fdbk'
   return $ exprExprToVec4 rgb' alpha
 
-
--- *** SHOULD BE optimized to avoid the 'assign' when the list of relevant outputs is empty
 generateOutput :: Output -> GLSLExpr -> [(GLSLExpr,[Output])] -> GLSL GLSLExpr
-generateOutput o zeroExpr allExprs = assign $ Foldable.foldr (+) zeroExpr $ fmap fst $ Prelude.filter (elem o . snd) allExprs
+generateOutput o zeroExpr allExprs = do
+  let xs = fmap fst $ Prelude.filter (elem o . snd) allExprs
+  case xs of
+    [] -> return zeroExpr
+    _ -> assign $ Foldable.foldr1 (+) xs
 
 
 fragmentShader :: Tempo -> Map Text Int -> Program -> Program -> Text
@@ -570,9 +573,10 @@ fragmentShader _ _ _ newProgram | isJust (directGLSL newProgram) = toText header
 fragmentShader tempo texMap oldProgram newProgram = toText $ header <> body
   where
     (gl_FragColor,assignments) = runGLSL $ fragmentShaderGLSL tempo texMap oldProgram newProgram
-    -- *** TODO here: convert assignments to Builder
+    assignments' = realizeAssignments assignments
     gl_FragColor' = "gl_FragColor = " <> builder gl_FragColor <> ";\n"
-    body = "\nvoid main() {\n" <> gl_FragColor' <> "}"
+    body = "\nvoid main() {\n" <> assignments' <> gl_FragColor' <> "}"
+
 
 testFragmentShader :: IO ()
 testFragmentShader = do
