@@ -139,7 +139,9 @@ graphToGLSL env (Prox xy) = unaryFunctionWithPosition env "prox" xy
 graphToGLSL env (Zoom a b) = unaryPositionTransform zoom env a b
 graphToGLSL env (Move a b) = unaryPositionTransform move env a b
 graphToGLSL env (Tile a b) = unaryPositionTransform tile env a b
-graphToGLSL env (Spin a b) = unaryPositionTransform spin env a b
+graphToGLSL env@(texMap,fxy) (Spin a b) = do
+  a' <- graphToGLSL env a >>= align GLFloat
+  graphToGLSL (texMap,[ spin fxy' a'' | fxy' <- fxy, a'' <- a' ]) b
 
 -- (simple) binary functions
 graphToGLSL env (Sum x y) = binaryOp "+" env x y
@@ -539,7 +541,6 @@ fragmentShaderGLSL tempo texMap oldProgram newProgram = do
   -- generate maps of previous, current and all relevant expressions
   let oldActions = IntMap.filter actionOutputsWebGL $ actions oldProgram
   let newActions = IntMap.filter actionOutputsWebGL $ actions newProgram
-  let allActions = IntMap.union newActions oldActions
 
   -- generate a GLSLExpr for all actions, with crossfades
   continuingExprs <- sequence $ IntMap.intersectionWithKey (continuingAction tempo eTime texMap) newActions oldActions
