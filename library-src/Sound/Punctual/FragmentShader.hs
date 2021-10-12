@@ -4,6 +4,7 @@ module Sound.Punctual.FragmentShader where
 
 import Data.IntMap.Strict as IntMap
 import Data.Text (Text)
+import Data.Text.IO as T
 import Data.Semigroup ((<>))
 import TextShow
 import Data.Map as Map
@@ -564,10 +565,20 @@ generateOutput :: Output -> GLSLExpr -> [(GLSLExpr,[Output])] -> GLSL GLSLExpr
 generateOutput o zeroExpr allExprs = assign $ Foldable.foldr (+) zeroExpr $ fmap fst $ Prelude.filter (elem o . snd) allExprs
 
 
-
-{-
 fragmentShader :: Tempo -> Map Text Int -> Program -> Program -> Text
 fragmentShader _ _ _ newProgram | isJust (directGLSL newProgram) = toText header <> fromJust (directGLSL newProgram)
-fragmentShader tempo texMap oldProgram newProgram = .... something with fragmentShaderGLSL... toText $ header <> body
--- body = "void main() {\n" <> allSources <> allOutputs <> "gl_FragColor = vec4(vec3(red,green,blue)+rgb+fb(fdbk)+hsvrgb(hsv),alpha);}"
--}
+fragmentShader tempo texMap oldProgram newProgram = toText $ header <> body
+  where
+    (gl_FragColor,assignments) = runGLSL $ fragmentShaderGLSL tempo texMap oldProgram newProgram
+    -- *** TODO here: convert assignments to Builder
+    gl_FragColor' = "gl_FragColor = " <> builder gl_FragColor <> ";\n"
+    body = "\nvoid main() {\n" <> gl_FragColor' <> "}"
+
+testFragmentShader :: IO ()
+testFragmentShader = do
+  now <- getCurrentTime
+  let testTempo = Tempo 1.0 now 0
+  let testProgram = (emptyProgram now) {
+    actions = IntMap.empty
+    }
+  T.putStrLn $ fragmentShader testTempo Map.empty (emptyProgram now) testProgram
