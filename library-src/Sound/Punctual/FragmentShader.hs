@@ -419,8 +419,6 @@ header
    \float _step(int n,int x,float y){return float(x==int((y*0.5+0.5)*float(n)));}\
    \float xFadeNew(float t1,float t2){return clamp((_etime-t1)/(t2-t1),0.,1.);}\
    \float xFadeOld(float t1,float t2){return 1.-xFadeNew(t1,t2);}\
-   \vec3 xFadeNewHsv(float t1,float t2){return vec3(1.,1.,xFadeNew(t1,t2));}\
-   \vec3 xFadeOldHsv(float t1,float t2){return vec3(1.,1.,xFadeOld(t1,t2));}\
    \vec3 hsvrgb(vec3 c) {\
    \  vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\
    \  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\
