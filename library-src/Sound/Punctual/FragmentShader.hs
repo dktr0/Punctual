@@ -203,12 +203,12 @@ graphToGLSL env (Circle xy r) = do
 graphToGLSL env (VLine x w) = do
   x' <- graphToGLSL env x >>= align GLFloat
   w' <- graphToGLSL env w >>= align GLFloat
-  binaryFunctionWithPosition "vline" env x' w'
+  binaryFunctionWithPosition' vline env x' w'
 
 graphToGLSL env (HLine y w) = do
   y' <- graphToGLSL env y >>= align GLFloat
   w' <- graphToGLSL env w >>= align GLFloat
-  binaryFunctionWithPosition "hline" env y' w'
+  binaryFunctionWithPosition' hline env y' w'
 
 -- (simple) ternary functions
 graphToGLSL env (LinLin r1 r2 w) = do
@@ -307,6 +307,9 @@ comparisonOp _ funcName (GLSLExpr Vec4 x xDeps) (GLSLExpr Vec4 y yDeps) = GLSLEx
   where b = "vec4(" <> funcName <> "(" <> x <> "," <> y <> "))"
 comparisonOp _ _ _ _ = error "uhoh - comparisonOp called with mismatched/misaligned GLSLExpr types"
 
+lessThan :: GLSLExpr -> GLSLExpr -> GLSLExpr
+lessThan = comparisonOp "<" "lessThan"
+
 binaryFunctionWithPosition :: Builder -> GraphEnv -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
 binaryFunctionWithPosition funcName (_,fxys) as bs = do
   let f a b c = GLSLExpr {
@@ -316,6 +319,8 @@ binaryFunctionWithPosition funcName (_,fxys) as bs = do
     }
   return [ f a b c | a <- as, b <- bs, c <- fxys ]
 
+binaryFunctionWithPosition' :: (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr) -> GraphEnv -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
+binaryFunctionWithPosition' f (_,fxys) as bs = return [ f a b c | a <- as, b <- bs, c <- fxys ]
 
 -- both arguments must represent Vec2
 zoom :: GLSLExpr -> GLSLExpr -> GLSLExpr
@@ -384,6 +389,14 @@ bipolar x = x * 2 - 1
 
 unipolar :: GLSLExpr -> GLSLExpr
 unipolar x = (x + 1) * constantFloat 0.5
+
+-- must be GLFloat GLFloat Vec2
+vline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
+vline x w fxy = lessThan (abs (swizzleX fxy - x)) w
+
+-- must be GLFloat GLFloat Vec2
+hline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
+hline y w fxy = lessThan (abs (swizzleY fxy - y)) w
 
 
 defaultFragmentShader :: Text
