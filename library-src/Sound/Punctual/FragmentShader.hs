@@ -78,8 +78,8 @@ graphToGLSL env (UnRep n x) = do
   return $ fmap (Foldable.foldr1 (+)) $ chunksOf n x''
 
 -- unary functions
-graphToGLSL env (Bipolar x) = graphToGLSL env x >>= unaryFunction "unipolar"
-graphToGLSL env (Unipolar x) = graphToGLSL env x >>= unaryFunction "unipolar"
+graphToGLSL env (Bipolar x) = graphToGLSL env x >>= unaryFunction' bipolar
+graphToGLSL env (Unipolar x) = graphToGLSL env x >>= unaryFunction' unipolar
 graphToGLSL env (Sin x) = do
   x' <- graphToGLSL env x >>= alignMax
   unaryFunction "sin" $ fmap ((*) (constantFloat 3.14159265 * constantFloat 2 * _time)) x'
@@ -246,6 +246,9 @@ graphToGLSL _ _ = return [constantFloat 0]
 unaryFunction :: Builder -> [GLSLExpr] -> GLSL [GLSLExpr]
 unaryFunction funcName x = return $ fmap (unaryExprFunction funcName) x
 
+unaryFunction' :: (GLSLExpr -> GLSLExpr) -> [GLSLExpr] -> GLSL [GLSLExpr]
+unaryFunction' f x = return $ fmap f x
+
 unaryFunctionWithPosition :: GraphEnv -> Builder -> Graph -> GLSL [GLSLExpr]
 unaryFunctionWithPosition env@(_,fxy) funcName x = do
   xs <- graphToGLSL env x >>= align Vec2
@@ -376,6 +379,12 @@ line xy1 xy2 w fxy = GLSLExpr { glslType = GLFloat, builder = b, deps = Set.unio
 gate :: GLSLExpr -> GLSLExpr -> GLSLExpr
 gate x y = comparisonOp "<" "lessThan" x y * y
 
+bipolar :: GLSLExpr -> GLSLExpr
+bipolar x = x * 2 - 1
+
+unipolar :: GLSLExpr -> GLSLExpr
+unipolar x = (x + 1) * constantFloat 0.5
+
 
 defaultFragmentShader :: Text
 defaultFragmentShader = (toText header) <> "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"
@@ -389,17 +398,9 @@ header
    \uniform sampler2D tex0,tex1,tex2,tex3,tex4,tex5,tex6,tex7,tex8,tex9,tex10,tex11,tex12;\
    \uniform float lo,mid,hi,ilo,imid,ihi;\
    \uniform float _defaultAlpha,_cps,_time,_etime,_beat,_ebeat;\
-   \float bipolar(float a) { return a * 2. - 1.; }\
-   \vec2 bipolar(vec2 a) { return a * 2. - 1.; }\
-   \vec3 bipolar(vec3 a) { return a * 2. - 1.; }\
-   \vec4 bipolar(vec4 a) { return a * 2. - 1.; }\
-   \float unipolar(float a) { return (a + 1.) * 0.5; }\
-   \vec2 unipolar(vec2 a) { return (a + 1.) * 0.5; }\
-   \vec3 unipolar(vec3 a) { return (a + 1.) * 0.5; }\
-   \vec4 unipolar(vec4 a) { return (a + 1.) * 0.5; }\
-   \float fx() { return bipolar(gl_FragCoord.x/res.x); }\
-   \float fy() { return bipolar(gl_FragCoord.y/res.y); }\
-   \vec2 _fxy() { return bipolar(gl_FragCoord.xy/res); }\
+   \float fx() { return (gl_FragCoord.x/res.x) * 2. - 1.; }\
+   \float fy() { return (gl_FragCoord.y/res.y) * 2. - 1.; }\
+   \vec2 _fxy() { return (gl_FragCoord.xy/res) * 2. - 1.; }\
    \vec2 uv() { return (gl_FragCoord.xy/res); }\
    \vec3 fb(float r){\
    \  vec3 x = texture2D(_fb,uv()).xyz * r;\
