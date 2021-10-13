@@ -438,6 +438,10 @@ header
    \vec2 ampdb(vec2 x) { return 20. * log(x) / log(10.); }\
    \vec3 ampdb(vec3 x) { return 20. * log(x) / log(10.); }\
    \vec4 ampdb(vec4 x) { return 20. * log(x) / log(10.); }\
+   \float clip(vec2 r,float x){return clamp(x,r.x,r.y);}\
+   \vec2 clip(vec2 r,vec2 x){return clamp(x,r.x,r.y);}\
+   \vec3 clip(vec2 r,vec3 x){return clamp(x,r.x,r.y);}\
+   \vec4 clip(vec2 r,vec4 x){return clamp(x,r.x,r.y);}\
    \float ifthenelse(float x,float y,float z){return float(x>0.)*y+float(x<=0.)*z;}\
    \vec2 ifthenelse(vec2 x,vec2 y,vec2 z){return vec2(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y));}\
    \vec3 ifthenelse(vec3 x,vec3 y,vec3 z){return vec3(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y),ifthenelse(x.z,y.z,z.z));}\
@@ -463,10 +467,6 @@ header
    \  if(xy2.y == xy1.y) return hline(xy1.y,w,fxy);\
    \  float d = abs((xy2.y-xy1.y)*fxy.x-(xy2.x-xy1.x)*fxy.y+xy2.x*xy1.y-xy2.y*xy1.x)/sqrt((xy2.x-xy1.x)*(xy2.x-xy1.x)+(xy2.y-xy1.y)*(xy2.y-xy1.y));\
    \  if(d<w) return 1.; else return 0.;}\
-   \float clip(vec2 r,float x){return clamp(x,r.x,r.y);}\
-   \vec2 clip(vec2 r,vec2 x){return clamp(x,r.x,r.y);}\
-   \vec3 clip(vec2 r,vec3 x){return clamp(x,r.x,r.y);}\
-   \vec4 clip(vec2 r,vec4 x){return clamp(x,r.x,r.y);}\
    \float between(vec2 r,float x) {\
    \ if(r.y>=r.x && x>=r.x && x<=r.y) return 1.;\
    \ if(r.x>=r.y && x>=r.y && x<=r.x) return 1.;\
