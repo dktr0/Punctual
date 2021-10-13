@@ -115,7 +115,7 @@ graphToGLSL env (RgbV x) = graphToGLSL env (RgbHsv x) >>= return . fmap swizzleZ
 
 -- unary functions that access textures
 
-graphToGLSL env@(texMap,fxy) (Tex t xy) = graphToGLSL env xy >>= texture2D (showb n)
+graphToGLSL env@(texMap,_) (Tex t xy) = graphToGLSL env xy >>= texture2D (showb n)
   where n = min 14 $ max 0 $ Map.findWithDefault 0 t texMap
 
 graphToGLSL env (Fb xy) = graphToGLSL env xy >>= texture2D "_fb"
@@ -151,12 +151,12 @@ graphToGLSL env (Max x y) = binaryFunction "max" env x y
 graphToGLSL env (Min x y) = binaryFunction "min" env x y
 graphToGLSL env (Product x y) = binaryOp "*" env x y
 graphToGLSL env (Division x y) = binaryOp "/" env x y
-graphToGLSL env (GreaterThan x y) = binaryFunction "_gt" env x y
-graphToGLSL env (GreaterThanOrEqual x y) = binaryFunction "_gte" env x y
-graphToGLSL env (LessThan x y) = binaryFunction "_lt" env x y
-graphToGLSL env (LessThanOrEqual x y) = binaryFunction "_lte" env x y
-graphToGLSL env (Equal x y) = binaryOpBool "==" env x y
-graphToGLSL env (NotEqual x y) = binaryOpBool "!=" env x y
+graphToGLSL env (GreaterThan x y) = comparisonOpGLSL ">" "greaterThan" env x y
+graphToGLSL env (GreaterThanOrEqual x y) = comparisonOpGLSL ">=" "greaterThanEqual" env x y
+graphToGLSL env (LessThan x y) = comparisonOpGLSL "<" "lessThan" env x y
+graphToGLSL env (LessThanOrEqual x y) = comparisonOpGLSL "<=" "lessThanEqual" env x y
+graphToGLSL env (Equal x y) = comparisonOpGLSL "==" "equal" env x y
+graphToGLSL env (NotEqual x y) = comparisonOpGLSL "!=" "notEqual" env x y
 graphToGLSL env (Gate x y) = binaryFunction "gate" env x y
 graphToGLSL env (Pow x y) = binaryFunction "pow" env x y
 
@@ -170,7 +170,7 @@ graphToGLSL env (Between r x) = do
   x' <- graphToGLSL env x
   return [ between r'' x'' | r'' <- r', x'' <- x' ]
 
-graphToGLSL env (Step [] _) = return [constantFloat 0]
+graphToGLSL _ (Step [] _) = return [constantFloat 0]
 graphToGLSL env (Step (x:[]) _) = graphToGLSL env x
 graphToGLSL env (Step xs (Constant y)) =
   let y' = max (min y 0.99999999) 0
@@ -269,15 +269,25 @@ binaryOp opName env x y = do
   (x'',y'') <- alignExprs x' y'
   return $ zipWith (binaryExprOp opName) x'' y''
 
--- like binaryOp except the op named by opName returns a bool/bvec2/bvec3/bvec4 that is cast to GLFloat/Vec2/Vec3/Vec4
-binaryOpBool :: Builder -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
-binaryOpBool opName env x y = do
+-- comparisonOpGLSL and comparisonOp: specialized for comparison operators which are binary operators
+-- for float comparisons but binary functions for vec2/3/4 comparisons
+comparisonOpGLSL :: Builder -> Builder -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
+comparisonOpGLSL opName funcName env x y = do
   x' <- graphToGLSL env x
   y' <- graphToGLSL env y
   (x'',y'') <- alignExprs x' y'
-  let z = zipWith (binaryExprOp opName) x'' y'' -- note: GLSLExpr types will be (momentarily) wrong at this point
-  let f x = unsafeCast (glslType x) x -- ie. explicitly cast a GLSLExpr to its indicated type
-  return $ fmap f z
+  return $ zipWith (comparisonOp opName funcName) x'' y''
+
+comparisonOp :: Builder -> Builder -> GLSLExpr -> GLSLExpr -> GLSLExpr
+comparisonOp opName _ (GLSLExpr GLFloat x xDeps) (GLSLExpr GLFloat y yDeps) = GLSLExpr GLFloat b (Set.union xDeps yDeps)
+  where b = "float(" <> x <> opName <> y <> ")"
+comparisonOp _ funcName (GLSLExpr Vec2 x xDeps) (GLSLExpr Vec2 y yDeps) = GLSLExpr Vec2 b (Set.union xDeps yDeps)
+  where b = "vec2(" <> funcName <> "(" <> x <> "," <> y <> "))"
+comparisonOp _ funcName (GLSLExpr Vec3 x xDeps) (GLSLExpr Vec3 y yDeps) = GLSLExpr Vec2 b (Set.union xDeps yDeps)
+  where b = "vec2(" <> funcName <> "(" <> x <> "," <> y <> "))"
+comparisonOp _ funcName (GLSLExpr Vec4 x xDeps) (GLSLExpr Vec4 y yDeps) = GLSLExpr Vec2 b (Set.union xDeps yDeps)
+  where b = "vec2(" <> funcName <> "(" <> x <> "," <> y <> "))"
+comparisonOp _ _ _ _ = error "uhoh - comparisonOp called with mismatched/misaligned GLSLExpr types"
 
 binaryFunctionWithPosition :: Builder -> GraphEnv -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
 binaryFunctionWithPosition funcName (_,fxys) as bs = do
@@ -398,18 +408,6 @@ header
    \float ifthenelse(float x,float y,float z){return float(x>0.)*y+float(x<=0.)*z;}\
    \vec2 ifthenelse(vec2 x,vec2 y,vec2 z){return vec2(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y));}\
    \vec3 ifthenelse(vec3 x,vec3 y,vec3 z){return vec3(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y),ifthenelse(x.z,y.z,z.z));}\
-   \float _gt(float x,float y){return float(x>y);}\
-   \vec2 _gt(vec2 x,vec2 y){return vec2(bvec2(x.x>y.x,x.y>y.y));}\
-   \vec3 _gt(vec3 x,vec3 y){return vec3(bvec3(x.x>y.x,x.y>y.y,x.z>y.z));}\
-   \float _gte(float x,float y){return float(x>=y);}\
-   \vec2 _gte(vec2 x,vec2 y){return vec2(bvec2(x.x>=y.x,x.y>=y.y));}\
-   \vec3 _gte(vec3 x,vec3 y){return vec3(bvec3(x.x>=y.x,x.y>=y.y,x.z>=y.z));}\
-   \float _lt(float x,float y){return float(x<y);}\
-   \vec2 _lt(vec2 x,vec2 y){return vec2(bvec2(x.x<y.x,x.y<y.y));}\
-   \vec3 _lt(vec3 x,vec3 y){return vec3(bvec3(x.x<y.x,x.y<y.y,x.z<y.z));}\
-   \float _lte(float x,float y){return float(x<=y);}\
-   \vec2 _lte(vec2 x,vec2 y){return vec2(bvec2(x.x<=y.x,x.y<=y.y));}\
-   \vec3 _lte(vec3 x,vec3 y){return vec3(bvec3(x.x<=y.x,x.y<=y.y,x.z<=y.z));}\
    \float prox(vec2 x,vec2 y){return clamp((2.828427-distance(x,y))/2.828427,0.,1.);}\
    \float gate(float x,float y){return float(abs(x)<abs(y))*y;}\
    \vec2 gate(vec2 x,vec2 y){return vec2(gate(x.x,y.x),gate(x.y,y.y));}\
