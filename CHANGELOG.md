@@ -1,7 +1,8 @@
 # ChangeLog
 
-0.3.2.2:
+0.4.0.0:
 - significant refactor of fragment shader generation
+- many changes to multi-channel expansion behaviours
 
 0.3.2.1:
 - bug fix relating to line, iline
