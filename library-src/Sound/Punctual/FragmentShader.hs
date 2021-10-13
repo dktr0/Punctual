@@ -247,7 +247,9 @@ unaryFunction :: Builder -> [GLSLExpr] -> GLSL [GLSLExpr]
 unaryFunction funcName x = return $ fmap (unaryExprFunction funcName) x
 
 unaryFunction' :: (GLSLExpr -> GLSLExpr) -> [GLSLExpr] -> GLSL [GLSLExpr]
-unaryFunction' f x = return $ fmap f x
+unaryFunction' f xs = do
+  xs' <- alignMax xs
+  return $ fmap f xs'
 
 unaryFunctionWithPosition :: GraphEnv -> Builder -> Graph -> GLSL [GLSLExpr]
 unaryFunctionWithPosition env@(_,fxy) funcName x = do
@@ -592,6 +594,7 @@ generateOutput o zeroExpr allExprs = do
   let xs = fmap fst $ Prelude.filter (elem o . snd) allExprs
   case xs of
     [] -> return zeroExpr
+    (x:[]) -> return x
     _ -> assign $ Foldable.foldr1 (+) xs
 
 
