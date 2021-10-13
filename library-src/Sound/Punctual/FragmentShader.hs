@@ -222,17 +222,17 @@ graphToGLSL env (IfThenElse x y z) = do
 
 -- ternary functions with position
 
-graphToGLSL env (ILine xy1 xy2 w) = do
+graphToGLSL env@(_,fxy) (ILine xy1 xy2 w) = do
   xy1' <- graphToGLSL env xy1 >>= align Vec2
   xy2' <- graphToGLSL env xy2 >>= align Vec2
   w' <- graphToGLSL env w >>= align GLFloat
-  return [ iline xy1'' xy2'' w'' | xy1'' <- xy1', xy2'' <- xy2', w'' <- w' ]
+  return [ iline xy1'' xy2'' w'' fxy' | xy1'' <- xy1', xy2'' <- xy2', w'' <- w', fxy' <- fxy ]
 
-graphToGLSL env (Line xy1 xy2 w) = do
+graphToGLSL env@(_,fxy) (Line xy1 xy2 w) = do
   xy1' <- graphToGLSL env xy1 >>= align Vec2
   xy2' <- graphToGLSL env xy2 >>= align Vec2
   w' <- graphToGLSL env w >>= align GLFloat
-  return [ line xy1'' xy2'' w'' | xy1'' <- xy1', xy2'' <- xy2', w'' <- w' ]
+  return [ line xy1'' xy2'' w'' fxy' | xy1'' <- xy1', xy2'' <- xy2', w'' <- w', fxy' <- fxy ]
 
 graphToGLSL _ _ = return [constantFloat 0]
 
@@ -339,13 +339,13 @@ ifthenelse :: GLSLExpr -> (GLSLExpr,GLSLExpr) -> GLSLExpr
 ifthenelse c (r1,r2) = GLSLExpr { glslType = glslType r1, builder = b, deps = Set.union (deps c) $ Set.union (deps r1) (deps r2) }
   where b = "ifthenelse(" <> builder c <> "," <> builder r1 <> "," <> builder r2 <> ")"
 
-iline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-iline xy1 xy2 w = GLSLExpr { glslType = GLFloat, builder = b, deps = Set.union (deps xy1) $ Set.union (deps xy2) (deps w) }
-  where b = "iline(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> ")"
+iline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
+iline xy1 xy2 w fxy = GLSLExpr { glslType = GLFloat, builder = b, deps = Set.union (deps xy1) $ Set.union (deps xy2) $ Set.union (deps w) (deps fxy) }
+  where b = "iline(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> "," <> builder fxy <> ")"
 
-line :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-line xy1 xy2 w = GLSLExpr { glslType = GLFloat, builder = b, deps = Set.union (deps xy1) $ Set.union (deps xy2) (deps w) }
-  where b = "line(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> ")"
+line :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
+line xy1 xy2 w fxy = GLSLExpr { glslType = GLFloat, builder = b, deps = Set.union (deps xy1) $ Set.union (deps xy2) $ Set.union (deps w) (deps fxy) }
+  where b = "line(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> "," <> builder fxy <> ")"
 
 
 defaultFragmentShader :: Text
