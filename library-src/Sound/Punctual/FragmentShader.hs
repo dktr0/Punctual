@@ -157,8 +157,14 @@ graphToGLSL env (LessThan x y) = comparisonOpGLSL "<" "lessThan" env x y
 graphToGLSL env (LessThanOrEqual x y) = comparisonOpGLSL "<=" "lessThanEqual" env x y
 graphToGLSL env (Equal x y) = comparisonOpGLSL "==" "equal" env x y
 graphToGLSL env (NotEqual x y) = comparisonOpGLSL "!=" "notEqual" env x y
-graphToGLSL env (Gate x y) = binaryFunction "gate" env x y
+graphToGLSL env (Gate x y) = do
+  x' <- graphToGLSL env x
+  y' <- graphToGLSL env y
+  (x'',y'') <- alignExprs x' y'
+  y''' <- mapM assign y'' -- assign y since it is used twice by gate
+  return $ zipWith gate x'' y'''
 graphToGLSL env (Pow x y) = binaryFunction "pow" env x y
+
 
 graphToGLSL env (Clip r x) = do
   r' <- graphToGLSL env r >>= align Vec2
@@ -262,6 +268,15 @@ binaryFunction funcName env x y = do
   (x'',y'') <- alignExprs x' y'
   return $ zipWith (binaryExprFunction funcName) x'' y''
 
+-- like binaryFunction but takes a Haskell representation of a binary function over GLSL expressions
+-- instead of the name of such a function, and assigns x and y
+binaryFunction' :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
+binaryFunction' f env x y = do
+  x' <- graphToGLSL env x
+  y' <- graphToGLSL env y
+  (x'',y'') <- alignExprs x' y'
+  return $ zipWith f x'' y''
+
 binaryOp :: Builder -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
 binaryOp opName env x y = do
   x' <- graphToGLSL env x
@@ -283,10 +298,10 @@ comparisonOp opName _ (GLSLExpr GLFloat x xDeps) (GLSLExpr GLFloat y yDeps) = GL
   where b = "float(" <> x <> opName <> y <> ")"
 comparisonOp _ funcName (GLSLExpr Vec2 x xDeps) (GLSLExpr Vec2 y yDeps) = GLSLExpr Vec2 b (Set.union xDeps yDeps)
   where b = "vec2(" <> funcName <> "(" <> x <> "," <> y <> "))"
-comparisonOp _ funcName (GLSLExpr Vec3 x xDeps) (GLSLExpr Vec3 y yDeps) = GLSLExpr Vec2 b (Set.union xDeps yDeps)
-  where b = "vec2(" <> funcName <> "(" <> x <> "," <> y <> "))"
-comparisonOp _ funcName (GLSLExpr Vec4 x xDeps) (GLSLExpr Vec4 y yDeps) = GLSLExpr Vec2 b (Set.union xDeps yDeps)
-  where b = "vec2(" <> funcName <> "(" <> x <> "," <> y <> "))"
+comparisonOp _ funcName (GLSLExpr Vec3 x xDeps) (GLSLExpr Vec3 y yDeps) = GLSLExpr Vec3 b (Set.union xDeps yDeps)
+  where b = "vec3(" <> funcName <> "(" <> x <> "," <> y <> "))"
+comparisonOp _ funcName (GLSLExpr Vec4 x xDeps) (GLSLExpr Vec4 y yDeps) = GLSLExpr Vec4 b (Set.union xDeps yDeps)
+  where b = "vec4(" <> funcName <> "(" <> x <> "," <> y <> "))"
 comparisonOp _ _ _ _ = error "uhoh - comparisonOp called with mismatched/misaligned GLSLExpr types"
 
 binaryFunctionWithPosition :: Builder -> GraphEnv -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
@@ -357,6 +372,10 @@ line :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
 line xy1 xy2 w fxy = GLSLExpr { glslType = GLFloat, builder = b, deps = Set.union (deps xy1) $ Set.union (deps xy2) $ Set.union (deps w) (deps fxy) }
   where b = "line(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> "," <> builder fxy <> ")"
 
+-- arguments must be pre-aligned (same underlying GLSL types)
+gate :: GLSLExpr -> GLSLExpr -> GLSLExpr
+gate x y = comparisonOp "<" "lessThan" x y * y
+
 
 defaultFragmentShader :: Text
 defaultFragmentShader = (toText header) <> "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"
@@ -409,9 +428,6 @@ header
    \vec2 ifthenelse(vec2 x,vec2 y,vec2 z){return vec2(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y));}\
    \vec3 ifthenelse(vec3 x,vec3 y,vec3 z){return vec3(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y),ifthenelse(x.z,y.z,z.z));}\
    \float prox(vec2 x,vec2 y){return clamp((2.828427-distance(x,y))/2.828427,0.,1.);}\
-   \float gate(float x,float y){return float(abs(x)<abs(y))*y;}\
-   \vec2 gate(vec2 x,vec2 y){return vec2(gate(x.x,y.x),gate(x.y,y.y));}\
-   \vec3 gate(vec3 x,vec3 y){return vec3(gate(x.x,y.x),gate(x.y,y.y),gate(x.z,y.z));}\
    \float _step(int n,int x,float y){return float(x==int((y*0.5+0.5)*float(n)));}\
    \float xFadeNew(float t1,float t2){return clamp((_etime-t1)/(t2-t1),0.,1.);}\
    \float xFadeOld(float t1,float t2){return 1.-xFadeNew(t1,t2);}\
