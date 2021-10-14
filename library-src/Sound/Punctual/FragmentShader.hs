@@ -59,12 +59,11 @@ graphToGLSL ah (_,fxy) Fxy = alignHint ah $ fxy
 -- multichannel operations: multi, mono, rep, unrep
 
 graphToGLSL ah env (Multi xs) = do
-  xs' <- mapM (graphToGLSL env) xs
-  let xs'' = concat xs'
-  alignHint ah xs''
+  xs' <- mapM (graphToGLSL ah env) xs
+  alignHint ah $ concat xs'
 
 graphToGLSL _ env (Mono x) = do
-  x' <- graphToGLSL env x
+  x' <- graphToGLSL (Just GLFloat) env x
   case x' of
     [] -> return [constantFloat 0]
     _ -> do
@@ -77,13 +76,12 @@ graphToGLSL ah env (Rep n x) = do
 
 graphToGLSL _ _ (UnRep 0 _) = return [constantFloat 0]
 graphToGLSL ah env (UnRep n x) = do
-  x' <- graphToGLSL env x
-  x'' <- align GLFloat x'
-  alignHint $ fmap (Foldable.foldr1 (+)) $ chunksOf n x''
+  x' <- graphToGLSL (Just GLFloat) env x >>= align GLFloat
+  alignHint ah $ fmap (Foldable.foldr1 (+)) $ chunksOf n x'
 
 -- unary functions
-graphToGLSL ah env (Bipolar x) = unaryFunction' ah bipolar x
-graphToGLSL ah env (Unipolar x) = unaryFunction' ah unipolar x
+graphToGLSL ah env (Bipolar x) = unaryFunction' bipolar ah env x
+graphToGLSL ah env (Unipolar x) = unaryFunction' unipolar ah env x
 graphToGLSL ah env (Sin x) = do
   x' <- graphToGLSL ah env x
   unaryFunction "sin" $ fmap ((*) (constantFloat 3.14159265 * constantFloat 2 * _time)) x'
@@ -98,7 +96,7 @@ graphToGLSL ah env (Ceil x) = graphToGLSL ah env x >>= unaryFunction "ceil"
 graphToGLSL ah env (Fract x) = graphToGLSL ah env x >>= unaryFunction "fract"
 graphToGLSL _ env (Tri x) = graphToGLSL (Just GLFloat) env x >>= align GLFloat >>= unaryFunction "tri"
 graphToGLSL _ env (Saw x) = graphToGLSL (Just GLFloat) env x >>= align GLFloat >>= unaryFunction "saw"
-graphToGLSL _ env (Sqr x) = graphToGLSL (Just GLFloat) env x >>= ualign GLFloat >>= naryFunction "sqr"
+graphToGLSL _ env (Sqr x) = graphToGLSL (Just GLFloat) env x >>= align GLFloat >>= unaryFunction "sqr"
 graphToGLSL _ env (LFTri x) = graphToGLSL (Just GLFloat) env x >>= align GLFloat >>= unaryFunction "tri"
 graphToGLSL _ env (LFSaw x) = graphToGLSL (Just GLFloat) env x >>= align GLFloat >>= unaryFunction "saw"
 graphToGLSL _ env (LFSqr x) = graphToGLSL (Just GLFloat) env x >>= align GLFloat >>= unaryFunction "sqr"
@@ -146,119 +144,116 @@ graphToGLSL ah env (Zoom a b) = unaryPositionTransform zoom ah env a b
 graphToGLSL ah env (Move a b) = unaryPositionTransform move ah env a b
 graphToGLSL ah env (Tile a b) = unaryPositionTransform tile ah env a b
 graphToGLSL ah env@(texMap,fxy) (Spin a b) = do
-  a' <- graphToGLSL env a >>= align GLFloat
+  a' <- graphToGLSL (Just GLFloat) env a >>= align GLFloat
   graphToGLSL ah (texMap,[ spin fxy' a'' | fxy' <- fxy, a'' <- a' ]) b
 
-
--- *** WORKING BELOW HERE on extending alignment hint mechanism to all graphToGLSL patterns:
-
 -- (simple) binary functions
-graphToGLSL env (Sum x y) = binaryOp "+" env x y
-graphToGLSL env (Max x y) = binaryFunction "max" env x y
-graphToGLSL env (Min x y) = binaryFunction "min" env x y
-graphToGLSL env (Product x y) = binaryOp "*" env x y
-graphToGLSL env (Division x y) = binaryOp "/" env x y
-graphToGLSL env (GreaterThan x y) = comparisonOpGLSL ">" "greaterThan" env x y
-graphToGLSL env (GreaterThanOrEqual x y) = comparisonOpGLSL ">=" "greaterThanEqual" env x y
-graphToGLSL env (LessThan x y) = comparisonOpGLSL "<" "lessThan" env x y
-graphToGLSL env (LessThanOrEqual x y) = comparisonOpGLSL "<=" "lessThanEqual" env x y
-graphToGLSL env (Equal x y) = comparisonOpGLSL "==" "equal" env x y
-graphToGLSL env (NotEqual x y) = comparisonOpGLSL "!=" "notEqual" env x y
-graphToGLSL env (Gate x y) = do
-  x' <- graphToGLSL env x
-  y' <- graphToGLSL env y
+graphToGLSL ah env (Sum x y) = binaryOp "+" ah env x y
+graphToGLSL ah env (Product x y) = binaryOp "*" ah env x y
+graphToGLSL ah env (Division x y) = binaryOp "/" ah env x y
+graphToGLSL ah env (Max x y) = binaryFunction "max" ah env x y
+graphToGLSL ah env (Min x y) = binaryFunction "min" ah env x y
+graphToGLSL ah env (Pow x y) = binaryFunction "pow" ah env x y
+graphToGLSL ah env (GreaterThan x y) = comparisonOpGLSL ">" "greaterThan" ah env x y
+graphToGLSL ah env (GreaterThanOrEqual x y) = comparisonOpGLSL ">=" "greaterThanEqual" ah env x y
+graphToGLSL ah env (LessThan x y) = comparisonOpGLSL "<" "lessThan" ah env x y
+graphToGLSL ah env (LessThanOrEqual x y) = comparisonOpGLSL "<=" "lessThanEqual" ah env x y
+graphToGLSL ah env (Equal x y) = comparisonOpGLSL "==" "equal" ah env x y
+graphToGLSL ah env (NotEqual x y) = comparisonOpGLSL "!=" "notEqual" ah env x y
+graphToGLSL ah env (Gate x y) = do
+  x' <- graphToGLSL ah env x
+  y' <- graphToGLSL ah env y
   (x'',y'') <- alignExprs x' y'
   y''' <- mapM assign y'' -- assign y since it is used twice by gate
   return $ zipWith gate x'' y'''
-graphToGLSL env (Pow x y) = binaryFunction "pow" env x y
 
-
-graphToGLSL env (Clip r x) = do
-  r' <- graphToGLSL env r >>= align Vec2
-  x' <- graphToGLSL env x
+graphToGLSL ah env (Clip r x) = do
+  r' <- graphToGLSL (Just Vec2) env r >>= align Vec2
+  x' <- graphToGLSL ah env x
   return [ clip r'' x'' | r'' <- r', x'' <- x' ]
 
-graphToGLSL env (Between r x) = do
-  r' <- graphToGLSL env r >>= align Vec2
-  x' <- graphToGLSL env x
+graphToGLSL ah env (Between r x) = do
+  r' <- graphToGLSL (Just Vec2) env r >>= align Vec2
+  x' <- graphToGLSL ah env x
   return [ between r'' x'' | r'' <- r', x'' <- x' ]
 
-graphToGLSL _ (Step [] _) = return [constantFloat 0]
-graphToGLSL env (Step (x:[]) _) = graphToGLSL env x
-graphToGLSL env (Step xs (Constant y)) =
+-- *** TODO: Step's semantics currently only make sense for single-channel outputs.
+graphToGLSL _ _ (Step [] _) = return [constantFloat 0]
+graphToGLSL ah env (Step (x:[]) _) = graphToGLSL ah env x
+graphToGLSL ah env (Step xs (Constant y)) =
   let y' = max (min y 0.99999999) 0
       y'' = floor (y' * fromIntegral (length xs))
-  in graphToGLSL env (xs!!y'')
-graphToGLSL env (Step xs y) = do
-  xs' <- mapM (graphToGLSL env) xs -- :: [[GLSLExpr]]
+  in graphToGLSL ah env (xs!!y'')
+graphToGLSL _ env (Step xs y) = do
+  xs' <- mapM (graphToGLSL Nothing env) xs -- :: [[GLSLExpr]]
   xs'' <- mapM (align GLFloat) xs' >>= return . concat -- :: [GLSLExpr] where all are GLFloat
-  y' <- graphToGLSL env y >>= align GLFloat -- :: [GLSLExpr] where all are GLFloat
+  y' <- graphToGLSL (Just GLFloat) env y >>= align GLFloat -- :: [GLSLExpr] where all are GLFloat
   return $ fmap (step xs'') y'
 
 -- binary functions, with position
 
-graphToGLSL env (Rect xy wh) = do
-  xy' <- graphToGLSL env xy >>= align Vec2
-  wh' <- graphToGLSL env wh >>= align Vec2
-  binaryFunctionWithPosition "rect" env xy' wh'
+graphToGLSL ah env (Rect xy wh) = do
+  xy' <- graphToGLSL (Just Vec2) env xy >>= align Vec2
+  wh' <- graphToGLSL (Just Vec2) env wh >>= align Vec2
+  binaryFunctionWithPosition "rect" env xy' wh' >>= alignHint ah
 
-graphToGLSL env (Circle xy r) = do
-  xy' <- graphToGLSL env xy >>= align Vec2
-  r' <- graphToGLSL env r >>= align GLFloat
-  binaryFunctionWithPosition "circle" env xy' r'
+graphToGLSL ah env (Circle xy r) = do
+  xy' <- graphToGLSL (Just Vec2) env xy >>= align Vec2
+  r' <- graphToGLSL (Just GLFloat) env r >>= align GLFloat
+  binaryFunctionWithPosition "circle" env xy' r' >>= alignHint ah
 
-graphToGLSL env (VLine x w) = do
-  x' <- graphToGLSL env x >>= align GLFloat
-  w' <- graphToGLSL env w >>= align GLFloat
-  binaryFunctionWithPosition' vline env x' w'
+graphToGLSL ah env (VLine x w) = do
+  x' <- graphToGLSL (Just GLFloat) env x >>= align GLFloat
+  w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
+  binaryFunctionWithPosition' vline env x' w' >>= alignHint ah
 
-graphToGLSL env (HLine y w) = do
-  y' <- graphToGLSL env y >>= align GLFloat
-  w' <- graphToGLSL env w >>= align GLFloat
-  binaryFunctionWithPosition' hline env y' w'
+graphToGLSL ah env (HLine y w) = do
+  y' <- graphToGLSL (Just GLFloat) env y >>= align GLFloat
+  w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
+  binaryFunctionWithPosition' hline env y' w' >>= alignHint ah
 
 -- (simple) ternary functions
-graphToGLSL env (LinLin r1 r2 w) = do
-  r1' <- graphToGLSL env r1 >>= align Vec2
-  r2' <- graphToGLSL env r2 >>= align Vec2
-  w' <- graphToGLSL env w >>= align GLFloat
-  return [ linlin r1'' r2'' w'' | r1'' <- r1', r2'' <- r2', w'' <- w' ]
+graphToGLSL ah env (LinLin r1 r2 w) = do
+  r1' <- graphToGLSL (Just Vec2) env r1 >>= align Vec2
+  r2' <- graphToGLSL (Just Vec2) env r2 >>= align Vec2
+  w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
+  alignHint ah [ linlin r1'' r2'' w'' | r1'' <- r1', r2'' <- r2', w'' <- w' ]
 
 -- get all channels of a result branch per channel of condition, by
 -- aligning result branches to each other + aligning condition to GLFloat
-graphToGLSL env (IfThenElse x y z) = do
-  x' <- graphToGLSL env x >>= align GLFloat
-  y' <- graphToGLSL env y
-  z' <- graphToGLSL env z
+graphToGLSL ah env (IfThenElse x y z) = do
+  x' <- graphToGLSL (Just GLFloat) env x >>= align GLFloat
+  y' <- graphToGLSL ah env y
+  z' <- graphToGLSL ah env z
   (y'',z'') <- alignExprs y' z'
   return [ ifthenelse x'' yz | x'' <- x', yz <- zip y'' z'']
 
 -- ternary functions with position
 
-graphToGLSL env@(_,fxy) (ILine xy1 xy2 w) = do
-  xy1' <- graphToGLSL env xy1 >>= align Vec2
-  xy2' <- graphToGLSL env xy2 >>= align Vec2
-  w' <- graphToGLSL env w >>= align GLFloat
-  return [ iline xy1'' xy2'' w'' fxy' | xy1'' <- xy1', xy2'' <- xy2', w'' <- w', fxy' <- fxy ]
+graphToGLSL ah env@(_,fxy) (ILine xy1 xy2 w) = do
+  xy1' <- graphToGLSL (Just Vec2) env xy1 >>= align Vec2
+  xy2' <- graphToGLSL (Just Vec2) env xy2 >>= align Vec2
+  w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
+  alignHint ah [ iline xy1'' xy2'' w'' fxy' | xy1'' <- xy1', xy2'' <- xy2', w'' <- w', fxy' <- fxy ]
 
-graphToGLSL env@(_,fxy) (Line xy1 xy2 w) = do
-  xy1' <- graphToGLSL env xy1 >>= align Vec2
-  xy2' <- graphToGLSL env xy2 >>= align Vec2
-  w' <- graphToGLSL env w >>= align GLFloat
-  return [ line xy1'' xy2'' w'' fxy' | xy1'' <- xy1', xy2'' <- xy2', w'' <- w', fxy' <- fxy ]
+graphToGLSL ah env@(_,fxy) (Line xy1 xy2 w) = do
+  xy1' <- graphToGLSL (Just Vec2) env xy1 >>= align Vec2
+  xy2' <- graphToGLSL (Just Vec2) env xy2 >>= align Vec2
+  w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
+  alignHint ah [ line xy1'' xy2'' w'' fxy' | xy1'' <- xy1', xy2'' <- xy2', w'' <- w', fxy' <- fxy ]
 
-graphToGLSL _ _ = return [constantFloat 0]
+graphToGLSL _ _ _ = return [constantFloat 0]
 
 
 unaryFunction :: Builder -> [GLSLExpr] -> GLSL [GLSLExpr]
 unaryFunction funcName x = return $ fmap (unaryExprFunction funcName) x
 
-unaryFunction' :: AlignHint -> (GLSLExpr -> GLSLExpr) -> GraphEnv -> Graph -> GLSL [GLSLExpr]
-unaryFunction' ah f env x = graphToGLSL ah env x >>= (return . fmap f)
+unaryFunction' :: (GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> GLSL [GLSLExpr]
+unaryFunction' f ah env x = graphToGLSL ah env x >>= (return . fmap f)
 
 unaryFunctionWithPosition :: GraphEnv -> Builder -> Graph -> GLSL [GLSLExpr]
 unaryFunctionWithPosition env@(_,fxy) funcName x = do
-  xs <- graphToGLSL env x >>= align Vec2
+  xs <- graphToGLSL (Just Vec2) env x >>= align Vec2
   let f fxy' x' = GLSLExpr {
     glslType = GLFloat,
     builder = funcName <> "(" <> builder x' <> "," <> builder fxy' <> ")",
@@ -268,38 +263,38 @@ unaryFunctionWithPosition env@(_,fxy) funcName x = do
 
 unaryPositionTransform :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
 unaryPositionTransform f ah env@(texMap,fxy) a b = do
-  a' <- graphToGLSL env a >>= align Vec2
+  a' <- graphToGLSL (Just Vec2) env a >>= align Vec2
   graphToGLSL ah (texMap,[ f fxy' a'' | fxy' <- fxy, a'' <- a' ]) b
 
-binaryFunction :: Builder -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
-binaryFunction funcName env x y = do
-  x' <- graphToGLSL env x
-  y' <- graphToGLSL env y
+binaryFunction :: Builder -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
+binaryFunction funcName ah env x y = do
+  x' <- graphToGLSL ah env x
+  y' <- graphToGLSL ah env y
   (x'',y'') <- alignExprs x' y'
   return $ zipWith (binaryExprFunction funcName) x'' y''
 
 -- like binaryFunction but takes a Haskell representation of a binary function over GLSL expressions
 -- instead of the name of such a function, and assigns x and y
-binaryFunction' :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
-binaryFunction' f env x y = do
-  x' <- graphToGLSL env x
-  y' <- graphToGLSL env y
+binaryFunction' :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
+binaryFunction' f ah env x y = do
+  x' <- graphToGLSL ah env x
+  y' <- graphToGLSL ah env y
   (x'',y'') <- alignExprs x' y'
   return $ zipWith f x'' y''
 
-binaryOp :: Builder -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
-binaryOp opName env x y = do
-  x' <- graphToGLSL env x
-  y' <- graphToGLSL env y
+binaryOp :: Builder -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
+binaryOp opName ah env x y = do
+  x' <- graphToGLSL ah env x
+  y' <- graphToGLSL ah env y
   (x'',y'') <- alignExprs x' y'
   return $ zipWith (binaryExprOp opName) x'' y''
 
 -- comparisonOpGLSL and comparisonOp: specialized for comparison operators which are binary operators
 -- for float comparisons but binary functions for vec2/3/4 comparisons
-comparisonOpGLSL :: Builder -> Builder -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
-comparisonOpGLSL opName funcName env x y = do
-  x' <- graphToGLSL env x
-  y' <- graphToGLSL env y
+comparisonOpGLSL :: Builder -> Builder -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
+comparisonOpGLSL opName funcName ah env x y = do
+  x' <- graphToGLSL ah env x
+  y' <- graphToGLSL ah env y
   (x'',y'') <- alignExprs x' y'
   return $ zipWith (comparisonOp opName funcName) x'' y''
 
@@ -506,8 +501,8 @@ _time = GLSLExpr { glslType = GLFloat, builder = "_time", deps = Set.empty }
 
 actionToGLSL :: Map Text Int -> Action -> GLSL GLSLExpr
 actionToGLSL texMap a = do
-  b <- graphToGLSL (texMap,[defaultFxy]) $ graph a
   let actionType = if isVec3 a then Vec3 else GLFloat
+  b <- graphToGLSL (Just actionType) (texMap,[defaultFxy]) $ graph a
   c <- align actionType b
   let d = foldr1 (+) c
   assign $ if isHsv a then hsvrgb d else d
