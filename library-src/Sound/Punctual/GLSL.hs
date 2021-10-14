@@ -259,6 +259,34 @@ alignMax xs
       ys' <- alignMax ys
       return (y:ys')
 
+type AlignHint = Maybe GLSLType
+
+alignHint :: AlignHint -> [GLSLExpr] -> GLSL [GLSLExpr]
+alignHint Nothing xs = return xs -- or alignMax???
+alignHint (Just t) xs = alignNoExtension t xs
+
+-- like align, but doesn't repeat/extend to fill out types
+-- instead, when there is not enough "data" to fill out a type
+-- it uses alignMax above to at least produce the largest type possible
+alignNoExtension :: GLSLType  -> [GLSLExpr] -> GLSL [GLSLExpr]
+alignNoExtension _ [] = return []
+alignNoExtension Vec3 xs | exprsChannels xs > 3 = do
+  (x,xs') <- splitAligned Vec3 xs
+  xs'' <- alignNoExtension Vec3 xs'
+  return (x:xs'')
+alignNoExtension Vec2 xs | exprsChannels xs >= 2  = do
+    (x,xs') <- splitAligned Vec2 xs
+    xs'' <- alignNoExtension Vec2 xs'
+    return (x:xs'')
+alignNoExtension Vec3 xs | exprsChannels xs >= 3 = do
+  (x,xs') <- splitAligned Vec3 xs
+  xs'' <- alignNoExtension Vec3 xs'
+  return (x:xs'')
+alignNoExtension Vec4 xs | exprsChannels xs >= 4 = do
+  (x,xs') <- splitAligned Vec4 xs
+  xs'' <- alignNoExtension Vec4 xs'
+  return (x:xs'')
+alignNoExtension _ xs = alignMax xs
 
 -- splitAligned: given a GLSLType and a non-empty list of GLSLExpr-s, "pop" stuff from the
 -- head of the list in such a way that a specific GLSLType is guaranteed, returning
