@@ -282,11 +282,16 @@ binaryFunction' f ah env x y = do
   (x'',y'') <- alignExprs x' y'
   return $ zipWith f x'' y''
 
+
+-- *** note: this produces a non-optimal behaviour in cases where a scalar is combined with
+-- a vector -> the scalar is repeated unnecessarily. For now, I choose to optimize the single
+-- case of a one-channel signal combined with an n-channel signal, by aligning in such a way
+-- that one-channel signals are kept as GLFloat no matter what (via "alignExprsOptimized")
 binaryOp :: Builder -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
 binaryOp opName ah env x y = do
   x' <- graphToGLSL ah env x
   y' <- graphToGLSL ah env y
-  (x'',y'') <- alignExprs x' y'
+  (x'',y'') <- alignExprsOptimized x' y'
   return $ zipWith (binaryExprOp opName) x'' y''
 
 -- comparisonOpGLSL and comparisonOp: specialized for comparison operators which are binary operators

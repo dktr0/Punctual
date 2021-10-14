@@ -368,6 +368,23 @@ alignExprs x y = do
       x' <- alignToModel y (cycle x)
       return (x',y)
 
+-- so could this (use a better name)...
+alignExprsOptimized :: [GLSLExpr] -> [GLSLExpr] -> GLSL ([GLSLExpr],[GLSLExpr])
+alignExprsOptimized x y
+  | exprsChannels x == 1 = return (Prelude.replicate (length y) $ Prelude.head x,y)
+  | exprsChannels y == 1 = return (x,Prelude.replicate (length x) $ Prelude.head y)
+  | otherwise = do
+  let xChnls = exprsChannels x
+  let yChnls = exprsChannels y
+  let xIsModel = (xChnls > yChnls ) || ((xChnls == yChnls) && (length x <= length y))
+  case xIsModel of
+    True -> do
+      y' <- alignToModel x (cycle y)
+      return (x,y')
+    False -> do
+      x' <- alignToModel y (cycle x)
+      return (x',y)
+
 -- this could also use a better name...
 alignToModel :: [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
 alignToModel [] _ = return []
