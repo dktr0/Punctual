@@ -139,6 +139,7 @@ graphToGLSL _ env (Point xy) = unaryFunctionWithPosition env "point" xy
 graphToGLSL _ env (Distance xy) = unaryFunctionWithPosition env "distance" xy
 graphToGLSL _ env (Prox xy) = unaryFunctionWithPosition env "prox" xy
 
+
 -- unary transformations of position (technically binary functions, then)
 graphToGLSL ah env (Zoom a b) = unaryPositionTransform zoom ah env a b
 graphToGLSL ah env (Move a b) = unaryPositionTransform move ah env a b
@@ -282,7 +283,6 @@ binaryFunction' f ah env x y = do
   (x'',y'') <- alignExprs x' y'
   return $ zipWith f x'' y''
 
-
 -- *** note: this produces a non-optimal behaviour in cases where a scalar is combined with
 -- a vector -> the scalar is repeated unnecessarily. For now, I choose to optimize the single
 -- case of a one-channel signal combined with an n-channel signal, by aligning in such a way
@@ -393,6 +393,7 @@ gate x y = comparisonOp "<" "lessThan" x y * y
 
 bipolar :: GLSLExpr -> GLSLExpr
 bipolar x = x * 2 - 1
+
 
 unipolar :: GLSLExpr -> GLSLExpr
 unipolar x = (x + 1) * constantFloat 0.5
