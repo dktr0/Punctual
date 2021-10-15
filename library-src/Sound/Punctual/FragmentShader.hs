@@ -468,11 +468,9 @@ header
    \  float d = q.x - min(q.w, q.y);\
    \  float e = 1.0e-10;\
    \  return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);}\
-   \float vline(float x,float w, vec2 fxy) { if(abs(fxy.x-x)<w) return 1.; else return 0.;}\
-   \float hline(float y,float w, vec2 fxy) { if(abs(fxy.y-y)<w) return 1.; else return 0.;}\
    \float iline(vec2 xy1,vec2 xy2,float w,vec2 fxy) {\
-   \  if(xy2.x == xy1.x) return vline(xy1.x,w,fxy);\
-   \  if(xy2.y == xy1.y) return hline(xy1.y,w,fxy);\
+   \  if(xy2.x == xy1.x) return float(abs(fxy.x-xy1.x)<w);\
+   \  if(xy2.y == xy1.y) return float(abs(fxy.y-xy1.y)<w);\
    \  float d = abs((xy2.y-xy1.y)*fxy.x-(xy2.x-xy1.x)*fxy.y+xy2.x*xy1.y-xy2.y*xy1.x)/sqrt((xy2.x-xy1.x)*(xy2.x-xy1.x)+(xy2.y-xy1.y)*(xy2.y-xy1.y));\
    \  if(d<w) return 1.; else return 0.;}\
    \float between(vec2 r,float x) {\
