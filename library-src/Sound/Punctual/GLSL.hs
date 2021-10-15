@@ -86,6 +86,10 @@ instance Num GLSLExpr where
   signum x = unaryExprFunction "sign" x
   fromInteger x = constantFloat $ fromIntegral x
 
+instance Fractional GLSLExpr where
+  fromRational = constantFloat . realToFrac
+  x / y = binaryExprOp "/" x y
+
 
 -- produce a new GLSLExpr of the same underlying type by applying a function a -> a
 unaryExprFunction :: Builder -> GLSLExpr -> GLSLExpr

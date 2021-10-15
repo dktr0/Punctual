@@ -149,9 +149,9 @@ graphToGLSL ah env@(texMap,fxy) (Spin a b) = do
   graphToGLSL ah (texMap,[ spin fxy' a'' | fxy' <- fxy, a'' <- a' ]) b
 
 -- (simple) binary functions
-graphToGLSL ah env (Sum x y) = binaryOp "+" ah env x y
-graphToGLSL ah env (Product x y) = binaryOp "*" ah env x y
-graphToGLSL ah env (Division x y) = binaryOp "/" ah env x y
+graphToGLSL ah env (Sum x y) = binaryOp (+) ah env x y
+graphToGLSL ah env (Product x y) = binaryOp (*) ah env x y
+graphToGLSL ah env (Division x y) = binaryOp (/) ah env x y
 graphToGLSL ah env (Max x y) = binaryFunction "max" ah env x y
 graphToGLSL ah env (Min x y) = binaryFunction "min" ah env x y
 graphToGLSL ah env (Pow x y) = binaryFunction "pow" ah env x y
@@ -287,12 +287,12 @@ binaryFunction' f ah env x y = do
 -- a vector -> the scalar is repeated unnecessarily. For now, I choose to optimize the single
 -- case of a one-channel signal combined with an n-channel signal, by aligning in such a way
 -- that one-channel signals are kept as GLFloat no matter what (via "alignExprsOptimized")
-binaryOp :: Builder -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
-binaryOp opName ah env x y = do
+binaryOp :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
+binaryOp f ah env x y = do
   x' <- graphToGLSL ah env x
   y' <- graphToGLSL ah env y
   (x'',y'') <- alignExprsOptimized x' y'
-  return $ zipWith (binaryExprOp opName) x'' y''
+  return $ zipWith f x'' y''
 
 -- comparisonOpGLSL and comparisonOp: specialized for comparison operators which are binary operators
 -- for float comparisons but binary functions for vec2/3/4 comparisons
@@ -397,6 +397,15 @@ gate x y = comparisonOp "<" "lessThan" x y * y
 bipolar :: GLSLExpr -> GLSLExpr
 bipolar x = x * 2 - 1
 
+{-
+midicps :: GLSLExpr -> GLSLExpr
+midicps x = 440 * (x - 69)
+
+\float midicps(float x) { return 440. * pow(2.,(x-69.)/12.); }\
+\vec2 midicps(vec2 x) { return 440. * pow(vec2(2.),(x-69.)/12.); }\
+\vec3 midicps(vec3 x) { return 440. * pow(vec3(2.),(x-69.)/12.); }\
+\vec4 midicps(vec4 x) { return 440. * pow(vec4(2.),(x-69.)/12.); }\
+-}
 
 unipolar :: GLSLExpr -> GLSLExpr
 unipolar x = (x + 1) * constantFloat 0.5
@@ -450,7 +459,7 @@ header
    \float ifthenelse(float x,float y,float z){return float(x>0.)*y+float(x<=0.)*z;}\
    \vec2 ifthenelse(vec2 x,vec2 y,vec2 z){return vec2(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y));}\
    \vec3 ifthenelse(vec3 x,vec3 y,vec3 z){return vec3(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y),ifthenelse(x.z,y.z,z.z));}\
-   \vec4 ifthenelse(vec4 x,vec4 y,vec4 z){return vec4(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y),ifthenelse(x.z,y.z,z.z),ifthenelse(x.w,y.w,w.w));}\
+   \vec4 ifthenelse(vec4 x,vec4 y,vec4 z){return vec4(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y),ifthenelse(x.z,y.z,z.z),ifthenelse(x.w,y.w,z.w));}\
    \float prox(vec2 x,vec2 y){return clamp((2.828427-distance(x,y))/2.828427,0.,1.);}\
    \float _step(int n,int x,float y){return float(x==int((y*0.5+0.5)*float(n)));}\
    \float xFadeNew(float t1,float t2){return clamp((_etime-t1)/(t2-t1),0.,1.);}\
