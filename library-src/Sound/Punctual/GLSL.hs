@@ -412,7 +412,7 @@ alignToModel (m@(GLSLExpr Vec4 _ _):ms) xs = do
 texture2D :: Builder -> [GLSLExpr] -> GLSL [GLSLExpr]
 texture2D n xy = do
   xy' <- align Vec2 xy
-  mapM assign $ fmap (\x -> GLSLExpr Vec3 ("texture2D(tex" <> n <> ",fract(" <> builder x <> "*0.5+0.5)).xyz") (deps x)) xy'
+  mapM assign $ fmap (\x -> GLSLExpr Vec3 ("texture2D(" <> n <> ",fract(" <> builder x <> "*0.5+0.5)).xyz") (deps x)) xy'
 
 -- not actually used anywhere yet?
 addExprs :: [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]

@@ -117,7 +117,7 @@ graphToGLSL _ env (RgbV x) = graphToGLSL (Just Vec3) env (RgbHsv x) >>= return .
 
 -- unary functions that access textures
 
-graphToGLSL _ env@(texMap,_) (Tex t xy) = graphToGLSL (Just Vec2) env xy >>= texture2D (showb n)
+graphToGLSL _ env@(texMap,_) (Tex t xy) = graphToGLSL (Just Vec2) env xy >>= texture2D ("tex" <> showb n)
   where n = min 14 $ max 0 $ Map.findWithDefault 0 t texMap
 
 graphToGLSL _ env (Fb xy) = graphToGLSL (Just Vec2) env xy >>= texture2D "_fb"
@@ -419,8 +419,6 @@ header
    \uniform sampler2D tex0,tex1,tex2,tex3,tex4,tex5,tex6,tex7,tex8,tex9,tex10,tex11,tex12;\
    \uniform float lo,mid,hi,ilo,imid,ihi;\
    \uniform float _defaultAlpha,_cps,_time,_etime,_beat,_ebeat;\
-   \float fx() { return (gl_FragCoord.x/res.x) * 2. - 1.; }\
-   \float fy() { return (gl_FragCoord.y/res.y) * 2. - 1.; }\
    \vec2 _fxy() { return (gl_FragCoord.xy/res) * 2. - 1.; }\
    \vec2 uv() { return (gl_FragCoord.xy/res); }\
    \vec3 fb(float r){\
@@ -483,7 +481,7 @@ header
    \float line(vec2 xy1,vec2 xy2,float w,vec2 fxy) {\
    \ float m;\
    \ if(xy1.x == xy2.x) m = between(vec2(xy1.y,xy2.y),fxy.y);\
-   \ else m = between(vec2(xy1.x,xy2.x),fx())*between(vec2(xy1.y,xy2.y),fxy.y);\
+   \ else m = between(vec2(xy1.x,xy2.x),fxy.x)*between(vec2(xy1.y,xy2.y),fxy.y);\
    \ return m*iline(xy1,xy2,w,fxy);}\
    \float linlin(vec2 r1, vec2 r2, float x) { return r2.x+((r2.y-r2.x)*(x-r1.x)/(r1.y-r1.x));}\
    \float rect(vec2 xy,vec2 wh,vec2 fxy) {\
