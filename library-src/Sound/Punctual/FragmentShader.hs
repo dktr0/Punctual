@@ -85,7 +85,7 @@ graphToGLSL ah env (Unipolar x) = unaryFunction' unipolar ah env x
 graphToGLSL ah env (Sin x) = do
   x' <- graphToGLSL ah env x
   unaryFunction "sin" $ fmap ((*) (constantFloat 3.14159265 * constantFloat 2 * _time)) x'
-graphToGLSL ah env (MidiCps x) = graphToGLSL ah env x >>= unaryFunction "midicps"
+graphToGLSL ah env (MidiCps x) = unaryFunction' midicps ah env x
 graphToGLSL ah env (CpsMidi x) = graphToGLSL ah env x >>= unaryFunction "cpsmidi"
 graphToGLSL ah env (DbAmp x) = graphToGLSL ah env x >>= unaryFunction "dbamp"
 graphToGLSL ah env (AmpDb x) = graphToGLSL ah env x >>= unaryFunction "ampdb"
@@ -397,15 +397,14 @@ gate x y = comparisonOp "<" "lessThan" x y * y
 bipolar :: GLSLExpr -> GLSLExpr
 bipolar x = x * 2 - 1
 
-{-
 midicps :: GLSLExpr -> GLSLExpr
-midicps x = 440 * (x - 69)
+midicps x = 440 * pow ((x-69)/12) 2
 
-\float midicps(float x) { return 440. * pow(2.,(x-69.)/12.); }\
-\vec2 midicps(vec2 x) { return 440. * pow(vec2(2.),(x-69.)/12.); }\
-\vec3 midicps(vec3 x) { return 440. * pow(vec3(2.),(x-69.)/12.); }\
-\vec4 midicps(vec4 x) { return 440. * pow(vec4(2.),(x-69.)/12.); }\
--}
+-- ** TODO: should be redone as a Floating instance for GLSLExpr...
+-- note that we put the arguments in Haskell order instead of GLSL order, x to the y
+-- *** WORKING HERE: GLSL pow needs aligned arguments? but we hope to use it in non-aligned cases too?
+pow :: GLSLExpr -> GLSLExpr -> GLSLExpr
+pow x y = binaryExprFunction "pow" y x
 
 unipolar :: GLSLExpr -> GLSLExpr
 unipolar x = (x + 1) * constantFloat 0.5
@@ -440,10 +439,6 @@ header
    \float tri(float f) { float p = phasor(f); return p < 0.5 ? p*4.-1. : 1.-((p-0.5)*4.) ;}\
    \float saw(float f) { return phasor(f)*2.-1.;}\
    \float sqr(float f) { float p = phasor(f); return p < 0.5 ? -1. : 1.;}\
-   \float midicps(float x) { return 440. * pow(2.,(x-69.)/12.); }\
-   \vec2 midicps(vec2 x) { return 440. * pow(vec2(2.),(x-69.)/12.); }\
-   \vec3 midicps(vec3 x) { return 440. * pow(vec3(2.),(x-69.)/12.); }\
-   \vec4 midicps(vec4 x) { return 440. * pow(vec4(2.),(x-69.)/12.); }\
    \float cpsmidi(float x) { return 69. + (12. * log2(x/440.)); }\
    \vec2 cpsmidi(vec2 x) { return 69. + (12. * log2(x/440.)); }\
    \vec3 cpsmidi(vec3 x) { return 69. + (12. * log2(x/440.)); }\
