@@ -450,6 +450,7 @@ header
    \float ifthenelse(float x,float y,float z){return float(x>0.)*y+float(x<=0.)*z;}\
    \vec2 ifthenelse(vec2 x,vec2 y,vec2 z){return vec2(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y));}\
    \vec3 ifthenelse(vec3 x,vec3 y,vec3 z){return vec3(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y),ifthenelse(x.z,y.z,z.z));}\
+   \vec4 ifthenelse(vec4 x,vec4 y,vec4 z){return vec4(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y),ifthenelse(x.z,y.z,z.z),ifthenelse(x.w,y.w,w.w));}\
    \float prox(vec2 x,vec2 y){return clamp((2.828427-distance(x,y))/2.828427,0.,1.);}\
    \float _step(int n,int x,float y){return float(x==int((y*0.5+0.5)*float(n)));}\
    \float xFadeNew(float t1,float t2){return clamp((_etime-t1)/(t2-t1),0.,1.);}\
