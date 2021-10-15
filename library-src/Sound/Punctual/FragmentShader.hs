@@ -171,7 +171,7 @@ graphToGLSL ah env (Gate x y) = do
 graphToGLSL ah env (Clip r x) = do
   r' <- graphToGLSL (Just Vec2) env r >>= align Vec2
   x' <- graphToGLSL ah env x
-  return [ clip r'' x'' | r'' <- r', x'' <- x' ]
+  sequence [ clip r'' x'' | r'' <- r', x'' <- x' ]
 
 graphToGLSL ah env (Between r x) = do
   r' <- graphToGLSL (Just Vec2) env r >>= align Vec2
@@ -349,10 +349,13 @@ spin :: GLSLExpr -> GLSLExpr -> GLSLExpr
 spin fxy a = GLSLExpr { glslType = Vec2, builder = b, deps = Set.union (deps fxy) (deps a) }
   where b = "spin(" <> builder a <> "," <> builder fxy <> ")"
 
--- r (the clipping range) is expected to be Vec2, x can be any type
-clip :: GLSLExpr -> GLSLExpr -> GLSLExpr
-clip r x = GLSLExpr { glslType = glslType x, builder = b, deps = Set.union (deps r) (deps x) }
-  where b = "clip(" <> builder r <> "," <> builder x <> ")"
+-- r must be Vec2, x can be any type
+clip :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr
+clip r x = do
+  rx <- assign $ swizzleX r -- *** TODO: note: this assignment should be avoided in cases where r is already a simple variable or a constant
+  ry <- assign $ swizzleY r
+  let b = "clamp(" <> builder x <> "," <> builder rx <> "," <> builder ry <> ")"
+  return $ GLSLExpr { glslType = glslType x, builder = b, deps = Set.union (deps rx) $ Set.union (deps ry) (deps x) }
 
 -- r (the range to test if something is between) is expected to be Vec2, x can be any type
 between :: GLSLExpr -> GLSLExpr -> GLSLExpr
@@ -444,10 +447,6 @@ header
    \vec2 ampdb(vec2 x) { return 20. * log(x) / log(10.); }\
    \vec3 ampdb(vec3 x) { return 20. * log(x) / log(10.); }\
    \vec4 ampdb(vec4 x) { return 20. * log(x) / log(10.); }\
-   \float clip(vec2 r,float x){return clamp(x,r.x,r.y);}\
-   \vec2 clip(vec2 r,vec2 x){return clamp(x,r.x,r.y);}\
-   \vec3 clip(vec2 r,vec3 x){return clamp(x,r.x,r.y);}\
-   \vec4 clip(vec2 r,vec4 x){return clamp(x,r.x,r.y);}\
    \float ifthenelse(float x,float y,float z){return float(x>0.)*y+float(x<=0.)*z;}\
    \vec2 ifthenelse(vec2 x,vec2 y,vec2 z){return vec2(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y));}\
    \vec3 ifthenelse(vec3 x,vec3 y,vec3 z){return vec3(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y),ifthenelse(x.z,y.z,z.z));}\
