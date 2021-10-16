@@ -86,9 +86,9 @@ graphToGLSL ah env (Sin x) = do
   x' <- graphToGLSL ah env x
   unaryFunction "sin" $ fmap ((*) (constantFloat 3.14159265 * constantFloat 2 * _time)) x'
 graphToGLSL ah env (MidiCps x) = unaryFunction' midicps ah env x
-graphToGLSL ah env (CpsMidi x) = graphToGLSL ah env x >>= unaryFunction "cpsmidi"
-graphToGLSL ah env (DbAmp x) = graphToGLSL ah env x >>= unaryFunction "dbamp"
-graphToGLSL ah env (AmpDb x) = graphToGLSL ah env x >>= unaryFunction "ampdb"
+graphToGLSL ah env (CpsMidi x) = unaryFunction' cpsmidi ah env x
+graphToGLSL ah env (DbAmp x) = unaryFunction' dbamp ah env x
+graphToGLSL ah env (AmpDb x) = unaryFunction' ampdb ah env x
 graphToGLSL ah env (Abs x) = graphToGLSL ah env x >>= unaryFunction "abs"
 graphToGLSL ah env (Sqrt x) = graphToGLSL ah env x >>= unaryFunction "sqrt"
 graphToGLSL ah env (Floor x) = graphToGLSL ah env x >>= unaryFunction "floor"
@@ -139,7 +139,6 @@ graphToGLSL _ env (Point xy) = unaryFunctionWithPosition env "point" xy
 graphToGLSL _ env (Distance xy) = unaryFunctionWithPosition env "distance" xy
 graphToGLSL _ env (Prox xy) = unaryFunctionWithPosition env "prox" xy
 
-
 -- unary transformations of position (technically binary functions, then)
 graphToGLSL ah env (Zoom a b) = unaryPositionTransform zoom ah env a b
 graphToGLSL ah env (Move a b) = unaryPositionTransform move ah env a b
@@ -154,7 +153,7 @@ graphToGLSL ah env (Product x y) = binaryOp (*) ah env x y
 graphToGLSL ah env (Division x y) = binaryOp (/) ah env x y
 graphToGLSL ah env (Max x y) = binaryFunction "max" ah env x y
 graphToGLSL ah env (Min x y) = binaryFunction "min" ah env x y
-graphToGLSL ah env (Pow x y) = binaryFunction "pow" ah env x y
+graphToGLSL ah env (Pow x y) = binaryFunction "pow" ah env x y -- TODO: optimize to use pow, and to scale up scalars in certain cases
 graphToGLSL ah env (GreaterThan x y) = comparisonOpGLSL ">" "greaterThan" ah env x y
 graphToGLSL ah env (GreaterThanOrEqual x y) = comparisonOpGLSL ">=" "greaterThanEqual" ah env x y
 graphToGLSL ah env (LessThan x y) = comparisonOpGLSL "<" "lessThan" ah env x y
@@ -397,19 +396,20 @@ gate x y = comparisonOp "<" "lessThan" x y * y
 bipolar :: GLSLExpr -> GLSLExpr
 bipolar x = x * 2 - 1
 
-midicps :: GLSLExpr -> GLSLExpr
-midicps x = 440 * pow ((x-69)/12) two
-  where two = unsafeCast (glslType x) 2
-
--- ** TODO: should be redone as a Floating instance for GLSLExpr...
--- note that we put the arguments in Haskell order instead of GLSL order, x to the y
-pow :: GLSLExpr -> GLSLExpr -> GLSLExpr
-pow x y
-  | glslType x /= glslType y = error "uh-oh! GLSLExpr arguments to 'pow' must be matched types"
-  | otherwise = binaryExprFunction "pow" y x
-
 unipolar :: GLSLExpr -> GLSLExpr
 unipolar x = (x + 1) * constantFloat 0.5
+
+midicps :: GLSLExpr -> GLSLExpr
+midicps x = 440 * pow ((x-69)/12) 2
+
+cpsmidi :: GLSLExpr -> GLSLExpr
+cpsmidi x = 69 + (12 * log2 (x/440))
+
+dbamp :: GLSLExpr -> GLSLExpr
+dbamp x = pow 10 (x/20)
+
+ampdb :: GLSLExpr -> GLSLExpr
+ampdb x = 20 * Sound.Punctual.GLSL.log x / Sound.Punctual.GLSL.log 10
 
 -- must be GLFloat GLFloat Vec2
 vline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
@@ -441,18 +441,6 @@ header
    \float tri(float f) { float p = phasor(f); return p < 0.5 ? p*4.-1. : 1.-((p-0.5)*4.) ;}\
    \float saw(float f) { return phasor(f)*2.-1.;}\
    \float sqr(float f) { float p = phasor(f); return p < 0.5 ? -1. : 1.;}\
-   \float cpsmidi(float x) { return 69. + (12. * log2(x/440.)); }\
-   \vec2 cpsmidi(vec2 x) { return 69. + (12. * log2(x/440.)); }\
-   \vec3 cpsmidi(vec3 x) { return 69. + (12. * log2(x/440.)); }\
-   \vec4 cpsmidi(vec4 x) { return 69. + (12. * log2(x/440.)); }\
-   \float dbamp(float x) { return pow(10.,x/20.); }\
-   \vec2 dbamp(vec2 x) { return pow(vec2(10.),x/20.); }\
-   \vec3 dbamp(vec3 x) { return pow(vec3(10.),x/20.); }\
-   \vec4 dbamp(vec4 x) { return pow(vec4(10.),x/20.); }\
-   \float ampdb(float x) { return 20. * log(x) / log(10.); }\
-   \vec2 ampdb(vec2 x) { return 20. * log(x) / log(10.); }\
-   \vec3 ampdb(vec3 x) { return 20. * log(x) / log(10.); }\
-   \vec4 ampdb(vec4 x) { return 20. * log(x) / log(10.); }\
    \float ifthenelse(float x,float y,float z){return float(x>0.)*y+float(x<=0.)*z;}\
    \vec2 ifthenelse(vec2 x,vec2 y,vec2 z){return vec2(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y));}\
    \vec3 ifthenelse(vec3 x,vec3 y,vec3 z){return vec3(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y),ifthenelse(x.z,y.z,z.z));}\

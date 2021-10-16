@@ -90,6 +90,15 @@ instance Fractional GLSLExpr where
   fromRational = constantFloat . realToFrac
   x / y = binaryExprOp "/" x y
 
+log2 :: GLSLExpr -> GLSLExpr
+log2 = unaryExprFunction "log2"
+
+log :: GLSLExpr -> GLSLExpr
+log = unaryExprFunction "log"
+
+pow :: GLSLExpr -> GLSLExpr -> GLSLExpr
+pow x y = binaryExprFunctionMatched "pow" x y
+
 
 -- produce a new GLSLExpr of the same underlying type by applying a function a -> a
 unaryExprFunction :: Builder -> GLSLExpr -> GLSLExpr
@@ -107,6 +116,16 @@ binaryExprFunction funcName e1 e2 = GLSLExpr {
   builder = funcName <> "(" <> builder e1 <> "," <> builder e2 <> ")",
   deps = Set.union (deps e1) (deps e2)
   }
+
+-- for functions like pow that expect "matched arguments"
+-- (when one of the arguments is GLFloat we can cast it to the correct type)
+binaryExprFunctionMatched :: Builder -> GLSLExpr -> GLSLExpr -> GLSLExpr
+binaryExprFunctionMatched b x y
+  | glslType x == glslType y = binaryExprFunction b x y
+  | glslType x == GLFloat = binaryExprFunction b x (unsafeCast (glslType x) y)
+  | glslType y == GLFloat = binaryExprFunction b (unsafeCast (glslType y) x) y
+  | otherwise = error "uh-oh! arguments to binaryExprFunctionMatched must be matched types, or one must be GLFloat"
+
 
 -- produce a new GLSLExpr by combining two GLSLExpr-s, eg. via arithmetic operators
 binaryExprOp :: Builder -> GLSLExpr -> GLSLExpr -> GLSLExpr
