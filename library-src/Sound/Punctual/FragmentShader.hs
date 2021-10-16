@@ -257,7 +257,8 @@ unaryFunctionWithPosition f ah env@(_,fxy) x = do
 unaryPositionTransform :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> GLSLType -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
 unaryPositionTransform f t ah env@(texMap,fxy) a b = do
   a' <- graphToGLSL (Just t) env a >>= align t
-  graphToGLSL ah (texMap,[ f fxy' a'' | fxy' <- fxy, a'' <- a' ]) b
+  fxy' <- mapM assign [ f fxy' a'' | fxy' <- fxy, a'' <- a' ]
+  graphToGLSL ah (texMap,fxy') b
 
 -- For now, I choose to optimize the case of a one-channel signal combined with an n-channel signal,
 -- by aligning in such a way that one-channel signals are kept as GLFloat no matter what (via "alignExprsOptimized")
