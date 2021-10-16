@@ -412,7 +412,7 @@ header
    \  if(xy2.x == xy1.x) return float(abs(fxy.x-xy1.x)<w);\
    \  if(xy2.y == xy1.y) return float(abs(fxy.y-xy1.y)<w);\
    \  float d = abs((xy2.y-xy1.y)*fxy.x-(xy2.x-xy1.x)*fxy.y+xy2.x*xy1.y-xy2.y*xy1.x)/sqrt((xy2.x-xy1.x)*(xy2.x-xy1.x)+(xy2.y-xy1.y)*(xy2.y-xy1.y));\
-   \  if(d<w) return 1.; else return 0.;}\
+   \  return float(d<w);}\
    \float between(vec2 r,float x) {\
    \ if(r.y>=r.x && x>=r.x && x<=r.y) return 1.;\
    \ if(r.x>=r.y && x>=r.y && x<=r.x) return 1.;\
