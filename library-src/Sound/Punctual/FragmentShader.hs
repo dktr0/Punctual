@@ -398,13 +398,15 @@ bipolar :: GLSLExpr -> GLSLExpr
 bipolar x = x * 2 - 1
 
 midicps :: GLSLExpr -> GLSLExpr
-midicps x = 440 * pow ((x-69)/12) 2
+midicps x = 440 * pow ((x-69)/12) two
+  where two = unsafeCast (glslType x) 2
 
 -- ** TODO: should be redone as a Floating instance for GLSLExpr...
 -- note that we put the arguments in Haskell order instead of GLSL order, x to the y
--- *** WORKING HERE: GLSL pow needs aligned arguments? but we hope to use it in non-aligned cases too?
 pow :: GLSLExpr -> GLSLExpr -> GLSLExpr
-pow x y = binaryExprFunction "pow" y x
+pow x y
+  | glslType x /= glslType y = error "uh-oh! GLSLExpr arguments to 'pow' must be matched types"
+  | otherwise = binaryExprFunction "pow" y x
 
 unipolar :: GLSLExpr -> GLSLExpr
 unipolar x = (x + 1) * constantFloat 0.5
