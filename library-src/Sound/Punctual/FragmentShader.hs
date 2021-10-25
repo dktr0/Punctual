@@ -26,7 +26,7 @@ import Sound.Punctual.GLSL
 
 type GraphEnv = (Map Text Int, [GLSLExpr]) -- texture map, fxy expressions
 
-testGraphEnv :: GraphEnv 
+testGraphEnv :: GraphEnv
 testGraphEnv = (Map.empty,[defaultFxy] )
 
 
@@ -294,13 +294,11 @@ clip :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr
 clip r x = do
   rx <- assign $ swizzleX r -- *** TODO: note: this assignment should be avoided in cases where r is already a simple variable or a constant
   ry <- assign $ swizzleY r
-  let b = "clamp(" <> builder x <> "," <> builder rx <> "," <> builder ry <> ")"
-  return $ GLSLExpr { glslType = glslType x, builder = b, deps = Set.union (deps rx) $ Set.union (deps ry) (deps x) }
+  return $ GLSLExpr (glslType x) $ "clamp(" <> builder x <> "," <> builder rx <> "," <> builder ry <> ")"
 
 -- r (the range to test if something is between) is expected to be Vec2, x can be any type
 between :: GLSLExpr -> GLSLExpr -> GLSLExpr
-between r x = GLSLExpr { glslType = glslType x, builder = b, deps = Set.union (deps r) (deps x) }
-  where b = "between(" <> builder r <> "," <> builder x <> ")"
+between r x = GLSLExpr (glslType x) $ "between(" <> builder r <> "," <> builder x <> ")"
 
 -- xs is expected to have 2 or more members (and must have at least one), all GLSLExpr :: GLFloat
 step :: [GLSLExpr] -> GLSLExpr -> GLSLExpr
@@ -311,24 +309,19 @@ step xs y = foldr1 (+) xs''
     xs'' = fmap (\(x,n) -> x * _step nTotal n y) xs'
 
 _step :: Int -> Int -> GLSLExpr -> GLSLExpr
-_step nTotal n y = GLSLExpr { glslType = GLFloat, builder = b, deps = deps y }
-  where b = "_step(" <> showb nTotal <> "," <> showb n <> "," <> builder y <> ")"
+_step nTotal n y = GLSLExpr GLFloat $ "_step(" <> showb nTotal <> "," <> showb n <> "," <> builder y <> ")"
 
 linlin :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-linlin r1 r2 w = GLSLExpr { glslType = GLFloat, builder = b, deps = Set.union (deps r1) $ Set.union (deps r2) (deps w)}
-  where b = "linlin(" <> builder r1 <> "," <> builder r2 <> "," <> builder w <> ")"
+linlin r1 r2 w = GLSLExpr GLFloat $ "linlin(" <> builder r1 <> "," <> builder r2 <> "," <> builder w <> ")"
 
 ifthenelse :: GLSLExpr -> (GLSLExpr,GLSLExpr) -> GLSLExpr
-ifthenelse c (r1,r2) = GLSLExpr { glslType = glslType r1, builder = b, deps = Set.union (deps c) $ Set.union (deps r1) (deps r2) }
-  where b = "ifthenelse(" <> builder c <> "," <> builder r1 <> "," <> builder r2 <> ")"
+ifthenelse c (r1,r2) = GLSLExpr (glslType r1) $ "ifthenelse(" <> builder c <> "," <> builder r1 <> "," <> builder r2 <> ")"
 
 iline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-iline xy1 xy2 w fxy = GLSLExpr { glslType = GLFloat, builder = b, deps = Set.union (deps xy1) $ Set.union (deps xy2) $ Set.union (deps w) (deps fxy) }
-  where b = "iline(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> "," <> builder fxy <> ")"
+iline xy1 xy2 w fxy = GLSLExpr GLFloat $ "iline(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> "," <> builder fxy <> ")"
 
 line :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-line xy1 xy2 w fxy = GLSLExpr { glslType = GLFloat, builder = b, deps = Set.union (deps xy1) $ Set.union (deps xy2) $ Set.union (deps w) (deps fxy) }
-  where b = "line(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> "," <> builder fxy <> ")"
+line xy1 xy2 w fxy = GLSLExpr GLFloat $ "line(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> "," <> builder fxy <> ")"
 
 -- arguments must be pre-aligned (same underlying GLSL types)
 gate :: GLSLExpr -> GLSLExpr -> GLSLExpr
@@ -439,7 +432,7 @@ header
    -- thanks to http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl for the HSV-RGB conversion algorithms above!
 
 _time :: GLSLExpr
-_time = GLSLExpr { glslType = GLFloat, builder = "_time", deps = Set.empty }
+_time = GLSLExpr GLFloat "_time"
 
 actionToGLSL :: Map Text Int -> Action -> GLSL GLSLExpr
 actionToGLSL texMap a = do
@@ -450,7 +443,7 @@ actionToGLSL texMap a = do
   assign $ if isHsv a then hsvrgb d else d
 
 defaultFxy :: GLSLExpr
-defaultFxy = GLSLExpr { glslType = Vec2, builder = "_fxy()", deps = Set.empty }
+defaultFxy = GLSLExpr Vec2 "_fxy()"
 
 isVec3 :: Action -> Bool
 isVec3 x = elem RGB (outputs x) || elem HSV (outputs x)
@@ -496,7 +489,7 @@ xFadeNew :: UTCTime -> UTCTime -> UTCTime -> GLSLExpr
 xFadeNew = xFadeFunction "xFadeNew"
 
 xFadeFunction :: Builder -> UTCTime -> UTCTime -> UTCTime -> GLSLExpr
-xFadeFunction funcName eTime t1 t2 = GLSLExpr { glslType = GLFloat, builder = b, deps = Set.empty}
+xFadeFunction funcName eTime t1 t2 = GLSLExpr GLFloat b
   where
     t1' = showb $ ((realToFrac $ diffUTCTime t1 eTime) :: Double)
     t2' = showb $ ((realToFrac $ diffUTCTime t2 eTime) :: Double)
@@ -522,10 +515,10 @@ fragmentShaderGLSL tempo texMap oldProgram newProgram = do
   red <- generateOutput Red 0 allExprs
   green <- generateOutput Green 0 allExprs
   blue <- generateOutput Blue 0 allExprs
-  let _defaultAlpha = GLSLExpr { glslType = GLFloat, builder = "_defaultAlpha", deps = Set.empty }
+  let _defaultAlpha = GLSLExpr GLFloat "_defaultAlpha"
   alpha <- generateOutput Alpha _defaultAlpha allExprs
   fdbk <- generateOutput Fdbk 0 allExprs
-  let fdbk' = GLSLExpr { glslType = Vec3, builder = "fb(" <> builder fdbk <> ")", deps = deps fdbk }
+  let fdbk' = GLSLExpr Vec3 $"fb(" <> builder fdbk <> ")"
   hsv <- generateOutput HSV (exprToVec3 0) allExprs
   rgb <- generateOutput RGB (exprToVec3 0) allExprs
   let rgb' = exprExprExprToVec3 red green blue + hsv + rgb + fdbk'
