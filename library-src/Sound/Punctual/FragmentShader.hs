@@ -26,7 +26,7 @@ import Sound.Punctual.GLSL
 
 type GraphEnv = (Map Text Int, [GLSLExpr]) -- texture map, fxy expressions
 
-testGraphEnv :: GraphEnv
+testGraphEnv :: GraphEnv 
 testGraphEnv = (Map.empty,[defaultFxy] )
 
 

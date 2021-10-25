@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, RecursiveDo #-}
 module Sound.Punctual.GLSL where
 
 -- This module defines the monad GLSL for representing computations that
@@ -8,36 +8,64 @@ module Sound.Punctual.GLSL where
 
 import Data.Text.Lazy as T hiding (zipWith,length,cycle)
 import TextShow
-import Data.Set as Set
-import Data.IntMap as IntMap
+import Data.Map as Map
 import Control.Monad
 import Control.Monad.State
 import Data.Foldable as Foldable hiding (length)
 
 import Sound.Punctual.GLSLExpr
 
+-- GLSL is a monad representing computations in a GLSL fragment shader
+-- a computation "accumulates" the following:
+-- -a count of auto-assigned variables, so that new assignments can use that as necessary
+-- -a Map from variable names to GLSLType-s
+-- -accumulated Builder text of fragment shader code
 
--- As we write a fragment shader, basically we will be accumulating GLSLExpr(s) that are
--- assigned to variables in the underlying GLSL types. So we make a monad to represent
--- this sequential accumulation. The key operation in this monad is 'assign' which
--- assigns the contents of a GLSLExpr to an automagically-named GLSL variable, and returns
--- the (n.b. different) GLSLExpr that would be used to access that variable in subsequent operations.
+type GLSLState = (Int,Map Builder GLSLType,Builder)
 
-type GLSL = State (IntMap GLSLExpr)
+type GLSL = State GLSLState
 
-runGLSL :: GLSL a -> (a,IntMap GLSLExpr)
-runGLSL x = runState x IntMap.empty
+runGLSL :: GLSL a -> (a,Builder)
+runGLSL x = (a,b)
+  where (a,(_,_,b)) = runState x (0,Map.empty,"")
 
 assign :: GLSLExpr -> GLSL GLSLExpr
 assign x = do
-  m <- get
-  let n = IntMap.size m -- *note* this assumes items are not removed from the map prior to any assignment
-  put $ IntMap.insert n x m
-  return $ GLSLExpr {
-    glslType = glslType x,
-    builder = "_" <> showb n,
-    deps = Set.insert n (deps x)
-  }
+  (c,m,b) <- get
+  let x' = "_" <> showb c
+  let t = glslType x
+  let m' = Map.insert x' t m
+  let b' = b <> x' <> "=" <> x' <> ";\n"
+  put (c+1,m',b')
+  return $ GLSLExpr { glslType = t, builder = x' }
+
+-- write code to the accumulated Builder without adding a new variable assignment
+write :: Builder -> GLSL ()
+write x = do
+  (c,m,b) <- get
+  put (c,m,b <> x)
+
+-- create a variable of a given type and initialize it to 0. then conditionally
+-- execute a block of other code (GLSL GLSLExpr) assigning its result to the
+-- previously created variable.
+assignConditional :: Builder -> GLSL GLSLExpr -> GLSL GLSLExpr
+assignConditional condition x = mdo -- ?? will this work ?? if not, I guess we do some kind of sandboxed run of x to extract type...
+  let t = glslType x'
+  r <- assign $ unsafeCast t $ constantFloat 0
+  write $ "if(" <> condition <> ") {\n"
+  x' <- x
+  write $ builder r <> "=" <> builder x' <> "\n}\n"
+  return r
+
+{-
+g :: GLSLType -> Double -> Double -> GLSL GLSLExpr -> GLSL GLSLExpr -> GLSL GLSLExpr
+g t t1 t2 x1 x2 = do
+  x1' <- assignConditional t ("t<" <> showb t2) x1
+  x2' <- assignConditional t ("t>=" <> showb t1) x2
+  assign $ (x1' * xFadeOld ...) + (x2' * xFadeNew ...)
+-}
+
+
 
 -- on the basis of assign, we can define a series of different "alignment" functions
 -- that manipulate the underlying representation of a list of GLSLExpr-s...
@@ -107,57 +135,57 @@ splitAligned _ [] = error "splitAligned called with empty list"
 splitAligned t (x:xs) | t == glslType x = return (x,xs)
 
 -- 2. when the requested item can be constructed exactly from items at the head of the list in various ways, do that
-splitAligned Vec3 (x@(GLSLExpr GLFloat _ _):y@(GLSLExpr GLFloat _ _):z@(GLSLExpr GLFloat _ _):xs) = do
+splitAligned Vec3 (x@(GLSLExpr GLFloat _):y@(GLSLExpr GLFloat _):z@(GLSLExpr GLFloat _):xs) = do
   return (exprExprExprToVec3 x y z, xs)
 -- *** TODO: there are many more patterns that should be matched here.
 
 -- 3. when the list has one item that is smaller than requested type, repeat channels to provide type
-splitAligned Vec2 (x@(GLSLExpr GLFloat _ _):[]) = return (exprToVec2 x,[])
-splitAligned Vec3 (x@(GLSLExpr GLFloat _ _):[]) = return (exprToVec3 x,[])
-splitAligned Vec3 (x@(GLSLExpr Vec2 _ _):[]) = return (exprToVec3 x,[])
-splitAligned Vec4 (x@(GLSLExpr GLFloat _ _):[]) = return (exprToVec4 x,[])
-splitAligned Vec4 (x@(GLSLExpr Vec2 _ _):[]) = return (exprToVec4 x,[])
-splitAligned Vec4 (x@(GLSLExpr Vec3 _ _):[]) = return (exprToVec4 x,[])
+splitAligned Vec2 (x@(GLSLExpr GLFloat _):[]) = return (exprToVec2 x,[])
+splitAligned Vec3 (x@(GLSLExpr GLFloat _):[]) = return (exprToVec3 x,[])
+splitAligned Vec3 (x@(GLSLExpr Vec2 _):[]) = return (exprToVec3 x,[])
+splitAligned Vec4 (x@(GLSLExpr GLFloat _):[]) = return (exprToVec4 x,[])
+splitAligned Vec4 (x@(GLSLExpr Vec2 _):[]) = return (exprToVec4 x,[])
+splitAligned Vec4 (x@(GLSLExpr Vec3 _):[]) = return (exprToVec4 x,[])
 
 
 -- 4. when the requested item is smaller than the type at head of list, split it by assigning and swizzling
-splitAligned GLFloat (x@(GLSLExpr Vec2 _ _):xs) = do
+splitAligned GLFloat (x@(GLSLExpr Vec2 _):xs) = do
   x' <- assign x
   return (swizzleX x',(swizzleY x'):xs)
-splitAligned GLFloat (x@(GLSLExpr Vec3 _ _):xs) = do
+splitAligned GLFloat (x@(GLSLExpr Vec3 _):xs) = do
   x' <- assign x
   return (swizzleX x',(swizzleYZ x'):xs)
-splitAligned GLFloat (x@(GLSLExpr Vec4 _ _):xs) = do
+splitAligned GLFloat (x@(GLSLExpr Vec4 _):xs) = do
   x' <- assign x
   return (swizzleX x',(swizzleYZW x'):xs)
-splitAligned Vec2 (x@(GLSLExpr Vec3 _ _):xs) = do
+splitAligned Vec2 (x@(GLSLExpr Vec3 _):xs) = do
   x' <- assign x
   return (swizzleXY x',(swizzleZ x'):xs)
-splitAligned Vec2 (x@(GLSLExpr Vec4 _ _):xs) = do
+splitAligned Vec2 (x@(GLSLExpr Vec4 _):xs) = do
   x' <- assign x
   return (swizzleXY x',(swizzleZW x'):xs)
-splitAligned Vec3 (x@(GLSLExpr Vec4 _ _):xs) = do
+splitAligned Vec3 (x@(GLSLExpr Vec4 _):xs) = do
   x' <- assign x
   return (swizzleXYZ x',(swizzleW x'):xs)
 
 -- 3. when the requested item is larger than the type at the head of the list (n>=2), call splitAligned
 -- recursively to provide a second value that, combined with the first, produces requested type
-splitAligned Vec2 (x@(GLSLExpr GLFloat _ _):xs) = do
+splitAligned Vec2 (x@(GLSLExpr GLFloat _):xs) = do
   (y,xs') <- splitAligned GLFloat xs
   return (exprExprToVec2 x y,xs')
-splitAligned Vec3 (x@(GLSLExpr GLFloat _ _):xs) = do
+splitAligned Vec3 (x@(GLSLExpr GLFloat _):xs) = do
   (y,xs') <- splitAligned Vec2 xs
   return (exprExprToVec3 x y,xs')
-splitAligned Vec3 (x@(GLSLExpr Vec2 _ _):xs) = do
+splitAligned Vec3 (x@(GLSLExpr Vec2 _):xs) = do
   (y,xs') <- splitAligned GLFloat xs
   return (exprExprToVec3 x y,xs')
-splitAligned Vec4 (x@(GLSLExpr GLFloat _ _):xs) = do
+splitAligned Vec4 (x@(GLSLExpr GLFloat _):xs) = do
   (y,xs') <- splitAligned Vec3 xs
   return (exprExprToVec4 x y,xs')
-splitAligned Vec4 (x@(GLSLExpr Vec2 _ _):xs) = do
+splitAligned Vec4 (x@(GLSLExpr Vec2 _):xs) = do
   (y,xs') <- splitAligned Vec2 xs
   return (exprExprToVec4 x y,xs')
-splitAligned Vec4 (x@(GLSLExpr Vec3 _ _):xs) = do
+splitAligned Vec4 (x@(GLSLExpr Vec3 _):xs) = do
   (y,xs') <- splitAligned GLFloat xs
   return (exprExprToVec4 x y,xs')
 
@@ -196,19 +224,19 @@ alignExprsOptimized x y
 alignToModel :: [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
 alignToModel [] _ = return []
 alignToModel _ [] = error "alignToModel ran out of expressions in second argument"
-alignToModel (m@(GLSLExpr GLFloat _ _):ms) xs = do
+alignToModel (m@(GLSLExpr GLFloat _):ms) xs = do
   (x',xs') <- splitAligned GLFloat xs
   xs'' <- alignToModel ms xs'
   return $ x' : xs''
-alignToModel (m@(GLSLExpr Vec2 _ _):ms) xs = do
+alignToModel (m@(GLSLExpr Vec2 _):ms) xs = do
   (x',xs') <- splitAligned Vec2 xs
   xs'' <- alignToModel ms xs'
   return $ x' : xs''
-alignToModel (m@(GLSLExpr Vec3 _ _):ms) xs = do
+alignToModel (m@(GLSLExpr Vec3 _):ms) xs = do
   (x',xs') <- splitAligned Vec3 xs
   xs'' <- alignToModel ms xs'
   return $ x' : xs''
-alignToModel (m@(GLSLExpr Vec4 _ _):ms) xs = do
+alignToModel (m@(GLSLExpr Vec4 _):ms) xs = do
   (x',xs') <- splitAligned Vec4 xs
   xs'' <- alignToModel ms xs'
   return $ x' : xs''
@@ -219,25 +247,4 @@ alignToModel (m@(GLSLExpr Vec4 _ _):ms) xs = do
 texture2D :: Builder -> [GLSLExpr] -> GLSL [GLSLExpr]
 texture2D n xy = do
   xy' <- align Vec2 xy
-  mapM assign $ fmap (\x -> GLSLExpr Vec3 ("texture2D(" <> n <> ",fract(" <> builder x <> "*0.5+0.5)).xyz") (deps x)) xy'
-
-
-realizeAssignment :: Int -> GLSLExpr -> Builder
-realizeAssignment n (GLSLExpr GLFloat b _) = "float _" <> showb n <> "=" <> b <> ";\n"
-realizeAssignment n (GLSLExpr Vec2 b _) = "vec2 _" <> showb n <> "=" <> b <> ";\n"
-realizeAssignment n (GLSLExpr Vec3 b _) = "vec3 _" <> showb n <> "=" <> b <> ";\n"
-realizeAssignment n (GLSLExpr Vec4 b _) = "vec4 _" <> showb n <> "=" <> b <> ";\n"
-
-realizeAssignments :: IntMap GLSLExpr -> Builder
-realizeAssignments xs = Foldable.fold $ IntMap.mapWithKey realizeAssignment xs
-
-realizeExpr :: GLSLExpr -> Builder
-realizeExpr (GLSLExpr GLFloat b _) = showb b <> "\n"
-realizeExpr (GLSLExpr Vec2 b _) = showb b <> "\n"
-realizeExpr (GLSLExpr Vec3 b _) = showb b <> "\n"
-realizeExpr (GLSLExpr Vec4 b _) = showb b <> "\n"
-
-prettyPrint :: ([GLSLExpr],IntMap GLSLExpr) -> Text
-prettyPrint (xs,vs) = toLazyText $ v <> x
-  where v = Foldable.fold $ IntMap.mapWithKey realizeAssignment vs
-        x = Foldable.fold $ fmap realizeExpr xs
+  mapM assign $ fmap (\x -> GLSLExpr Vec3 ("texture2D(" <> n <> ",fract(" <> builder x <> "*0.5+0.5)).xyz")) xy'
