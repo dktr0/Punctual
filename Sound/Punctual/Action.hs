@@ -19,6 +19,9 @@ data Action = Action {
   outputs :: [Output]
   } deriving (Show, Eq, Generic, NFData)
 
+emptyAction :: Action
+emptyAction = actionFromGraph EmptyGraph
+
 actionFromGraph :: Graph -> Action
 actionFromGraph g = Action {
   graph = g,
