@@ -25,7 +25,7 @@ Library
       ghcjs-dom-jsffi,
       text,
       text-show,
-      haskellish >= 0.1.2,
+      haskellish >= 0.3,
       haskell-src-exts >= 1.21.0,
       transformers,
       deepseq,
