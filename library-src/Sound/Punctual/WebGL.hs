@@ -323,7 +323,7 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
   let progTexMap = Map.fromList $ zip (Set.elems progTexSet) [0..]
   let newTextureMaps = IntMap.insert z progTexMap $ textureMapsEval st
   let newFragmentShader = fragmentShader tempo progTexMap prevProgram' p
-  -- liftIO $ T.putStrLn $ newFragmentShader
+  liftIO $ T.putStrLn $ newFragmentShader
 
   let prevAsync = IntMap.findWithDefault emptyAsyncProgram z (mainPrograms st)
   newAsync <- updateAsyncProgram prevAsync defaultVertexShader newFragmentShader

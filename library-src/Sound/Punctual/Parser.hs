@@ -44,11 +44,6 @@ extractPragmas t = (newText,pragmas)
     newText = T.unlines $ fmap fst xs
     pragmas = concat $ fmap snd xs
 
-reformatProgramAsList :: String -> String
-reformatProgramAsList x =
-  let x' = intercalate "," $ fmap (++ " _0") $ splitOn ";" x
-  in "[" ++ x' ++ "\n]"
-
 parseProgram :: UTCTime -> String -> Either String Program
 parseProgram eTime x = do
   (p,st) <- parseHaskellish (program eTime) emptyParserState $ reformatProgramAsList x
@@ -57,6 +52,18 @@ parseProgram eTime x = do
     programNeedsAudioInputAnalysis = audioInputAnalysis st,
     programNeedsAudioOutputAnalysis = audioOutputAnalysis st
   }
+
+parseHaskellish :: H a -> ParserState -> String -> Either String (a,ParserState)
+parseHaskellish p st x = (parseResultToEither $ parseWithMode haskellSrcExtsParseMode x) >>= runHaskellish p st
+
+parseResultToEither :: ParseResult a -> Either String a
+parseResultToEither (ParseOk x) = Right x
+parseResultToEither (ParseFailed _ s) = Left s
+
+reformatProgramAsList :: String -> String
+reformatProgramAsList x =
+  let x' = intercalate "," $ fmap (++ " _0") $ splitOn ";" x
+  in "[" ++ x' ++ "\n]"
 
 
 type Identifier = String
@@ -85,13 +92,6 @@ emptyParserState = ParserState {
   }
 
 type H = Haskellish ParserState
-
-parseHaskellish :: H a -> ParserState -> String -> Either String (a,ParserState)
-parseHaskellish p st x = (parseResultToEither $ parseWithMode haskellSrcExtsParseMode x) >>= runHaskellish p st
-
-parseResultToEither :: ParseResult a -> Either String a
-parseResultToEither (ParseOk x) = Right x
-parseResultToEither (ParseFailed _ s) = Left s
 
 haskellSrcExtsParseMode :: ParseMode
 haskellSrcExtsParseMode = defaultParseMode {

@@ -183,7 +183,7 @@ graphToGLSL env (Step [] _) = graphToGLSL env (Constant 0)
 graphToGLSL env (Step (x:[]) _) = graphToGLSL env x
 graphToGLSL env (Step xs (Constant y)) =
   let y' = max (min y 0.99999999) 0
-      y'' = floor (y' * fromIntegral (length xs))
+      y'' = floor (y' * fromIntegral (length xs)) 
   in graphToGLSL env (xs!!y'')
 graphToGLSL env (Step xs y) =
   let xs' = fmap (graphToGLSL env) xs -- [GLSL]
