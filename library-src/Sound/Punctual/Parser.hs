@@ -17,6 +17,7 @@ import Control.Monad.Except
 import Data.Maybe
 import Control.Applicative
 import Data.Time
+import Data.Bifunctor
 
 import Sound.Punctual.Extent
 import Sound.Punctual.Graph
@@ -33,7 +34,7 @@ parse eTime x = do
   let (x',pragmas) = extractPragmas x
   if (elem "glsl" pragmas) then do
     return $ (emptyProgram eTime) { directGLSL = Just x' }
-  else parseProgram eTime $ T.unpack x'
+  else first errorMessage $ parseProgram eTime $ T.unpack x'
 
 extractPragmas :: Text -> (Text,[Text])
 extractPragmas t = (newText,pragmas)
@@ -44,21 +45,18 @@ extractPragmas t = (newText,pragmas)
     newText = T.unlines $ fmap fst xs
     pragmas = concat $ fmap snd xs
 
-parseProgram :: UTCTime -> String -> Either String Program
+
+errorMessage :: (Span,Text) -> String
+errorMessage (s,m) = show s ++ " " ++ T.unpack m
+
+parseProgram :: UTCTime -> String -> Either (Span,Text) Program
 parseProgram eTime x = do
-  (p,st) <- parseHaskellish (program eTime) emptyParserState $ reformatProgramAsList x
+  (p,st) <- parseAndRun (program eTime) emptyParserState $ reformatProgramAsList x
   return $ p {
     textureSet = textureRefs st,
     programNeedsAudioInputAnalysis = audioInputAnalysis st,
     programNeedsAudioOutputAnalysis = audioOutputAnalysis st
   }
-
-parseHaskellish :: H a -> ParserState -> String -> Either String (a,ParserState)
-parseHaskellish p st x = (parseResultToEither $ parseWithMode haskellSrcExtsParseMode x) >>= runHaskellish p st
-
-parseResultToEither :: ParseResult a -> Either String a
-parseResultToEither (ParseOk x) = Right x
-parseResultToEither (ParseFailed _ s) = Left s
 
 reformatProgramAsList :: String -> String
 reformatProgramAsList x =
