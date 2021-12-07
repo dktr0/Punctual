@@ -18,6 +18,7 @@ import Data.Maybe
 import Control.Applicative
 import Data.Time
 import Data.Bifunctor
+import Data.Char (isSpace)
 
 import Sound.Punctual.Extent
 import Sound.Punctual.Graph
@@ -51,7 +52,7 @@ errorMessage (s,m) = show s ++ " " ++ T.unpack m
 
 parseProgram :: UTCTime -> String -> Either (Span,Text) Program
 parseProgram eTime x = do
-  (p,st) <- parseAndRun (program eTime) emptyParserState $ reformatProgramAsList x
+  (p,st) <- parseWithModeAndRun haskellSrcExtsParseMode (program eTime) emptyParserState $ reformatProgramAsList $ removeComments x
   return $ p {
     textureSet = textureRefs st,
     programNeedsAudioInputAnalysis = audioInputAnalysis st,
@@ -60,8 +61,10 @@ parseProgram eTime x = do
 
 reformatProgramAsList :: String -> String
 reformatProgramAsList x =
-  let x' = intercalate "," $ fmap (++ " _0") $ splitOn ";" x
-  in "[" ++ x' ++ "\n]"
+  let x' = splitOn ";" x
+      x'' = Data.List.filter (\y -> length (dropWhile isSpace y) > 0) x'
+      x''' = intercalate "," x''
+  in "[" ++ x''' ++ "\n]"
 
 
 type Identifier = String
@@ -137,20 +140,11 @@ haskellSrcExtsParseMode = defaultParseMode {
     }
 
 
-_0Arg :: H a -> H a
-_0Arg p = p <|> fmap fst (functionApplication p $ reserved "_0")
-
 program :: UTCTime -> H Program
 program eTime = do
-  xs <- concat <$> list actionOr_0
+  xs <- list action
   let xs' = Data.List.filter (not . Data.List.null . Sound.Punctual.Action.outputs) xs
   return $ (emptyProgram eTime) { actions = IntMap.fromList $ zip [0..] xs' }
-
-actionOr_0 :: H [Action]
-actionOr_0 = _0Arg $ asum [
-  reserved "_0" >> return [],
-  fmap pure action
-  ]
 
 action :: H Action
 action = asum [
@@ -186,7 +180,7 @@ number = asum [
   ]
 
 duration :: H Duration
-duration = _0Arg $ asum [
+duration = asum [
   Seconds <$> rationalOrInteger,
   reverseApplication number (reserved "s" >> return Seconds),
   reverseApplication number (reserved "ms" >> return (\x -> Seconds $ x/1000.0)),
@@ -194,13 +188,13 @@ duration = _0Arg $ asum [
   ]
 
 defTime :: H DefTime
-defTime = _0Arg $ asum [
+defTime = asum [
   (\(x,y) -> Quant x y) <$> Language.Haskellish.tuple number duration,
   After <$> duration
   ]
 
 outputs :: H [Output]
-outputs = _0Arg $ asum [
+outputs = asum [
   concat <$> list Sound.Punctual.Parser.outputs,
   ((:[]) . Panned . realToFrac) <$> rationalOrInteger,
   reserved "audio" >> return [Splay],
@@ -234,7 +228,7 @@ debugExp h = do
   throwError $ T.pack $ show e
 
 graph :: H Graph
-graph = _0Arg $ asum [
+graph = asum [
   identifiedGraph,
   definitions1H,
   reverseApplication graph (reserved "m" >> return MidiCps),
@@ -279,7 +273,7 @@ ifThenElseParser = do
   return $ IfThenElse a b c
 
 graph2 :: H (Graph -> Graph)
-graph2 = _0Arg $ asum [
+graph2 = asum [
   reserved "bipolar" >> return Bipolar,
   reserved "unipolar" >> return Unipolar,
   reserved "sin" >> return Sin,
