@@ -410,8 +410,30 @@ textureRef = (do
   return t
   ) <?> "expected texture URL"
 
+
 multiSeries :: H Graph
-multiSeries = (reserved "..." >> return f) <*> i <*> i
+multiSeries = multiSeries0 <|> multiSeries1 <|> multiSeriesDeprecated
+
+multiSeries0 :: H Graph
+multiSeries0 = do
+  let i = fromIntegral <$> integer
+  (a,b) <- Language.Haskellish.enumFromTo i i
+  return $ Multi $ fmap Constant $ Data.List.take 64 [a .. b]
+
+multiSeries1 :: H Graph
+multiSeries1 = do
+  (a,b,c) <- Language.Haskellish.enumFromThenTo double double double
+  return $ Multi $ fmap Constant $ Data.List.take 64 $ multiSeries1' a b c
+
+multiSeries1' :: Double -> Double -> Double -> [Double]
+multiSeries1' a b c
+  | (b > a) && (a > c) = []
+  | (b < a) && (a < c) = []
+  | (b == a) = []
+  | otherwise = a : multiSeries1' b (b+b-a) c
+
+multiSeriesDeprecated :: H Graph
+multiSeriesDeprecated = (reserved "..." >> return f) <*> i <*> i
   where
-    f x y = Multi $ fmap Constant [x .. y]
+    f x y = Multi $ fmap Constant $ Data.List.take 64 [x .. y]
     i = fromIntegral <$> integer

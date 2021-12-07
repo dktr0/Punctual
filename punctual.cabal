@@ -1,5 +1,5 @@
 name:                punctual
-version:             0.3.2.1
+version:             0.3.3
 synopsis:            Live coding language
 description:         Please see README.md
 homepage:            http://github.com/dktr0/Punctual/blob/master/README.md
@@ -29,7 +29,7 @@ Library
       ghcjs-dom-jsffi,
       text,
       text-show,
-      haskellish >= 0.3,
+      haskellish >= 0.3.1,
       haskell-src-exts >= 1.21.0,
       transformers,
       deepseq,
