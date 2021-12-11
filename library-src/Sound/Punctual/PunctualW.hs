@@ -40,6 +40,8 @@ emptyPunctualW ac audioIn audioOut nchnls _t0 = PunctualW {
   prevProgramW = emptyProgram _t0
   }
 
+setPunctualWChannels :: Int -> PunctualW -> PunctualW
+setPunctualWChannels n x = x { punctualChannels = n }
 
 -- probably this belongs in MusicW instead
 type TimePair = (UTCTime,AudioTime)
@@ -69,18 +71,17 @@ updatePunctualW s tempo p = do
   timePair <- utcAudioTimePair
   let evalTime' = evalTime p
   let xs = IntMap.filter actionOutputsAudio $ actions p
-  let ioNodes = punctualIONodes s
+  let (audioIn,audioOut) = punctualIONodes s
+  let nchnls = punctualChannels s
   let aLittleLater = addUTCTime 0.2 evalTime'
   let laterStill = addUTCTime 0.05 aLittleLater
   mapM_ (deleteSynth timePair aLittleLater laterStill) $ difference (prevSynthsNodes s) xs -- delete synths no longer present
-  addedSynthsNodes <- mapM (addNewSynth timePair ioNodes tempo evalTime') $ difference xs (prevSynthsNodes s) -- add synths newly present
+  addedSynthsNodes <- mapM (addNewSynth timePair audioIn audioOut nchnls tempo evalTime') $ difference xs (prevSynthsNodes s) -- add synths newly present
   let continuingSynthsNodes = intersection (prevSynthsNodes s) xs
-  updatedSynthsNodes <- sequence $ intersectionWith (updateSynth timePair ioNodes tempo evalTime') continuingSynthsNodes xs
+  updatedSynthsNodes <- sequence $ intersectionWith (updateSynth timePair audioIn audioOut nchnls tempo evalTime') continuingSynthsNodes xs
   newSynthsNodes <- return $! IntMap.union addedSynthsNodes updatedSynthsNodes
   when (not $ silentSynthLaunched s) $ do
-    let (_,dest) = ioNodes
-    -- *** could we use a variant of playSynth here that just uses the default destination since it's silent anyway?
-    W.playSynth dest (utcToSafeAudioTime timePair evalTime') $ W.constantSource 0 >>= W.audioOut
+    W.playSynth audioOut (utcToSafeAudioTime timePair evalTime') $ W.constantSource 0 >>= W.audioOut
     return ()
   return $ s {
     prevSynthsNodes = newSynthsNodes,
@@ -88,19 +89,19 @@ updatePunctualW s tempo p = do
     silentSynthLaunched = True
     }
 
-addNewSynth :: AudioIO m => TimePair -> (W.Node,W.Node) -> Tempo -> UTCTime -> Action -> m (Synth m, W.Node)
-addNewSynth timePair ioNodes tempo eTime a = do
+addNewSynth :: AudioIO m => TimePair -> W.Node -> W.Node -> Int -> Tempo -> UTCTime -> Action -> m (Synth m, W.Node)
+addNewSynth timePair audioIn audioOut nchnls tempo eTime a = do
   let (xfadeStart,xfadeEnd) = actionToTimes tempo eTime a
-  addSynth timePair ioNodes xfadeStart xfadeStart xfadeEnd a
+  addSynth timePair audioIn audioOut nchnls xfadeStart xfadeStart xfadeEnd a
 
-updateSynth :: AudioIO m => TimePair -> (W.Node,W.Node) -> Tempo -> UTCTime -> (Synth m, W.Node) -> Action -> m (Synth m, W.Node)
-updateSynth timePair ioNodes tempo eTime prevSynthNode a = do
+updateSynth :: AudioIO m => TimePair -> W.Node -> W.Node -> Int -> Tempo -> UTCTime -> (Synth m, W.Node) -> Action -> m (Synth m, W.Node)
+updateSynth timePair audioIn audioOut nchnls tempo eTime prevSynthNode a = do
   let (xfadeStart,xfadeEnd) = actionToTimes tempo eTime a
   deleteSynth timePair xfadeStart xfadeEnd prevSynthNode
-  addSynth timePair ioNodes xfadeStart xfadeStart xfadeEnd a
+  addSynth timePair audioIn audioOut nchnls xfadeStart xfadeStart xfadeEnd a
 
-addSynth :: AudioIO m => TimePair -> (W.Node,W.Node) -> UTCTime -> UTCTime -> UTCTime -> Action -> m (Synth m, W.Node)
-addSynth timePair (audioIn,audioOut) startTime xfadeStart xfadeEnd a = do
+addSynth :: AudioIO m => TimePair -> W.Node -> W.Node -> Int -> UTCTime -> UTCTime -> UTCTime -> Action -> m (Synth m, W.Node)
+addSynth timePair audioIn audioOut nchnls startTime xfadeStart xfadeEnd a = do
   let startTimeUnsafe = utcToAudioTime timePair startTime
   let xfadeStart' = max 0 $ (utcToAudioTime timePair xfadeStart) - startTimeUnsafe
   let xfadeEnd' = max 0.001 $ (utcToAudioTime timePair xfadeEnd) - startTimeUnsafe
@@ -112,22 +113,28 @@ addSynth timePair (audioIn,audioOut) startTime xfadeStart xfadeEnd a = do
     W.setParam W.Gain 0.0 0.0 gainNode
     W.setParam W.Gain 0.0 xfadeStart' gainNode
     W.linearRampOnParam W.Gain 1.0 xfadeEnd' gainNode
-    mapM_ (connectSynthToOutput gainNode) $ outputs a
+    mapM_ (connectSynthToOutput gainNode nchnls) $ outputs a
     return gainNode
   newNode <- W.nodeRefToNode newNodeRef newSynth
   return (newSynth,newNode)
 
-connectSynthToOutput :: AudioIO m => NodeRef -> Output -> SynthDef m ()
-connectSynthToOutput nRef (Panned p) = do
+connectSynthToOutput :: AudioIO m => NodeRef -> Int -> Output -> SynthDef m ()
+connectSynthToOutput _ 1 _ = error "mono outputs not supported by Punctual web audio"
+connectSynthToOutput nRef 2 (Panned p) = do
   xs <- W.channelSplitter nRef
   y <- W.mix xs
   z <- W.equalPowerPan p y
   W.audioOut z
-connectSynthToOutput nRef Splay = do
+connectSynthToOutput nRef nchnls (Panned p) = do
   xs <- W.channelSplitter nRef
-  y <- W.splay 2 xs
+  y <- W.mix xs
+  z <- W.circlePan nchnls p y
+  W.audioOut z
+connectSynthToOutput nRef nchnls Splay = do
+  xs <- W.channelSplitter nRef
+  y <- W.splay nchnls xs
   W.audioOut y
-connectSynthToOutput _ _ = return ()
+connectSynthToOutput _ _ _ = return ()
 
 deleteSynth :: MonadIO m => TimePair -> UTCTime -> UTCTime -> (Synth m, W.Node) -> m ()
 deleteSynth timePair xfadeStart xfadeEnd (prevSynth,prevGainNode) = do

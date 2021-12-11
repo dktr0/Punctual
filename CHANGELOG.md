@@ -1,5 +1,8 @@
 # ChangeLog
 
+0.3.4:
+- support for multichannel audio
+
 0.3.3:
 
 - support for Haskell-style multi-channel ranges of integer constants [1..6] and float/double constants [0.1,0.2 .. 0.9]
