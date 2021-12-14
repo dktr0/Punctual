@@ -208,6 +208,7 @@ optimize (LPF x y z) = LPF (optimize x) (optimize y) (optimize z)
 optimize (HPF x y z) = HPF (optimize x) (optimize y) (optimize z)
 optimize (BPF x y z) = BPF (optimize x) (optimize y) (optimize z)
 optimize (Delay maxT t i) = Delay maxT (optimize t) (optimize i)
+optimize (Pan n x y) = Pan n (optimize x) (optimize y)
 optimize x = x
 
 graphToSynthDef' :: AudioIO m => W.Node -> Graph -> SynthDef m NodeRef

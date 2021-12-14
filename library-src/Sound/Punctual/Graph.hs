@@ -72,7 +72,8 @@ data Graph =
   Line Graph Graph Graph |
   LinLin Graph Graph Graph |
   LPF Graph Graph Graph | HPF Graph Graph Graph | BPF Graph Graph Graph |
-  Delay Double Graph Graph
+  Delay Double Graph Graph |
+  Pan Int Graph Graph
   deriving (Show,Eq,Generic,NFData)
 
 instance Num Graph where

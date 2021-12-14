@@ -369,7 +369,8 @@ lGraph_graph_graph = reserved "step" >> return Step
 int_graph_graph :: H (Int -> Graph -> Graph)
 int_graph_graph = asum [
   reserved "rep" >> return Rep,
-  reserved "unrep" >> return UnRep
+  reserved "unrep" >> return UnRep,
+  reserved "pan" >> return Pan,
   ]
 
 double_graph_graph_graph :: H (Double -> Graph -> Graph -> Graph)

@@ -1,5 +1,8 @@
 # ChangeLog
 
+0.3.5:
+- added "pan" for dynamic multichannel panning
+
 0.3.4:
 - support for multichannel audio
 
