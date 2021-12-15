@@ -11,6 +11,11 @@ import TextShow
 
 data GLSLType = Vec4 | Vec3 | Vec2 | GLFloat deriving (Eq, Show)
 
+instance TextShow GLSLType where
+  showb Vec4 = "vec4"
+  showb Vec3 = "vec3"
+  showb Vec2 = "vec2"
+  showb GLFloat = "float"
 
 -- Next, we define the type GLSLExpr which represents a strongly-typed GLSL expression
 -- together with a representation of its dependencies.

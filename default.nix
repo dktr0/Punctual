@@ -56,9 +56,9 @@ with pkgs.haskell.lib;
      (self.callCabal2nix "haskellish" (pkgs.fetchFromGitHub {
       owner = "dktr0";
       repo = "Haskellish";
-      sha256 = "0z4a2snqy7m8apfb3dawjjzbbkwk6llaaykxgc1wd3001rgxxg1b";
-      rev = "fb6c02a31f96e460866731ee058fbadcecabd7b7";
-     }) {});
+      sha256 = "0w04qg2jmjgrkxrjc9ddads606fvsbain9bf2k1d0spk41ckayyb";
+      rev = "3bc2dd4133843751a3ae4a3e88063d7d99f18f81";
+      }) {});
 
     tempi = dontHaddock (self.callCabal2nix "tempi" (pkgs.fetchFromGitHub {
         owner = "dktr0";

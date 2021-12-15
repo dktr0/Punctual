@@ -15,6 +15,7 @@ import Data.Foldable as Foldable hiding (length)
 
 import Sound.Punctual.GLSLExpr
 
+
 -- GLSL is a monad representing computations in a GLSL fragment shader
 -- a computation "accumulates" the following:
 -- -a count of auto-assigned variables, so that new assignments can use that as necessary
@@ -32,12 +33,13 @@ runGLSL x = (a,b)
 assign :: GLSLExpr -> GLSL GLSLExpr
 assign x = do
   (c,m,b) <- get
-  let x' = "_" <> showb c
-  let t = glslType x
-  let m' = Map.insert x' t m
-  let b' = b <> x' <> "=" <> x' <> ";\n"
+  let varName = "_" <> showb c
+  let varType = glslType x
+  let m' = Map.insert varName varType m
+  let newLine = showb varType <> " " <> varName <> "=" <> builder x <> ";\n"
+  let b' = b <> newLine
   put (c+1,m',b')
-  return $ GLSLExpr { glslType = t, builder = x' }
+  return $ GLSLExpr { glslType = varType, builder = varName }
 
 -- write code to the accumulated Builder without adding a new variable assignment
 write :: Builder -> GLSL ()

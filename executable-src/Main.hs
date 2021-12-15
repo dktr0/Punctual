@@ -50,8 +50,8 @@ intro
    \-- Chromium/Chrome browser required for full results\n\
    \-- Press Shift-Enter to (re)evaluate/activate code\n\
    \\n\
-   \mono (iline [sin (0.11*1...6), sin (0.08/1...6)] [sin (0.06/1...6), sin (0.04*1...6)] 0.002) * [sin 0.11,0.5 ~~ 1 $ sin 0.12, 1] * (1 - rect [0,0.875] [2,0.25]) >> hsv <> 5;\n\
-   \0.98 * fb fxy * (fb fxy > 0.1) >> rgb"
+   \mono (iline [sin (0.11*[1..6]), sin (0.08/[1..6])] [sin (0.06/[1..6]), sin (0.04*[1..6])] 0.002) * [sin 0.11,0.5 ~~ 1 $ sin 0.12, 1] * (1 - rect [0,0.875] [2,0.25]) >> hsv <> 5;\n\
+   \gate 0.1 $ fb fxy * 0.98 >> rgb"
 
 main :: IO ()
 main = do

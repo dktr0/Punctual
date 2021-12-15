@@ -13,7 +13,6 @@ import Data.Maybe
 import Data.List.Split
 import Data.Time
 import Data.Tempo
-import Data.Set as Set
 
 
 import Sound.Punctual.Graph
@@ -538,9 +537,8 @@ fragmentShader _ _ _ newProgram | isJust (directGLSL newProgram) = toText header
 fragmentShader tempo texMap oldProgram newProgram = toText $ header <> body
   where
     (gl_FragColor,assignments) = runGLSL $ fragmentShaderGLSL tempo texMap oldProgram newProgram
-    assignments' = realizeAssignments assignments
     gl_FragColor' = "gl_FragColor = " <> builder gl_FragColor <> ";\n"
-    body = "\nvoid main() {\n" <> assignments' <> gl_FragColor' <> "}"
+    body = "\nvoid main() {\n" <> assignments <> "\n" <> gl_FragColor' <> "}"
 
 
 testFragmentShader :: IO ()
