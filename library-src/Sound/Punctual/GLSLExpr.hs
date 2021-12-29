@@ -22,29 +22,30 @@ instance TextShow GLSLType where
 
 data GLSLExpr = GLSLExpr {
   glslType :: GLSLType,
+  isAssignment :: Bool, -- True if expr is just name of an assigned variable
   builder :: Builder
   } deriving (Show)
 
 exprChannels :: GLSLExpr -> Int
-exprChannels (GLSLExpr Vec4 _) = 4
-exprChannels (GLSLExpr Vec3 _) = 3
-exprChannels (GLSLExpr Vec2 _) = 2
-exprChannels (GLSLExpr GLFloat _) = 1
+exprChannels (GLSLExpr Vec4 _ _) = 4
+exprChannels (GLSLExpr Vec3 _ _) = 3
+exprChannels (GLSLExpr Vec2 _ _) = 2
+exprChannels (GLSLExpr GLFloat _ _) = 1
 
 exprsChannels :: [GLSLExpr] -> Int
 exprsChannels xs = sum $ fmap exprChannels xs
 
 -- a convenience function for making a no-dependency GLFloat
 glFloat :: Builder -> GLSLExpr
-glFloat b = GLSLExpr GLFloat b
+glFloat b = GLSLExpr GLFloat False b
 
 -- and another one for doing the same thing from a Haskell Double
 constantFloat :: Double -> GLSLExpr
-constantFloat x = GLSLExpr GLFloat (showb x)
+constantFloat x = GLSLExpr GLFloat False (showb x)
 
 -- unsafe because performs no checking that the indicated cast is valid GLSL
 unsafeCast :: GLSLType -> GLSLExpr -> GLSLExpr
-unsafeCast t x = GLSLExpr t $ f t <> "(" <> builder x <> ")"
+unsafeCast t x = GLSLExpr t False $ f t <> "(" <> builder x <> ")"
   where
     f GLFloat = "float"
     f Vec2 = "vec2"
@@ -52,16 +53,16 @@ unsafeCast t x = GLSLExpr t $ f t <> "(" <> builder x <> ")"
     f Vec4 = "vec4"
 
 unaryFunction :: Builder -> GLSLType -> GLSLExpr -> GLSLExpr
-unaryFunction funcName t x = GLSLExpr t $ funcName <> "(" <> builder x <> ")"
+unaryFunction funcName t x = GLSLExpr t False $ funcName <> "(" <> builder x <> ")"
 
 binaryFunction :: Builder -> GLSLType -> GLSLExpr -> GLSLExpr -> GLSLExpr
-binaryFunction funcName t e1 e2 = GLSLExpr t $ funcName <> "(" <> builder e1 <> "," <> builder e2 <> ")"
+binaryFunction funcName t e1 e2 = GLSLExpr t False $ funcName <> "(" <> builder e1 <> "," <> builder e2 <> ")"
 
 binaryOperator :: Builder -> GLSLType -> GLSLExpr -> GLSLExpr -> GLSLExpr
-binaryOperator op t e1 e2 = GLSLExpr t $ "(" <> builder e1 <> op <> builder e2 <> ")"
+binaryOperator op t e1 e2 = GLSLExpr t False $ "(" <> builder e1 <> op <> builder e2 <> ")"
 
 ternaryFunction :: Builder -> GLSLType -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-ternaryFunction funcName t e1 e2 e3 = GLSLExpr t $ funcName <> "(" <> builder e1 <> "," <> builder e2 <> "," <> builder e3 <> ")"
+ternaryFunction funcName t e1 e2 e3 = GLSLExpr t False $ funcName <> "(" <> builder e1 <> "," <> builder e2 <> "," <> builder e3 <> ")"
 
 
 -- for unary functions like sin(x) where any float type can be the argument
@@ -100,40 +101,40 @@ comparisonOperator opName funcName x y
 -- they are given. However, this is probably something we should add!
 
 swizzleX :: GLSLExpr -> GLSLExpr
-swizzleX x = GLSLExpr GLFloat $ builder x <> ".x"
+swizzleX x = GLSLExpr GLFloat False $ builder x <> ".x"
 
 swizzleY :: GLSLExpr -> GLSLExpr
-swizzleY x = GLSLExpr GLFloat $ builder x <> ".y"
+swizzleY x = GLSLExpr GLFloat False $ builder x <> ".y"
 
 swizzleZ :: GLSLExpr -> GLSLExpr
-swizzleZ x = GLSLExpr GLFloat $ builder x <> ".z"
+swizzleZ x = GLSLExpr GLFloat False $ builder x <> ".z"
 
 swizzleW :: GLSLExpr -> GLSLExpr
-swizzleW x = GLSLExpr GLFloat $ builder x <> ".w"
+swizzleW x = GLSLExpr GLFloat False $ builder x <> ".w"
 
 swizzleXY :: GLSLExpr -> GLSLExpr
-swizzleXY x = GLSLExpr Vec2 $ builder x <> ".xy"
+swizzleXY x = GLSLExpr Vec2 False $ builder x <> ".xy"
 
 swizzleYZ :: GLSLExpr -> GLSLExpr
-swizzleYZ x = GLSLExpr Vec2 $ builder x <> ".yz"
+swizzleYZ x = GLSLExpr Vec2 False $ builder x <> ".yz"
 
 swizzleZW :: GLSLExpr -> GLSLExpr
-swizzleZW x = GLSLExpr Vec2 $ builder x <> ".zw"
+swizzleZW x = GLSLExpr Vec2 False $ builder x <> ".zw"
 
 swizzleXYZ :: GLSLExpr -> GLSLExpr
-swizzleXYZ x = GLSLExpr Vec3 $ builder x <> ".xyz"
+swizzleXYZ x = GLSLExpr Vec3 False $ builder x <> ".xyz"
 
 swizzleYZW :: GLSLExpr -> GLSLExpr
-swizzleYZW x = GLSLExpr Vec3 $ builder x <> ".yzw"
+swizzleYZW x = GLSLExpr Vec3 False $ builder x <> ".yzw"
 
 swizzleXYY :: GLSLExpr -> GLSLExpr
-swizzleXYY x = GLSLExpr Vec3 $ builder x <> ".xyy"
+swizzleXYY x = GLSLExpr Vec3 False $ builder x <> ".xyy"
 
 swizzleXYYY :: GLSLExpr -> GLSLExpr
-swizzleXYYY x = GLSLExpr Vec4 $ builder x <> ".xyyy"
+swizzleXYYY x = GLSLExpr Vec4 False $ builder x <> ".xyyy"
 
 swizzleXYZZ :: GLSLExpr -> GLSLExpr
-swizzleXYZZ x = GLSLExpr Vec4 $ builder x <> ".xyzz"
+swizzleXYZZ x = GLSLExpr Vec4 False $ builder x <> ".xyzz"
 
 -- convert any GLSLExpr to an GLSLExpr containing a GLFloat, by discarding "channels" after the first one
 exprToGLFloat :: GLSLExpr -> GLSLExpr
@@ -144,14 +145,14 @@ exprToGLFloat x
 -- convert any GLSLExpr to an GLSLExpr containing a Vec2, by repeating or discarding channels
 exprToVec2 :: GLSLExpr -> GLSLExpr
 exprToVec2 x
-  | glslType x == GLFloat = GLSLExpr Vec2 $ "vec2(" <> builder x <> ")"
+  | glslType x == GLFloat = GLSLExpr Vec2 False $ "vec2(" <> builder x <> ")"
   | glslType x == Vec2 = x
   | otherwise = swizzleXY x
 
 -- convert any GLSLExpr to an GLSLExpr containing a Vec3, by repeating or discarding channels
 exprToVec3 :: GLSLExpr -> GLSLExpr
 exprToVec3 x
-  | glslType x == GLFloat = GLSLExpr Vec3 $ "vec3(" <> builder x <> ")"
+  | glslType x == GLFloat = GLSLExpr Vec3 False $ "vec3(" <> builder x <> ")"
   | glslType x == Vec2 = swizzleXYY x
   | glslType x == Vec3 = x
   | otherwise = swizzleXYZ x
@@ -159,31 +160,31 @@ exprToVec3 x
 -- convert any GLSLExpr to an GLSLExpr containing a Vec4, by repeating channels
 exprToVec4 :: GLSLExpr -> GLSLExpr
 exprToVec4 x
-  | glslType x == GLFloat = GLSLExpr Vec4 $ "vec4(" <> builder x <> ")"
+  | glslType x == GLFloat = GLSLExpr Vec4 False $ "vec4(" <> builder x <> ")"
   | glslType x == Vec2 = swizzleXYYY x
   | glslType x == Vec3 = swizzleXYZZ x
   | otherwise = x
 
 -- assemble a GLSLExpr containing a Vec2 by combining two GLSLExpr-s
 exprExprToVec2 :: GLSLExpr -> GLSLExpr -> GLSLExpr
-exprExprToVec2 (GLSLExpr GLFloat x) (GLSLExpr GLFloat y) = GLSLExpr Vec2 $ "vec2(" <> x <> "," <> y <> ")"
+exprExprToVec2 (GLSLExpr GLFloat _ x) (GLSLExpr GLFloat _ y) = GLSLExpr Vec2 False $ "vec2(" <> x <> "," <> y <> ")"
 exprExprToVec2 _ _ = error "exprExprToVec2 called with inappropriate types"
 
 -- assemble a GLSLExpr containing a Vec3 by combining two GLSLExpr-s
 exprExprToVec3 :: GLSLExpr -> GLSLExpr -> GLSLExpr
-exprExprToVec3 (GLSLExpr GLFloat x) (GLSLExpr Vec2 y) = GLSLExpr Vec3 $ "vec3(" <> x <> "," <> y <> ")"
-exprExprToVec3 (GLSLExpr Vec2 x) (GLSLExpr GLFloat y) = GLSLExpr Vec3 $ "vec3(" <> x <> "," <> y <> ")"
+exprExprToVec3 (GLSLExpr GLFloat _ x) (GLSLExpr Vec2 _ y) = GLSLExpr Vec3 False $ "vec3(" <> x <> "," <> y <> ")"
+exprExprToVec3 (GLSLExpr Vec2 _ x) (GLSLExpr GLFloat _ y) = GLSLExpr Vec3 False $ "vec3(" <> x <> "," <> y <> ")"
 exprExprToVec3 _ _ = error "exprExprToVec3 called with inappropriate types"
 
 -- assemble a GLSLExpr containing a Vec4 by combining two GLSLExpr-s
 exprExprToVec4 :: GLSLExpr -> GLSLExpr -> GLSLExpr
-exprExprToVec4 (GLSLExpr GLFloat x) (GLSLExpr Vec3 y) = GLSLExpr Vec4 $ "vec4(" <> x <> "," <> y <> ")"
-exprExprToVec4 (GLSLExpr Vec2 x) (GLSLExpr Vec2 y) = GLSLExpr Vec4 $ "vec4(" <> x <> "," <> y <> ")"
-exprExprToVec4 (GLSLExpr Vec3 x) (GLSLExpr GLFloat y) = GLSLExpr Vec4 $ "vec4(" <> x <> "," <> y <> ")"
+exprExprToVec4 (GLSLExpr GLFloat _ x) (GLSLExpr Vec3 _ y) = GLSLExpr Vec4 False $ "vec4(" <> x <> "," <> y <> ")"
+exprExprToVec4 (GLSLExpr Vec2 _ x) (GLSLExpr Vec2 _ y) = GLSLExpr Vec4 False $ "vec4(" <> x <> "," <> y <> ")"
+exprExprToVec4 (GLSLExpr Vec3 _ x) (GLSLExpr GLFloat _ y) = GLSLExpr Vec4 False $ "vec4(" <> x <> "," <> y <> ")"
 exprExprToVec4 _ _ = error "exprExprToVec4 called with inappropriate types"
 
 exprExprExprToVec3 :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-exprExprExprToVec3 (GLSLExpr GLFloat x) (GLSLExpr GLFloat y) (GLSLExpr GLFloat z) = GLSLExpr Vec3 $ "vec3(" <> x <> "," <> y <> "," <> z <> ")"
+exprExprExprToVec3 (GLSLExpr GLFloat _ x) (GLSLExpr GLFloat _ y) (GLSLExpr GLFloat _ z) = GLSLExpr Vec3 False $ "vec3(" <> x <> "," <> y <> "," <> z <> ")"
 
 
 instance Num GLSLExpr where

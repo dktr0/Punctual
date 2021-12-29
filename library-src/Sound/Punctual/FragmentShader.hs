@@ -293,11 +293,11 @@ clip :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr
 clip r x = do
   rx <- assign $ swizzleX r -- *** TODO: note: this assignment should be avoided in cases where r is already a simple variable or a constant
   ry <- assign $ swizzleY r
-  return $ GLSLExpr (glslType x) $ "clamp(" <> builder x <> "," <> builder rx <> "," <> builder ry <> ")"
+  return $ GLSLExpr (glslType x) False $ "clamp(" <> builder x <> "," <> builder rx <> "," <> builder ry <> ")"
 
 -- r (the range to test if something is between) is expected to be Vec2, x can be any type
 between :: GLSLExpr -> GLSLExpr -> GLSLExpr
-between r x = GLSLExpr (glslType x) $ "between(" <> builder r <> "," <> builder x <> ")"
+between r x = GLSLExpr (glslType x) False $ "between(" <> builder r <> "," <> builder x <> ")"
 
 -- xs is expected to have 2 or more members (and must have at least one), all GLSLExpr :: GLFloat
 step :: [GLSLExpr] -> GLSLExpr -> GLSLExpr
@@ -308,19 +308,19 @@ step xs y = foldr1 (+) xs''
     xs'' = fmap (\(x,n) -> x * _step nTotal n y) xs'
 
 _step :: Int -> Int -> GLSLExpr -> GLSLExpr
-_step nTotal n y = GLSLExpr GLFloat $ "_step(" <> showb nTotal <> "," <> showb n <> "," <> builder y <> ")"
+_step nTotal n y = GLSLExpr GLFloat False $ "_step(" <> showb nTotal <> "," <> showb n <> "," <> builder y <> ")"
 
 linlin :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-linlin r1 r2 w = GLSLExpr GLFloat $ "linlin(" <> builder r1 <> "," <> builder r2 <> "," <> builder w <> ")"
+linlin r1 r2 w = GLSLExpr GLFloat False $ "linlin(" <> builder r1 <> "," <> builder r2 <> "," <> builder w <> ")"
 
 ifthenelse :: GLSLExpr -> (GLSLExpr,GLSLExpr) -> GLSLExpr
-ifthenelse c (r1,r2) = GLSLExpr (glslType r1) $ "ifthenelse(" <> builder c <> "," <> builder r1 <> "," <> builder r2 <> ")"
+ifthenelse c (r1,r2) = GLSLExpr (glslType r1) False $ "ifthenelse(" <> builder c <> "," <> builder r1 <> "," <> builder r2 <> ")"
 
 iline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-iline xy1 xy2 w fxy = GLSLExpr GLFloat $ "iline(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> "," <> builder fxy <> ")"
+iline xy1 xy2 w fxy = GLSLExpr GLFloat False $ "iline(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> "," <> builder fxy <> ")"
 
 line :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-line xy1 xy2 w fxy = GLSLExpr GLFloat $ "line(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> "," <> builder fxy <> ")"
+line xy1 xy2 w fxy = GLSLExpr GLFloat False $ "line(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> "," <> builder fxy <> ")"
 
 -- arguments must be pre-aligned (same underlying GLSL types)
 gate :: GLSLExpr -> GLSLExpr -> GLSLExpr
@@ -427,11 +427,11 @@ header
    \vec2 tile(vec2 ab,vec2 fxy) { return fract(((fxy*0.5)+0.5)*ab)*2.-1.;}\
    \vec2 spin(float a,vec2 fxy) {\
    \ float ct = cos(a*3.1415926538); float st = sin(a*3.1415926538);\
-   \ return vec2(fxy.x*ct-fxy.y*st,fxy.y*ct+fxy.x*st);}"
+   \ return vec2(fxy.x*ct-fxy.y*st,fxy.y*ct+fxy.x*st);}\n"
    -- thanks to http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl for the HSV-RGB conversion algorithms above!
 
 _time :: GLSLExpr
-_time = GLSLExpr GLFloat "_time"
+_time = GLSLExpr GLFloat True "_time"
 
 actionToGLSL :: Map Text Int -> Action -> GLSL GLSLExpr
 actionToGLSL texMap a = do
@@ -442,7 +442,7 @@ actionToGLSL texMap a = do
   assign $ if isHsv a then hsvrgb d else d
 
 defaultFxy :: GLSLExpr
-defaultFxy = GLSLExpr Vec2 "_fxy()"
+defaultFxy = GLSLExpr Vec2 True "_fxy()"
 
 isVec3 :: Action -> Bool
 isVec3 x = elem RGB (outputs x) || elem HSV (outputs x)
@@ -488,7 +488,7 @@ xFadeNew :: UTCTime -> UTCTime -> UTCTime -> GLSLExpr
 xFadeNew = xFadeFunction "xFadeNew"
 
 xFadeFunction :: Builder -> UTCTime -> UTCTime -> UTCTime -> GLSLExpr
-xFadeFunction funcName eTime t1 t2 = GLSLExpr GLFloat b
+xFadeFunction funcName eTime t1 t2 = GLSLExpr GLFloat False b
   where
     t1' = showb $ ((realToFrac $ diffUTCTime t1 eTime) :: Double)
     t2' = showb $ ((realToFrac $ diffUTCTime t2 eTime) :: Double)
@@ -514,10 +514,10 @@ fragmentShaderGLSL tempo texMap oldProgram newProgram = do
   red <- generateOutput Red 0 allExprs
   green <- generateOutput Green 0 allExprs
   blue <- generateOutput Blue 0 allExprs
-  let _defaultAlpha = GLSLExpr GLFloat "_defaultAlpha"
+  let _defaultAlpha = GLSLExpr GLFloat True "_defaultAlpha"
   alpha <- generateOutput Alpha _defaultAlpha allExprs
   fdbk <- generateOutput Fdbk 0 allExprs
-  let fdbk' = GLSLExpr Vec3 $"fb(" <> builder fdbk <> ")"
+  let fdbk' = GLSLExpr Vec3 False $"fb(" <> builder fdbk <> ")"
   hsv <- generateOutput HSV (exprToVec3 0) allExprs
   rgb <- generateOutput RGB (exprToVec3 0) allExprs
   let rgb' = exprExprExprToVec3 red green blue + hsv + rgb + fdbk'
@@ -538,14 +538,4 @@ fragmentShader tempo texMap oldProgram newProgram = toText $ header <> body
   where
     (gl_FragColor,assignments) = runGLSL $ fragmentShaderGLSL tempo texMap oldProgram newProgram
     gl_FragColor' = "gl_FragColor = " <> builder gl_FragColor <> ";\n"
-    body = "\nvoid main() {\n" <> assignments <> "\n" <> gl_FragColor' <> "}"
-
-
-testFragmentShader :: IO ()
-testFragmentShader = do
-  now <- getCurrentTime
-  let testTempo = Tempo 1.0 now 0
-  let testProgram = (emptyProgram now) {
-    actions = IntMap.empty
-    }
-  T.putStrLn $ fragmentShader testTempo Map.empty (emptyProgram now) testProgram
+    body = "\nvoid main() {\n" <> assignments <> gl_FragColor' <> "}"

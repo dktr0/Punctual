@@ -31,7 +31,9 @@ runGLSL x = (a,b)
   where (a,(_,_,b)) = runState x (0,Map.empty,"")
 
 assign :: GLSLExpr -> GLSL GLSLExpr
-assign x = do
+assign x
+  | isAssignment x = return x -- don't re-assign
+  | otherwise = do
   (c,m,b) <- get
   let varName = "_" <> showb c
   let varType = glslType x
@@ -39,7 +41,7 @@ assign x = do
   let newLine = showb varType <> " " <> varName <> "=" <> builder x <> ";\n"
   let b' = b <> newLine
   put (c+1,m',b')
-  return $ GLSLExpr { glslType = varType, builder = varName }
+  return $ GLSLExpr varType True varName
 
 -- write code to the accumulated Builder without adding a new variable assignment
 write :: Builder -> GLSL ()
@@ -78,10 +80,29 @@ g t t1 t2 x1 x2 = do
 
 align :: GLSLType -> [GLSLExpr] -> GLSL [GLSLExpr]
 align _ [] = return []
+align t (x:xs) | glslType x == t = do
+  xs' <- align t xs
+  return (x:xs')
+align GLFloat (x@(GLSLExpr Vec2 _ _):xs) = do
+  x' <- assign x
+  xs' <- align GLFloat xs
+  return (swizzleX x' : swizzleY x' : xs')
+align GLFloat (x@(GLSLExpr Vec3 _ _):xs) = do
+  x' <- assign x
+  xs' <- align GLFloat xs
+  return (swizzleX x' : swizzleY x' : swizzleZ x' : xs')
+align GLFloat (x@(GLSLExpr Vec4 _ _):xs) = do
+  x' <- assign x
+  xs' <- align GLFloat xs
+  return (swizzleX x' : swizzleY x' : swizzleZ x' : swizzleW x' : xs')
+-- there are more optimized cases to match above
+-- but for now they can all be covered with the catch-all definition below
+-- which leads to unnecessary extra layers of swizzling and/or assignment:
 align t xs = do
   (x,xs') <- splitAligned t xs
   xs'' <- align t xs'
   return (x:xs'')
+
 
 -- alignMax: given a list of GLSLExpr-s regroup them to use the biggest
 -- underlying types, eg. 7 channels would be a Vec4 followed by a Vec3
@@ -137,57 +158,57 @@ splitAligned _ [] = error "splitAligned called with empty list"
 splitAligned t (x:xs) | t == glslType x = return (x,xs)
 
 -- 2. when the requested item can be constructed exactly from items at the head of the list in various ways, do that
-splitAligned Vec3 (x@(GLSLExpr GLFloat _):y@(GLSLExpr GLFloat _):z@(GLSLExpr GLFloat _):xs) = do
+splitAligned Vec3 (x@(GLSLExpr GLFloat _ _):y@(GLSLExpr GLFloat _ _):z@(GLSLExpr GLFloat _ _):xs) = do
   return (exprExprExprToVec3 x y z, xs)
 -- *** TODO: there are many more patterns that should be matched here.
 
 -- 3. when the list has one item that is smaller than requested type, repeat channels to provide type
-splitAligned Vec2 (x@(GLSLExpr GLFloat _):[]) = return (exprToVec2 x,[])
-splitAligned Vec3 (x@(GLSLExpr GLFloat _):[]) = return (exprToVec3 x,[])
-splitAligned Vec3 (x@(GLSLExpr Vec2 _):[]) = return (exprToVec3 x,[])
-splitAligned Vec4 (x@(GLSLExpr GLFloat _):[]) = return (exprToVec4 x,[])
-splitAligned Vec4 (x@(GLSLExpr Vec2 _):[]) = return (exprToVec4 x,[])
-splitAligned Vec4 (x@(GLSLExpr Vec3 _):[]) = return (exprToVec4 x,[])
+splitAligned Vec2 (x@(GLSLExpr GLFloat _ _):[]) = return (exprToVec2 x,[])
+splitAligned Vec3 (x@(GLSLExpr GLFloat _ _):[]) = return (exprToVec3 x,[])
+splitAligned Vec3 (x@(GLSLExpr Vec2 _ _):[]) = return (exprToVec3 x,[])
+splitAligned Vec4 (x@(GLSLExpr GLFloat _ _):[]) = return (exprToVec4 x,[])
+splitAligned Vec4 (x@(GLSLExpr Vec2 _ _):[]) = return (exprToVec4 x,[])
+splitAligned Vec4 (x@(GLSLExpr Vec3 _ _):[]) = return (exprToVec4 x,[])
 
 
 -- 4. when the requested item is smaller than the type at head of list, split it by assigning and swizzling
-splitAligned GLFloat (x@(GLSLExpr Vec2 _):xs) = do
+splitAligned GLFloat (x@(GLSLExpr Vec2 _ _):xs) = do
   x' <- assign x
   return (swizzleX x',(swizzleY x'):xs)
-splitAligned GLFloat (x@(GLSLExpr Vec3 _):xs) = do
+splitAligned GLFloat (x@(GLSLExpr Vec3 _ _):xs) = do
   x' <- assign x
   return (swizzleX x',(swizzleYZ x'):xs)
-splitAligned GLFloat (x@(GLSLExpr Vec4 _):xs) = do
+splitAligned GLFloat (x@(GLSLExpr Vec4 _ _):xs) = do
   x' <- assign x
   return (swizzleX x',(swizzleYZW x'):xs)
-splitAligned Vec2 (x@(GLSLExpr Vec3 _):xs) = do
+splitAligned Vec2 (x@(GLSLExpr Vec3 _ _):xs) = do
   x' <- assign x
   return (swizzleXY x',(swizzleZ x'):xs)
-splitAligned Vec2 (x@(GLSLExpr Vec4 _):xs) = do
+splitAligned Vec2 (x@(GLSLExpr Vec4 _ _):xs) = do
   x' <- assign x
   return (swizzleXY x',(swizzleZW x'):xs)
-splitAligned Vec3 (x@(GLSLExpr Vec4 _):xs) = do
+splitAligned Vec3 (x@(GLSLExpr Vec4 _ _):xs) = do
   x' <- assign x
   return (swizzleXYZ x',(swizzleW x'):xs)
 
 -- 3. when the requested item is larger than the type at the head of the list (n>=2), call splitAligned
 -- recursively to provide a second value that, combined with the first, produces requested type
-splitAligned Vec2 (x@(GLSLExpr GLFloat _):xs) = do
+splitAligned Vec2 (x@(GLSLExpr GLFloat _ _):xs) = do
   (y,xs') <- splitAligned GLFloat xs
   return (exprExprToVec2 x y,xs')
-splitAligned Vec3 (x@(GLSLExpr GLFloat _):xs) = do
+splitAligned Vec3 (x@(GLSLExpr GLFloat _ _):xs) = do
   (y,xs') <- splitAligned Vec2 xs
   return (exprExprToVec3 x y,xs')
-splitAligned Vec3 (x@(GLSLExpr Vec2 _):xs) = do
+splitAligned Vec3 (x@(GLSLExpr Vec2 _ _):xs) = do
   (y,xs') <- splitAligned GLFloat xs
   return (exprExprToVec3 x y,xs')
-splitAligned Vec4 (x@(GLSLExpr GLFloat _):xs) = do
+splitAligned Vec4 (x@(GLSLExpr GLFloat _ _):xs) = do
   (y,xs') <- splitAligned Vec3 xs
   return (exprExprToVec4 x y,xs')
-splitAligned Vec4 (x@(GLSLExpr Vec2 _):xs) = do
+splitAligned Vec4 (x@(GLSLExpr Vec2 _ _):xs) = do
   (y,xs') <- splitAligned Vec2 xs
   return (exprExprToVec4 x y,xs')
-splitAligned Vec4 (x@(GLSLExpr Vec3 _):xs) = do
+splitAligned Vec4 (x@(GLSLExpr Vec3 _ _):xs) = do
   (y,xs') <- splitAligned GLFloat xs
   return (exprExprToVec4 x y,xs')
 
@@ -226,19 +247,19 @@ alignExprsOptimized x y
 alignToModel :: [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
 alignToModel [] _ = return []
 alignToModel _ [] = error "alignToModel ran out of expressions in second argument"
-alignToModel (m@(GLSLExpr GLFloat _):ms) xs = do
+alignToModel (m@(GLSLExpr GLFloat _ _):ms) xs = do
   (x',xs') <- splitAligned GLFloat xs
   xs'' <- alignToModel ms xs'
   return $ x' : xs''
-alignToModel (m@(GLSLExpr Vec2 _):ms) xs = do
+alignToModel (m@(GLSLExpr Vec2 _ _):ms) xs = do
   (x',xs') <- splitAligned Vec2 xs
   xs'' <- alignToModel ms xs'
   return $ x' : xs''
-alignToModel (m@(GLSLExpr Vec3 _):ms) xs = do
+alignToModel (m@(GLSLExpr Vec3 _ _):ms) xs = do
   (x',xs') <- splitAligned Vec3 xs
   xs'' <- alignToModel ms xs'
   return $ x' : xs''
-alignToModel (m@(GLSLExpr Vec4 _):ms) xs = do
+alignToModel (m@(GLSLExpr Vec4 _ _):ms) xs = do
   (x',xs') <- splitAligned Vec4 xs
   xs'' <- alignToModel ms xs'
   return $ x' : xs''
@@ -249,4 +270,4 @@ alignToModel (m@(GLSLExpr Vec4 _):ms) xs = do
 texture2D :: Builder -> [GLSLExpr] -> GLSL [GLSLExpr]
 texture2D n xy = do
   xy' <- align Vec2 xy
-  mapM assign $ fmap (\x -> GLSLExpr Vec3 ("texture2D(" <> n <> ",fract(" <> builder x <> "*0.5+0.5)).xyz")) xy'
+  mapM assign $ fmap (\x -> GLSLExpr Vec3 False ("texture2D(" <> n <> ",fract(" <> builder x <> "*0.5+0.5)).xyz")) xy'
