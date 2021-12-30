@@ -446,7 +446,7 @@ graphToSynthDef _ _ = W.constantSource 0
 expandMultis :: Graph -> [Graph]
 -- multi, mono, constants
 expandMultis (Multi []) = []
-expandMultis (Multi xs) = fmap graphsToMono $ fmap expandMultis xs
+expandMultis (Multi xs) = concat $ multi $ fmap expandMultis xs
 expandMultis (Mono x) = [graphsToMono $ expandMultis x]
 expandMultis (Constant x) = [Constant x]
 expandMultis (Rep n x) = concat $ fmap (replicate n) $ expandMultis x
