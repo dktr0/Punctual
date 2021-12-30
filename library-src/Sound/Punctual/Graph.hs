@@ -100,3 +100,9 @@ modulatedRangeGraph low high m = LinLin (Multi [-1,1]) (Multi [low,high]) m
 
 (+-) :: Graph -> Graph -> Graph -> Graph
 a +- b = modulatedRangeGraph (a - (a*b)) (a + (a*b))
+
+
+multi :: [[a]] -> [[a]]
+multi [] = []
+multi (xs:[]) = fmap pure xs
+multi (xs:ys) = [ x:y | x <- xs, y <- multi ys ]

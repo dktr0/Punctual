@@ -58,9 +58,7 @@ graphToGLSL ah (_,fxy) Fxy = alignHint ah $ fxy
 
 -- multichannel operations: multi, mono, rep, unrep
 
-graphToGLSL ah env (Multi xs) = do
-  xs' <- mapM (graphToGLSL ah env) xs
-  alignHint ah $ concat xs'
+graphToGLSL ah env (Multi xs) = multiToGLSL ah env xs
 
 graphToGLSL _ env (Mono x) = do
   x' <- graphToGLSL (Just GLFloat) env x
@@ -246,6 +244,13 @@ graphToGLSL ah env@(_,fxy) (Line xy1 xy2 w) = do
   alignHint ah [ line xy1'' xy2'' w'' fxy' | xy1'' <- xy1', xy2'' <- xy2', w'' <- w', fxy' <- fxy ]
 
 graphToGLSL _ _ _ = return [constantFloat 0]
+
+multiToGLSL :: AlignHint -> GraphEnv -> [Graph] -> GLSL [GLSLExpr]
+multiToGLSL _ _ [] = return [constantFloat 0.0]
+multiToGLSL ah env xs = do
+  xs' <- mapM (graphToGLSL ah env) xs
+  xs'' <- mapM (align GLFloat) xs'
+  return $ concat $ multi xs''
 
 
 unaryFunctionWithPosition :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> GLSL [GLSLExpr]

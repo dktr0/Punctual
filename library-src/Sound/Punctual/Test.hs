@@ -17,5 +17,8 @@ testFragmentShader x = do
   case parse now x of
     Left err -> Prelude.putStrLn $ "parse error: " ++ err
     Right p -> do
+      Prelude.putStrLn ""
+      Prelude.putStrLn $ show p
+      Prelude.putStrLn ""
       let testTempo = Tempo 1.0 now 0
       T.putStrLn $ fragmentShader testTempo Map.empty (emptyProgram now) p
