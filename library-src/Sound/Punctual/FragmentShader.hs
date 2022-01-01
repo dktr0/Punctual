@@ -39,8 +39,8 @@ graphToGLSL :: AlignHint -> GraphEnv -> Graph -> GLSL [GLSLExpr]
 -- constants and uniforms
 
 graphToGLSL _ _ (Constant x) = return [ constantFloat x ]
-graphToGLSL _ _ Px = return [glFloat "1./res.x"]
-graphToGLSL _ _ Py = return [glFloat "1./res.y"]
+graphToGLSL _ _ Px = return [glFloat "(1./res.x)"]
+graphToGLSL _ _ Py = return [glFloat "(1./res.y)"]
 graphToGLSL _ _ Lo = return [glFloat "lo"]
 graphToGLSL _ _ Mid = return [glFloat "mid"]
 graphToGLSL _ _ Hi = return [glFloat "hi"]
@@ -145,25 +145,24 @@ graphToGLSL ah env (Tile a b) = unaryPositionTransform tile Vec2 ah env a b
 graphToGLSL ah env (Spin a b) = unaryPositionTransform spin GLFloat ah env a b
 
 -- (simple) binary functions
-graphToGLSL ah env (Sum x y) = binaryMatchedGraph (+) ah env x y
-graphToGLSL ah env (Product x y) = binaryMatchedGraph (*) ah env x y
-graphToGLSL ah env (Division x y) = binaryMatchedGraph (/) ah env x y
-graphToGLSL ah env (Max x y) = binaryMatchedGraph (binaryFunctionMatched "max") ah env x y
-graphToGLSL ah env (Min x y) = binaryMatchedGraph (binaryFunctionMatched "min") ah env x y
-graphToGLSL ah env (Pow x y) = binaryMatchedGraph pow ah env x y
-graphToGLSL ah env (GreaterThan x y) = binaryMatchedGraph (comparisonOperator ">" "greaterThan") ah env x y
-graphToGLSL ah env (GreaterThanOrEqual x y) = binaryMatchedGraph (comparisonOperator ">=" "greaterThanEqual") ah env x y
-graphToGLSL ah env (LessThan x y) = binaryMatchedGraph lessThan ah env x y
-graphToGLSL ah env (LessThanOrEqual x y) = binaryMatchedGraph (comparisonOperator "<=" "lessThanEqual") ah env x y
-graphToGLSL ah env (Equal x y) = binaryMatchedGraph (comparisonOperator "==" "equal") ah env x y
-graphToGLSL ah env (NotEqual x y) = binaryMatchedGraph (comparisonOperator "!=" "notEqual") ah env x y
+graphToGLSL ah env (Sum x y) = binaryMatchedGraphs (+) ah env x y
+graphToGLSL ah env (Product x y) = binaryMatchedGraphs (*) ah env x y
+graphToGLSL ah env (Division x y) = binaryMatchedGraphs (/) ah env x y
+graphToGLSL ah env (Max x y) = binaryMatchedGraphs (binaryFunctionMatched "max") ah env x y
+graphToGLSL ah env (Min x y) = binaryMatchedGraphs (binaryFunctionMatched "min") ah env x y
+graphToGLSL ah env (Pow x y) = binaryMatchedGraphs pow ah env x y
+graphToGLSL ah env (GreaterThan x y) = binaryMatchedGraphs (comparisonOperator ">" "greaterThan") ah env x y
+graphToGLSL ah env (GreaterThanOrEqual x y) = binaryMatchedGraphs (comparisonOperator ">=" "greaterThanEqual") ah env x y
+graphToGLSL ah env (LessThan x y) = binaryMatchedGraphs lessThan ah env x y
+graphToGLSL ah env (LessThanOrEqual x y) = binaryMatchedGraphs (comparisonOperator "<=" "lessThanEqual") ah env x y
+graphToGLSL ah env (Equal x y) = binaryMatchedGraphs (comparisonOperator "==" "equal") ah env x y
+graphToGLSL ah env (NotEqual x y) = binaryMatchedGraphs (comparisonOperator "!=" "notEqual") ah env x y
 
 graphToGLSL ah env (Gate x y) = do
   x' <- graphToGLSL ah env x
   y' <- graphToGLSL ah env y
-  (x'',y'') <- alignExprs x' y'
-  y''' <- mapM assign y'' -- assign y since it is used twice by gate
-  return $ zipWith gate x'' y'''
+  y'' <- mapM assign y'
+  binaryMatchedGLSLExprs gate ah x' y''
 
 graphToGLSL ah env (Clip r x) = do
   r' <- graphToGLSL (Just Vec2) env r >>= align Vec2
@@ -189,9 +188,6 @@ graphToGLSL _ env (Step xs y) = do
   return $ fmap (step xs'') y'
 
 -- binary functions, with position
-
--- binaryFunctionWithPositionGraph :: (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr) -> GraphEnv -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
--- binaryFunctionWithPositionGraph f (_,fxys) as bs = return [ f a b c | a <- as, b <- bs, c <- fxys ]
 
 graphToGLSL ah env (Rect xy wh) = do
   xy' <- graphToGLSL (Just Vec2) env xy >>= align Vec2
@@ -250,7 +246,7 @@ multiToGLSL _ _ [] = return [constantFloat 0.0]
 multiToGLSL ah env xs = do
   xs' <- mapM (graphToGLSL ah env) xs
   xs'' <- mapM (align GLFloat) xs'
-  return $ concat $ multi xs''
+  alignHint ah $ concat $ multi xs''
 
 
 unaryFunctionWithPosition :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> GLSL [GLSLExpr]
@@ -264,14 +260,29 @@ unaryPositionTransform f t ah env@(texMap,fxy) a b = do
   fxy' <- mapM assign [ f fxy' a'' | fxy' <- fxy, a'' <- a' ]
   graphToGLSL ah (texMap,fxy') b
 
--- For now, I choose to optimize the case of a one-channel signal combined with an n-channel signal,
+-- Optimizes the case of a one-channel signal combined with an n-channel signal,
 -- by aligning in such a way that one-channel signals are kept as GLFloat no matter what (via "alignExprsOptimized")
-binaryMatchedGraph :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
-binaryMatchedGraph f ah env x y = do
+binaryMatchedGraphOld :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
+binaryMatchedGraphOld f ah env x y = do
   x' <- graphToGLSL ah env x
   y' <- graphToGLSL ah env y
   (x'',y'') <- alignExprsOptimized x' y'
   return $ zipWith f x'' y''
+
+binaryMatchedGraphs :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
+binaryMatchedGraphs f ah env x y = do
+  x' <- graphToGLSL ah env x
+  y' <- graphToGLSL ah env y
+  binaryMatchedGLSLExprs f ah x' y'
+
+binaryMatchedGLSLExprs :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
+binaryMatchedGLSLExprs f ah xs ys = case (exprsChannels xs == 1 || exprsChannels ys == 1) of
+  True -> alignHint ah [ f x y  | x <- xs, y <- ys ]
+  False -> do -- if neither input is a single GLFloat, then we need expressions for each channel of both
+    xs' <- align GLFloat xs
+    ys' <- align GLFloat ys
+    alignHint ah [ f x y  | x <- xs', y <- ys' ]
+
 
 binaryFunctionWithPositionGraph :: (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr) -> GraphEnv -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
 binaryFunctionWithPositionGraph f (_,fxys) as bs = return [ f a b c | a <- as, b <- bs, c <- fxys ]
