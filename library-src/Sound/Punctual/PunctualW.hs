@@ -8,7 +8,6 @@ import Control.Monad (when,forM)
 import Control.Monad.IO.Class
 import Control.Concurrent
 import Data.IntMap.Strict as IntMap
-import Data.List
 import Data.List.Split
 import Data.Time
 import Data.Tempo
@@ -474,97 +473,48 @@ expandMultis (Floor x) = fmap Floor (expandMultis x)
 expandMultis (Ceil x) = fmap Ceil (expandMultis x)
 expandMultis (Fract x) = fmap Fract (expandMultis x)
 -- binary functions
-expandMultis (Product x y) = expandWith' Product x y
-expandMultis (Sum x y) = expandWith' Sum x y
-expandMultis (Max x y) = expandWith' Max x y
-expandMultis (Min x y) = expandWith' Min x y
-expandMultis (Division x y) = expandWith' Division x y
-expandMultis (GreaterThan x y) = expandWith' GreaterThan x y
-expandMultis (GreaterThanOrEqual x y) = expandWith' GreaterThanOrEqual x y
-expandMultis (LessThan x y) = expandWith' LessThan x y
-expandMultis (LessThanOrEqual x y) = expandWith' LessThanOrEqual x y
-expandMultis (Equal x y) = expandWith' Equal x y
-expandMultis (NotEqual x y) = expandWith' NotEqual x y
-expandMultis (Gate x y) = expandWith' Gate x y
-expandMultis (Pow x y) = expandWith' Pow x y
-expandMultis (Delay maxT t i) = expandWith' (Delay maxT) t i
-expandMultis (Clip r x) = zipWith Clip r' x' -- *** VERY HACKY
-  where
-    x' = expandMultis x
-    n = length x' * 2
-    r' = fmap (\(a,b) -> Multi [a,b] ) $ listIntoTuples $ take n $ cycle $ expandMultis r
-expandMultis (Between r x) = zipWith Between r' x' -- *** VERY HACKY
-  where
-    x' = expandMultis x
-    n = length x' * 2
-    r' = fmap (\(a,b) -> Multi [a,b] ) $ listIntoTuples $ take n $ cycle $ expandMultis r
+expandMultis (Product x y) = expandWith Product x y
+expandMultis (Sum x y) = expandWith Sum x y
+expandMultis (Max x y) = expandWith Max x y
+expandMultis (Min x y) = expandWith Min x y
+expandMultis (Division x y) = expandWith Division x y
+expandMultis (GreaterThan x y) = expandWith GreaterThan x y
+expandMultis (GreaterThanOrEqual x y) = expandWith GreaterThanOrEqual x y
+expandMultis (LessThan x y) = expandWith LessThan x y
+expandMultis (LessThanOrEqual x y) = expandWith LessThanOrEqual x y
+expandMultis (Equal x y) = expandWith Equal x y
+expandMultis (NotEqual x y) = expandWith NotEqual x y
+expandMultis (Gate x y) = expandWith Gate x y
+expandMultis (Pow x y) = expandWith Pow x y
+expandMultis (Delay maxT t i) = expandWith (Delay maxT) t i
+expandMultis (Clip r x) = [ Clip r'' x' | r'' <- r', x' <- expandMultis x]
+  where r' = fmap (\(a,b) -> Multi [a,b]) $ listIntoTuples $ expandMultis r -- *** VERY HACKY
+expandMultis (Between r x) = [ Between r'' x' | r'' <- r', x' <- expandMultis x]
+  where r' = fmap (\(a,b) -> Multi [a,b]) $ listIntoTuples $ expandMultis r -- *** VERY HACKY
 expandMultis (Step xs y) = fmap (Step xs) $ expandMultis y
 
 -- ternary functions
-expandMultis (LinLin r1 r2 x) = zipWith3 LinLin r1' r2' x' -- *** VERY HACKY
+expandMultis (LinLin r1 r2 x) = [ LinLin r1' r2' x' | r1' <- r1s, r2' <- r2s, x' <- expandMultis x]
   where
-    x' = expandMultis x
-    n = length x' * 2
-    r1' = fmap (\(a,b) -> Multi [a,b] ) $ listIntoTuples $ take n $ cycle $ expandMultis r1
-    r2' = fmap (\(a,b) -> Multi [a,b] ) $ listIntoTuples $ take n $ cycle $ expandMultis r2
-expandMultis (LPF i f q) = expandWith3' LPF i f q
-expandMultis (HPF i f q) = expandWith3' HPF i f q
-expandMultis (BPF i f q) = expandWith3' BPF i f q
-expandMultis (IfThenElse x y z) = expandWith3' IfThenElse x y z
+    r1s = fmap (\(a,b) -> Multi [a,b]) $ listIntoTuples $ expandMultis r1 -- *** VERY HACKY
+    r2s = fmap (\(a,b) -> Multi [a,b]) $ listIntoTuples $ expandMultis r2 -- *** VERY HACKY
+expandMultis (LPF i f q) = expandWith3 LPF i f q
+expandMultis (HPF i f q) = expandWith3 HPF i f q
+expandMultis (BPF i f q) = expandWith3 BPF i f q
+expandMultis (IfThenElse x y z) = expandWith3 IfThenElse x y z
 expandMultis _ = []
 
 listIntoTuples :: [a] -> [(a,a)]
 listIntoTuples (x:y:xs) = (x,y):listIntoTuples xs
-listIntoTuples _ = []
+listIntoTuples (x:[]) = [(x,x)]
+listIntoTuples [] = []
 
 graphsToMono :: [Graph] -> Graph
 graphsToMono [] = Constant 0
 graphsToMono xs = foldl1 Sum xs
 
-expandWith' :: (Graph -> Graph -> Graph) -> Graph -> Graph -> [Graph]
-expandWith' f x y = zipWith f x'' y''
-  where
-    x' = expandMultis x
-    y' = expandMultis y
-    n = maximum [length x',length y']
-    x'' = take n (cycle x')
-    y'' = take n (cycle y')
+expandWith :: (Graph -> Graph -> Graph) -> Graph -> Graph -> [Graph]
+expandWith f x y = [ f x' y' | x' <- expandMultis x, y' <- expandMultis y ]
 
-expandWith3' :: (Graph -> Graph -> Graph -> Graph) -> Graph -> Graph -> Graph -> [Graph]
-expandWith3' f x y z = zipWith3 f x'' y'' z''
-  where
-    x' = expandMultis x
-    y' = expandMultis y
-    z' = expandMultis z
-    n = maximum [length x',length y',length z']
-    x'' = take n (cycle x')
-    y'' = take n (cycle y')
-    z'' = take n (cycle z')
-
-expandWith4 :: (Graph -> Graph -> Graph -> Graph -> Graph) -> Graph -> Graph -> Graph -> Graph -> [Graph]
-expandWith4 f a b c d = zipWith4 f a'' b'' c'' d''
-  where
-    a' = expandMultis a
-    b' = expandMultis b
-    c' = expandMultis c
-    d' = expandMultis d
-    n = maximum [length a',length b',length c',length d']
-    a'' = take n (cycle a')
-    b'' = take n (cycle b')
-    c'' = take n (cycle c')
-    d'' = take n (cycle d')
-
-expandWith5 :: (Graph -> Graph -> Graph -> Graph -> Graph -> Graph) -> Graph -> Graph -> Graph -> Graph -> Graph -> [Graph]
-expandWith5 f a b c d e = zipWith5 f a'' b'' c'' d'' e''
-  where
-    a' = expandMultis a
-    b' = expandMultis b
-    c' = expandMultis c
-    d' = expandMultis d
-    e' = expandMultis e
-    n = maximum [length a',length b',length c',length d',length e']
-    a'' = take n (cycle a')
-    b'' = take n (cycle b')
-    c'' = take n (cycle c')
-    d'' = take n (cycle d')
-    e'' = take n (cycle e')
+expandWith3 :: (Graph -> Graph -> Graph -> Graph) -> Graph -> Graph -> Graph -> [Graph]
+expandWith3 f x y z = [ f x' y' z' | x' <- expandMultis x, y' <- expandMultis y, z' <- expandMultis z ]
