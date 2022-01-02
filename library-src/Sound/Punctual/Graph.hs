@@ -27,6 +27,7 @@ data Graph =
   Unipolar Graph |
   Fb Graph |
   Tex Text Graph |
+  Img Text |
   RgbHsv Graph | HsvRgb Graph |
   HsvH Graph | HsvS Graph | HsvV Graph | HsvR Graph | HsvG Graph | HsvB Graph |
   RgbH Graph | RgbS Graph | RgbV Graph | RgbR Graph | RgbG Graph | RgbB Graph |

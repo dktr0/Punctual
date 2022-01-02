@@ -115,6 +115,9 @@ graphToGLSL ah env (RgbV x) = graphToGLSL (Just Vec3) env (RgbHsv x) >>= alignHi
 
 -- unary functions that access textures
 
+graphToGLSL _ (texMap,fxy) (Img t) = texture2D ("tex" <> showb n) fxy
+  where n = min 14 $ max 0 $ Map.findWithDefault 0 t texMap
+
 graphToGLSL _ env@(texMap,_) (Tex t xy) = graphToGLSL (Just Vec2) env xy >>= texture2D ("tex" <> showb n)
   where n = min 14 $ max 0 $ Map.findWithDefault 0 t texMap
 

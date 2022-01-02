@@ -258,6 +258,7 @@ graph = asum [
   reserved "ihi" >> modify (\s -> s { audioInputAnalysis = True } ) >> return IHi,
   -- (reserved "sin" >> return Sin) <**!> graph,
   graph2 <*> graph,
+  textureRef_graph <*> textureRef,
   ifThenElseParser,
   graph2_graph <*> graph2
   ] <?> "expected Graph"
@@ -418,6 +419,9 @@ int = (fromIntegral <$> integer) <?> "expected Int"
 
 double :: H Double
 double = (realToFrac <$> rationalOrInteger) <?> "expected Double"
+
+textureRef_graph :: H (Text -> Graph)
+textureRef_graph = reserved "img" >> return Img
 
 textureRef_graph_graph :: H (Text -> Graph -> Graph)
 textureRef_graph_graph = asum [
