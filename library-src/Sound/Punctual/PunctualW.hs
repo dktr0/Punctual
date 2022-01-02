@@ -153,11 +153,11 @@ deleteSynth timePair xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
 
 -- non-recursive: specific optimizations go here, don't use this directly (use optimize instead)
 optimize' :: Graph -> Graph
-optimize' (Sum (Constant x) (Constant y)) = Constant $ x+y
-optimize' (Product (Constant x) (Constant y)) = Constant $ x*y
-optimize' (Division _ (Constant 0)) = Constant 0
-optimize' (Division (Constant x) (Constant y)) = Constant $ x/y
-optimize' (Division x (Constant y)) = Product x (Constant $ 1/y)
+optimize' (Sum _ (Constant x) (Constant y)) = Constant $ x+y
+optimize' (Product _ (Constant x) (Constant y)) = Constant $ x*y
+optimize' (Division _ _ (Constant 0)) = Constant 0
+optimize' (Division _ (Constant x) (Constant y)) = Constant $ x/y
+optimize' (Division mm x (Constant y)) = Product mm x (Constant $ 1/y)
 optimize' (MidiCps (Constant x)) = Constant $ W.midicps x
 optimize' (CpsMidi (Constant x)) = Constant $ W.cpsmidi x
 optimize' (DbAmp (Constant x)) = Constant $ W.dbamp x
@@ -185,19 +185,19 @@ optimize (Sqrt x) = Sqrt $ optimize x
 optimize (Floor x) = Floor $ optimize x
 optimize (Ceil x) = Ceil $ optimize x
 optimize (Fract x) = Fract $ optimize x
-optimize (Sum x y) = optimize' $ Sum (optimize x) (optimize y)
-optimize (Product x y) = optimize' $ Product (optimize x) (optimize y)
-optimize (Division x y) = optimize' $ Division (optimize x) (optimize y)
+optimize (Sum mm x y) = optimize' $ Sum mm (optimize x) (optimize y)
+optimize (Product mm x y) = optimize' $ Product mm (optimize x) (optimize y)
+optimize (Division mm x y) = optimize' $ Division mm (optimize x) (optimize y)
+optimize (Pow mm x y) = Pow mm (optimize x) (optimize y)
+optimize (Equal mm x y) = Equal mm (optimize x) (optimize y)
+optimize (NotEqual mm x y) = NotEqual mm (optimize x) (optimize y)
+optimize (GreaterThan mm x y) = GreaterThan mm (optimize x) (optimize y)
+optimize (GreaterThanOrEqual mm x y) = GreaterThanOrEqual mm (optimize x) (optimize y)
+optimize (LessThan mm x y) = LessThan mm (optimize x) (optimize y)
+optimize (LessThanOrEqual mm x y) = LessThanOrEqual mm (optimize x) (optimize y)
 optimize (Max x y) = Max (optimize x) (optimize y)
 optimize (Min x y) = Min (optimize x) (optimize y)
-optimize (GreaterThan x y) = GreaterThan (optimize x) (optimize y)
-optimize (GreaterThanOrEqual x y) = GreaterThanOrEqual (optimize x) (optimize y)
-optimize (LessThan x y) = LessThan (optimize x) (optimize y)
-optimize (LessThanOrEqual x y) = LessThanOrEqual (optimize x) (optimize y)
-optimize (Equal x y) = Equal (optimize x) (optimize y)
-optimize (NotEqual x y) = NotEqual (optimize x) (optimize y)
 optimize (Gate x y) = Gate (optimize x) (optimize y)
-optimize (Pow x y) = Pow (optimize x) (optimize y)
 optimize (Clip x y) = Clip (optimize x) (optimize y)
 optimize (Between x y) = Between (optimize x) (optimize y)
 optimize (Step xs y) = Step xs $ optimize y
@@ -320,11 +320,11 @@ graphToSynthDef i (BPF filterIn f q) = do
   graphToSynthDef i q >>= W.param W.Q x
   return x
 
-graphToSynthDef i (Sum x y) = W.mixSynthDefs $ fmap (graphToSynthDef i) [x,y]
+graphToSynthDef i (Sum _ x y) = W.mixSynthDefs $ fmap (graphToSynthDef i) [x,y]
 
-graphToSynthDef i (Product x (Constant y)) = graphToSynthDef i x >>= W.gain y
-graphToSynthDef i (Product (Constant x) y) = graphToSynthDef i y >>= W.gain x
-graphToSynthDef i (Product x y) = do
+graphToSynthDef i (Product _ x (Constant y)) = graphToSynthDef i x >>= W.gain y
+graphToSynthDef i (Product _ (Constant x) y) = graphToSynthDef i y >>= W.gain x
+graphToSynthDef i (Product _ x y) = do
   m <- graphToSynthDef i x >>= W.gain 0.0
   graphToSynthDef i y >>= W.param W.Gain m
   return m
@@ -339,47 +339,47 @@ graphToSynthDef i (Min x y) = do
   y' <- graphToSynthDef i y
   W.minWorklet x' y'
 
-graphToSynthDef i (Division x y) = do
+graphToSynthDef i (Division _ x y) = do
   x' <- graphToSynthDef i x
   y' <- graphToSynthDef i y
   W.safeDivideWorklet x' y'
 
-graphToSynthDef i (GreaterThan x y) = do
+graphToSynthDef i (GreaterThan _ x y) = do
   x' <- graphToSynthDef i x
   y' <- graphToSynthDef i y
   W.greaterThanWorklet x' y'
 
-graphToSynthDef i (GreaterThanOrEqual x y) = do
+graphToSynthDef i (GreaterThanOrEqual _ x y) = do
   x' <- graphToSynthDef i x
   y' <- graphToSynthDef i y
   W.greaterThanOrEqualWorklet x' y'
 
-graphToSynthDef i (LessThan x y) = do
+graphToSynthDef i (LessThan _ x y) = do
   x' <- graphToSynthDef i x
   y' <- graphToSynthDef i y
   W.lessThanWorklet x' y'
 
-graphToSynthDef i (LessThanOrEqual x y) = do
+graphToSynthDef i (LessThanOrEqual _ x y) = do
   x' <- graphToSynthDef i x
   y' <- graphToSynthDef i y
   W.lessThanOrEqualWorklet x' y'
 
-graphToSynthDef i (Equal x y) = do
+graphToSynthDef i (Equal _ x y) = do
   x' <- graphToSynthDef i x
   y' <- graphToSynthDef i y
   W.equalWorklet x' y'
 
-graphToSynthDef i (NotEqual x y) = do
+graphToSynthDef i (NotEqual _ x y) = do
   x' <- graphToSynthDef i x
   y' <- graphToSynthDef i y
   W.notEqualWorklet x' y'
 
-graphToSynthDef i (Pow x y) = do
+graphToSynthDef i (Pow _ x y) = do
   x' <- graphToSynthDef i x
   y' <- graphToSynthDef i y
   W.powWorklet x' y'
 
-graphToSynthDef i (Gate x y) = graphToSynthDef i $ optimize $ (LessThan (Abs x) (Abs y)) * y
+graphToSynthDef i (Gate x y) = graphToSynthDef i $ optimize $ (LessThan Combinatorial (Abs x) (Abs y)) * y
 
 graphToSynthDef i (Delay maxT (Constant t) x) = do
   x' <- graphToSynthDef i x
@@ -408,8 +408,8 @@ graphToSynthDef i (Clip (Multi [r1,r2]) x) = do -- *** THIS IS PRETTY HACKY
   W.clipWorklet r1' r2' x'
 
 graphToSynthDef i (Between (Multi [r1,r2]) x) = graphToSynthDef i g -- ***** THIS IS ALSO PRETTY HACKY
-  where g = (GreaterThan r2 r1) * (GreaterThan x r1) * (LessThan x r2) +
-            (GreaterThan r1 r2) * (GreaterThan x r2) * (LessThan x r1)
+  where g = (GreaterThan Combinatorial r2 r1) * (GreaterThan Combinatorial x r1) * (LessThan Combinatorial x r2) +
+            (GreaterThan Combinatorial r1 r2) * (GreaterThan Combinatorial x r2) * (LessThan Combinatorial x r1)
 
 graphToSynthDef _ (Step [] _) = W.constantSource 0
 graphToSynthDef i (Step (x:[]) _) = graphToSynthDef i x
@@ -432,9 +432,9 @@ graphToSynthDef i (LinLin (Multi [min1,max1]) (Multi [min2,max2]) x) = graphToSy
   where
     inputRange = max1 - min1
     outputRange = max2 - min2
-    proportion = Division (x - min1) inputRange
+    proportion = Division Combinatorial (x - min1) inputRange
 
-graphToSynthDef i (IfThenElse x y z) = graphToSynthDef i $ ((GreaterThan x 0)*y)+((LessThanOrEqual x 0)*z)
+graphToSynthDef i (IfThenElse x y z) = graphToSynthDef i $ ((GreaterThan Combinatorial x 0)*y)+((LessThanOrEqual Combinatorial x 0)*z)
 
 -- Graph constructors that have no meaning in the audio domain all produce a constant signal of 0
 graphToSynthDef _ _ = W.constantSource 0
@@ -472,20 +472,21 @@ expandMultis (Sqrt x) = fmap Sqrt (expandMultis x)
 expandMultis (Floor x) = fmap Floor (expandMultis x)
 expandMultis (Ceil x) = fmap Ceil (expandMultis x)
 expandMultis (Fract x) = fmap Fract (expandMultis x)
--- binary functions
-expandMultis (Product x y) = expandWith Product x y
-expandMultis (Sum x y) = expandWith Sum x y
+-- binary functions with two multi-modes
+expandMultis (Sum mm x y) = expandWith (Sum mm) x y
+expandMultis (Product mm x y) = expandWith (Product mm) x y
+expandMultis (Division mm x y) = expandWith (Division mm) x y
+expandMultis (Pow mm x y) = expandWith (Pow mm) x y
+expandMultis (Equal mm x y) = expandWith (Equal mm) x y
+expandMultis (NotEqual mm x y) = expandWith (NotEqual mm) x y
+expandMultis (GreaterThan mm x y) = expandWith (GreaterThan mm) x y
+expandMultis (GreaterThanOrEqual mm x y) = expandWith (GreaterThanOrEqual mm) x y
+expandMultis (LessThan mm x y) = expandWith (LessThan mm) x y
+expandMultis (LessThanOrEqual mm x y) = expandWith (LessThanOrEqual mm) x y
+-- other binary functions (generally with combinatorial semantics)
 expandMultis (Max x y) = expandWith Max x y
 expandMultis (Min x y) = expandWith Min x y
-expandMultis (Division x y) = expandWith Division x y
-expandMultis (GreaterThan x y) = expandWith GreaterThan x y
-expandMultis (GreaterThanOrEqual x y) = expandWith GreaterThanOrEqual x y
-expandMultis (LessThan x y) = expandWith LessThan x y
-expandMultis (LessThanOrEqual x y) = expandWith LessThanOrEqual x y
-expandMultis (Equal x y) = expandWith Equal x y
-expandMultis (NotEqual x y) = expandWith NotEqual x y
 expandMultis (Gate x y) = expandWith Gate x y
-expandMultis (Pow x y) = expandWith Pow x y
 expandMultis (Delay maxT t i) = expandWith (Delay maxT) t i
 expandMultis (Clip r x) = [ Clip r'' x' | r'' <- r', x' <- expandMultis x]
   where r' = fmap (\(a,b) -> Multi [a,b]) $ listIntoTuples $ expandMultis r -- *** VERY HACKY
@@ -511,7 +512,7 @@ listIntoTuples [] = []
 
 graphsToMono :: [Graph] -> Graph
 graphsToMono [] = Constant 0
-graphsToMono xs = foldl1 Sum xs
+graphsToMono xs = foldl1 (+) xs
 
 expandWith :: (Graph -> Graph -> Graph) -> Graph -> Graph -> [Graph]
 expandWith f x y = [ f x' y' | x' <- expandMultis x, y' <- expandMultis y ]

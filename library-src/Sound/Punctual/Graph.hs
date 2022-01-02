@@ -6,6 +6,8 @@ import GHC.Generics (Generic)
 import Control.DeepSeq
 import Data.Text
 
+data MultiMode = Combinatorial | PairWise deriving (Show,Eq,NFData,Generic)
+
 data Graph =
   LocalBinding Int |
   Constant Double |
@@ -47,21 +49,21 @@ data Graph =
   Floor Graph |
   Ceil Graph |
   Fract Graph |
-  Product Graph Graph |
-  Sum Graph Graph |
+  Sum MultiMode Graph Graph |
+  Product MultiMode Graph Graph |
+  Division MultiMode Graph Graph |
+  Pow MultiMode Graph Graph |
+  Equal MultiMode Graph Graph |
+  NotEqual MultiMode Graph Graph |
+  GreaterThan MultiMode Graph Graph |
+  GreaterThanOrEqual MultiMode Graph Graph |
+  LessThan MultiMode Graph Graph |
+  LessThanOrEqual MultiMode Graph Graph |
   Max Graph Graph |
   Min Graph Graph |
-  Division Graph Graph |
-  GreaterThan Graph Graph |
-  GreaterThanOrEqual Graph Graph |
-  LessThan Graph Graph |
-  LessThanOrEqual Graph Graph |
-  Equal Graph Graph |
-  NotEqual Graph Graph |
   Gate Graph Graph |
   Circle Graph Graph |
   Rect Graph Graph |
-  Pow Graph Graph |
   Clip Graph Graph |
   Between Graph Graph |
   VLine Graph Graph |
@@ -76,15 +78,15 @@ data Graph =
   deriving (Show,Eq,Generic,NFData)
 
 instance Num Graph where
-  x + y = Sum x y
-  x * y = Product x y
-  negate x = Product x (Constant (-1))
+  x + y = Sum Combinatorial x y
+  x * y = Product Combinatorial x y
+  negate x = Product Combinatorial x (Constant (-1))
   abs x = Abs x
-  signum x = (GreaterThan x 0) + (LessThan x 0 * (-1))
+  signum x = (GreaterThan Combinatorial x 0) + (LessThan Combinatorial x 0 * (-1))
   fromInteger x = Constant $ fromInteger x
 
 instance Fractional Graph where
-  x / y = Division x y
+  x / y = Division Combinatorial x y
   fromRational x = Constant $ fromRational x
 
 -- Miscellaneous functions over Graphs:
@@ -100,7 +102,6 @@ modulatedRangeGraph low high m = LinLin (Multi [-1,1]) (Multi [low,high]) m
 
 (+-) :: Graph -> Graph -> Graph -> Graph
 a +- b = modulatedRangeGraph (a - (a*b)) (a + (a*b))
-
 
 multi :: [[a]] -> [[a]]
 multi [] = []

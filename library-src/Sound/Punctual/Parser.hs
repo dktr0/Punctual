@@ -320,19 +320,37 @@ graph2 = asum [
   graph3 <*> graph
   ] <?> "expected Graph -> Graph"
 
+
 graph3 :: H (Graph -> Graph -> Graph)
 graph3 = asum [
+
+  -- combinatorial arithmetic operators
   reserved "+" >> return (+),
   reserved "-" >> return (-),
-  reserved ">" >> return GreaterThan,
-  reserved "<" >> return LessThan,
-  reserved ">=" >> return GreaterThanOrEqual,
-  reserved "<=" >> return LessThanOrEqual,
-  reserved "==" >> return Equal,
-  reserved "!=" >> return NotEqual,
-  reserved "**" >> return Pow,
-  reserved "*" >> return Product,
-  reserved "/" >> return Division,
+  reserved "*" >> return (Product Combinatorial),
+  reserved "/" >> return (Division Combinatorial),
+  reserved "**" >> return (Pow Combinatorial),
+  reserved "==" >> return (Equal Combinatorial),
+  reserved "/=" >> return (NotEqual Combinatorial),
+  reserved ">" >> return (GreaterThan Combinatorial),
+  reserved "<" >> return (LessThan Combinatorial),
+  reserved ">=" >> return (GreaterThanOrEqual Combinatorial),
+  reserved "<=" >> return (LessThanOrEqual Combinatorial),
+
+  -- pairwise arithmetic operators
+  reserved "|+|" >> return (Sum PairWise),
+  reserved "|-|" >> return (\a b -> Sum PairWise a $ negate b),
+  reserved "|*|" >> return (Product PairWise),
+  reserved "|/|" >> return (Division PairWise),
+  reserved "|**|" >> return (Pow PairWise),
+  reserved "|==|" >> return (Equal PairWise),
+  reserved "|/=|" >> return (NotEqual PairWise),
+  reserved "|>|" >> return (GreaterThan PairWise),
+  reserved "|<|" >> return (LessThan PairWise),
+  reserved "|>=|" >> return (GreaterThanOrEqual PairWise),
+  reserved "|<=|" >> return (LessThanOrEqual PairWise),
+
+  -- other binary functions (with combinatorial semantics, generally speaking)
   reserved "min" >> return Min,
   reserved "max" >> return Max,
   reserved "hline" >> return HLine,

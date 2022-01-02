@@ -145,19 +145,19 @@ graphToGLSL ah env (Tile a b) = unaryPositionTransform tile Vec2 ah env a b
 graphToGLSL ah env (Spin a b) = unaryPositionTransform spin GLFloat ah env a b
 
 -- (simple) binary functions
-graphToGLSL ah env (Sum x y) = binaryMatchedGraphs (+) ah env x y
-graphToGLSL ah env (Product x y) = binaryMatchedGraphs (*) ah env x y
-graphToGLSL ah env (Division x y) = binaryMatchedGraphs (/) ah env x y
+graphToGLSL ah env (Sum mm x y) = binaryMatchedGraphs (+) ah env x y
+graphToGLSL ah env (Product mm x y) = binaryMatchedGraphs (*) ah env x y
+graphToGLSL ah env (Division mm x y) = binaryMatchedGraphs (/) ah env x y
+graphToGLSL ah env (Pow mm x y) = binaryMatchedGraphs pow ah env x y
+graphToGLSL ah env (Equal mm x y) = binaryMatchedGraphs (comparisonOperator "==" "equal") ah env x y
+graphToGLSL ah env (NotEqual mm x y) = binaryMatchedGraphs (comparisonOperator "!=" "notEqual") ah env x y
+graphToGLSL ah env (GreaterThan mm x y) = binaryMatchedGraphs (comparisonOperator ">" "greaterThan") ah env x y
+graphToGLSL ah env (GreaterThanOrEqual mm x y) = binaryMatchedGraphs (comparisonOperator ">=" "greaterThanEqual") ah env x y
+graphToGLSL ah env (LessThan mm x y) = binaryMatchedGraphs lessThan ah env x y
+graphToGLSL ah env (LessThanOrEqual mm x y) = binaryMatchedGraphs (comparisonOperator "<=" "lessThanEqual") ah env x y
+
 graphToGLSL ah env (Max x y) = binaryMatchedGraphs (binaryFunctionMatched "max") ah env x y
 graphToGLSL ah env (Min x y) = binaryMatchedGraphs (binaryFunctionMatched "min") ah env x y
-graphToGLSL ah env (Pow x y) = binaryMatchedGraphs pow ah env x y
-graphToGLSL ah env (GreaterThan x y) = binaryMatchedGraphs (comparisonOperator ">" "greaterThan") ah env x y
-graphToGLSL ah env (GreaterThanOrEqual x y) = binaryMatchedGraphs (comparisonOperator ">=" "greaterThanEqual") ah env x y
-graphToGLSL ah env (LessThan x y) = binaryMatchedGraphs lessThan ah env x y
-graphToGLSL ah env (LessThanOrEqual x y) = binaryMatchedGraphs (comparisonOperator "<=" "lessThanEqual") ah env x y
-graphToGLSL ah env (Equal x y) = binaryMatchedGraphs (comparisonOperator "==" "equal") ah env x y
-graphToGLSL ah env (NotEqual x y) = binaryMatchedGraphs (comparisonOperator "!=" "notEqual") ah env x y
-
 graphToGLSL ah env (Gate x y) = do
   x' <- graphToGLSL ah env x
   y' <- graphToGLSL ah env y
