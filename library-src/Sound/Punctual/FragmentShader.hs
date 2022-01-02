@@ -4,7 +4,6 @@ module Sound.Punctual.FragmentShader where
 
 import Data.IntMap.Strict as IntMap
 import Data.Text (Text)
-import Data.Text.IO as T
 import Data.Semigroup ((<>))
 import TextShow
 import Data.Map as Map
@@ -145,19 +144,19 @@ graphToGLSL ah env (Tile a b) = unaryPositionTransform tile Vec2 ah env a b
 graphToGLSL ah env (Spin a b) = unaryPositionTransform spin GLFloat ah env a b
 
 -- (simple) binary functions
-graphToGLSL ah env (Sum mm x y) = binaryMatchedGraphs (+) ah env x y
-graphToGLSL ah env (Product mm x y) = binaryMatchedGraphs (*) ah env x y
-graphToGLSL ah env (Division mm x y) = binaryMatchedGraphs (/) ah env x y
-graphToGLSL ah env (Pow mm x y) = binaryMatchedGraphs pow ah env x y
-graphToGLSL ah env (Equal mm x y) = binaryMatchedGraphs (comparisonOperator "==" "equal") ah env x y
-graphToGLSL ah env (NotEqual mm x y) = binaryMatchedGraphs (comparisonOperator "!=" "notEqual") ah env x y
-graphToGLSL ah env (GreaterThan mm x y) = binaryMatchedGraphs (comparisonOperator ">" "greaterThan") ah env x y
-graphToGLSL ah env (GreaterThanOrEqual mm x y) = binaryMatchedGraphs (comparisonOperator ">=" "greaterThanEqual") ah env x y
-graphToGLSL ah env (LessThan mm x y) = binaryMatchedGraphs lessThan ah env x y
-graphToGLSL ah env (LessThanOrEqual mm x y) = binaryMatchedGraphs (comparisonOperator "<=" "lessThanEqual") ah env x y
+graphToGLSL ah env (Sum mm x y) = binaryMatchedGraphs mm (+) ah env x y
+graphToGLSL ah env (Product mm x y) = binaryMatchedGraphs mm (*) ah env x y
+graphToGLSL ah env (Division mm x y) = binaryMatchedGraphs mm (/) ah env x y
+graphToGLSL ah env (Pow mm x y) = binaryMatchedGraphs mm pow ah env x y
+graphToGLSL ah env (Equal mm x y) = binaryMatchedGraphs mm (comparisonOperator "==" "equal") ah env x y
+graphToGLSL ah env (NotEqual mm x y) = binaryMatchedGraphs mm (comparisonOperator "!=" "notEqual") ah env x y
+graphToGLSL ah env (GreaterThan mm x y) = binaryMatchedGraphs mm (comparisonOperator ">" "greaterThan") ah env x y
+graphToGLSL ah env (GreaterThanOrEqual mm x y) = binaryMatchedGraphs mm (comparisonOperator ">=" "greaterThanEqual") ah env x y
+graphToGLSL ah env (LessThan mm x y) = binaryMatchedGraphs mm lessThan ah env x y
+graphToGLSL ah env (LessThanOrEqual mm x y) = binaryMatchedGraphs mm (comparisonOperator "<=" "lessThanEqual") ah env x y
 
-graphToGLSL ah env (Max x y) = binaryMatchedGraphs (binaryFunctionMatched "max") ah env x y
-graphToGLSL ah env (Min x y) = binaryMatchedGraphs (binaryFunctionMatched "min") ah env x y
+graphToGLSL ah env (Max x y) = binaryMatchedGraphs Combinatorial (binaryFunctionMatched "max") ah env x y
+graphToGLSL ah env (Min x y) = binaryMatchedGraphs Combinatorial (binaryFunctionMatched "min") ah env x y
 graphToGLSL ah env (Gate x y) = do
   x' <- graphToGLSL ah env x
   y' <- graphToGLSL ah env y
@@ -260,17 +259,19 @@ unaryPositionTransform f t ah env@(texMap,fxy) a b = do
   fxy' <- mapM assign [ f fxy' a'' | fxy' <- fxy, a'' <- a' ]
   graphToGLSL ah (texMap,fxy') b
 
--- Optimizes the case of a one-channel signal combined with an n-channel signal,
--- by aligning in such a way that one-channel signals are kept as GLFloat no matter what (via "alignExprsOptimized")
-binaryMatchedGraphOld :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
-binaryMatchedGraphOld f ah env x y = do
+binaryMatchedGraphs :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
+binaryMatchedGraphs Combinatorial = binaryMatchedGraphsCombinatorial
+binaryMatchedGraphs PairWise = binaryMatchedGraphsPairWise
+
+binaryMatchedGraphsPairWise :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
+binaryMatchedGraphsPairWise f ah env x y = do
   x' <- graphToGLSL ah env x
   y' <- graphToGLSL ah env y
-  (x'',y'') <- alignExprsOptimized x' y'
+  (x'',y'') <- alignExprsOptimized x' y' -- alignExprsOptimized aligns so that 1-channel signals are GLFloat no matter what
   return $ zipWith f x'' y''
 
-binaryMatchedGraphs :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
-binaryMatchedGraphs f ah env x y = do
+binaryMatchedGraphsCombinatorial :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
+binaryMatchedGraphsCombinatorial f ah env x y = do
   x' <- graphToGLSL ah env x
   y' <- graphToGLSL ah env y
   binaryMatchedGLSLExprs f ah x' y'
