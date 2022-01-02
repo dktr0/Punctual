@@ -201,6 +201,13 @@ move [x,y] [...] -- move/shift/translate things by x across the x axis, y across
 
 spin [amount] [...] -- rotate around [0,0], amount is from 0 - 1 where 1 is all the way around circle (remaps fx & fy)
 
+setfx [x1,x2,...] -- remap fx by setting it to the value of a specific expression
+
+setfy [y1,y2,...] -- remap fy by setting it to the value of a specific expression
+
+setfxy [x1,y1,x2,y2,...] -- remap fx and fy by setting them to the value of a specific expression
+
+
 ## Higher-level operations
 
 [graph] & (graph -> graph) -- reverse application (Haskell-style), applies the argument on the left to complete the function on the right, eg. ```saw 55 & lpf 1000 1 >> audio ``` is equivalent to ```lpf 1000 1 $ saw 55 >> audio```
