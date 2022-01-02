@@ -210,7 +210,7 @@ spin [amount] [...] -- rotate around [0,0], amount is from 0 - 1 where 1 is all 
 
 A Punctual statement does not cause audio or video output unless it ends with >> and an output notation. 'audio' and 'video' are the two most commonly used outputs:
 
-\>> audio -- audio output: If multiple channels of audio are present, they are spread/panned "equidistantly" over the available audio outputs. (deprecated: this was formerly known as 'splay')
+\>> audio -- audio output: If multiple channels of audio are present, they are spread/panned "equidistantly" over the available audio outputs.
 
 \>> video -- video output: every three channels of signal are interpreted as red, green, and blue intensities (from 0 to 1); if only a one-channel signal is provided the value of that signal is used for all of red, green, and blue intensities; if a two-channel signal is provided the first channel is used for red and green, and the second channel is used for blue. (note: 'rgb' is a synonym for 'video')
 
@@ -224,18 +224,18 @@ There are a number of additional output types for particular purposes, as follow
 
 \>> [number between 0 and 1] -- audio output panned somewhere between 1st audio output (0) and 2nd audio output (1). If multiple channels are present, they are mixed together before being sent to the output.
 
-\>> red -- intensity of red colour (0 to 1). If multiple channels are present, they are mixed together before being sent to the output.
+\>> red -- intensity of red colour (0 to 1). If multiple channels are present, they are mixed together before being sent to the output. *Deprecated*
 
-\>> green -- intensity of green colour (0 to 1). If multiple channels are present, they are mixed together before being sent to the output.
+\>> green -- intensity of green colour (0 to 1). If multiple channels are present, they are mixed together before being sent to the output. *Deprecated*
 
-\>> blue -- intensity of blue colour (0 to 1). If multiple channels are present, they are mixed together before being sent to the output.
+\>> blue -- intensity of blue colour (0 to 1). If multiple channels are present, they are mixed together before being sent to the output. *Deprecated*
 
 \>> alpha -- when not specified alpha defaults to 1, which will erase (overwrite) any previous/underlying layers of drawing in circumstances where "this" Punctual program is drawing after/over other layers of drawing (for example: multiple Punctual programs in different zones of an Estuary collaborative interface). 0 for alpha values will not erase/overwrite previously drawn layers - instead the previous intensities will be kept at their pre-existent level and newly provided intensities will be added.
 
-\>> hsv -- every three channels of signal are interpreted as hue, saturation, and value intensities. (Note: one does not need to use an hsv output in order to work with colour from an HSV standpoint - one can also use the built-in functions 'rgbhsv' and 'hsvrgb' to go back and forth between RGB and HSV colour models, using 'video' [RGB] for the final output.)
+\>> hsv -- every three channels of signal are interpreted as hue, saturation, and value intensities. (Note: one does not need to use an hsv output in order to work with colour from an HSV standpoint - one can also use the built-in functions 'rgbhsv' and 'hsvrgb' to go back and forth between RGB and HSV colour models, using 'video' [RGB] for the final output.) *Deprecated*: instead, use hsvrgb to convert to rgb and then route to `video`.
 
-\>> hue
+\>> hue: *Deprecated*
 
-\>> saturation
+\>> saturation: *Deprecated*
 
-\>> value
+\>> value: *Deprecated*
