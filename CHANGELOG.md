@@ -1,8 +1,10 @@
 # ChangeLog
 
 0.4.0.0:
-- significant refactor of fragment shader generation
-- many changes to multi-channel expansion behaviours
+- significant optimizations of fragment shader generation
+- many operations now expand multichannel signals in a combinatorial way (eg. [1,2] + [10,20] === [11,21,12,22])
+- earlier semantics (pairwise combination) still available through specialized operators (eg. instead of + use |+|, [1,2] |+| [10,20] === [11,22])
+- order of arguments changed for lpf, bpf, hpf so that controls come first, "audio input" last
 
 0.3.4:
 - support for multichannel audio
