@@ -16,11 +16,11 @@ lfsaw [freq] -- "low frequency" sawtooth wave which unlike saw is not band-limit
 
 lfsqr [freq] -- "low frequency" square wave which unlike sqr is not band-limited (in audio), and which goes from -1 to 1. In WebGL graphics output, sqr and lfsqr are identical.
 
-lpf [input] [freq] [Q] -- lowpass filter at specified filter and Q
+lpf [freq] [Q] [input] -- lowpass filter at specified filter and Q
 
-hpf [input] [freq] [Q] -- highpass filter at specified filter and Q
+hpf [freq] [Q] [input] -- highpass filter at specified filter and Q
 
-bpf [input] [freq] [Q] -- bandpass filter at specified filter and Q
+bpf [freq] [Q] [input] -- bandpass filter at specified filter and Q
 
 rnd -- random, "white" noise ranging from -1 to 1
 
@@ -46,31 +46,33 @@ ebeat -- how much time has passed since code was last evaluated, expressed in be
 
 ## Punctual Graph Functions
 
-[graph] * [graph] -- multiplication
+When Punctual functions or operators take two or more arguments that are, themselves, Punctual graphs, the question arises of how multiple channels from both (or more) arguments are to be combined. Generally speaking, as of version 0.4.x of Punctual, the default answer to that question is 'combinatorial', eg. [1,2] + [10,20] is equivalent to [11,12,21,22] (every combination of both sets). However, for the most common mathematical operators, "pairwise" equivalents exist as well, eg. [1,2] +@ [10,20] is equivalent to [11,22].
 
-[graph] / [graph] -- "safe" division, where dividing by 0 yields a result of 0
+[graph] + [graph] -- addition (combinatorial, for pairwise use +@ )
 
-[graph] + [graph] -- addition
+[graph] - [graph] -- subtraction (combinatorial, for pairwise use -@ )
 
-[graph] - [graph] -- subtraction
+[graph] * [graph] -- multiplication (combinatorial, for pairwise use *@ )
 
-[graph] ** [graph] -- exponentiation, ie. x to the power of y
+[graph] / [graph] -- "safe" division, where dividing by 0 yields a result of 0 (combinatorial, for pairwise use /@ )
 
-[graph] > [graph] -- greater than (1 = true, 0 = false)
+[graph] ** [graph] -- exponentiation, ie. x to the power of y (combinatorial, for pairwise use **@ )
 
-[graph] >= [graph] -- greater than or equal (1 = true, 0 = false)
+[graph] == [graph] -- equal to (1 = true, 0 = false, combinatorial, for pairwise use ==@ )
 
-[graph] < [graph] -- less than (1 = true, 0 = false)
+[graph] /= [graph] -- not equal to (1 = true, 0 = false, combinatorial, for pairwise use /=@ )
 
-[graph] <= [graph] -- less than or equal (1 = true, 0 = false)
+[graph] > [graph] -- greater than (1 = true, 0 = false, combinatorial, for pairwise use >@ )
 
-[graph] == [graph] -- equal to (1 = true, 0 = false)
+[graph] >= [graph] -- greater than or equal (1 = true, 0 = false, combinatorial, for pairwise use >=@ )
 
-[graph] != [graph] -- not equal to (1 = true, 0 = false)
+[graph] < [graph] -- less than (1 = true, 0 = false, combinatorial, for pairwise use <@ )
 
-max [graph] [graph] -- returns the maximum value from two graphs
+[graph] <= [graph] -- less than or equal (1 = true, 0 = false, combinatorial, for pairwise use <=@ )
 
-min [graph] [graph] -- returns the minimum value from two graphs
+max [graph] [graph] -- returns the maximum value from two graphs (combinatorial)
+
+min [graph] [graph] -- returns the minimum value from two graphs (combinatorial)
 
 abs [graph] -- absolute value of provided graph
 
@@ -105,6 +107,8 @@ sqrt [graph] -- returns the square root of the graph
 mono [graph] -- takes multi-channel graphs down to a single channel by summing/mixing
 
 gate [graph] [graph] -- when the absolute value of the second graph is lower than the absolute value of the first graph the output is zero, otherwise the output is just the value of the second graph (note: unlike a typical audio noise gate this gate closes and opens immediately)
+
+zero [graph] -- returns a graph that is always 0 regardless of the input graph (useful for quickly silencing/erasing particular lines of code). The synonym 'zer0' is also available.
 
 ## Punctual Graph Functions Specialised for Graphics
 
@@ -194,6 +198,10 @@ zoom [x,y] [...] -- zoom in by x across the x axis, y across the y axis (remaps 
 move [x,y] [...] -- move/shift/translate things by x across the x axis, y across the y axis (remaps fx & fy)
 
 spin [amount] [...] -- rotate around [0,0], amount is from 0 - 1 where 1 is all the way around circle (remaps fx & fy)
+
+## Higher-level operations
+
+[graph] & (graph -> graph) -- reverse application (Haskell-style), applies the argument on the left to complete the function on the right, eg. ```saw 55 & lpf 1000 1 >> audio ``` is equivalent to ```lpf 1000 1 $ saw 55 >> audio```
 
 
 ## Punctual Output Notations

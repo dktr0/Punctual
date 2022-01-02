@@ -3,6 +3,7 @@
 module Sound.Punctual.Parser (Sound.Punctual.Parser.parse) where
 
 import Data.Text (Text)
+import Data.Function ((&))
 import qualified Data.Text as T
 import Data.List
 import Data.List.Split
@@ -257,7 +258,8 @@ graph = asum [
   reserved "ihi" >> modify (\s -> s { audioInputAnalysis = True } ) >> return IHi,
   -- (reserved "sin" >> return Sin) <**!> graph,
   graph2 <*> graph,
-  ifThenElseParser
+  ifThenElseParser,
+  graph2_graph <*> graph2
   ] <?> "expected Graph"
 
 {- -- *** we've tested this and are pretty sure it's correct
@@ -340,17 +342,17 @@ graph3 = asum [
   reserved "<=" >> return (LessThanOrEqual Combinatorial),
 
   -- pairwise arithmetic operators
-  reserved "|+|" >> return (Sum PairWise),
-  reserved "|-|" >> return (\a b -> Sum PairWise a $ negate b),
-  reserved "|*|" >> return (Product PairWise),
-  reserved "|/|" >> return (Division PairWise),
-  reserved "|**|" >> return (Pow PairWise),
-  reserved "|==|" >> return (Equal PairWise),
-  reserved "|/=|" >> return (NotEqual PairWise),
-  reserved "|>|" >> return (GreaterThan PairWise),
-  reserved "|<|" >> return (LessThan PairWise),
-  reserved "|>=|" >> return (GreaterThanOrEqual PairWise),
-  reserved "|<=|" >> return (LessThanOrEqual PairWise),
+  reserved "+@" >> return (Sum PairWise),
+  reserved "-@" >> return (\a b -> Sum PairWise a $ negate b),
+  reserved "*@" >> return (Product PairWise),
+  reserved "/@" >> return (Division PairWise),
+  reserved "**@" >> return (Pow PairWise),
+  reserved "==@" >> return (Equal PairWise),
+  reserved "/=@" >> return (NotEqual PairWise),
+  reserved ">@" >> return (GreaterThan PairWise),
+  reserved "<@" >> return (LessThan PairWise),
+  reserved ">=@" >> return (GreaterThanOrEqual PairWise),
+  reserved "<=@" >> return (LessThanOrEqual PairWise),
 
   -- other binary functions (with combinatorial semantics, generally speaking)
   reserved "min" >> return Min,
@@ -394,6 +396,12 @@ int_graph_graph = asum [
 
 double_graph_graph_graph :: H (Double -> Graph -> Graph -> Graph)
 double_graph_graph_graph = reserved "delay" >> return Delay
+
+graph2_graph :: H ((Graph -> Graph) -> Graph)
+graph2_graph = graph_graph2_graph <*> graph
+
+graph_graph2_graph :: H (Graph -> (Graph -> Graph) -> Graph)
+graph_graph2_graph = reserved "&" >> return (&)
 
 identifiedGraph :: H Graph
 identifiedGraph = do
