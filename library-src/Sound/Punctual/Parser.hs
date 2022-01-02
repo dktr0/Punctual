@@ -343,17 +343,17 @@ graph3 = asum [
   reserved "<=" >> return (LessThanOrEqual Combinatorial),
 
   -- pairwise arithmetic operators
-  reserved "+@" >> return (Sum PairWise),
-  reserved "-@" >> return (\a b -> Sum PairWise a $ negate b),
-  reserved "*@" >> return (Product PairWise),
-  reserved "/@" >> return (Division PairWise),
-  reserved "**@" >> return (Pow PairWise),
-  reserved "==@" >> return (Equal PairWise),
-  reserved "/=@" >> return (NotEqual PairWise),
-  reserved ">@" >> return (GreaterThan PairWise),
-  reserved "<@" >> return (LessThan PairWise),
-  reserved ">=@" >> return (GreaterThanOrEqual PairWise),
-  reserved "<=@" >> return (LessThanOrEqual PairWise),
+  reserved "+:" >> return (Sum PairWise),
+  reserved "-:" >> return (\a b -> Sum PairWise a $ negate b),
+  reserved "*:" >> return (Product PairWise),
+  reserved "/:" >> return (Division PairWise),
+  reserved "**:" >> return (Pow PairWise),
+  reserved "==:" >> return (Equal PairWise),
+  reserved "/=:" >> return (NotEqual PairWise),
+  reserved ">:" >> return (GreaterThan PairWise),
+  reserved "<:" >> return (LessThan PairWise),
+  reserved ">=:" >> return (GreaterThanOrEqual PairWise),
+  reserved "<=:" >> return (LessThanOrEqual PairWise),
 
   -- other binary functions (with combinatorial semantics, generally speaking)
   reserved "min" >> return Min,

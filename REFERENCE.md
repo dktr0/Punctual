@@ -46,29 +46,29 @@ ebeat -- how much time has passed since code was last evaluated, expressed in be
 
 ## Punctual Graph Functions
 
-When Punctual functions or operators take two or more arguments that are, themselves, Punctual graphs, the question arises of how multiple channels from both (or more) arguments are to be combined. Generally speaking, as of version 0.4.x of Punctual, the default answer to that question is 'combinatorial', eg. [1,2] + [10,20] is equivalent to [11,12,21,22] (every combination of both sets). However, for the most common mathematical operators, "pairwise" equivalents exist as well, eg. [1,2] +@ [10,20] is equivalent to [11,22].
+When Punctual functions or operators take two or more arguments that are, themselves, Punctual graphs, the question arises of how multiple channels from both (or more) arguments are to be combined. Generally speaking, as of version 0.4.x of Punctual, the default answer to that question is 'combinatorial', eg. ```[1,2] + [10,20]``` is equivalent to [11,12,21,22] (every combination of both sets). However, for the most common mathematical operators, "pairwise" equivalents exist as well, denoted by adding a colon : to the right end of the operator, eg. ```[1,2] +: [10,20]``` is equivalent to [11,22].
 
-[graph] + [graph] -- addition (combinatorial, for pairwise use +@ )
+[graph] + [graph] -- addition (combinatorial, for pairwise use +: )
 
-[graph] - [graph] -- subtraction (combinatorial, for pairwise use -@ )
+[graph] - [graph] -- subtraction (combinatorial, for pairwise use -: )
 
-[graph] * [graph] -- multiplication (combinatorial, for pairwise use *@ )
+[graph] * [graph] -- multiplication (combinatorial, for pairwise use *: )
 
-[graph] / [graph] -- "safe" division, where dividing by 0 yields a result of 0 (combinatorial, for pairwise use /@ )
+[graph] / [graph] -- "safe" division, where dividing by 0 yields a result of 0 (combinatorial, for pairwise use /: )
 
-[graph] ** [graph] -- exponentiation, ie. x to the power of y (combinatorial, for pairwise use **@ )
+[graph] ** [graph] -- exponentiation, ie. x to the power of y (combinatorial, for pairwise use **: )
 
-[graph] == [graph] -- equal to (1 = true, 0 = false, combinatorial, for pairwise use ==@ )
+[graph] == [graph] -- equal to (1 = true, 0 = false, combinatorial, for pairwise use ==: )
 
-[graph] /= [graph] -- not equal to (1 = true, 0 = false, combinatorial, for pairwise use /=@ )
+[graph] /= [graph] -- not equal to (1 = true, 0 = false, combinatorial, for pairwise use /=: )
 
-[graph] > [graph] -- greater than (1 = true, 0 = false, combinatorial, for pairwise use >@ )
+[graph] > [graph] -- greater than (1 = true, 0 = false, combinatorial, for pairwise use >: )
 
-[graph] >= [graph] -- greater than or equal (1 = true, 0 = false, combinatorial, for pairwise use >=@ )
+[graph] >= [graph] -- greater than or equal (1 = true, 0 = false, combinatorial, for pairwise use >=: )
 
-[graph] < [graph] -- less than (1 = true, 0 = false, combinatorial, for pairwise use <@ )
+[graph] < [graph] -- less than (1 = true, 0 = false, combinatorial, for pairwise use <: )
 
-[graph] <= [graph] -- less than or equal (1 = true, 0 = false, combinatorial, for pairwise use <=@ )
+[graph] <= [graph] -- less than or equal (1 = true, 0 = false, combinatorial, for pairwise use <=: )
 
 max [graph] [graph] -- returns the maximum value from two graphs (combinatorial)
 
