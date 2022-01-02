@@ -12,8 +12,9 @@ data Graph =
   LocalBinding Int |
   Constant Double |
   Multi [Graph] |
-  Fx | Fy | Fxy |
   Px | Py |
+  Fx | Fy | Fxy |
+  SetFx Graph Graph | SetFy Graph Graph | SetFxy Graph Graph |
   Zoom Graph Graph | Move Graph Graph | Tile Graph Graph | Spin Graph Graph |
   Lo | Mid | Hi | ILo | IMid | IHi |
   Cps | Time | Beat | EBeat | ETime |
@@ -26,7 +27,7 @@ data Graph =
   Bipolar Graph |
   Unipolar Graph |
   Fb Graph |
-  Tex Text Graph |
+  Tex Text Graph | -- deprecated
   Img Text |
   RgbHsv Graph | HsvRgb Graph |
   HsvH Graph | HsvS Graph | HsvV Graph | HsvR Graph | HsvG Graph | HsvB Graph |

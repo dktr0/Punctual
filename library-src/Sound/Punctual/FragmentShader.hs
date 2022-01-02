@@ -141,6 +141,9 @@ graphToGLSL ah env (Distance xy) = unaryFunctionWithPosition distance ah env xy
 graphToGLSL ah env (Prox xy) = unaryFunctionWithPosition (binaryFunction "prox" GLFloat) ah env xy
 
 -- unary transformations of position (technically binary functions, then)
+graphToGLSL ah env (SetFx a b) = unaryPositionTransform setfx GLFloat ah env a b
+graphToGLSL ah env (SetFy a b) = unaryPositionTransform setfy GLFloat ah env a b
+graphToGLSL ah env (SetFxy a b) = unaryPositionTransform setfxy Vec2 ah env a b
 graphToGLSL ah env (Zoom a b) = unaryPositionTransform zoom Vec2 ah env a b
 graphToGLSL ah env (Move a b) = unaryPositionTransform move Vec2 ah env a b
 graphToGLSL ah env (Tile a b) = unaryPositionTransform tile Vec2 ah env a b
@@ -291,6 +294,15 @@ binaryMatchedGLSLExprs f ah xs ys = case (exprsChannels xs == 1 || exprsChannels
 binaryFunctionWithPositionGraph :: (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr) -> GraphEnv -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
 binaryFunctionWithPositionGraph f (_,fxys) as bs = return [ f a b c | a <- as, b <- bs, c <- fxys ]
 
+
+setfx :: GLSLExpr -> GLSLExpr -> GLSLExpr  -- Vec2 -> GLFloat -> Vec2
+setfx fxy x = exprExprToVec2 x (swizzleY fxy)
+
+setfy :: GLSLExpr -> GLSLExpr -> GLSLExpr  -- Vec2 -> GLFloat -> Vec2
+setfy fxy y = exprExprToVec2 (swizzleX fxy) y
+
+setfxy :: GLSLExpr -> GLSLExpr -> GLSLExpr -- a -> Vec2 -> Vec2
+setfxy _ xy = xy
 
 -- both arguments must represent Vec2
 zoom :: GLSLExpr -> GLSLExpr -> GLSLExpr
