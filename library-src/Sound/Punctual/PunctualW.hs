@@ -203,9 +203,9 @@ optimize (Between x y) = Between (optimize x) (optimize y)
 optimize (Step xs y) = Step xs $ optimize y
 optimize (IfThenElse x y z) = IfThenElse (optimize x) (optimize y) (optimize z)
 optimize (LinLin x y z) = LinLin (optimize x) (optimize y) (optimize z)
-optimize (LPF x y z) = LPF (optimize x) (optimize y) (optimize z)
-optimize (HPF x y z) = HPF (optimize x) (optimize y) (optimize z)
-optimize (BPF x y z) = BPF (optimize x) (optimize y) (optimize z)
+optimize (LPF f q i) = LPF (optimize f) (optimize q) (optimize i)
+optimize (HPF f q i) = HPF (optimize f) (optimize q) (optimize i)
+optimize (BPF f q i) = BPF (optimize f) (optimize q) (optimize i)
 optimize (Delay maxT t i) = Delay maxT (optimize t) (optimize i)
 optimize x = x
 
@@ -275,46 +275,46 @@ graphToSynthDef i (Sqr x) = do
   graphToSynthDef i x >>= W.param W.Frequency s
   return s
 
-graphToSynthDef i (LPF filterIn (Constant f) (Constant q)) = graphToSynthDef i filterIn >>= W.biquadFilter (W.LowPass f q)
-graphToSynthDef i (LPF filterIn (Constant f) q) = do
+graphToSynthDef i (LPF (Constant f) (Constant q) filterIn) = graphToSynthDef i filterIn >>= W.biquadFilter (W.LowPass f q)
+graphToSynthDef i (LPF (Constant f) q filterIn)  = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.LowPass f 0)
   graphToSynthDef i q >>= W.param W.Q x
   return x
-graphToSynthDef i (LPF filterIn f (Constant q)) = do
+graphToSynthDef i (LPF f (Constant q) filterIn) = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.LowPass 0 q)
   graphToSynthDef i f >>= W.param W.Frequency x
   return x
-graphToSynthDef i (LPF filterIn f q) = do
+graphToSynthDef i (LPF f q filterIn) = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.LowPass 0 0)
   graphToSynthDef i f >>= W.param W.Frequency x
   graphToSynthDef i q >>= W.param W.Q x
   return x
 
-graphToSynthDef i (HPF filterIn (Constant f) (Constant q)) = graphToSynthDef i filterIn >>= W.biquadFilter (W.HighPass f q)
-graphToSynthDef i (HPF filterIn (Constant f) q) = do
+graphToSynthDef i (HPF (Constant f) (Constant q) filterIn) = graphToSynthDef i filterIn >>= W.biquadFilter (W.HighPass f q)
+graphToSynthDef i (HPF (Constant f) q filterIn) = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.HighPass f 0)
   graphToSynthDef i q >>= W.param W.Q x
   return x
-graphToSynthDef i (HPF filterIn f (Constant q)) = do
+graphToSynthDef i (HPF f (Constant q) filterIn) = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.HighPass 0 q)
   graphToSynthDef i f >>= W.param W.Frequency x
   return x
-graphToSynthDef i (HPF filterIn f q) = do
+graphToSynthDef i (HPF f q filterIn) = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.HighPass 0 0)
   graphToSynthDef i f >>= W.param W.Frequency x
   graphToSynthDef i q >>= W.param W.Q x
   return x
 
-graphToSynthDef i (BPF filterIn (Constant f) (Constant q)) = graphToSynthDef i filterIn >>= W.biquadFilter (W.BandPass f q)
-graphToSynthDef i (BPF filterIn (Constant f) q) = do
+graphToSynthDef i (BPF (Constant f) (Constant q) filterIn) = graphToSynthDef i filterIn >>= W.biquadFilter (W.BandPass f q)
+graphToSynthDef i (BPF (Constant f) q filterIn) = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.BandPass f 0)
   graphToSynthDef i q >>= W.param W.Q x
   return x
-graphToSynthDef i (BPF filterIn f (Constant q)) = do
+graphToSynthDef i (BPF f (Constant q) filterIn) = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.BandPass 0 q)
   graphToSynthDef i f >>= W.param W.Frequency x
   return x
-graphToSynthDef i (BPF filterIn f q) = do
+graphToSynthDef i (BPF f q filterIn) = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.BandPass 0 0)
   graphToSynthDef i f >>= W.param W.Frequency x
   graphToSynthDef i q >>= W.param W.Q x

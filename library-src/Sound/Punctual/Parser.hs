@@ -274,6 +274,8 @@ ifThenElseParser = do
 
 graph2 :: H (Graph -> Graph)
 graph2 = asum [
+  reserved "zero" >> return ((*) 0),
+  reserved "zer0" >> return ((*) 0),
   reserved "bipolar" >> return Bipolar,
   reserved "unipolar" >> return Unipolar,
   reserved "sin" >> return Sin,
