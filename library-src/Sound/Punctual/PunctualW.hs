@@ -473,21 +473,21 @@ expandMultis (Floor x) = fmap Floor (expandMultis x)
 expandMultis (Ceil x) = fmap Ceil (expandMultis x)
 expandMultis (Fract x) = fmap Fract (expandMultis x)
 -- binary functions with two multi-modes
-expandMultis (Sum mm x y) = expandWith (Sum mm) x y
-expandMultis (Product mm x y) = expandWith (Product mm) x y
-expandMultis (Division mm x y) = expandWith (Division mm) x y
-expandMultis (Pow mm x y) = expandWith (Pow mm) x y
-expandMultis (Equal mm x y) = expandWith (Equal mm) x y
-expandMultis (NotEqual mm x y) = expandWith (NotEqual mm) x y
-expandMultis (GreaterThan mm x y) = expandWith (GreaterThan mm) x y
-expandMultis (GreaterThanOrEqual mm x y) = expandWith (GreaterThanOrEqual mm) x y
-expandMultis (LessThan mm x y) = expandWith (LessThan mm) x y
-expandMultis (LessThanOrEqual mm x y) = expandWith (LessThanOrEqual mm) x y
+expandMultis (Sum mm x y) = expandWith mm (Sum mm) x y
+expandMultis (Product mm x y) = expandWith mm (Product mm) x y
+expandMultis (Division mm x y) = expandWith mm (Division mm) x y
+expandMultis (Pow mm x y) = expandWith mm (Pow mm) x y
+expandMultis (Equal mm x y) = expandWith mm (Equal mm) x y
+expandMultis (NotEqual mm x y) = expandWith mm (NotEqual mm) x y
+expandMultis (GreaterThan mm x y) = expandWith mm (GreaterThan mm) x y
+expandMultis (GreaterThanOrEqual mm x y) = expandWith mm (GreaterThanOrEqual mm) x y
+expandMultis (LessThan mm x y) = expandWith mm (LessThan mm) x y
+expandMultis (LessThanOrEqual mm x y) = expandWith mm (LessThanOrEqual mm) x y
 -- other binary functions (generally with combinatorial semantics)
-expandMultis (Max x y) = expandWith Max x y
-expandMultis (Min x y) = expandWith Min x y
-expandMultis (Gate x y) = expandWith Gate x y
-expandMultis (Delay maxT t i) = expandWith (Delay maxT) t i
+expandMultis (Max x y) = expandWith Combinatorial Max x y
+expandMultis (Min x y) = expandWith Combinatorial Min x y
+expandMultis (Gate x y) = expandWith Combinatorial Gate x y
+expandMultis (Delay maxT t i) = expandWith Combinatorial (Delay maxT) t i
 expandMultis (Clip r x) = [ Clip r'' x' | r'' <- r', x' <- expandMultis x]
   where r' = fmap (\(a,b) -> Multi [a,b]) $ listIntoTuples $ expandMultis r -- *** VERY HACKY
 expandMultis (Between r x) = [ Between r'' x' | r'' <- r', x' <- expandMultis x]
@@ -514,8 +514,21 @@ graphsToMono :: [Graph] -> Graph
 graphsToMono [] = Constant 0
 graphsToMono xs = foldl1 (+) xs
 
-expandWith :: (Graph -> Graph -> Graph) -> Graph -> Graph -> [Graph]
-expandWith f x y = [ f x' y' | x' <- expandMultis x, y' <- expandMultis y ]
+expandWith :: MultiMode -> (Graph -> Graph -> Graph) -> Graph -> Graph -> [Graph]
+expandWith Combinatorial = expandWithCombinatorial
+expandWith PairWise = expandWithPairWise
+
+expandWithPairWise :: (Graph -> Graph -> Graph) -> Graph -> Graph -> [Graph]
+expandWithPairWise f x y = zipWith f x'' y''
+  where
+    x' = expandMultis x
+    y' = expandMultis y
+    n = maximum [length x',length y']
+    x'' = take n (cycle x')
+    y'' = take n (cycle y')
+
+expandWithCombinatorial :: (Graph -> Graph -> Graph) -> Graph -> Graph -> [Graph]
+expandWithCombinatorial f x y = [ f x' y' | x' <- expandMultis x, y' <- expandMultis y ]
 
 expandWith3 :: (Graph -> Graph -> Graph -> Graph) -> Graph -> Graph -> Graph -> [Graph]
 expandWith3 f x y z = [ f x' y' z' | x' <- expandMultis x, y' <- expandMultis y, z' <- expandMultis z ]
