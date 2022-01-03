@@ -167,7 +167,7 @@ foreign import javascript safe
 updateTextures :: Set Text -> Map Text Texture -> GL (Map Text Texture)
 updateTextures texSet prevTextures = do
   let x = Map.fromSet id texSet
-  newTextures <- mapM createImageTexture $ Map.difference x prevTextures
+  newTextures <- mapM createVideoTexture $ Map.difference x prevTextures
   return $ Map.union newTextures prevTextures
 
 
@@ -362,6 +362,7 @@ drawPunctualWebGL ctx tempo now z st = runGL ctx $ do
           let theTexture = textures st' ! k
           let uniformName = "tex" <> showt a
           let uniformLoc = uMap ! uniformName
+          updateTexture theTexture
           bindTex textureSlot (webGLTexture theTexture) uniformLoc
     sequence_ $ mapWithKey bindTex' texs
     uniform1fAsync asyncProgram "_cps" (realToFrac $ freq tempo)

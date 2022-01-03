@@ -1,11 +1,16 @@
 module Sound.Punctual.Texture
-  (Texture(..),
-  createImageTexture)
+  (
+  Texture(..),
+  createImageTexture,
+  createVideoTexture,
+  updateTexture
+  )
   where
 
 import GHCJS.DOM.Types hiding (Text)
 import Control.Monad.IO.Class (liftIO)
 import Data.Text
+import Data.Maybe (isJust,fromJust)
 
 import Sound.Punctual.GL
 
@@ -13,27 +18,48 @@ import Sound.Punctual.GL
 -- and video textures for the WebGL side of Punctual.
 
 data Texture = Texture {
---  videoObject :: Maybe Video,
+  videoObject :: Maybe Video,
   imageObject :: Maybe Image,
   webGLTexture :: WebGLTexture
   }
 
--- newtype Video = Video JSVal
+newtype Video = Video JSVal
 
 newtype Image = Image JSVal
 
 createImageTexture :: Text -> GL Texture
 createImageTexture url = do
   ctx <- gl
-  img <- liftIO _createImage
   t <- createTexture
+  img <- liftIO _createImage
   liftIO $ _imageOnLoad ctx img t
-  liftIO $ _imageURL img url
+  liftIO $ _loadImage img url
   return $ Texture {
---    videoObject = Nothing,
+    videoObject = Nothing,
     imageObject = Just img,
     webGLTexture = t
   }
+
+createVideoTexture :: Text -> GL Texture
+createVideoTexture url = do
+  ctx <- gl
+  t <- createTexture
+  vid <- liftIO _createVideo
+  liftIO $ _loadVideo vid url
+  liftIO $ _videoOnPlaying vid
+  return $ Texture {
+    videoObject = Just vid,
+    imageObject = Nothing,
+    webGLTexture = t
+  }
+
+updateTexture :: Texture -> GL ()
+updateTexture t
+  | isJust (videoObject t) = do
+    ctx <- gl
+    liftIO $ _updateVideoTexture ctx (fromJust $ videoObject t) (webGLTexture t)
+  | otherwise = return ()
+
 
 foreign import javascript safe
   "$r = new Image(); $r.crossOrigin = \"Anonymous\";"
@@ -51,4 +77,25 @@ foreign import javascript safe
 
 foreign import javascript safe
   "$1.src = $2;"
-  _imageURL :: Image -> Text -> IO ()
+  _loadImage :: Image -> Text -> IO ()
+
+
+foreign import javascript safe
+  "$r = document.createElement('video'); $r.autoplay = true; $r.muted = true; $r.loop = true; $r.isPlaying = false;"
+  _createVideo :: IO Video
+
+foreign import javascript safe
+  "var closure = $1; $1.addEventListener('playing', function() { closure.isPlaying = true; });"
+  _videoOnPlaying :: Video -> IO ()
+
+foreign import javascript safe
+  "$1.src = $2; $1.play();"
+  _loadVideo :: Video -> Text -> IO ()
+
+foreign import javascript safe
+  "if($2.isPlaying){$1.bindTexture($1.TEXTURE_2D, $3);\
+  \$1.texImage2D($1.TEXTURE_2D, 0, $1.RGBA, $1.RGBA, $1.UNSIGNED_BYTE, $2);\
+  \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_WRAP_S, $1.CLAMP_TO_EDGE);\
+  \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_WRAP_T, $1.CLAMP_TO_EDGE);\
+  \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_MIN_FILTER, $1.LINEAR);}"
+  _updateVideoTexture :: WebGLRenderingContext -> Video -> WebGLTexture -> IO ()
