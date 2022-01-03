@@ -36,6 +36,7 @@ import Sound.Punctual.FragmentShader
 import Sound.Punctual.GL
 import Sound.Punctual.AsyncProgram
 import Sound.Punctual.Resolution
+import Sound.Punctual.Texture
 
 data PunctualWebGL = PunctualWebGL {
   resolution :: Resolution,
@@ -43,7 +44,7 @@ data PunctualWebGL = PunctualWebGL {
   triangleStrip :: WebGLBuffer,
   fftTexture :: WebGLTexture,
   ifftTexture :: WebGLTexture,
-  textures :: Map Text WebGLTexture,
+  textures :: Map Text Texture,
   fb0 :: (WebGLFramebuffer,WebGLTexture),
   fb1 :: (WebGLFramebuffer,WebGLTexture),
   pingPong :: Bool,
@@ -163,30 +164,12 @@ foreign import javascript safe
 -- Note: deleting of unused textures disactivated, ie. to cache them against imminent reuse
 -- Later we should rework so that unused textures are *eventually* "garbage-collected".
 
-updateTextures :: Set Text -> Map Text WebGLTexture -> GL (Map Text WebGLTexture)
+updateTextures :: Set Text -> Map Text Texture -> GL (Map Text Texture)
 updateTextures texSet prevTextures = do
   let x = Map.fromSet id texSet
-  newTextures <- mapM loadTexture $ Map.difference x prevTextures
+  newTextures <- mapM createImageTexture $ Map.difference x prevTextures
   return $ Map.union newTextures prevTextures
 
-loadTexture :: Text -> GL WebGLTexture
-loadTexture t = do
-  ctx <- gl
-  liftIO $ _loadTexture ctx t
-
-foreign import javascript safe
-  "$r = $1.createTexture();\
-  \var image = new Image();\
-  \image.crossOrigin = \"Anonymous\";\
-  \image.onload = function() {\
-     \$1.bindTexture($1.TEXTURE_2D, $r);\
-     \$1.texImage2D($1.TEXTURE_2D, 0, $1.RGBA, $1.RGBA, $1.UNSIGNED_BYTE, image);\
-     \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_WRAP_S, $1.CLAMP_TO_EDGE);\
-     \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_WRAP_T, $1.CLAMP_TO_EDGE);\
-     \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_MIN_FILTER, $1.LINEAR);\
-     \};\
-   \image.src = $2;"
-   _loadTexture :: WebGLRenderingContext -> Text -> IO WebGLTexture
 
 newPunctualWebGL :: Maybe MusicW.Node -> Maybe MusicW.Node -> Resolution -> Double -> GLContext -> IO PunctualWebGL
 newPunctualWebGL mic out res _brightness ctx = runGL ctx $ do
@@ -379,7 +362,7 @@ drawPunctualWebGL ctx tempo now z st = runGL ctx $ do
           let theTexture = textures st' ! k
           let uniformName = "tex" <> showt a
           let uniformLoc = uMap ! uniformName
-          bindTex textureSlot theTexture uniformLoc
+          bindTex textureSlot (webGLTexture theTexture) uniformLoc
     sequence_ $ mapWithKey bindTex' texs
     uniform1fAsync asyncProgram "_cps" (realToFrac $ freq tempo)
     case IntMap.lookup z (evalTimes st') of
