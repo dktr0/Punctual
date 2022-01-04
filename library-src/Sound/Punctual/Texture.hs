@@ -1,8 +1,7 @@
 module Sound.Punctual.Texture
   (
   Texture(..),
-  createImageTexture,
-  createVideoTexture,
+  loadTexture,
   updateTexture
   )
   where
@@ -13,6 +12,7 @@ import Data.Text
 import Data.Maybe (isJust,fromJust)
 
 import Sound.Punctual.GL
+import Sound.Punctual.Graph
 
 -- An abstraction providing a common interface to both static image
 -- and video textures for the WebGL side of Punctual.
@@ -27,8 +27,12 @@ newtype Video = Video JSVal
 
 newtype Image = Image JSVal
 
-createImageTexture :: Text -> GL Texture
-createImageTexture url = do
+loadTexture :: TextureRef -> GL Texture
+loadTexture (ImgRef url) = loadImageTexture url
+loadTexture (VidRef url) = loadVideoTexture url
+
+loadImageTexture :: Text -> GL Texture
+loadImageTexture url = do
   ctx <- gl
   t <- createTexture
   img <- liftIO _createImage
@@ -40,8 +44,8 @@ createImageTexture url = do
     webGLTexture = t
   }
 
-createVideoTexture :: Text -> GL Texture
-createVideoTexture url = do
+loadVideoTexture :: Text -> GL Texture
+loadVideoTexture url = do
   ctx <- gl
   t <- createTexture
   vid <- liftIO _createVideo

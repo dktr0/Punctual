@@ -8,6 +8,8 @@ import Data.Text
 
 data MultiMode = Combinatorial | PairWise deriving (Show,Eq,NFData,Generic)
 
+data TextureRef = ImgRef Text | VidRef Text deriving (Show,Eq,Ord,NFData,Generic)
+
 data Graph =
   LocalBinding Int |
   Constant Double |
@@ -27,8 +29,9 @@ data Graph =
   Bipolar Graph |
   Unipolar Graph |
   Fb Graph |
-  Tex Text Graph | -- deprecated
-  Img Text |
+  Tex TextureRef Graph | -- deprecated
+  Img TextureRef |
+  Vid TextureRef |
   RgbHsv Graph | HsvRgb Graph |
   HsvH Graph | HsvS Graph | HsvV Graph | HsvR Graph | HsvG Graph | HsvB Graph |
   RgbH Graph | RgbS Graph | RgbV Graph | RgbR Graph | RgbG Graph | RgbB Graph |
@@ -95,9 +98,6 @@ instance Fractional Graph where
 
 when :: Graph -> Graph -> Graph
 when x y = IfThenElse x y 0
-
-texhsv :: Text -> Graph -> Graph
-texhsv t g = RgbHsv $ Tex t g
 
 modulatedRangeGraph :: Graph -> Graph -> Graph -> Graph
 modulatedRangeGraph low high m = LinLin (Multi [-1,1]) (Multi [low,high]) m

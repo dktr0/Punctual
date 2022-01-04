@@ -72,7 +72,7 @@ type Identifier = String
 
 data ParserState = ParserState {
   actionCount :: Int,
-  textureRefs :: Set Text,
+  textureRefs :: Set TextureRef,
   localBindings :: Map Identifier Int, -- eg. f x y = fromList [("x",0),("y",1)]
   definitions1 :: Map Identifier Graph,
 --  definitions2 :: Map Identifier (Graph -> Graph),
@@ -238,6 +238,8 @@ graph = asum [
   (Constant . fromIntegral) <$> integer,
   Multi <$> list graph,
   multiSeries,
+  img,
+  vid,
   reserved "audioin" >> return AudioIn,
   reserved "cps" >> return Cps,
   reserved "time" >> return Time,
@@ -258,7 +260,6 @@ graph = asum [
   reserved "ihi" >> modify (\s -> s { audioInputAnalysis = True } ) >> return IHi,
   -- (reserved "sin" >> return Sin) <**!> graph,
   graph2 <*> graph,
-  textureRef_graph <*> textureRef,
   ifThenElseParser,
   graph2_graph <*> graph2
   ] <?> "expected Graph"
@@ -423,20 +424,33 @@ int = (fromIntegral <$> integer) <?> "expected Int"
 double :: H Double
 double = (realToFrac <$> rationalOrInteger) <?> "expected Double"
 
-textureRef_graph :: H (Text -> Graph)
-textureRef_graph = reserved "img" >> return Img
+img :: H Graph
+img = do
+  (_,url) <- functionApplication (reserved "img" >> return Img) (T.pack <$> string)
+  let ref = ImgRef url
+  modify' $ \s -> s { textureRefs = Set.insert ref $ textureRefs s }
+  return (Img ref)
 
-textureRef_graph_graph :: H (Text -> Graph -> Graph)
+vid :: H Graph
+vid = do
+  (_,url) <- functionApplication (reserved "vid" >> return Vid) (T.pack <$> string)
+  let ref = VidRef url
+  modify' $ \s -> s { textureRefs = Set.insert ref $ textureRefs s }
+  return (Img ref)
+
+-- deprecated
+textureRef_graph_graph :: H (TextureRef -> Graph -> Graph)
 textureRef_graph_graph = asum [
-  reserved "tex" >> return Tex,
-  reserved "texhsv" >> return texhsv
+  reserved "tex" >> return Tex
   ]
 
-textureRef :: H Text
+-- deprecated
+textureRef :: H TextureRef
 textureRef = (do
   t <- T.pack <$> string
-  modify' $ \s -> s { textureRefs = Set.insert t $ textureRefs s }
-  return t
+  let ref = ImgRef t
+  modify' $ \s -> s { textureRefs = Set.insert ref $ textureRefs s }
+  return ref
   ) <?> "expected texture URL"
 
 

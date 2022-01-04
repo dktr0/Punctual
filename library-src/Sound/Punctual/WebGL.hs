@@ -31,6 +31,7 @@ import Sound.MusicW as MusicW hiding (createBuffer,AudioTime)
 import Data.Time
 import Data.Tempo
 
+import Sound.Punctual.Graph hiding (when)
 import Sound.Punctual.Program
 import Sound.Punctual.FragmentShader
 import Sound.Punctual.GL
@@ -44,7 +45,7 @@ data PunctualWebGL = PunctualWebGL {
   triangleStrip :: WebGLBuffer,
   fftTexture :: WebGLTexture,
   ifftTexture :: WebGLTexture,
-  textures :: Map Text Texture,
+  textures :: Map TextureRef Texture,
   fb0 :: (WebGLFramebuffer,WebGLTexture),
   fb1 :: (WebGLFramebuffer,WebGLTexture),
   pingPong :: Bool,
@@ -52,8 +53,8 @@ data PunctualWebGL = PunctualWebGL {
   mainPrograms :: IntMap.IntMap AsyncProgram,
   prevPrograms :: IntMap.IntMap Program, -- note: these are Punctual programs, above two lines are GL AsyncPrograms so quite different...
   currPrograms :: IntMap.IntMap Program,
-  textureMapsEval :: IntMap.IntMap (Map Text Int),
-  textureMapsDraw :: IntMap.IntMap (Map Text Int),
+  textureMapsEval :: IntMap.IntMap (Map TextureRef Int),
+  textureMapsDraw :: IntMap.IntMap (Map TextureRef Int),
   evalTimes :: IntMap.IntMap UTCTime,
   firstZone :: Int,
   -- audio analysis
@@ -164,10 +165,10 @@ foreign import javascript safe
 -- Note: deleting of unused textures disactivated, ie. to cache them against imminent reuse
 -- Later we should rework so that unused textures are *eventually* "garbage-collected".
 
-updateTextures :: Set Text -> Map Text Texture -> GL (Map Text Texture)
+updateTextures :: Set TextureRef -> Map TextureRef Texture -> GL (Map TextureRef Texture)
 updateTextures texSet prevTextures = do
   let x = Map.fromSet id texSet
-  newTextures <- mapM createVideoTexture $ Map.difference x prevTextures
+  newTextures <- mapM loadTexture $ Map.difference x prevTextures
   return $ Map.union newTextures prevTextures
 
 

@@ -7,7 +7,7 @@
 - order of arguments changed for lpf, bpf, hpf so that controls come first, "audio input" last
 - added zero/zer0 function
 - added Haskell-style reverse application operator (&)
-- added img (deprecating tex and texhsv), setfx, setfy, and setfxy
+- added img and vid (deprecating tex, deleting texhsv), setfx, setfy, and setfxy
 
 0.3.4:
 - support for multichannel audio

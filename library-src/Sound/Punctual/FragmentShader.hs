@@ -22,7 +22,7 @@ import Sound.Punctual.GLSLExpr
 import Sound.Punctual.GLSL
 
 
-type GraphEnv = (Map Text Int, [GLSLExpr]) -- texture map, fxy expressions
+type GraphEnv = (Map TextureRef Int, [GLSLExpr]) -- texture map, fxy expressions
 
 testGraphEnv :: GraphEnv
 testGraphEnv = (Map.empty,[defaultFxy] )
@@ -115,11 +115,15 @@ graphToGLSL ah env (RgbV x) = graphToGLSL (Just Vec3) env (RgbHsv x) >>= alignHi
 
 -- unary functions that access textures
 
-graphToGLSL _ (texMap,fxy) (Img t) = texture2D ("tex" <> showb n) fxy
-  where n = min 14 $ max 0 $ Map.findWithDefault 0 t texMap
+graphToGLSL _ (texMap,fxy) (Img texRef) = texture2D ("tex" <> showb n) fxy
+  where n = min 14 $ max 0 $ Map.findWithDefault 0 texRef texMap
 
-graphToGLSL _ env@(texMap,_) (Tex t xy) = graphToGLSL (Just Vec2) env xy >>= texture2D ("tex" <> showb n)
-  where n = min 14 $ max 0 $ Map.findWithDefault 0 t texMap
+graphToGLSL _ (texMap,fxy) (Vid texRef) = texture2D ("tex" <> showb n) fxy
+  where n = min 14 $ max 0 $ Map.findWithDefault 0 texRef texMap
+
+-- deprecated
+graphToGLSL _ env@(texMap,_) (Tex texRef xy) = graphToGLSL (Just Vec2) env xy >>= texture2D ("tex" <> showb n)
+  where n = min 14 $ max 0 $ Map.findWithDefault 0 texRef texMap
 
 graphToGLSL _ env (Fb xy) = graphToGLSL (Just Vec2) env xy >>= texture2D "_fb"
 
@@ -465,7 +469,7 @@ header
 _time :: GLSLExpr
 _time = GLSLExpr GLFloat True "_time"
 
-actionToGLSL :: Map Text Int -> Action -> GLSL GLSLExpr
+actionToGLSL :: Map TextureRef Int -> Action -> GLSL GLSLExpr
 actionToGLSL texMap a = do
   let actionType = if isVec3 a then Vec3 else GLFloat
   b <- graphToGLSL (Just actionType) (texMap,[defaultFxy]) $ graph a
@@ -489,21 +493,21 @@ hsvrgb = unaryFunction "hsvrgb" Vec3
 -- *** TODO: prior to GLSL-refactor... addedAction, discontinuedAction, continuingAction
 -- all used a GLSL if-then-else as an optimization, we probably should restore this ***
 
-addedAction :: Tempo -> UTCTime -> Map Text Int -> Int -> Action -> GLSL (GLSLExpr,[Output])
+addedAction :: Tempo -> UTCTime -> Map TextureRef Int -> Int -> Action -> GLSL (GLSLExpr,[Output])
 addedAction tempo eTime texMap _ newAction = do
   actionExpr <- actionToGLSL texMap newAction
   let (t1,t2) = actionToTimes tempo eTime newAction
   r <- assign $ actionExpr * xFadeNew eTime t1 t2
   return (r, outputs newAction)
 
-discontinuedAction :: UTCTime -> Map Text Int -> Int -> Action -> GLSL (GLSLExpr,[Output])
+discontinuedAction :: UTCTime -> Map TextureRef Int -> Int -> Action -> GLSL (GLSLExpr,[Output])
 discontinuedAction eTime texMap _ oldAction = do
   actionExpr <- actionToGLSL texMap oldAction
   let (t1,t2) = (eTime,addUTCTime 0.5 eTime) -- 0.5 sec fadeout
   r <- assign $ actionExpr * xFadeOld eTime t1 t2
   return (r, outputs oldAction)
 
-continuingAction :: Tempo -> UTCTime -> Map Text Int -> Int -> Action -> Action -> GLSL (GLSLExpr,[Output])
+continuingAction :: Tempo -> UTCTime -> Map TextureRef Int -> Int -> Action -> Action -> GLSL (GLSLExpr,[Output])
 continuingAction tempo eTime texMap _ newAction oldAction = do
   oldExpr <- actionToGLSL texMap oldAction
   newExpr <- actionToGLSL texMap newAction
@@ -528,7 +532,7 @@ xFadeFunction funcName eTime t1 t2 = GLSLExpr GLFloat False b
 
 
 -- the resulting GLSLExpr is what should be assigned to gl_FragColor
-fragmentShaderGLSL :: Tempo -> Map Text Int -> Program -> Program -> GLSL GLSLExpr
+fragmentShaderGLSL :: Tempo -> Map TextureRef Int -> Program -> Program -> GLSL GLSLExpr
 fragmentShaderGLSL tempo texMap oldProgram newProgram = do
   let eTime = evalTime newProgram
 
@@ -564,7 +568,7 @@ generateOutput o zeroExpr allExprs = do
     _ -> assign $ Foldable.foldr1 (+) xs
 
 
-fragmentShader :: Tempo -> Map Text Int -> Program -> Program -> Text
+fragmentShader :: Tempo -> Map TextureRef Int -> Program -> Program -> Text
 fragmentShader _ _ _ newProgram | isJust (directGLSL newProgram) = toText header <> fromJust (directGLSL newProgram)
 fragmentShader tempo texMap oldProgram newProgram = toText $ header <> body
   where

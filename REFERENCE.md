@@ -147,8 +147,6 @@ img "https://url-to-image-file" -- accesses a texture built from the image file 
 
 tex "https://url-to-image-file" [x,y,...] -- accesses a texture built from the image file in question as red-green-blue (3-channel signal). *Deprecated* (use ```img "url"``` instead).
 
-texhsv "https://url-to-image-file" [x,y,...] -- accesses a texture built from the image file in question as hue-saturation-value (3-channel signal). *Deprecated* (use ```rgbhsv $ img "url"``` instead).
-
 hi -- analysis of how much power there is in the highest frequencies of the spectrum of the current sound output. Result is unipolar (0 to 1).
 
 mid -- analysis of how much power there is in the middle frequencies of the spectrum of the current sound output. Result is unipolar (0 to 1).

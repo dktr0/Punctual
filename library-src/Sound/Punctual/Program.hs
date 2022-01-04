@@ -10,10 +10,11 @@ import Control.DeepSeq
 import Data.Time
 
 import Sound.Punctual.Action
+import Sound.Punctual.Graph
 
 data Program = Program {
   directGLSL :: Maybe Text,
-  textureSet :: Set Text,
+  textureSet :: Set TextureRef,
   programNeedsAudioInputAnalysis :: Bool,
   programNeedsAudioOutputAnalysis :: Bool,
   actions :: IntMap Action,
