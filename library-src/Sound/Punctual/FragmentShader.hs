@@ -399,7 +399,6 @@ circle xy r fxy = lessThan (distance xy fxy) r
 point :: GLSLExpr -> GLSLExpr -> GLSLExpr
 point fxy xy = circle xy 0.002 fxy
 
-
 defaultFragmentShader :: Text
 defaultFragmentShader = (toText header) <> "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"
 
@@ -415,6 +414,8 @@ header
    \uniform float lo,mid,hi,ilo,imid,ihi;\
    \uniform float _defaultAlpha,_cps,_time,_etime,_beat,_ebeat;\
    \vec2 _fxy() { return (gl_FragCoord.xy/res) * 2. - 1.; }\
+   \float unitSquare(vec2 fxy) { return float(all(lessThanEqual(abs(fxy),vec2(1.)))); }\
+   \vec3 tex(sampler2D n,vec2 fxy) { return texture2D(n,fxy*0.5+0.5).xyz*unitSquare(fxy);}\
    \vec3 fb(float r){\
    \  vec3 x = texture2D(_fb,gl_FragCoord.xy/res).xyz * r;\
    \  return vec3(x.x > 0.1 ? x.x : 0.,x.y > 0.1 ? x.y : 0.,x.z > 0.1 ? x.z : 0.);}\
