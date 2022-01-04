@@ -235,11 +235,11 @@ There are a number of additional output types for particular purposes, as follow
 
 \>> [number between 0 and 1] -- audio output panned somewhere between 1st audio output (0) and 2nd audio output (1). If multiple channels are present, they are mixed together before being sent to the output.
 
-\>> red -- intensity of red colour (0 to 1). If multiple channels are present, they are mixed together before being sent to the output. *Deprecated*
+\>> red -- intensity of red colour (0 to 1). If multiple channels are present, they are mixed together before being sent to the output.
 
-\>> green -- intensity of green colour (0 to 1). If multiple channels are present, they are mixed together before being sent to the output. *Deprecated*
+\>> green -- intensity of green colour (0 to 1). If multiple channels are present, they are mixed together before being sent to the output.
 
-\>> blue -- intensity of blue colour (0 to 1). If multiple channels are present, they are mixed together before being sent to the output. *Deprecated*
+\>> blue -- intensity of blue colour (0 to 1). If multiple channels are present, they are mixed together before being sent to the output.
 
 \>> alpha -- when not specified alpha defaults to 1, which will erase (overwrite) any previous/underlying layers of drawing in circumstances where "this" Punctual program is drawing after/over other layers of drawing (for example: multiple Punctual programs in different zones of an Estuary collaborative interface). 0 for alpha values will not erase/overwrite previously drawn layers - instead the previous intensities will be kept at their pre-existent level and newly provided intensities will be added.
 
