@@ -316,7 +316,7 @@ zoom fxy a = fxy / a
 
 -- both arguments must represent Vec2
 move :: GLSLExpr -> GLSLExpr -> GLSLExpr
-move fxy a = a - fxy
+move fxy a = fxy - a
 
 -- both arguments must represent Vec2
 tile :: GLSLExpr -> GLSLExpr -> GLSLExpr

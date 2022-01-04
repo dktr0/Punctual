@@ -35,3 +35,5 @@ clean:
 	rm -rf punctual.jsexe
 	rm -rf result
 	rm -rf dev-result
+	rm -rf dist
+	rm -rf dist-newstyle
