@@ -38,8 +38,9 @@ graphToGLSL :: AlignHint -> GraphEnv -> Graph -> GLSL [GLSLExpr]
 -- constants and uniforms
 
 graphToGLSL _ _ (Constant x) = return [ constantFloat x ]
-graphToGLSL _ _ Px = return [glFloat "(1./res.x)"]
-graphToGLSL _ _ Py = return [glFloat "(1./res.y)"]
+graphToGLSL _ _ Px = return [glFloat "(1./width)"]
+graphToGLSL _ _ Py = return [glFloat "(1./height)"]
+graphToGLSL _ _ Aspect = return [glFloat "(width/height)"]
 graphToGLSL _ _ Lo = return [glFloat "lo"]
 graphToGLSL _ _ Mid = return [glFloat "mid"]
 graphToGLSL _ _ Hi = return [glFloat "hi"]
@@ -113,6 +114,7 @@ graphToGLSL ah env (RgbH x) = graphToGLSL (Just Vec3) env (RgbHsv x) >>= alignHi
 graphToGLSL ah env (RgbS x) = graphToGLSL (Just Vec3) env (RgbHsv x) >>= alignHint ah . fmap swizzleY
 graphToGLSL ah env (RgbV x) = graphToGLSL (Just Vec3) env (RgbHsv x) >>= alignHint ah . fmap swizzleZ
 
+
 -- unary functions that access textures
 
 graphToGLSL _ (texMap,fxy) (Img texRef) = texture2D ("tex" <> showb n) fxy
@@ -158,12 +160,12 @@ graphToGLSL ah env (Sum mm x y) = binaryMatchedGraphs mm (+) ah env x y
 graphToGLSL ah env (Product mm x y) = binaryMatchedGraphs mm (*) ah env x y
 graphToGLSL ah env (Division mm x y) = binaryMatchedGraphs mm (/) ah env x y
 graphToGLSL ah env (Pow mm x y) = binaryMatchedGraphs mm pow ah env x y
-graphToGLSL ah env (Equal mm x y) = binaryMatchedGraphs mm (comparisonOperator "==" "equal") ah env x y
-graphToGLSL ah env (NotEqual mm x y) = binaryMatchedGraphs mm (comparisonOperator "!=" "notEqual") ah env x y
-graphToGLSL ah env (GreaterThan mm x y) = binaryMatchedGraphs mm (comparisonOperator ">" "greaterThan") ah env x y
-graphToGLSL ah env (GreaterThanOrEqual mm x y) = binaryMatchedGraphs mm (comparisonOperator ">=" "greaterThanEqual") ah env x y
+graphToGLSL ah env (Equal mm x y) = binaryMatchedGraphs mm equal ah env x y
+graphToGLSL ah env (NotEqual mm x y) = binaryMatchedGraphs mm notEqual ah env x y
+graphToGLSL ah env (GreaterThan mm x y) = binaryMatchedGraphs mm greaterThan ah env x y
+graphToGLSL ah env (GreaterThanOrEqual mm x y) = binaryMatchedGraphs mm greaterThanEqual ah env x y
 graphToGLSL ah env (LessThan mm x y) = binaryMatchedGraphs mm lessThan ah env x y
-graphToGLSL ah env (LessThanOrEqual mm x y) = binaryMatchedGraphs mm (comparisonOperator "<=" "lessThanEqual") ah env x y
+graphToGLSL ah env (LessThanOrEqual mm x y) = binaryMatchedGraphs mm lessThanEqual ah env x y
 
 graphToGLSL ah env (Max x y) = binaryMatchedGraphs Combinatorial (binaryFunctionMatched "max") ah env x y
 graphToGLSL ah env (Min x y) = binaryMatchedGraphs Combinatorial (binaryFunctionMatched "min") ah env x y
@@ -228,11 +230,11 @@ graphToGLSL ah env (LinLin r1 r2 w) = do
 -- get all channels of a result branch per channel of condition, by
 -- aligning result branches to each other + aligning condition to GLFloat
 graphToGLSL ah env (IfThenElse x y z) = do
-  x' <- graphToGLSL (Just GLFloat) env x >>= align GLFloat
+  x' <- graphToGLSL ah env x >>= align GLFloat
   y' <- graphToGLSL ah env y
   z' <- graphToGLSL ah env z
   (y'',z'') <- alignExprs y' z'
-  return [ ifthenelse x'' yz | x'' <- x', yz <- zip y'' z'']
+  sequence [ ifThenElse a b c | a <- x', (b,c) <- zip y'' z'']
 
 -- ternary functions with position
 
@@ -349,8 +351,10 @@ _step nTotal n y = GLSLExpr GLFloat False $ "_step(" <> showb nTotal <> "," <> s
 linlin :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
 linlin r1 r2 w = GLSLExpr GLFloat False $ "linlin(" <> builder r1 <> "," <> builder r2 <> "," <> builder w <> ")"
 
-ifthenelse :: GLSLExpr -> (GLSLExpr,GLSLExpr) -> GLSLExpr
-ifthenelse c (r1,r2) = GLSLExpr (glslType r1) False $ "ifthenelse(" <> builder c <> "," <> builder r1 <> "," <> builder r2 <> ")"
+ifThenElse :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSL GLSLExpr
+ifThenElse cond a b = do
+  condTrue <- assign $ cond `greaterThan` 0
+  return $ (condTrue * a) + ((1 - condTrue) * b)
 
 iline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
 iline xy1 xy2 w fxy = GLSLExpr GLFloat False $ "iline(" <> builder xy1 <> "," <> builder xy2 <> "," <> builder w <> "," <> builder fxy <> ")"
@@ -403,24 +407,21 @@ header :: Builder
 header
  = "precision mediump float;\
    \uniform lowp vec2 res;\
+   \uniform lowp float width;\
+   \uniform lowp float height;\
    \uniform sampler2D _fb;\
    \uniform sampler2D _fft,_ifft;\
    \uniform sampler2D tex0,tex1,tex2,tex3,tex4,tex5,tex6,tex7,tex8,tex9,tex10,tex11,tex12;\
    \uniform float lo,mid,hi,ilo,imid,ihi;\
    \uniform float _defaultAlpha,_cps,_time,_etime,_beat,_ebeat;\
    \vec2 _fxy() { return (gl_FragCoord.xy/res) * 2. - 1.; }\
-   \vec2 uv() { return (gl_FragCoord.xy/res); }\
    \vec3 fb(float r){\
-   \  vec3 x = texture2D(_fb,uv()).xyz * r;\
+   \  vec3 x = texture2D(_fb,gl_FragCoord.xy/res).xyz * r;\
    \  return vec3(x.x > 0.1 ? x.x : 0.,x.y > 0.1 ? x.y : 0.,x.z > 0.1 ? x.z : 0.);}\
    \float phasor(float f) { return (_time*f - floor(_time*f));}\
    \float tri(float f) { float p = phasor(f); return p < 0.5 ? p*4.-1. : 1.-((p-0.5)*4.) ;}\
    \float saw(float f) { return phasor(f)*2.-1.;}\
    \float sqr(float f) { float p = phasor(f); return p < 0.5 ? -1. : 1.;}\
-   \float ifthenelse(float x,float y,float z){return float(x>0.)*y+float(x<=0.)*z;}\
-   \vec2 ifthenelse(vec2 x,vec2 y,vec2 z){return vec2(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y));}\
-   \vec3 ifthenelse(vec3 x,vec3 y,vec3 z){return vec3(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y),ifthenelse(x.z,y.z,z.z));}\
-   \vec4 ifthenelse(vec4 x,vec4 y,vec4 z){return vec4(ifthenelse(x.x,y.x,z.x),ifthenelse(x.y,y.y,z.y),ifthenelse(x.z,y.z,z.z),ifthenelse(x.w,y.w,z.w));}\
    \float prox(vec2 x,vec2 y){return clamp((2.828427-distance(x,y))/2.828427,0.,1.);}\
    \float _step(int n,int x,float y){return float(x==int((y*0.5+0.5)*float(n)));}\
    \float xFadeNew(float t1,float t2){return clamp((_etime-t1)/(t2-t1),0.,1.);}\

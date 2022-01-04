@@ -252,6 +252,7 @@ graph = asum [
   reserved "fxy" >> return Fxy,
   reserved "px" >> return Px,
   reserved "py" >> return Py,
+  reserved "aspect" >> return Aspect,
   reserved "lo" >> modify (\s -> s { audioOutputAnalysis = True } ) >> return Lo,
   reserved "mid" >> modify (\s -> s { audioOutputAnalysis = True } ) >> return Mid,
   reserved "hi" >> modify (\s -> s { audioOutputAnalysis = True } ) >> return Hi,
@@ -357,6 +358,7 @@ graph3 = asum [
   reserved "<=:" >> return (LessThanOrEqual PairWise),
 
   -- other binary functions (with combinatorial semantics, generally speaking)
+  reserved "fit" >> return fit,
   reserved "min" >> return Min,
   reserved "max" >> return Max,
   reserved "hline" >> return HLine,

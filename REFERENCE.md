@@ -121,9 +121,11 @@ fy -- the position of the current fragment along the y-axis from bottom (-1) to 
 
 fxy -- the position of the current fragment along the x and y axes as a 2-channel signal
 
-px -- a nominal value for the width of a pixel
+px -- the width of an actually displayed pixel (ie. in terms of Punctual's -1 to 1 geometry)
 
-py -- a nominal value for the height of a pixel
+py -- the height of an actually displayed pixel (ie. in terms of Punctual's -1 to 1 geometry)
+
+aspect -- the aspect ratio of the canvas on which Punctual draws
 
 dist [x,y,...] -- the distance from specified position to current fragment
 
@@ -194,6 +196,8 @@ hsvb [r,g,b,...] -- convert every 3 channels of hue-saturation-value signal to 1
 tile [x,y] [...] -- repeat the image x times across the x axis, y times across the y axis (remaps fx & fy)
 
 zoom [x,y] [...] -- zoom in by x across the x axis, y across the y axis (remaps fx & fy)
+
+fit [aspectRatio] [...] -- zoom so that the contents of the second argument fit the canvas maximally assuming the provided aspectRatio, eg. to fit a 16/9 video ```fit (16/9) $ vid "urlToVideo.mov" >> video```
 
 move [x,y] [...] -- move/shift/translate things by x across the x axis, y across the y axis (remaps fx & fy)
 

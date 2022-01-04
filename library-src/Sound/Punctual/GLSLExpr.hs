@@ -202,6 +202,21 @@ instance Fractional GLSLExpr where
 lessThan :: GLSLExpr -> GLSLExpr -> GLSLExpr
 lessThan = comparisonOperator "<" "lessThan"
 
+lessThanEqual :: GLSLExpr -> GLSLExpr -> GLSLExpr
+lessThanEqual = comparisonOperator "<=" "lessThanEqual"
+
+greaterThan :: GLSLExpr -> GLSLExpr -> GLSLExpr
+greaterThan = comparisonOperator ">" "greaterThan"
+
+greaterThanEqual :: GLSLExpr -> GLSLExpr -> GLSLExpr
+greaterThanEqual = comparisonOperator ">=" "greaterThanEqual"
+
+equal :: GLSLExpr -> GLSLExpr -> GLSLExpr
+equal = comparisonOperator "==" "equal"
+
+notEqual :: GLSLExpr -> GLSLExpr -> GLSLExpr
+notEqual = comparisonOperator "!=" "notEqual"
+
 log2 :: GLSLExpr -> GLSLExpr
 log2 = unaryFunctionMatched "log2"
 

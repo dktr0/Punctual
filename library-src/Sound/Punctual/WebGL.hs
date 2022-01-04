@@ -40,6 +40,7 @@ import Sound.Punctual.Resolution
 import Sound.Punctual.Texture
 
 data PunctualWebGL = PunctualWebGL {
+  theCanvas :: HTMLCanvasElement,
   resolution :: Resolution,
   brightness :: Double,
   triangleStrip :: WebGLBuffer,
@@ -172,8 +173,8 @@ updateTextures texSet prevTextures = do
   return $ Map.union newTextures prevTextures
 
 
-newPunctualWebGL :: Maybe MusicW.Node -> Maybe MusicW.Node -> Resolution -> Double -> GLContext -> IO PunctualWebGL
-newPunctualWebGL mic out res _brightness ctx = runGL ctx $ do
+newPunctualWebGL :: Maybe MusicW.Node -> Maybe MusicW.Node -> Resolution -> Double -> HTMLCanvasElement -> GLContext -> IO PunctualWebGL
+newPunctualWebGL mic out res _brightness cvs ctx = runGL ctx $ do
   glCtx <- gl
   defaultBlendFunc
   unpackFlipY
@@ -190,6 +191,7 @@ newPunctualWebGL mic out res _brightness ctx = runGL ctx $ do
   -- asynchronously compile/link the "post" program (which transfers imagery from framebuffer to display)
   pp <- updateAsyncProgram emptyAsyncProgram defaultVertexShader postFragmentShaderSrc
   return $ PunctualWebGL {
+    theCanvas = cvs,
     resolution = res,
     brightness = _brightness,
     triangleStrip = ts,
@@ -329,7 +331,7 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
 
 drawPunctualWebGL :: GLContext -> Tempo -> UTCTime -> Int -> PunctualWebGL -> IO PunctualWebGL
 drawPunctualWebGL ctx tempo now z st = runGL ctx $ do
-  let mainUniforms = ["res","_fb","_fft","_ifft","tex0","tex1","tex2","tex3","tex4","tex5","tex6","tex7","tex8","tex9","tex10","tex11","tex12","lo","mid","hi","ilo","imid","ihi","_defaultAlpha","_cps","_time","_etime","_beat","_ebeat"]
+  let mainUniforms = ["res","width","height","_fb","_fft","_ifft","tex0","tex1","tex2","tex3","tex4","tex5","tex6","tex7","tex8","tex9","tex10","tex11","tex12","lo","mid","hi","ilo","imid","ihi","_defaultAlpha","_cps","_time","_etime","_beat","_ebeat"]
   let mainAttribs = ["p"]
   let prevAsync = IntMap.findWithDefault emptyAsyncProgram z $ mainPrograms st
   (newProgramReady,asyncProgram) <- useAsyncProgram prevAsync mainUniforms mainAttribs
@@ -389,6 +391,10 @@ drawPunctualWebGL ctx tempo now z st = runGL ctx $ do
     let (w,h) = pixels (resolution st')
     uniform2fAsync asyncProgram "res" (fromIntegral w) (fromIntegral h)
     viewport 0 0 w h
+    actualWidth <- liftIO $ getClientWidth (theCanvas st)
+    uniform1fAsync asyncProgram "width" actualWidth
+    actualHeight <- liftIO $ getClientHeight (theCanvas st)
+    uniform1fAsync asyncProgram "height" actualHeight
     drawArraysTriangleStrip 0 4
   return $ st' { mainPrograms = IntMap.insert z asyncProgram (mainPrograms st') }
 
@@ -453,3 +459,11 @@ foreign import javascript unsafe
 foreign import javascript unsafe
   "var acc=0; for(var x=80;x<512;x++) { acc=acc+$1[x] }; acc=acc/(432*256); $r = acc"
   getHi :: JSVal -> IO Double
+
+foreign import javascript unsafe
+  "$1.clientWidth"
+  getClientWidth :: HTMLCanvasElement -> IO Double
+
+foreign import javascript unsafe
+  "$1.clientHeight"
+  getClientHeight :: HTMLCanvasElement -> IO Double

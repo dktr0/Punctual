@@ -1,4 +1,4 @@
-{-# LANGUAGE RecursiveDo, OverloadedStrings, JavaScriptFFI, FlexibleContexts #-}
+{-# LANGUAGE RecursiveDo, OverloadedStrings, JavaScriptFFI, FlexibleContexts, GADTs #-}
 
 module Main where
 
@@ -59,7 +59,7 @@ main = do
   getGlobalAudioContextPlayback >>= addWorklets
   mainWidgetWithHead headElement bodyElement
 
-bodyElement :: MonadWidget t m => m ()
+bodyElement :: (MonadIO m, MonadIO (Performable m), PerformEvent t m, MonadFix m, MonadHold t m, TriggerEvent t m, PostBuild t m, DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace) => m ()
 bodyElement = do
   liftIO $ putStrLn "Punctual standalone"
   let attrs = fromList [("class","canvas"),("style",T.pack $ "z-index: -1;"), ("width","1920"), ("height","1080")]
@@ -134,7 +134,7 @@ forkRenderThreads canvas = do
   let iW = emptyPunctualW ac mic gain 2 tNow -- hard coded stereo for now
   -- create PunctualWebGL for animation
   glc <- newGLContext canvas
-  initialPunctualWebGL <- newPunctualWebGL (Just mic) (Just comp) FHD 1.0 glc
+  initialPunctualWebGL <- newPunctualWebGL (Just mic) (Just comp) FHD 1.0 canvas glc
   -- create an MVar for the render state, fork render threads, return the MVar
   t0system <- getCurrentTime
   mv <- newMVar $ RenderState {

@@ -14,7 +14,7 @@ data Graph =
   LocalBinding Int |
   Constant Double |
   Multi [Graph] |
-  Px | Py |
+  Px | Py | Aspect |
   Fx | Fy | Fxy |
   SetFx Graph Graph | SetFy Graph Graph | SetFxy Graph Graph |
   Zoom Graph Graph | Move Graph Graph | Tile Graph Graph | Spin Graph Graph |
@@ -104,6 +104,9 @@ modulatedRangeGraph low high m = LinLin (Multi [-1,1]) (Multi [low,high]) m
 
 (+-) :: Graph -> Graph -> Graph -> Graph
 a +- b = modulatedRangeGraph (a - (a*b)) (a + (a*b))
+
+fit :: Graph -> Graph -> Graph
+fit ar x = IfThenElse ((GreaterThanOrEqual Combinatorial) Aspect ar) (Zoom (Multi [ar/Aspect,1]) $ x) (Zoom (Multi [1,Aspect/ar]) $ x)
 
 multi :: [[a]] -> [[a]]
 multi [] = []

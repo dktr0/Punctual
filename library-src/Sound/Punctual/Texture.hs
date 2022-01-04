@@ -46,7 +46,6 @@ loadImageTexture url = do
 
 loadVideoTexture :: Text -> GL Texture
 loadVideoTexture url = do
-  ctx <- gl
   t <- createTexture
   vid <- liftIO _createVideo
   liftIO $ _loadVideo vid url

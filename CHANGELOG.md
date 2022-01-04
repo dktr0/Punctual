@@ -8,6 +8,7 @@
 - added zero/zer0 function
 - added Haskell-style reverse application operator (&)
 - added img and vid (deprecating tex, deleting texhsv), setfx, setfy, and setfxy
+- added aspect and fit
 
 0.3.4:
 - support for multichannel audio
