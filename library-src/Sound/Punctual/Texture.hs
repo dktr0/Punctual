@@ -84,7 +84,7 @@ foreign import javascript safe
 
 
 foreign import javascript safe
-  "$r = document.createElement('video'); $r.autoplay = true; $r.muted = true; $r.loop = true; $r.isPlaying = false;"
+  "$r = document.createElement('video'); $r.crossOrigin = \"Anonymous\"; $r.autoplay = true; $r.muted = true; $r.loop = true; $r.isPlaying = false;"
   _createVideo :: IO Video
 
 foreign import javascript safe
