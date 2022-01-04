@@ -147,6 +147,8 @@ line [x1,y1,...] [x2,y2,...] [w] -- returns 1 when current fragment is within w 
 
 img "https://url-to-image-file" -- accesses a texture built from the image file in question as red-green-blue (3-channel signal).
 
+vid "https://url-to-video-file" -- accesses a texture built from the video file in question as red-green-blue (3-channel signal).
+
 tex "https://url-to-image-file" [x,y,...] -- accesses a texture built from the image file in question as red-green-blue (3-channel signal). *Deprecated* (use ```img "url"``` instead).
 
 hi -- analysis of how much power there is in the highest frequencies of the spectrum of the current sound output. Result is unipolar (0 to 1).
