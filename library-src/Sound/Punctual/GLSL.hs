@@ -270,4 +270,5 @@ alignToModel (m@(GLSLExpr Vec4 _ _):ms) xs = do
 texture2D :: Builder -> [GLSLExpr] -> GLSL [GLSLExpr]
 texture2D n xy = do
   xy' <- align Vec2 xy
-  mapM assign $ fmap (\x -> GLSLExpr Vec3 False ("texture2D(" <> n <> ",fract(" <> builder x <> "*0.5+0.5)).xyz")) xy'
+  let f x = GLSLExpr Vec3 False $ "tex(" <> n <> "," <> builder x <> ")"
+  mapM assign $ fmap f xy'
