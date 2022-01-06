@@ -167,6 +167,7 @@ optimize' x = x
 -- recursive: use this when optimizing, calls optimize' for specific optimizations but recursively walks the tree to make sure the whole tree is optimized
 optimize :: Graph -> Graph
 optimize (Multi xs) = Multi $ fmap optimize xs
+optimize (Append xs ys) = Append (optimize xs) (optimize ys)
 optimize (Mono x) = Mono $ optimize x
 optimize (Rep n x) = Rep n $ optimize x
 optimize (UnRep n x) = UnRep n $ optimize x
@@ -446,6 +447,7 @@ expandMultis :: Graph -> [Graph]
 -- multi, mono, constants
 expandMultis (Multi []) = []
 expandMultis (Multi xs) = concat $ multi $ fmap expandMultis xs
+expandMultis (Append xs ys) = expandMultis xs ++ expandMultis ys
 expandMultis (Mono x) = [graphsToMono $ expandMultis x]
 expandMultis (Constant x) = [Constant x]
 expandMultis (Rep n x) = concat $ fmap (replicate n) $ expandMultis x

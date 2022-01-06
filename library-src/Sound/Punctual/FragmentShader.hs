@@ -56,9 +56,14 @@ graphToGLSL ah (_,fxy) Fx = alignHint ah $ fmap swizzleX fxy
 graphToGLSL ah (_,fxy) Fy = alignHint ah $ fmap swizzleY fxy
 graphToGLSL ah (_,fxy) Fxy = alignHint ah $ fxy
 
--- multichannel operations: multi, mono, rep, unrep
+-- multichannel operations: multi, mono, rep, unrep, Append (++)
 
 graphToGLSL ah env (Multi xs) = multiToGLSL ah env xs
+
+graphToGLSL ah env (Append xs ys) = do
+  xs' <- graphToGLSL ah env xs
+  ys' <- graphToGLSL ah env ys
+  return $ xs' ++ ys'
 
 graphToGLSL _ env (Mono x) = do
   x' <- graphToGLSL (Just GLFloat) env x

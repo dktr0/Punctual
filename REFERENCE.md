@@ -110,6 +110,8 @@ gate [graph] [graph] -- when the absolute value of the second graph is lower tha
 
 zero [graph] -- returns a graph that is always 0 regardless of the input graph (useful for quickly silencing/erasing particular lines of code). The synonym 'zer0' is also available.
 
+[graph] ++ [graph] -- appends two graphs to each other in a way that preserves the multiple channels of both graphs. For example if the graph on the left has 3 channels, and the one on the right has 2 channels, then the result will be a 5-channel graph consisting of the 3 channels from the left operand, followed by the 2 channels from the right operand.
+
 ## Punctual Graph Functions Specialised for Graphics
 
 These functions are specialized for graphics. (While they are still "valid" in

@@ -14,6 +14,7 @@ data Graph =
   LocalBinding Int |
   Constant Double |
   Multi [Graph] |
+  Append Graph Graph |
   Px | Py | Aspect |
   Fx | Fy | Fxy |
   SetFx Graph Graph | SetFy Graph Graph | SetFxy Graph Graph |
