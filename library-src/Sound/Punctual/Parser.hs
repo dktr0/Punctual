@@ -200,6 +200,7 @@ outputs = asum [
   ((:[]) . Panned . realToFrac) <$> rationalOrInteger,
   reserved "audio" >> return [Splay],
   reserved "video" >> return [RGB],
+  reserved "rgba" >> return [RGBA],
   reserved "left" >> return [Panned 0],
   reserved "right" >> return [Panned 1],
   reserved "centre" >> return [Panned 0.5],

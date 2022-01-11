@@ -489,17 +489,24 @@ _time = GLSLExpr GLFloat True "_time"
 
 actionToGLSL :: Map TextureRef Int -> Action -> GLSL GLSLExpr
 actionToGLSL texMap a = do
-  let actionType = if isVec3 a then Vec3 else GLFloat
-  b <- graphToGLSL (Just actionType) (texMap,[defaultFxy]) $ graph a
-  c <- align actionType b
-  let d = foldr1 (+) c
-  assign $ if isHsv a then hsvrgb d else d
+  let t = actionType a
+  b <- graphToGLSL (Just t) (texMap,[defaultFxy]) $ graph a
+  c <- align t b
+  let f = if t == Vec4 then blend else (\x y -> return $ x+y) -- HACKY: assuming any Vec4 is RGBA...
+  case c of
+    [] -> error "'impossible' error in actionToGLSL"
+    (x:[]) -> return x
+    (x:xs) -> foldM f x xs >>= assign
 
 defaultFxy :: GLSLExpr
 defaultFxy = GLSLExpr Vec2 True "_fxy()"
 
-isVec3 :: Action -> Bool
-isVec3 x = elem RGB (outputs x) || elem HSV (outputs x)
+actionType :: Action -> GLSLType
+actionType x
+  | elem RGBA (outputs x) = Vec4
+  | elem RGB (outputs x) = Vec3
+  | elem HSV (outputs x) = Vec3
+  | otherwise = GLFloat
 
 isHsv :: Action -> Bool
 isHsv x = elem HSV (outputs x)
@@ -574,8 +581,9 @@ fragmentShaderGLSL tempo texMap oldProgram newProgram = do
   let fdbk' = GLSLExpr Vec3 False $"fb(" <> builder fdbk <> ")"
   hsv <- generateOutput HSV (exprToVec3 0) allExprs
   rgb <- generateOutput RGB (exprToVec3 0) allExprs
-  let rgb' = exprExprExprToVec3 red green blue + hsv + rgb + fdbk'
-  return $ exprExprToVec4 rgb' alpha
+  rgba <- generateRGBA allExprs
+  let rgb' = exprExprToVec4 (exprExprExprToVec3 red green blue + hsv + rgb + fdbk') alpha
+  blend rgb' rgba -- NOTE: it would make more sense to convert all outputs to RGBA then blend all...
 
 generateOutput :: Output -> GLSLExpr -> [(GLSLExpr,[Output])] -> GLSL GLSLExpr
 generateOutput o zeroExpr allExprs = do
@@ -585,6 +593,13 @@ generateOutput o zeroExpr allExprs = do
     (x:[]) -> return x
     _ -> assign $ Foldable.foldr1 (+) xs
 
+generateRGBA :: [(GLSLExpr,[Output])] -> GLSL GLSLExpr
+generateRGBA xs = do
+  let xs' = fmap fst $ Prelude.filter (elem RGBA . snd) xs
+  case xs' of
+    [] -> return $ GLSLExpr Vec4 False "vec4(0.)"
+    (x:[]) -> return x
+    _ -> foldM blend (head xs') (tail xs') >>= assign
 
 fragmentShader :: Tempo -> Map TextureRef Int -> Program -> Program -> Text
 fragmentShader _ _ _ newProgram | isJust (directGLSL newProgram) = toText header <> fromJust (directGLSL newProgram)
