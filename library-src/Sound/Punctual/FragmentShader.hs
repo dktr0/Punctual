@@ -12,6 +12,7 @@ import Data.Maybe
 import Data.List.Split
 import Data.Time
 import Data.Tempo
+import Control.Monad
 
 
 import Sound.Punctual.Graph
@@ -104,6 +105,11 @@ graphToGLSL ah env (Sqr x) = graphToGLSL (Just GLFloat) env x >>= align GLFloat 
 graphToGLSL ah env (LFTri x) = graphToGLSL (Just GLFloat) env x >>= align GLFloat >>= alignHint ah . fmap (unaryFunctionMatched "tri")
 graphToGLSL ah env (LFSaw x) = graphToGLSL (Just GLFloat) env x >>= align GLFloat >>= alignHint ah . fmap (unaryFunctionMatched "saw")
 graphToGLSL ah env (LFSqr x) = graphToGLSL (Just GLFloat) env x >>= align GLFloat >>= alignHint ah . fmap (unaryFunctionMatched "sqr")
+graphToGLSL _ env (Blend x) = do
+  xs <- graphToGLSL (Just Vec4) env x >>= alignRGBA
+  case length xs of
+    1 -> return xs
+    _ -> foldM blend (head xs) (tail xs) >>= (return . pure)
 graphToGLSL _ env (HsvRgb x) = graphToGLSL (Just Vec3) env x >>= align Vec3 >>= return . fmap (unaryFunctionMatched "hsvrgb")
 graphToGLSL _ env (RgbHsv x) = graphToGLSL (Just Vec3) env x >>= align Vec3 >>= return . fmap (unaryFunctionMatched "rgbhsv")
 graphToGLSL ah env (HsvH x) = graphToGLSL (Just Vec3) env x >>= align Vec3 >>= alignHint ah . fmap swizzleX
@@ -403,6 +409,11 @@ circle xy r fxy = lessThan (distance xy fxy) r
 
 point :: GLSLExpr -> GLSLExpr -> GLSLExpr
 point fxy xy = circle xy 0.002 fxy
+
+blend :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec4
+blend a b = do
+  b' <- assign b
+  return $ GLSLExpr Vec4 False $ "mix(" <> builder a <> "," <> builder b' <> "," <> builder b' <> ".a)"
 
 defaultFragmentShader :: Text
 defaultFragmentShader = (toText header) <> "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"

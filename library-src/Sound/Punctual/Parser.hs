@@ -300,6 +300,7 @@ graph2 = asum [
   reserved "floor" >> return Floor,
   reserved "ceil" >> return Ceil,
   reserved "fract" >> return Fract,
+  reserved "blend" >> return Blend,
   reserved "hsvrgb" >> return HsvRgb,
   reserved "rgbhsv" >> return RgbHsv,
   reserved "hsvh" >> return HsvH,

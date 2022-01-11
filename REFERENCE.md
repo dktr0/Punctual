@@ -169,6 +169,8 @@ fft [graph] -- detailed spectrum analysis (Fast Fourier Transform) of the curren
 
 ifft [graph] -- detailed frequency analysis (Fast Fourier Transform) of the current sound input. Graph argument is bipolar (-1 to 1) where -1 represents lowest possible frequency and 1 represents highest. Result is unipolar (0 to 1.)
 
+blend [r1,g1,b1,a1,r2,g2,b2,a2,...] -- produces a 4-channel RGBA signal by blending layers represented by sets of 4 channels, using the alpha channel of the second of each set to interpolate between values. If the input does not consist of a multiple of 4 channels, it is extended to the next multiple of 4 channels, in the following way: 1 channel = repeat as RGB, alpha is 1; 2 channels = repeat 2nd channel as B, alpha is 1; 3 channels = those 3 channels, with an alpha of 1.
+
 rgbhsv [r,g,b,...] -- convert every 3 channels of red-green-blue signal to hue-saturation-value
 
 hsvrgb [h,s,v,...] -- convert every 3 channels of hue-saturation-value signal to red-green-blue
