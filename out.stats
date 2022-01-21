@@ -1,30 +1,30 @@
 code size summary per package:
 
-base:                    490479
+base:                    490481
 bytestring-0.10.8.2-FBklFuapa1a7kq4yflY7Bt:90257
 containers-0.6.0.1-BAqcfV1UBBeCIRjPbUYeSG:214217
 dependent-map-0.3-82DTUQPsubeFMPg64cnlKg:49478
 dependent-sum-0.6.2.0-7ro4RTDuvwj7KvAIN0tbai:4201
-ghc-prim:                311566
+ghc-prim:                311776
 ghcjs-base-0.2.0.0-94o7qH5GqxYIuAX83RduIv:1458
 ghcjs-dom-jsffi-0.9.2.0-LhqmrnYZ728DFrIvvqEjAk:21019
 ghcjs-prim-0.1.1.0-EXzjGVHQlAS2XAXcu0iCbS:4194
-haskell-src-exts-1.21.0-DsLjfIdnuhDB9rbXFZ7Qmq:2085023
+haskell-src-exts-1.21.0-DsLjfIdnuhDB9rbXFZ7Qmq:2085088
 haskellish-0.3.1-Ee6rzVzIBGMLUdkhCycDwa:1229
-integer-gmp:             70549
+integer-gmp:             70548
 main:                    6622
-musicw-0.3.7-KDsHmCghWUu8OlZluUlP2L:166170
+musicw-0.3.7-KDsHmCghWUu8OlZluUlP2L:166171
 pretty-1.1.3.6-HCbdzOHqNpW5RoNxlHyeg5:482
 primitive-0.6.3.0-KfguiTuxgILGqu8JEOpKRI:2232
-punctual-0.4.0.0-IGZj7QgiyjUAJuQBz7Ln8N:692686
+punctual-0.4.0.0-IGZj7QgiyjUAJuQBz7Ln8N:703698
 ref-tf-0.4.0.1-4fEDYopgtHB1kxZabrLLUM:1
-reflex-0.6.2.4-5yZIMPComPJIRLAlmqrSE5:509454
+reflex-0.6.2.4-5yZIMPComPJIRLAlmqrSE5:509327
 reflex-dom-contrib-0.6-EzMUHZZmTmJKoY8IWemlOb:1587
-reflex-dom-core-0.5.2.0-GkO8KmFBylOAmRGw6IXoPy:793158
+reflex-dom-core-0.5.2.0-GkO8KmFBylOAmRGw6IXoPy:793159
 semialign-1-5skbPxNQj8D3AvF6riHMVM:21961
 split-0.2.3.3-qfkf36CxAn5AsxYzbuLkg:7207
 tempi-1.0.2.0-51gTh5sRaywHJHU1eWQl53:1848
-text-1.2.3.0-G7RNccSav6I3egGIwK0cpP:133141
+text-1.2.3.0-G7RNccSav6I3egGIwK0cpP:132907
 text-show-3.7.5-KwULiPtPzFNcaYnUwuXRO:3432
 these-1-3AW2YEk4PYiLdgZ7ikQ0ki:950
 time-1.8.0.2-3d3i5aGvKEfEHwUSNgliL4:4908
@@ -77,7 +77,7 @@ base
     GHC.IO.Encoding.Failure:            2568
     GHC.IO.Encoding.Latin1:             1
     GHC.IO.Encoding.Types:              58101
-    GHC.IO.Encoding.UTF8:               10808
+    GHC.IO.Encoding.UTF8:               10809
     GHC.IO.Exception:                   24650
     GHC.IO.FD:                          8100
     GHC.IO.Handle:                      4467
@@ -93,7 +93,7 @@ base
     GHC.Maybe:                          634
     GHC.Num:                            113
     GHC.Ptr:                            7963
-    GHC.Read:                           20089
+    GHC.Read:                           20090
     GHC.Real:                           97
     GHC.STRef:                          21234
     GHC.Show:                           3900
@@ -134,7 +134,7 @@ ghc-prim
     GHC.Classes:                        451
     GHC.IntWord64:                      1610
     GHC.Tuple:                          173
-    GHC.Types:                          305029
+    GHC.Types:                          305239
 
 ghcjs-base-0.2.0.0-94o7qH5GqxYIuAX83RduIv
     Data.JSString:                      1
@@ -167,13 +167,13 @@ haskell-src-exts-1.21.0-DsLjfIdnuhDB9rbXFZ7Qmq
     Language.Haskell.Exts.Comments:     1494
     Language.Haskell.Exts.ExtScheme:    52207
     Language.Haskell.Exts.Extension:    68725
-    Language.Haskell.Exts.Fixity:       352117
-    Language.Haskell.Exts.InternalLexer:734084
+    Language.Haskell.Exts.Fixity:       352090
+    Language.Haskell.Exts.InternalLexer:734102
     Language.Haskell.Exts.InternalParser:19407
-    Language.Haskell.Exts.ParseMonad:   70036
-    Language.Haskell.Exts.ParseSyntax:  240400
+    Language.Haskell.Exts.ParseMonad:   70042
+    Language.Haskell.Exts.ParseSyntax:  240467
     Language.Haskell.Exts.ParseUtils:   2312
-    Language.Haskell.Exts.Parser:       248425
+    Language.Haskell.Exts.Parser:       248426
     Language.Haskell.Exts.Pretty:       11903
     Language.Haskell.Exts.SrcLoc:       232228
     Language.Haskell.Exts.Syntax:       51685
@@ -182,7 +182,7 @@ haskellish-0.3.1-Ee6rzVzIBGMLUdkhCycDwa
     Language.Haskellish:                1229
 
 integer-gmp
-    GHC.Integer.Logarithms.Internals:   68445
+    GHC.Integer.Logarithms.Internals:   68444
     GHC.Integer.Type:                   2104
 
 main
@@ -190,7 +190,7 @@ main
     MovingAverage:                      3793
 
 musicw-0.3.7-KDsHmCghWUu8OlZluUlP2L
-    Sound.MusicW.AudioContext:          33659
+    Sound.MusicW.AudioContext:          33660
     Sound.MusicW.Node:                  26298
     Sound.MusicW.Synth:                 20891
     Sound.MusicW.SynthDef:              15919
@@ -205,22 +205,22 @@ primitive-0.6.3.0-KfguiTuxgILGqu8JEOpKRI
     Control.Monad.Primitive:            2232
 
 punctual-0.4.0.0-IGZj7QgiyjUAJuQBz7Ln8N
-    Sound.Punctual.Action:              60668
+    Sound.Punctual.Action:              60669
     Sound.Punctual.AsyncProgram:        8096
     Sound.Punctual.DefTime:             1
-    Sound.Punctual.Duration:            124820
+    Sound.Punctual.Duration:            132705
     Sound.Punctual.FragmentShader:      3923
-    Sound.Punctual.GL:                  42279
-    Sound.Punctual.GLSL:                34536
-    Sound.Punctual.GLSLExpr:            40915
-    Sound.Punctual.Graph:               2762
-    Sound.Punctual.Output:              66800
+    Sound.Punctual.GL:                  44626
+    Sound.Punctual.GLSL:                34733
+    Sound.Punctual.GLSLExpr:            42145
+    Sound.Punctual.Graph:               2380
+    Sound.Punctual.Output:              67164
     Sound.Punctual.Parser:              266
-    Sound.Punctual.Program:             111614
+    Sound.Punctual.Program:             111609
     Sound.Punctual.PunctualW:           1
     Sound.Punctual.Resolution:          2946
     Sound.Punctual.Texture:             953
-    Sound.Punctual.Transition:          192105
+    Sound.Punctual.Transition:          191480
     Sound.Punctual.WebGL:               1
 
 ref-tf-0.4.0.1-4fEDYopgtHB1kxZabrLLUM
@@ -233,7 +233,7 @@ reflex-0.6.2.4-5yZIMPComPJIRLAlmqrSE5
     Data.Map.Misc:                      1
     Data.WeakBag:                       958
     Reflex.Adjustable.Class:            14223
-    Reflex.Class:                       3460
+    Reflex.Class:                       3459
     Reflex.Dynamic:                     141
     Reflex.FastWeak:                    1
     Reflex.Host.Class:                  1
@@ -247,9 +247,9 @@ reflex-0.6.2.4-5yZIMPComPJIRLAlmqrSE5
     Reflex.PerformEvent.Base:           1634
     Reflex.PerformEvent.Class:          23474
     Reflex.PostBuild.Base:              1
-    Reflex.PostBuild.Class:             64714
+    Reflex.PostBuild.Class:             64589
     Reflex.Requester.Base:              1
-    Reflex.Requester.Class:             303254
+    Reflex.Requester.Class:             303253
     Reflex.Spider.Internal:             13916
     Reflex.Time:                        8898
     Reflex.TriggerEvent.Base:           1
@@ -261,7 +261,7 @@ reflex-dom-contrib-0.6-EzMUHZZmTmJKoY8IWemlOb
 reflex-dom-core-0.5.2.0-GkO8KmFBylOAmRGw6IXoPy
     Foreign.JavaScript.TH:              1748
     Reflex.Dom.Builder.Class:           133396
-    Reflex.Dom.Builder.Class.Events:    562951
+    Reflex.Dom.Builder.Class.Events:    562952
     Reflex.Dom.Builder.Immediate:       33578
     Reflex.Dom.Main:                    15629
     Reflex.Dom.Old:                     40986
@@ -287,7 +287,7 @@ text-1.2.3.0-G7RNccSav6I3egGIwK0cpP
     Data.Text.Internal.Lazy:            14297
     Data.Text.Lazy:                     20683
     Data.Text.Lazy.Builder.Int:         1
-    Data.Text.Lazy.Builder.RealFloat:   64446
+    Data.Text.Lazy.Builder.RealFloat:   64212
 
 text-show-3.7.5-KwULiPtPzFNcaYnUwuXRO
     TextShow.Data.Floating:             3327
@@ -315,5 +315,5 @@ unbounded-delays-0.1.1.0-3OIBWhvs3opCI9f4squMMQ
 
 
 
-packed metadata: 4504776
+packed metadata: 4515764
 
