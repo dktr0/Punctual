@@ -53,6 +53,7 @@ Library
                      Sound.Punctual.FragmentShader
                      Sound.Punctual.Resolution
                      Sound.Punctual.WebGL
+                     Sound.Punctual.Texture
   other-modules:     Sound.Punctual.GLSL
                      Sound.Punctual.GLSLExpr
   default-language:  Haskell2010
