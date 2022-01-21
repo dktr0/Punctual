@@ -104,6 +104,26 @@ align t xs = do
   return (x:xs'')
 
 
+-- | alignRGBA aligns to groups of 4 channels (vec4) as follows:
+-- 1 channel: repeat as channel 2 and 3, set channel 4 (alpha) to 1
+-- 2 channels: repeat channel 2 as 3, set channel 4 (alpha) to 1
+-- 3 channels: set channel 4 (alpha) to 1
+-- 4 channels: identity
+
+alignRGBA :: [GLSLExpr] -> GLSL [GLSLExpr]
+alignRGBA xs
+  | exprsChannels xs == 0 = return []
+  | exprsChannels xs == 1 = return [ exprExprToVec4 (exprToVec3 (Prelude.head xs)) $ constantFloat 1.0 ]
+  | exprsChannels xs == 2 = do
+      x' <- align Vec2 xs >>= (assign . Prelude.head)
+      return [ exprExprToVec4 (exprExprToVec3 x' $ swizzleY x') $ constantFloat 1.0 ]
+  | exprsChannels xs == 3 = return [ exprExprToVec4 (Prelude.head xs) $ constantFloat 1.0]
+  | exprsChannels xs >= 4 = do
+      (y,ys) <- splitAligned Vec4 xs
+      ys' <- alignRGBA ys
+      return (y:ys')
+
+
 -- alignMax: given a list of GLSLExpr-s regroup them to use the biggest
 -- underlying types, eg. 7 channels would be a Vec4 followed by a Vec3
 alignMax :: [GLSLExpr] -> GLSL [GLSLExpr]

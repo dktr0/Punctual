@@ -1,14 +1,17 @@
 # ChangeLog
 
 0.4.0.0:
-- significant optimizations of fragment shader generation
+- significant optimizations of fragment shader generation (with more to come!)
 - many operations now expand multichannel signals in a combinatorial way (eg. [1,2] + [10,20] === [11,21,12,22])
 - earlier semantics (pairwise combination) still available through specialized operators (eg. instead of + use +:, [1,2] +: [10,20] === [11,22])
+- added ++ operator to append multi-channel graphs/signals
 - order of arguments changed for lpf, bpf, hpf so that controls come first, "audio input" last
 - added zero/zer0 function
 - added Haskell-style reverse application operator (&)
 - added img and vid (deprecating tex, deleting texhsv), setfx, setfy, and setfxy
 - added aspect and fit
+- added blend
+- initial implemention of RGBA output
 
 0.3.4:
 - support for multichannel audio

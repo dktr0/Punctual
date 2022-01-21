@@ -110,6 +110,8 @@ gate [graph] [graph] -- when the absolute value of the second graph is lower tha
 
 zero [graph] -- returns a graph that is always 0 regardless of the input graph (useful for quickly silencing/erasing particular lines of code). The synonym 'zer0' is also available.
 
+[graph] ++ [graph] -- appends two graphs to each other in a way that preserves the multiple channels of both graphs. For example if the graph on the left has 3 channels, and the one on the right has 2 channels, then the result will be a 5-channel graph consisting of the 3 channels from the left operand, followed by the 2 channels from the right operand.
+
 ## Punctual Graph Functions Specialised for Graphics
 
 These functions are specialized for graphics. (While they are still "valid" in
@@ -166,6 +168,8 @@ ilo -- analysis of how much power there is in the lowest frequencies of the spec
 fft [graph] -- detailed spectrum analysis (Fast Fourier Transform) of the current sound output. Graph argument is bipolar (-1 to 1) where -1 represents lowest possible frequency and 1 represents highest. Result is unipolar (0 to 1).
 
 ifft [graph] -- detailed frequency analysis (Fast Fourier Transform) of the current sound input. Graph argument is bipolar (-1 to 1) where -1 represents lowest possible frequency and 1 represents highest. Result is unipolar (0 to 1.)
+
+blend [r1,g1,b1,a1,r2,g2,b2,a2,...] -- produces a 4-channel RGBA signal by blending layers represented by sets of 4 channels, using the alpha channel of the second of each set to interpolate between values. If the input does not consist of a multiple of 4 channels, it is extended to the next multiple of 4 channels, in the following way: 1 channel = repeat as RGB, alpha is 1; 2 channels = repeat 2nd channel as B, alpha is 1; 3 channels = those 3 channels, with an alpha of 1.
 
 rgbhsv [r,g,b,...] -- convert every 3 channels of red-green-blue signal to hue-saturation-value
 

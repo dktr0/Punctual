@@ -200,6 +200,7 @@ outputs = asum [
   ((:[]) . Panned . realToFrac) <$> rationalOrInteger,
   reserved "audio" >> return [Splay],
   reserved "video" >> return [RGB],
+  reserved "rgba" >> return [RGBA],
   reserved "left" >> return [Panned 0],
   reserved "right" >> return [Panned 1],
   reserved "centre" >> return [Panned 0.5],
@@ -300,6 +301,7 @@ graph2 = asum [
   reserved "floor" >> return Floor,
   reserved "ceil" >> return Ceil,
   reserved "fract" >> return Fract,
+  reserved "blend" >> return Blend,
   reserved "hsvrgb" >> return HsvRgb,
   reserved "rgbhsv" >> return RgbHsv,
   reserved "hsvh" >> return HsvH,
@@ -330,6 +332,7 @@ graph2 = asum [
 
 graph3 :: H (Graph -> Graph -> Graph)
 graph3 = asum [
+  reserved "++" >> return Append,
 
   -- combinatorial arithmetic operators
   reserved "+" >> return (+),

@@ -11,7 +11,7 @@ data Output =
   Panned Extent | Splay |
   Red | Green | Blue |
   Hue | Saturation | Value |
-  RGB | HSV | Alpha | Fdbk
+  RGB | RGBA | HSV | Alpha | Fdbk
   deriving (Show,Eq,Generic,NFData)
 
 outputsAudio :: [Output] -> Bool
@@ -29,6 +29,7 @@ outputsWebGL (Hue:_) = True
 outputsWebGL (Saturation:_) = True
 outputsWebGL (Value:_) = True
 outputsWebGL (RGB:_) = True
+outputsWebGL (RGBA:_) = True
 outputsWebGL (HSV:_) = True
 outputsWebGL (Alpha:_) = True
 outputsWebGL (Fdbk:_) = True

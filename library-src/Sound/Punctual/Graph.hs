@@ -14,6 +14,7 @@ data Graph =
   LocalBinding Int |
   Constant Double |
   Multi [Graph] |
+  Append Graph Graph |
   Px | Py | Aspect |
   Fx | Fy | Fxy |
   SetFx Graph Graph | SetFy Graph Graph | SetFxy Graph Graph |
@@ -32,6 +33,7 @@ data Graph =
   Tex TextureRef Graph | -- deprecated
   Img TextureRef |
   Vid TextureRef |
+  Blend Graph |
   RgbHsv Graph | HsvRgb Graph |
   HsvH Graph | HsvS Graph | HsvV Graph | HsvR Graph | HsvG Graph | HsvB Graph |
   RgbH Graph | RgbS Graph | RgbV Graph | RgbR Graph | RgbG Graph | RgbB Graph |

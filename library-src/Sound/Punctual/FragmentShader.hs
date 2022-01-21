@@ -12,6 +12,7 @@ import Data.Maybe
 import Data.List.Split
 import Data.Time
 import Data.Tempo
+import Control.Monad
 
 
 import Sound.Punctual.Graph
@@ -56,9 +57,14 @@ graphToGLSL ah (_,fxy) Fx = alignHint ah $ fmap swizzleX fxy
 graphToGLSL ah (_,fxy) Fy = alignHint ah $ fmap swizzleY fxy
 graphToGLSL ah (_,fxy) Fxy = alignHint ah $ fxy
 
--- multichannel operations: multi, mono, rep, unrep
+-- multichannel operations: multi, mono, rep, unrep, Append (++)
 
 graphToGLSL ah env (Multi xs) = multiToGLSL ah env xs
+
+graphToGLSL ah env (Append xs ys) = do
+  xs' <- graphToGLSL ah env xs
+  ys' <- graphToGLSL ah env ys
+  return $ xs' ++ ys'
 
 graphToGLSL _ env (Mono x) = do
   x' <- graphToGLSL (Just GLFloat) env x
@@ -99,6 +105,11 @@ graphToGLSL ah env (Sqr x) = graphToGLSL (Just GLFloat) env x >>= align GLFloat 
 graphToGLSL ah env (LFTri x) = graphToGLSL (Just GLFloat) env x >>= align GLFloat >>= alignHint ah . fmap (unaryFunctionMatched "tri")
 graphToGLSL ah env (LFSaw x) = graphToGLSL (Just GLFloat) env x >>= align GLFloat >>= alignHint ah . fmap (unaryFunctionMatched "saw")
 graphToGLSL ah env (LFSqr x) = graphToGLSL (Just GLFloat) env x >>= align GLFloat >>= alignHint ah . fmap (unaryFunctionMatched "sqr")
+graphToGLSL _ env (Blend x) = do
+  xs <- graphToGLSL (Just Vec4) env x >>= alignRGBA
+  case length xs of
+    1 -> return xs
+    _ -> foldM blend (head xs) (tail xs) >>= (return . pure)
 graphToGLSL _ env (HsvRgb x) = graphToGLSL (Just Vec3) env x >>= align Vec3 >>= return . fmap (unaryFunctionMatched "hsvrgb")
 graphToGLSL _ env (RgbHsv x) = graphToGLSL (Just Vec3) env x >>= align Vec3 >>= return . fmap (unaryFunctionMatched "rgbhsv")
 graphToGLSL ah env (HsvH x) = graphToGLSL (Just Vec3) env x >>= align Vec3 >>= alignHint ah . fmap swizzleX
@@ -399,6 +410,11 @@ circle xy r fxy = lessThan (distance xy fxy) r
 point :: GLSLExpr -> GLSLExpr -> GLSLExpr
 point fxy xy = circle xy 0.002 fxy
 
+blend :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec4
+blend a b = do
+  b' <- assign b
+  return $ GLSLExpr Vec4 False $ "mix(" <> builder a <> "," <> builder b' <> "," <> builder b' <> ".a)"
+
 defaultFragmentShader :: Text
 defaultFragmentShader = (toText header) <> "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"
 
@@ -473,17 +489,24 @@ _time = GLSLExpr GLFloat True "_time"
 
 actionToGLSL :: Map TextureRef Int -> Action -> GLSL GLSLExpr
 actionToGLSL texMap a = do
-  let actionType = if isVec3 a then Vec3 else GLFloat
-  b <- graphToGLSL (Just actionType) (texMap,[defaultFxy]) $ graph a
-  c <- align actionType b
-  let d = foldr1 (+) c
-  assign $ if isHsv a then hsvrgb d else d
+  let t = actionType a
+  b <- graphToGLSL (Just t) (texMap,[defaultFxy]) $ graph a
+  c <- align t b
+  let f = if t == Vec4 then blend else (\x y -> return $ x+y) -- HACKY: assuming any Vec4 is RGBA...
+  case c of
+    [] -> error "'impossible' error in actionToGLSL"
+    (x:[]) -> return x
+    (x:xs) -> foldM f x xs >>= assign
 
 defaultFxy :: GLSLExpr
 defaultFxy = GLSLExpr Vec2 True "_fxy()"
 
-isVec3 :: Action -> Bool
-isVec3 x = elem RGB (outputs x) || elem HSV (outputs x)
+actionType :: Action -> GLSLType
+actionType x
+  | elem RGBA (outputs x) = Vec4
+  | elem RGB (outputs x) = Vec3
+  | elem HSV (outputs x) = Vec3
+  | otherwise = GLFloat
 
 isHsv :: Action -> Bool
 isHsv x = elem HSV (outputs x)
@@ -558,8 +581,9 @@ fragmentShaderGLSL tempo texMap oldProgram newProgram = do
   let fdbk' = GLSLExpr Vec3 False $"fb(" <> builder fdbk <> ")"
   hsv <- generateOutput HSV (exprToVec3 0) allExprs
   rgb <- generateOutput RGB (exprToVec3 0) allExprs
-  let rgb' = exprExprExprToVec3 red green blue + hsv + rgb + fdbk'
-  return $ exprExprToVec4 rgb' alpha
+  rgba <- generateRGBA allExprs
+  let rgb' = exprExprToVec4 (exprExprExprToVec3 red green blue + hsv + rgb + fdbk') alpha
+  blend rgb' rgba -- NOTE: it would make more sense to convert all outputs to RGBA then blend all...
 
 generateOutput :: Output -> GLSLExpr -> [(GLSLExpr,[Output])] -> GLSL GLSLExpr
 generateOutput o zeroExpr allExprs = do
@@ -569,6 +593,13 @@ generateOutput o zeroExpr allExprs = do
     (x:[]) -> return x
     _ -> assign $ Foldable.foldr1 (+) xs
 
+generateRGBA :: [(GLSLExpr,[Output])] -> GLSL GLSLExpr
+generateRGBA xs = do
+  let xs' = fmap fst $ Prelude.filter (elem RGBA . snd) xs
+  case xs' of
+    [] -> return $ GLSLExpr Vec4 False "vec4(0.)"
+    (x:[]) -> return x
+    _ -> foldM blend (head xs') (tail xs') >>= assign
 
 fragmentShader :: Tempo -> Map TextureRef Int -> Program -> Program -> Text
 fragmentShader _ _ _ newProgram | isJust (directGLSL newProgram) = toText header <> fromJust (directGLSL newProgram)
