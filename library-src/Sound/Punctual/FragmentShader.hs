@@ -415,6 +415,9 @@ blend a b = do
   b' <- assign b
   return $ GLSLExpr Vec4 False $ "mix(" <> builder a <> "," <> builder b' <> "," <> builder b' <> ".a)"
 
+hsvrgb :: GLSLExpr -> GLSLExpr
+hsvrgb = unaryFunction "hsvrgb" Vec3
+
 defaultFragmentShader :: Text
 defaultFragmentShader = (toText header) <> "void main() { gl_FragColor = vec4(0.,0.,0.,1.); }"
 
@@ -487,32 +490,47 @@ header
 _time :: GLSLExpr
 _time = GLSLExpr GLFloat True "_time"
 
-actionToGLSL :: Map TextureRef Int -> Action -> GLSL GLSLExpr
-actionToGLSL texMap a = do
-  let t = actionType a
-  b <- graphToGLSL (Just t) (texMap,[defaultFxy]) $ graph a
-  c <- align t b
-  let f = if t == Vec4 then blend else (\x y -> return $ x+y) -- HACKY: assuming any Vec4 is RGBA...
-  case c of
+
+actionToGLSL :: Output -> Map TextureRef Int -> Action -> GLSL GLSLExpr
+actionToGLSL oType texMap a = do
+
+  -- 1. convert the action's graph to GLSLExpr-s, aligning according to the output type
+  let ah = actionAlignment oType
+  bs <- graphToGLSL (Just ah) (texMap,[defaultFxy]) $ graph a
+  cs <- align ah bs
+
+  -- 2. if output of action is HSV, then each Vec3 has to be converted to RGB
+  ds <- case oType of
+    HSV -> return $ fmap hsvrgb cs
+    _ -> return cs
+
+  -- 3. blend when multiple expressions are RGBA, sum in all other cases
+  e <- case ds of
     [] -> error "'impossible' error in actionToGLSL"
     (x:[]) -> return x
-    (x:xs) -> foldM f x xs >>= assign
+    (x:xs) -> case oType of
+      RGBA -> foldM blend x xs >>= assign
+      _ -> foldM (\y z -> return $ y+z ) x xs >>= assign
+
+  -- for Red Green or Blue direct outputs convert to a Vec3 with 2 zero fields
+  case oType of
+    Red -> return $ exprExprExprToVec3 e 0.0 0.0
+    Green -> return $ exprExprExprToVec3 0.0 e 0.0
+    Blue -> return $ exprExprExprToVec3 0.0 0.0 e
+    _ -> return e
+
 
 defaultFxy :: GLSLExpr
 defaultFxy = GLSLExpr Vec2 True "_fxy()"
 
-actionType :: Action -> GLSLType
-actionType x
-  | elem RGBA (outputs x) = Vec4
-  | elem RGB (outputs x) = Vec3
-  | elem HSV (outputs x) = Vec3
-  | otherwise = GLFloat
+actionOutputType :: Action -> Output
+actionOutputType x = head (outputs x)
 
-isHsv :: Action -> Bool
-isHsv x = elem HSV (outputs x)
-
-hsvrgb :: GLSLExpr -> GLSLExpr
-hsvrgb = unaryFunction "hsvrgb" Vec3
+actionAlignment :: Output -> GLSLType
+actionAlignment RGBA = Vec4
+actionAlignment RGB = Vec3
+actionAlignment HSV = Vec3
+actionAlignment _ = GLFloat
 
 
 -- *** TODO: prior to GLSL-refactor... addedAction, discontinuedAction, continuingAction
@@ -520,22 +538,23 @@ hsvrgb = unaryFunction "hsvrgb" Vec3
 
 addedAction :: Tempo -> UTCTime -> Map TextureRef Int -> Int -> Action -> GLSL (GLSLExpr,[Output])
 addedAction tempo eTime texMap _ newAction = do
-  actionExpr <- actionToGLSL texMap newAction
+  actionExpr <- actionToGLSL (actionOutputType newAction) texMap newAction
   let (t1,t2) = actionToTimes tempo eTime newAction
   r <- assign $ actionExpr * xFadeNew eTime t1 t2
   return (r, outputs newAction)
 
 discontinuedAction :: UTCTime -> Map TextureRef Int -> Int -> Action -> GLSL (GLSLExpr,[Output])
 discontinuedAction eTime texMap _ oldAction = do
-  actionExpr <- actionToGLSL texMap oldAction
+  actionExpr <- actionToGLSL (actionOutputType oldAction) texMap oldAction
   let (t1,t2) = (eTime,addUTCTime 0.5 eTime) -- 0.5 sec fadeout
   r <- assign $ actionExpr * xFadeOld eTime t1 t2
   return (r, outputs oldAction)
 
 continuingAction :: Tempo -> UTCTime -> Map TextureRef Int -> Int -> Action -> Action -> GLSL (GLSLExpr,[Output])
 continuingAction tempo eTime texMap _ newAction oldAction = do
-  oldExpr <- actionToGLSL texMap oldAction
-  newExpr <- actionToGLSL texMap newAction
+  let oType = actionOutputType newAction
+  oldExpr <- actionToGLSL oType texMap oldAction
+  newExpr <- actionToGLSL oType texMap newAction
   let (t1,t2) = actionToTimes tempo eTime newAction
   let oldExpr' = oldExpr * xFadeOld eTime t1 t2
   let newExpr' = newExpr * xFadeNew eTime t1 t2
@@ -582,8 +601,12 @@ fragmentShaderGLSL tempo texMap oldProgram newProgram = do
   hsv <- generateOutput HSV (exprToVec3 0) allExprs
   rgb <- generateOutput RGB (exprToVec3 0) allExprs
   rgba <- generateRGBA allExprs
-  let rgb' = exprExprToVec4 (exprExprExprToVec3 red green blue + hsv + rgb + fdbk') alpha
+  let rgb' = exprExprToVec4 (red + green + blue + hsv + rgb + fdbk') alpha
   blend rgb' rgba -- NOTE: it would make more sense to convert all outputs to RGBA then blend all...
+
+  -- TODO: red green and blue are always vec3s with data in the appropriate channel
+  -- THEN ALSO: is it doing something weird to alpha when we have red/green/blue/rgb/hsv but no rgba
+  -- (as will be common for everyone except me?)
 
 generateOutput :: Output -> GLSLExpr -> [(GLSLExpr,[Output])] -> GLSL GLSLExpr
 generateOutput o zeroExpr allExprs = do

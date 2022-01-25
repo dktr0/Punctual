@@ -1,6 +1,11 @@
 # ChangeLog
 
+0.4.0.1:
+
+- bug fixes / changes relating to interaction between different video outputs (ie. RGBA - RGB - Green - Alpha)
+
 0.4.0.0:
+
 - significant optimizations of fragment shader generation (with more to come!)
 - many operations now expand multichannel signals in a combinatorial way (eg. [1,2] + [10,20] === [11,21,12,22])
 - earlier semantics (pairwise combination) still available through specialized operators (eg. instead of + use +:, [1,2] +: [10,20] === [11,22])
@@ -14,6 +19,7 @@
 - initial implemention of RGBA output
 
 0.3.4:
+
 - support for multichannel audio
 
 0.3.3:
