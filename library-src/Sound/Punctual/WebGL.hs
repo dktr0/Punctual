@@ -385,16 +385,21 @@ drawPunctualWebGL ctx tempo now z st = runGL ctx $ do
     uniform1fAsync asyncProgram "ilo" ilo
     uniform1fAsync asyncProgram "imid" imid
     uniform1fAsync asyncProgram "ihi" ihi
-    let defaultAlpha = if z == firstZone st' then 1.0 else 0.0
+    let isFirstZone = z == firstZone st'
+    let defaultAlpha = if isFirstZone then 1.0 else 0.0
     uniform1fAsync asyncProgram "_defaultAlpha" defaultAlpha
-    pingPongFrameBuffers (uniformsMap asyncProgram ! "_fb") st'
     let (w,h) = pixels (resolution st')
     uniform2fAsync asyncProgram "res" (fromIntegral w) (fromIntegral h)
-    viewport 0 0 w h
     actualWidth <- liftIO $ getClientWidth (theCanvas st)
     uniform1fAsync asyncProgram "width" actualWidth
     actualHeight <- liftIO $ getClientHeight (theCanvas st)
     uniform1fAsync asyncProgram "height" actualHeight
+    viewport 0 0 w h
+    pingPongFrameBuffers (uniformsMap asyncProgram ! "_fb") st'
+    -- clear before drawing only if it is the first zone:
+    when isFirstZone $ do
+      clearColor 0 0 0 0
+      clearColorBuffer
     drawArraysTriangleStrip 0 4
   return $ st' { mainPrograms = IntMap.insert z asyncProgram (mainPrograms st') }
 
@@ -428,6 +433,8 @@ displayPunctualWebGL ctx st = if (IntMap.null $ currPrograms st) then (return st
     uniform1fAsync asyncProgram "brightness" (brightness st)
     uniform2fAsync asyncProgram "res" (fromIntegral w) (fromIntegral h)
     viewport 0 0 w h
+    clearColor 0 0 0 0
+    clearColorBuffer
     drawArraysTriangleStrip 0 4
     return ()
   return $ st { postProgram = asyncProgram, pingPong = not (pingPong st) }

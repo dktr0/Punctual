@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.0.2:
+
+- bug fix / change relating to clearing framebuffers (bug manifested as video feedback when playing with alpha)
+
 0.4.0.1:
 
 - bug fixes / changes relating to interaction between different video outputs (ie. RGBA - RGB - Green - Alpha)
