@@ -228,3 +228,12 @@ pow x y = binaryFunctionMatched "pow" x y
 
 distance :: GLSLExpr -> GLSLExpr -> GLSLExpr
 distance x y = binaryFunction "distance" GLFloat x y
+
+smoothstep :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
+smoothstep edge0 edge1 x = ternaryFunction "smoothstep" (glslType x) edge0 edge1 x
+
+glslMin :: GLSLExpr -> GLSLExpr -> GLSLExpr
+glslMin = binaryFunctionMatched "min"
+
+glslMax :: GLSLExpr -> GLSLExpr -> GLSLExpr
+glslMax = binaryFunctionMatched "max"

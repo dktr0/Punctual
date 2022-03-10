@@ -39,8 +39,8 @@ graphToGLSL :: AlignHint -> GraphEnv -> Graph -> GLSL [GLSLExpr]
 -- constants and uniforms
 
 graphToGLSL _ _ (Constant x) = return [ constantFloat x ]
-graphToGLSL _ _ Px = return [glFloat "(1./width)"]
-graphToGLSL _ _ Py = return [glFloat "(1./height)"]
+graphToGLSL _ _ Px = return [px]
+graphToGLSL _ _ Py = return [py]
 graphToGLSL _ _ Aspect = return [glFloat "(width/height)"]
 graphToGLSL _ _ Lo = return [glFloat "lo"]
 graphToGLSL _ _ Mid = return [glFloat "mid"]
@@ -396,19 +396,31 @@ ampdb :: GLSLExpr -> GLSLExpr
 ampdb x = 20 * Sound.Punctual.GLSLExpr.log x / Sound.Punctual.GLSLExpr.log 10
 
 -- must be GLFloat GLFloat Vec2
+-- currently w parameter is not quite-intuitive - it means something like 1/2 of the width of the line...
 vline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-vline x w fxy = lessThan (abs (swizzleX fxy - x)) w
+vline x w fxy = 1 - (smoothstep 0.0 aa $ abs (swizzleX fxy - x) - w)
+  where aa = glslMin (px*1.5) w
 
 -- must be GLFloat GLFloat Vec2
 hline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-hline y w fxy = lessThan (abs (swizzleY fxy - y)) w
+hline y w fxy = 1 - (smoothstep 0.0 aa $ abs (swizzleY fxy - y) - w)
+  where aa = glslMin (py*1.5) w
+
+-- ie. the width of a pixel in [-1,1] geometry
+px :: GLSLExpr
+px = glFloat "(2./width)"
+
+-- ie. the height of a pixel in [-1,1] geometry
+py :: GLSLExpr
+py = glFloat "(2./height)"
 
 -- must be Vec2 GLFloat Vec2
+-- perhaps this should be reworked to use smoothstep separately on x and y axis?
 circle :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-circle xy r fxy = lessThan (distance xy fxy) r
+circle xy r fxy = smoothstep ((px+py)*0.75) 0.0 $ distance xy fxy - r
 
 point :: GLSLExpr -> GLSLExpr -> GLSLExpr
-point fxy xy = circle xy 0.002 fxy
+point fxy xy = circle xy ((px+py)*0.5) fxy
 
 blend :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec4
 blend a b = do
