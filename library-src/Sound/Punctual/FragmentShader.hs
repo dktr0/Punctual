@@ -214,7 +214,7 @@ graphToGLSL _ env (Step xs y) = do
 graphToGLSL ah env (Rect xy wh) = do
   xy' <- graphToGLSL (Just Vec2) env xy >>= align Vec2
   wh' <- graphToGLSL (Just Vec2) env wh >>= align Vec2
-  binaryFunctionWithPositionGraph (ternaryFunction "rect" GLFloat) env xy' wh' >>= alignHint ah
+  binaryFunctionWithPositionGraphM rect env xy' wh' >>= alignHint ah
 
 graphToGLSL ah env (Circle xy r) = do
   xy' <- graphToGLSL (Just Vec2) env xy >>= align Vec2
@@ -311,6 +311,8 @@ binaryMatchedGLSLExprs f ah xs ys = case (exprsChannels xs == 1 || exprsChannels
 binaryFunctionWithPositionGraph :: (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr) -> GraphEnv -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
 binaryFunctionWithPositionGraph f (_,fxys) as bs = return [ f a b c | a <- as, b <- bs, c <- fxys ]
 
+binaryFunctionWithPositionGraphM :: (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSL GLSLExpr) -> GraphEnv -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
+binaryFunctionWithPositionGraphM f (_,fxys) as bs = sequence [ f a b c | a <- as, b <- bs, c <- fxys ]
 
 setfx :: GLSLExpr -> GLSLExpr -> GLSLExpr  -- Vec2 -> GLFloat -> Vec2
 setfx fxy x = exprExprToVec2 x (swizzleY fxy)
@@ -414,6 +416,9 @@ px = glFloat "(2./width)"
 py :: GLSLExpr
 py = glFloat "(2./height)"
 
+pxy :: GLSLExpr
+pxy = GLSLExpr Vec2 False "(2./vec2(width,height))"
+
 -- must be Vec2 GLFloat Vec2
 -- perhaps this should be reworked to use smoothstep separately on x and y axis?
 circle :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
@@ -421,6 +426,12 @@ circle xy r fxy = smoothstep ((px+py)*0.75) 0.0 $ distance xy fxy - r
 
 point :: GLSLExpr -> GLSLExpr -> GLSLExpr
 point fxy xy = circle xy ((px+py)*0.5) fxy
+
+rect :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSL GLSLExpr
+rect xy wh fxy = do
+  let aa = pxy * 1.5
+  d <- assign $ 1 - (smoothstep (exprToVec2 0.0) aa $ abs (fxy-xy) - abs (wh * 0.5))
+  return $ swizzleX d * swizzleY d
 
 blend :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec4
 blend a b = do
@@ -474,25 +485,16 @@ header
    \  if(xy2.y == xy1.y) return float(abs(fxy.y-xy1.y)<w);\
    \  float d = abs((xy2.y-xy1.y)*fxy.x-(xy2.x-xy1.x)*fxy.y+xy2.x*xy1.y-xy2.y*xy1.x)/sqrt((xy2.x-xy1.x)*(xy2.x-xy1.x)+(xy2.y-xy1.y)*(xy2.y-xy1.y));\
    \  return float(d<w);}\
-   \float between(vec2 r,float x) {\
-   \ if(r.y>=r.x && x>=r.x && x<=r.y) return 1.;\
-   \ if(r.x>=r.y && x>=r.y && x<=r.x) return 1.;\
-   \ return 0.;}\
-   \vec2 between(vec2 r,vec2 x){ return vec2(between(r,x.x),between(r,x.y));}\
-   \vec3 between(vec2 r,vec3 x){ return vec3(between(r,x.x),between(r,x.y),between(r,x.z));}\
-   \vec4 between(vec2 r,vec4 x){ return vec4(between(r,x.x),between(r,x.y),between(r,x.z),between(r,x.w));}\
+   \float between(vec2 r,float x) { return (step(r.x,x)*step(x,r.y)) + (step(x,r.x)*step(r.y,x)); }\
+   \vec2 between(vec2 r,vec2 x) { return (step(r.x,x)*step(x,vec2(r.y))) + (step(x,vec2(r.x))*step(r.y,x)); }\
+   \vec3 between(vec2 r,vec3 x){ return (step(r.x,x)*step(x,vec3(r.y))) + (step(x,vec3(r.x))*step(r.y,x)); }\
+   \vec4 between(vec2 r,vec4 x){ return (step(r.x,x)*step(x,vec4(r.y))) + (step(x,vec4(r.x))*step(r.y,x)); }\
    \float line(vec2 xy1,vec2 xy2,float w,vec2 fxy) {\
    \ float m;\
    \ if(xy1.x == xy2.x) m = between(vec2(xy1.y,xy2.y),fxy.y);\
    \ else m = between(vec2(xy1.x,xy2.x),fxy.x)*between(vec2(xy1.y,xy2.y),fxy.y);\
    \ return m*iline(xy1,xy2,w,fxy);}\
    \float linlin(vec2 r1, vec2 r2, float x) { return r2.x+((r2.y-r2.x)*(x-r1.x)/(r1.y-r1.x));}\
-   \float rect(vec2 xy,vec2 wh,vec2 fxy) {\
-   \ float x1 = xy.x + (wh.x*-0.5);\
-   \ float x2 = xy.x + (wh.x*0.5);\
-   \ float y1 = xy.y + (wh.y*-0.5);\
-   \ float y2 = xy.y + (wh.y*0.5);\
-   \ return between(vec2(x1,x2),fxy.x)*between(vec2(y1,y2),fxy.y);}\
    \vec2 tile(vec2 ab,vec2 fxy) { return fract(((fxy*0.5)+0.5)*ab)*2.-1.;}\
    \vec2 spin(float a,vec2 fxy) {\
    \ float ct = cos(a*3.1415926538); float st = sin(a*3.1415926538);\
