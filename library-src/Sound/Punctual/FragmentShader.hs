@@ -481,19 +481,19 @@ header
    \  float e = 1.0e-10;\
    \  return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);}\
    \float iline(vec2 xy1,vec2 xy2,float w,vec2 fxy) {\
-   \  if(xy2.x == xy1.x) return float(abs(fxy.x-xy1.x)<w);\
-   \  if(xy2.y == xy1.y) return float(abs(fxy.y-xy1.y)<w);\
-   \  float d = abs((xy2.y-xy1.y)*fxy.x-(xy2.x-xy1.x)*fxy.y+xy2.x*xy1.y-xy2.y*xy1.x)/sqrt((xy2.x-xy1.x)*(xy2.x-xy1.x)+(xy2.y-xy1.y)*(xy2.y-xy1.y));\
-   \  return float(d<w);}\
+   \  fxy -= xy1, xy2 -= xy1;\
+   \  float h = dot(fxy,xy2)/dot(xy2,xy2);\
+   \  float aa = min(((1.5/width)+(1.5/height))*0.5,w);\
+   \  return smoothstep(aa,0.,length(fxy - xy2 * h)-(w*0.5));}\
    \float between(vec2 r,float x) { return (step(r.x,x)*step(x,r.y)) + (step(x,r.x)*step(r.y,x)); }\
    \vec2 between(vec2 r,vec2 x) { return (step(r.x,x)*step(x,vec2(r.y))) + (step(x,vec2(r.x))*step(r.y,x)); }\
    \vec3 between(vec2 r,vec3 x){ return (step(r.x,x)*step(x,vec3(r.y))) + (step(x,vec3(r.x))*step(r.y,x)); }\
    \vec4 between(vec2 r,vec4 x){ return (step(r.x,x)*step(x,vec4(r.y))) + (step(x,vec4(r.x))*step(r.y,x)); }\
    \float line(vec2 xy1,vec2 xy2,float w,vec2 fxy) {\
-   \ float m;\
-   \ if(xy1.x == xy2.x) m = between(vec2(xy1.y,xy2.y),fxy.y);\
-   \ else m = between(vec2(xy1.x,xy2.x),fxy.x)*between(vec2(xy1.y,xy2.y),fxy.y);\
-   \ return m*iline(xy1,xy2,w,fxy);}\
+   \  fxy -= xy1, xy2 -= xy1;\
+   \  float h = clamp(dot(fxy,xy2)/dot(xy2,xy2),0.,1.);\
+   \  float aa = min(((1.5/width)+(1.5/height))*0.5,w);\
+   \  return smoothstep(aa,0.,length(fxy - xy2 * h)-(w*0.5));}\
    \float linlin(vec2 r1, vec2 r2, float x) { return r2.x+((r2.y-r2.x)*(x-r1.x)/(r1.y-r1.x));}\
    \vec2 tile(vec2 ab,vec2 fxy) { return fract(((fxy*0.5)+0.5)*ab)*2.-1.;}\
    \vec2 spin(float a,vec2 fxy) {\
