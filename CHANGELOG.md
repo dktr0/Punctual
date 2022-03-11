@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.0.3:
+
+- bug fix to line and iline; anti-aliasing in line, iline, hline, vline, rect, circle, point
+
 0.4.0.2:
 
 - bug fix / change relating to clearing framebuffers (bug manifested as video feedback when playing with alpha)

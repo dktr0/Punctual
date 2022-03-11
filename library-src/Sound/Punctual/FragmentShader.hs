@@ -422,7 +422,7 @@ pxy = GLSLExpr Vec2 False "(2./vec2(width,height))"
 -- must be Vec2 GLFloat Vec2
 -- perhaps this should be reworked to use smoothstep separately on x and y axis?
 circle :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-circle xy r fxy = smoothstep ((px+py)*0.75) 0.0 $ distance xy fxy - r
+circle xy diameter fxy = smoothstep ((px+py)*0.75) 0.0 $ distance xy fxy - (diameter/2)
 
 point :: GLSLExpr -> GLSLExpr -> GLSLExpr
 point fxy xy = circle xy ((px+py)*0.5) fxy

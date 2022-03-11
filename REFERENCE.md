@@ -133,9 +133,9 @@ dist [x,y,...] -- the distance from specified position to current fragment
 
 prox [x,y,...] -- the "proximity" of specified position to current fragment; equivalent to (2.828427-dist[x,y,...])/2.828427, clamped to be between 0 and 1 (2.828427 is maximum on-screen distance)
 
-circle [x,y,...] [r] -- returns 1 when current fragment within a circle at x and y with radius r
+circle [x,y,...] [d] -- returns 1 when current fragment within a circle at x and y with diameter d
 
-point [x,y,...] -- returns 1 when current fragment is within a pixel of x and y, 0 otherwise
+point [x,y,...] -- returns 1 when current fragment is within approximately half a pixel of x and y, 0 otherwise
 
 rect [x,y,...] [w,h,...] -- returns 1 when current fragment is within rectangle (x and y are centre not corner), 0 otherwise
 
