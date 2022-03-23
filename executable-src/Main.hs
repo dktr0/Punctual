@@ -5,8 +5,7 @@ module Main where
 import System.IO
 import Control.Monad.Trans
 import Control.Monad.Fix
-import Reflex.Dom hiding (getKeyEvent,preventDefault)
-import Reflex.Dom.Contrib.KeyEvent
+import Reflex.Dom hiding (preventDefault)
 import Data.Time
 import Data.Tempo
 import Data.Text (Text)
