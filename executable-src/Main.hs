@@ -16,7 +16,7 @@ import Control.Concurrent.MVar
 import Control.Concurrent
 import Data.Map.Strict
 import Control.Monad
-import GHCJS.DOM.Types (HTMLCanvasElement(..),uncheckedCastTo,JSVal,WebGLRenderingContext)
+import GHCJS.DOM.Types hiding (Text,Event) -- (HTMLCanvasElement(..),uncheckedCastTo,JSVal,WebGLRenderingContext)
 import JavaScript.Web.AnimationFrame
 import GHCJS.Concurrent
 import GHCJS.DOM.EventM
@@ -68,6 +68,18 @@ bodyElement = do
   liftIO $ putStrLn "Punctual standalone"
   let attrs = fromList [("class","canvas"),("style",T.pack $ "z-index: -1;"), ("width","1920"), ("height","1080")]
   canvas <- liftM (uncheckedCastTo HTMLCanvasElement .  _element_raw . fst) $ elAttr' "canvas" attrs $ return ()
+
+  -- elAttr' :: forall t m a. DomBuilder t m => Text -> Map Text Text -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
+  -- unsafeCastTo :: forall obj obj' m. (HasCallStack, IsGObject obj, IsGObject obj', MonadJSM m) => (JSVal -> obj') -> obj -> m obj'
+  -- uncheckedCastTo :: (IsGObject obj, IsGObject obj') => (JSVal -> obj') -> obj -> obj'
+  {-
+  data Element er d t
+     = Element { _element_events :: EventSelector t (WrapArg er EventName) --TODO: EventSelector should have two arguments
+               , _element_raw :: RawElement d
+               }
+  -}
+
+
   mv <- liftIO $ forkRenderThreads canvas
 
   elClass "div" "editorAndStatus" $ do
@@ -76,8 +88,9 @@ bodyElement = do
       code <- elClass "div" "editor" $ textArea $ def & textAreaConfig_attributes .~ textAttrs & textAreaConfig_initialValue .~ intro
       let e = _textArea_element code
 
-      k <- domEvent KeyPress
-      performEvent_ $ fmap (liftIO . (\_ -> putStrLn "event")) k
+      -- let k = domEvent Keypress e
+      -- performEvent_ $ fmap (liftIO . (\_ -> putStrLn "event")) k
+      
 --domEvent :: EventName eventName -> target -> Event t (DomEventType target eventName)
 
 --      e' <- wrapDomEvent (e) (onEventName   Keypress) $ do
@@ -90,7 +103,8 @@ bodyElement = do
       -- let evaled = tagPromptlyDyn (_textArea_value code) $ ffilter (==1) e'
       -- shStatus <- toggle True $ ffilter (==2) e'
       -- performEvaluate mv evaled
-      return shStatus
+      -- return shStatus
+      return $ constDyn True
 
     hideableDiv statusVisible "status" $ do
       (status,fps) <- pollStatus mv
