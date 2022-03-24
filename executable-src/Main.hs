@@ -63,48 +63,45 @@ main = do
   getGlobalAudioContextPlayback >>= addWorklets
   mainWidgetWithHead headElement bodyElement
 
+
+data KeyboardShortCut = Evaluate | ToggleStatus deriving (Eq,Show)
+
+keyboardShortCuts :: IsEvent t => Word -> Bool -> Bool -> EventM e t (Maybe KeyboardShortCut)
+keyboardShortCuts 13 False True = preventDefault >> return (Just Evaluate) -- shift-Enter
+keyboardShortCuts 19 True True = preventDefault >> return (Just ToggleStatus) -- ctrl-shift-S
+keyboardShortCuts _ _ _ = return Nothing
+
+foreign import javascript unsafe "$1['ctrlKey']"
+  _getCtrlKey :: JSVal -> IO Bool
+
+foreign import javascript unsafe "$1['shiftKey']"
+  _getShiftKey :: JSVal -> IO Bool
+
+  
 bodyElement :: (MonadIO m, MonadIO (Performable m), PerformEvent t m, MonadFix m, MonadHold t m, TriggerEvent t m, PostBuild t m, DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace) => m ()
 bodyElement = do
   liftIO $ putStrLn "Punctual standalone"
   let attrs = fromList [("class","canvas"),("style",T.pack $ "z-index: -1;"), ("width","1920"), ("height","1080")]
   canvas <- liftM (uncheckedCastTo HTMLCanvasElement .  _element_raw . fst) $ elAttr' "canvas" attrs $ return ()
-
-  -- elAttr' :: forall t m a. DomBuilder t m => Text -> Map Text Text -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
-  -- unsafeCastTo :: forall obj obj' m. (HasCallStack, IsGObject obj, IsGObject obj', MonadJSM m) => (JSVal -> obj') -> obj -> m obj'
-  -- uncheckedCastTo :: (IsGObject obj, IsGObject obj') => (JSVal -> obj') -> obj -> obj'
-  {-
-  data Element er d t
-     = Element { _element_events :: EventSelector t (WrapArg er EventName) --TODO: EventSelector should have two arguments
-               , _element_raw :: RawElement d
-               }
-  -}
-
-
   mv <- liftIO $ forkRenderThreads canvas
 
   elClass "div" "editorAndStatus" $ do
     statusVisible <- do
       let textAttrs = constDyn $ fromList [("class","editorArea"){- ,("rows","999") -}]
       code <- elClass "div" "editor" $ textArea $ def & textAreaConfig_attributes .~ textAttrs & textAreaConfig_initialValue .~ intro
+
       let e = _textArea_element code
+      e' <- wrapDomEvent (e) (onEventName   Keypress) $ do
+        ev <- event
+        y <- getKeyEvent -- :: m Word
+        ctrlKey <- liftIO $ _getCtrlKey (unKeyboardEvent ev)
+        shiftKey <- liftIO $ _getShiftKey (unKeyboardEvent ev)
+        keyboardShortCuts y ctrlKey shiftKey
 
-      -- let k = domEvent Keypress e
-      -- performEvent_ $ fmap (liftIO . (\_ -> putStrLn "event")) k
-      
---domEvent :: EventName eventName -> target -> Event t (DomEventType target eventName)
-
---      e' <- wrapDomEvent (e) (onEventName   Keypress) $ do
---        y <- getKeyEvent -- :: m Word
-
-        -- let f ke | (keShift ke == True) && (keCtrl ke == False) && (keKeyCode ke == 13) = 1 -- shift-Enter
-        --         | (keShift ke == True) && (keCtrl ke == True) && (keKeyCode ke == 19) = 2 --ctrl-shift-S
-        --         | otherwise = 0
-        -- if (f y /= 0) then (preventDefault >> return (f y)) else return 0
-      -- let evaled = tagPromptlyDyn (_textArea_value code) $ ffilter (==1) e'
-      -- shStatus <- toggle True $ ffilter (==2) e'
-      -- performEvaluate mv evaled
-      -- return shStatus
-      return $ constDyn True
+      let evaled = tagPromptlyDyn (_textArea_value code) $ ffilter (==(Just Evaluate)) e'
+      shStatus <- toggle True $ ffilter (==(Just ToggleStatus)) e'
+      performEvaluate mv evaled
+      return shStatus
 
     hideableDiv statusVisible "status" $ do
       (status,fps) <- pollStatus mv
@@ -112,6 +109,8 @@ bodyElement = do
       elClass "div" "fps" $ do
         let fpsText = fmap ((<> " FPS") . showt . (round :: Double -> Int)) fps
         dynText fpsText
+
+
 
 
 performEvaluate :: (PerformEvent t m, MonadIO (Performable m)) => MVar RenderState -> Event t Text -> m ()

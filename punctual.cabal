@@ -33,7 +33,6 @@ Library
       haskell-src-exts >= 1.21.0,
       transformers,
       deepseq,
-      criterion,
       split >= 0.2.3.3 && < 0.3,
       tempi >= 1.0.1.1 && < 1.1
   GHC-Options:       -Wall -fwarn-tabs -fno-warn-unused-do-bind
