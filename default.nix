@@ -22,20 +22,12 @@ with pkgs.haskell.lib;
 
   overrides = self: super: {
 
-    Glob = dontCheck super.Glob;
+    ghcjs-dom-jsffi = if !(self.ghc.isGhcjs or false) then null else super.ghcjs-dom-jsffi;
 
     punctual = dontCheck (dontHaddock (appendConfigureFlags super.punctual ["--ghcjs-options=-DGHCJS_BROWSER" "--ghcjs-options=-O2" "--ghcjs-options=-dedupe" "--ghcjs-options=-DGHCJS_GC_INTERVAL=60000"]));
 
-    base-compat-batteries = dontCheck super.base-compat-batteries;
-
-    text-show = dontCheck super.text-show;
-
-    text-short = dontCheck super.text-short;
-
-    criterion = dontCheck super.criterion;
-
     # musicw = self.callHackage "musicw" "0.3.10" {};
-    musicw = self.callCabal2nix "musicw" ../MusicW {};
+    musicw = if (!self.ghc.isGhcjs or false) then null else self.callCabal2nix "musicw" ../MusicW {};
     # musicw = dontHaddock (self.callHackageDirect {
     #    pkg = "musicw";
     #    ver = "0.3.10";
@@ -51,12 +43,12 @@ with pkgs.haskell.lib;
 
     # note: this version of reflex-dom-contrib does not seem to build with current reflex
     # we should probably abandon reflex-dom-contrib?
-    reflex-dom-contrib = self.callCabal2nix "reflex-dom-contrib" (pkgs.fetchFromGitHub {
-      owner = "reflex-frp";
-      repo = "reflex-dom-contrib";
-      sha256 = "1qr2z4y2savwhalwyrljjs8aip7sxhsvhl21a02chd5dj45fa7q2";
-      rev = "09d1223a3eadda768a6701410b4532fda8c7033d";
-    }) {};
+    #reflex-dom-contrib = self.callCabal2nix "reflex-dom-contrib" (pkgs.fetchFromGitHub {
+    #  owner = "reflex-frp";
+    #  repo = "reflex-dom-contrib";
+    #  sha256 = "1qr2z4y2savwhalwyrljjs8aip7sxhsvhl21a02chd5dj45fa7q2";
+    #  rev = "09d1223a3eadda768a6701410b4532fda8c7033d";
+    # }) {};
 
     haskellish = self.callCabal2nix "haskellish" (pkgs.fetchFromGitHub {
       owner = "dktr0";

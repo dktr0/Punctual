@@ -89,7 +89,6 @@ executable punctual
       containers,
       ghcjs-base,
       ghcjs-dom-jsffi,
-      reflex-dom-contrib,
       text,
       text-show,
       haskellish >= 0.3,
@@ -97,7 +96,8 @@ executable punctual
       transformers,
       deepseq,
       split >= 0.2.3.3,
-      tempi >= 1.0.1.1 && < 1.1
+      tempi >= 1.0.1.1 && < 1.1,
+      keycode
   other-modules: MovingAverage
   default-language:  Haskell2010
 

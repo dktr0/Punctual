@@ -75,15 +75,21 @@ bodyElement = do
       let textAttrs = constDyn $ fromList [("class","editorArea"){- ,("rows","999") -}]
       code <- elClass "div" "editor" $ textArea $ def & textAreaConfig_attributes .~ textAttrs & textAreaConfig_initialValue .~ intro
       let e = _textArea_element code
-      e' <- wrapDomEvent (e) (onEventName   Keypress) $ do
-        y <- getKeyEvent
-        let f ke | (keShift ke == True) && (keCtrl ke == False) && (keKeyCode ke == 13) = 1 -- shift-Enter
-                 | (keShift ke == True) && (keCtrl ke == True) && (keKeyCode ke == 19) = 2 --ctrl-shift-S
-                 | otherwise = 0
-        if (f y /= 0) then (preventDefault >> return (f y)) else return 0
-      let evaled = tagPromptlyDyn (_textArea_value code) $ ffilter (==1) e'
-      shStatus <- toggle True $ ffilter (==2) e'
-      performEvaluate mv evaled
+
+      k <- domEvent KeyPress
+      performEvent_ $ fmap (liftIO . (\_ -> putStrLn "event")) k
+--domEvent :: EventName eventName -> target -> Event t (DomEventType target eventName)
+
+--      e' <- wrapDomEvent (e) (onEventName   Keypress) $ do
+--        y <- getKeyEvent -- :: m Word
+
+        -- let f ke | (keShift ke == True) && (keCtrl ke == False) && (keKeyCode ke == 13) = 1 -- shift-Enter
+        --         | (keShift ke == True) && (keCtrl ke == True) && (keKeyCode ke == 19) = 2 --ctrl-shift-S
+        --         | otherwise = 0
+        -- if (f y /= 0) then (preventDefault >> return (f y)) else return 0
+      -- let evaled = tagPromptlyDyn (_textArea_value code) $ ffilter (==1) e'
+      -- shStatus <- toggle True $ ffilter (==2) e'
+      -- performEvaluate mv evaled
       return shStatus
 
     hideableDiv statusVisible "status" $ do
