@@ -14,7 +14,7 @@ import qualified Data.Text.IO as T
 import TextShow
 import Control.Concurrent.MVar
 import Control.Concurrent
-import Data.Map.Strict
+import Data.Map
 import Control.Monad
 import GHCJS.DOM.Types hiding (Text,Event) -- (HTMLCanvasElement(..),uncheckedCastTo,JSVal,WebGLRenderingContext)
 import JavaScript.Web.AnimationFrame
@@ -60,6 +60,7 @@ intro
 main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
+  putStrLn "Punctual standalone"
   getGlobalAudioContextPlayback >>= addWorklets
   mainWidgetWithHead headElement bodyElement
 
@@ -68,8 +69,8 @@ data KeyboardShortCut = Evaluate | ToggleStatus | ToggleInfo deriving (Eq,Show)
 
 keyboardShortCuts :: IsEvent t => Word -> Bool -> Bool -> EventM e t (Maybe KeyboardShortCut)
 keyboardShortCuts 13 False True = preventDefault >> return (Just Evaluate) -- shift-Enter
-keyboardShortCuts 19 True True = preventDefault >> return (Just ToggleStatus) -- ctrl-shift-S
-keyboardShortCuts 9 True True = preventDefault >> return (Just ToggleInfo) -- ctrl-shift-I
+keyboardShortCuts 6 True True = preventDefault >> return (Just ToggleStatus) -- ctrl-shift-F
+keyboardShortCuts 17 True True = preventDefault >> return (Just ToggleInfo) -- ctrl-shift-Q
 keyboardShortCuts _ _ _ = return Nothing
 
 foreign import javascript unsafe "$1['ctrlKey']"
@@ -80,38 +81,44 @@ foreign import javascript unsafe "$1['shiftKey']"
 
 
 bodyElement :: (MonadIO m, MonadIO (Performable m), PerformEvent t m, MonadFix m, MonadHold t m, TriggerEvent t m, PostBuild t m, DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace) => m ()
-bodyElement = do
-  liftIO $ putStrLn "Punctual standalone"
+bodyElement = mdo
+  (e,_) <- elAttr' "div" (Data.Map.singleton "class" "standalone") $ standalone $ fmapMaybe id ksc
+  let e' = HTMLDivElement $ pToJSVal $ _element_raw e
+  ksc <- wrapDomEvent e' (onEventName Keypress) $ do
+    ev <- event
+    y <- getKeyEvent -- :: m Word
+    ctrlKey <- liftIO $ _getCtrlKey (unKeyboardEvent ev)
+    shiftKey <- liftIO $ _getShiftKey (unKeyboardEvent ev)
+    -- liftIO $ putStrLn $ show y ++ " " ++ show ctrlKey ++ " " ++ show shiftKey
+    keyboardShortCuts y ctrlKey shiftKey
+  pure ()
+
+
+standalone :: (MonadIO m, MonadIO (Performable m), PerformEvent t m, MonadFix m, MonadHold t m, TriggerEvent t m, PostBuild t m, DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace) => Event t KeyboardShortCut -> m ()
+standalone ksc = do
   let attrs = fromList [("class","canvas"),("style",T.pack $ "z-index: -1;"), ("width","1920"), ("height","1080")]
   canvas <- liftM (uncheckedCastTo HTMLCanvasElement .  _element_raw . fst) $ elAttr' "canvas" attrs $ return ()
   mv <- liftIO $ forkRenderThreads canvas
 
   elClass "div" "editorAndStatus" $ do
-    (statusVisible,infoVisible,status,shader) <- mdo
+    (statusVisible,status) <- mdo
       let textAttrs = constDyn $ fromList [("class","editorArea")]
-      code <- hideableDiv shCode "editor" $ textArea $ def & textAreaConfig_attributes .~ textAttrs & textAreaConfig_initialValue .~ intro
-
-      let e = _textArea_element code
-      e' <- wrapDomEvent (e) (onEventName   Keypress) $ do
-        ev <- event
-        y <- getKeyEvent -- :: m Word
-        ctrlKey <- liftIO $ _getCtrlKey (unKeyboardEvent ev)
-        shiftKey <- liftIO $ _getShiftKey (unKeyboardEvent ev)
-        keyboardShortCuts y ctrlKey shiftKey
-
-      let evaled = tagPromptlyDyn (_textArea_value code) $ ffilter (==(Just Evaluate)) e'
-      shStatus <- toggle True $ ffilter (==(Just ToggleStatus)) e'
-      shCode <- toggle True $ ffilter (==(Just ToggleInfo)) e'
-      shInfo <- toggle False $ ffilter (==(Just ToggleInfo)) e'
+      code <- elClass "div" "editor" $ textArea $ def & textAreaConfig_attributes .~ textAttrs & textAreaConfig_initialValue .~ intro
+      hideableEl "pre" shInfo "info" $ dynText shader
+      let evaled = tagPromptlyDyn (_textArea_value code) $ ffilter (==Evaluate) ksc
+      shStatus <- toggle True $ ffilter (==ToggleStatus) ksc
+      shInfo <- toggle False $ ffilter (==ToggleInfo) ksc
       (status,shader) <- performEvaluate mv evaled
-      return (shStatus,shInfo,status,shader)
+      return (shStatus,status)
 
-    hideableDiv statusVisible "status" $ do
+    hideableEl "div" statusVisible "status" $ do
       fps <- pollFPS mv
       elClass "div" "errors" $ dynText status
       elClass "div" "fps" $ do
         let fpsText = fmap ((<> " FPS") . showt . (round :: Double -> Int)) fps
         dynText fpsText
+  --
+
 
 
 
@@ -145,10 +152,10 @@ doEvaluate mv x = do
       return ("",newShader)
 
 
-hideableDiv :: (DomBuilder t m, PostBuild t m) => Dynamic t Bool -> Text -> m a -> m a
-hideableDiv isVisible cssClass childWidget = do
-  let attrs = fmap (bool (fromList [("hidden","true"),("class",cssClass)]) (Data.Map.Strict.singleton "class" cssClass)) isVisible
-  elDynAttr "div" attrs childWidget
+hideableEl :: (DomBuilder t m, PostBuild t m) => Text -> Dynamic t Bool -> Text -> m a -> m a
+hideableEl elType isVisible cssClass childWidget = do
+  let attrs = fmap (bool (fromList [("hidden","true"),("class",cssClass)]) (Data.Map.singleton "class" cssClass)) isVisible
+  elDynAttr elType attrs childWidget
 
 
 data RenderState = RenderState {
