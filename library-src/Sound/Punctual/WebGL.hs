@@ -293,7 +293,7 @@ deletePunctualWebGL ctx z st = runGL ctx $ do
     firstZone = head $ IntMap.keys newCurrPrograms
   }
 
-evaluatePunctualWebGL :: GLContext -> Tempo -> Int -> Program -> PunctualWebGL -> IO PunctualWebGL
+evaluatePunctualWebGL :: GLContext -> Tempo -> Int -> Program -> PunctualWebGL -> IO (PunctualWebGL,Text)
 evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
   let newCurrPrograms = IntMap.insert z p $ currPrograms st
   let prevProgram = IntMap.lookup z $ currPrograms st
@@ -326,7 +326,8 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
     needsAudioInputAnalysis = programNeedsAudioInputAnalysis p || prevProgramsNeedAudioInputAnalysis,
     needsAudioOutputAnalysis = programNeedsAudioOutputAnalysis p || prevProgramsNeedAudioOutputAnalysis
     }
-  liftIO $ updateAudioAnalysis st'
+  st'' <- liftIO $ updateAudioAnalysis st'
+  return (st'',newFragmentShader)
 
 
 drawPunctualWebGL :: GLContext -> Tempo -> UTCTime -> Int -> PunctualWebGL -> IO PunctualWebGL
