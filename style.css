@@ -2,6 +2,9 @@ body {
   background-color: black;
 }
 
+.standalone {
+}
+
 .canvas {
   position: absolute;
 	width: 100%;
@@ -27,6 +30,22 @@ body {
   flex-direction: column;
   background-color: transparent;
 	width: 100%;
+  resize: none;
+}
+
+.info {
+  flex-grow: 1;
+  flex-direction: column;
+  background-colour: transparent;
+  width: 100%;
+  color: white;
+  font-family: Inconsolata,Consolas,monospace;
+  background-color: transparent;
+  border: none;
+  resize: none;
+  box-shadow: none;
+  outline: none;
+  font-size: 1em;
 }
 
 .editorArea {
