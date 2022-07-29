@@ -333,6 +333,7 @@ graph2 = asum [
 graph3 :: H (Graph -> Graph -> Graph)
 graph3 = asum [
   reserved "++" >> return Append,
+  reserved "zip" >> return Zip,
 
   -- combinatorial arithmetic operators
   reserved "+" >> return (+),

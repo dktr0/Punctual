@@ -66,6 +66,11 @@ graphToGLSL ah env (Append xs ys) = do
   ys' <- graphToGLSL ah env ys
   return $ xs' ++ ys'
 
+graphToGLSL ah env (Zip xs ys) = do
+  xs' <- graphToGLSL ah env xs -- xs' :: [GLSLExpr]
+  ys' <- graphToGLSL ah env ys -- ys' :: [GLSLExpr]
+  zipGLSLExpr xs' ys' >>= alignHint ah
+
 graphToGLSL _ env (Mono x) = do
   x' <- graphToGLSL (Just GLFloat) env x
   case x' of

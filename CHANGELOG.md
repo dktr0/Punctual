@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.1:
+
+- display of generated fragment shader code in standalone
+
 0.4.0.3:
 
 - bug fix to line and iline; anti-aliasing in line, iline, hline, vline, rect, circle, point

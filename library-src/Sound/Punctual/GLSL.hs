@@ -292,3 +292,11 @@ texture2D n xy = do
   xy' <- align Vec2 xy
   let f x = GLSLExpr Vec3 False $ "tex(" <> n <> "," <> builder x <> ")"
   mapM assign $ fmap f xy'
+
+
+-- used by Punctual's 'zip' operation
+zipGLSLExpr :: [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
+zipGLSLExpr xs ys = do
+  xs' <- align GLFloat xs
+  ys' <- align GLFloat ys
+  pure $ Foldable.concat $ zipWith (\a b -> [a,b]) xs' ys' -- Haskell-style zip, excess elements in longer list discarded

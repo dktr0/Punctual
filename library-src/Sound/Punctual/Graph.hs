@@ -15,6 +15,7 @@ data Graph =
   Constant Double |
   Multi [Graph] |
   Append Graph Graph |
+  Zip Graph Graph |
   Px | Py | Aspect |
   Fx | Fy | Fxy |
   SetFx Graph Graph | SetFy Graph Graph | SetFxy Graph Graph |
