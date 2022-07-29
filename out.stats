@@ -1,25 +1,25 @@
 code size summary per package:
 
-base:                    489559
+base:                    489560
 bytestring-0.10.8.2-FBklFuapa1a7kq4yflY7Bt:92065
 containers-0.6.0.1-BAqcfV1UBBeCIRjPbUYeSG:213258
 dependent-map-0.4.0.0-7ZBYpIk3RCR58ZlZDKMN7P:50553
 dependent-sum-0.7.1.0-6mH5zQTyn838WQ5Pmi2hkK:1090
-ghc-prim:                333042
+ghc-prim:                333049
 ghcjs-base-0.2.0.0-1ZwpBn3jHwIJYg96SPVRhj:1455
 ghcjs-dom-jsffi-0.9.4.0-Cc7XgCWMiStoAYSbjWadi:21609
 ghcjs-prim-0.1.1.0-EXzjGVHQlAS2XAXcu0iCbS:4192
-haskell-src-exts-1.23.1-3WZnd6Vap4ULbiEcpwxGkV:2098535
+haskell-src-exts-1.23.1-3WZnd6Vap4ULbiEcpwxGkV:2098398
 haskellish-0.3.1-9HiGk5ZYFdYHTDpbN0JJ3T:1226
 integer-gmp:             70262
 main:                    6622
 musicw-0.3.10-1SuX2djSHVQufABfv3a92:127241
-patch-0.0.4.0-7nXX9SMZzJTA658w5i0K47:74307
+patch-0.0.4.0-7nXX9SMZzJTA658w5i0K47:74247
 pretty-1.1.3.6-HCbdzOHqNpW5RoNxlHyeg5:482
 primitive-0.6.3.0-KfguiTuxgILGqu8JEOpKRI:2217
-punctual-0.4.1-FbyqFJfq6EX6fEvo8es9pv:718432
+punctual-0.4.1-FbyqFJfq6EX6fEvo8es9pv:721227
 ref-tf-0.4.0.2-LD4UXOE0PRZFEDMcKdnep:1
-reflex-0.8.2.0-1FScBWaMG8X9FlRQFLge5u:479682
+reflex-0.8.2.0-1FScBWaMG8X9FlRQFLge5u:479681
 reflex-dom-core-0.7.0.0-GMCsMWIgHFvFN9LT7BgPB2:790199
 semialign-1.1.0.1-DRPyOaHPQMpJh4iEXtgA7n:649
 some-1.0.1-DqCZuqmqycKFlyafXlZ9Rp:22988
@@ -79,7 +79,7 @@ base
     GHC.IO.Encoding.Failure:            2567
     GHC.IO.Encoding.Latin1:             1
     GHC.IO.Encoding.Types:              58006
-    GHC.IO.Encoding.UTF8:               10808
+    GHC.IO.Encoding.UTF8:               10809
     GHC.IO.Exception:                   24649
     GHC.IO.FD:                          8100
     GHC.IO.Handle:                      4466
@@ -134,7 +134,7 @@ ghc-prim
     GHC.Classes:                        451
     GHC.IntWord64:                      1610
     GHC.Tuple:                          173
-    GHC.Types:                          326527
+    GHC.Types:                          326534
 
 ghcjs-base-0.2.0.0-1ZwpBn3jHwIJYg96SPVRhj
     Data.JSString:                      1
@@ -167,11 +167,11 @@ haskell-src-exts-1.23.1-3WZnd6Vap4ULbiEcpwxGkV
     Language.Haskell.Exts.Comments:     1494
     Language.Haskell.Exts.ExtScheme:    53102
     Language.Haskell.Exts.Extension:    68626
-    Language.Haskell.Exts.Fixity:       367653
-    Language.Haskell.Exts.InternalLexer:743627
+    Language.Haskell.Exts.Fixity:       367607
+    Language.Haskell.Exts.InternalLexer:743585
     Language.Haskell.Exts.InternalParser:19137
-    Language.Haskell.Exts.ParseMonad:   71998
-    Language.Haskell.Exts.ParseSyntax:  228301
+    Language.Haskell.Exts.ParseMonad:   71991
+    Language.Haskell.Exts.ParseSyntax:  228259
     Language.Haskell.Exts.ParseUtils:   2312
     Language.Haskell.Exts.Parser:       248647
     Language.Haskell.Exts.Pretty:       11903
@@ -204,7 +204,7 @@ patch-0.0.4.0-7nXX9SMZzJTA658w5i0K47
     Data.Patch.DMapWithMove:            3759
     Data.Patch.IntMap:                  383
     Data.Patch.Map:                     1777
-    Data.Patch.MapWithMove:             44555
+    Data.Patch.MapWithMove:             44495
 
 pretty-1.1.3.6-HCbdzOHqNpW5RoNxlHyeg5
     Text.PrettyPrint.Annotated.HughesPJ:481
@@ -217,15 +217,15 @@ punctual-0.4.1-FbyqFJfq6EX6fEvo8es9pv
     Sound.Punctual.Action:              61262
     Sound.Punctual.AsyncProgram:        8096
     Sound.Punctual.DefTime:             1
-    Sound.Punctual.Duration:            140979
+    Sound.Punctual.Duration:            142312
     Sound.Punctual.FragmentShader:      3871
-    Sound.Punctual.GL:                  43922
+    Sound.Punctual.GL:                  44377
     Sound.Punctual.GLSL:                34536
-    Sound.Punctual.GLSLExpr:            41387
+    Sound.Punctual.GLSLExpr:            41814
     Sound.Punctual.Graph:               2370
-    Sound.Punctual.Output:              66135
+    Sound.Punctual.Output:              66312
     Sound.Punctual.Parser:              261
-    Sound.Punctual.Program:             111201
+    Sound.Punctual.Program:             111604
     Sound.Punctual.PunctualW:           1
     Sound.Punctual.Resolution:          2946
     Sound.Punctual.Texture:             943
@@ -251,7 +251,7 @@ reflex-0.8.2.0-1FScBWaMG8X9FlRQFLge5u
     Reflex.PostBuild.Base:              1
     Reflex.PostBuild.Class:             64880
     Reflex.Requester.Base:              1
-    Reflex.Requester.Class:             305596
+    Reflex.Requester.Class:             305595
     Reflex.Spider.Internal:             13780
     Reflex.Time:                        8890
     Reflex.TriggerEvent.Base:           1
@@ -318,5 +318,5 @@ unbounded-delays-0.1.1.0-3OIBWhvs3opCI9f4squMMQ
 
 
 
-packed metadata: 4562344
+packed metadata: 4565030
 
