@@ -37,11 +37,11 @@ exprsChannels xs = sum $ fmap exprChannels xs
 
 -- a convenience function for making a no-dependency GLFloat
 glFloat :: Builder -> GLSLExpr
-glFloat b = GLSLExpr GLFloat True b
+glFloat b = GLSLExpr GLFloat True $ "(" <> b <> ")"
 
 -- and another one for doing the same thing from a Haskell Double
 constantFloat :: Double -> GLSLExpr
-constantFloat x = GLSLExpr GLFloat True (showb x)
+constantFloat x = GLSLExpr GLFloat True $ "(" <> showb x <> ")"
 
 -- unsafe because performs no checking that the indicated cast is valid GLSL
 unsafeCast :: GLSLType -> GLSLExpr -> GLSLExpr

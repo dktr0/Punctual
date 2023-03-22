@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.1.1:
+
+- bug fix impacting negative number literals and fragment shader code with GLSL operators
+
 0.4.1:
 
 - 'zip' added
