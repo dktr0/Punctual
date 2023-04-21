@@ -46,6 +46,8 @@ data PunctualWebGL = PunctualWebGL {
   triangleStrip :: WebGLBuffer,
   fftTexture :: WebGLTexture,
   ifftTexture :: WebGLTexture,
+  camVideo :: HTMLVideoElement,
+  camTexture :: WebGLTexture,
   textures :: Map TextureRef Texture,
   fb0 :: (WebGLFramebuffer,WebGLTexture),
   fb1 :: (WebGLFramebuffer,WebGLTexture),
@@ -161,6 +163,26 @@ foreign import javascript safe
   \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_MIN_FILTER, $1.LINEAR);"
   _fftToTexture :: WebGLRenderingContext -> JSVal -> WebGLTexture -> IO ()
 
+
+-- experimental webcam-as-texture support
+
+foreign import javascript safe
+  "$r = document.createElement('video');\
+  \$r.width = 2048; $r.height = 2048; $r.autoplay = true; $r.isPlaying = false;\
+  \$r.addEventListener('playing',function() { $r.isPlaying = true; });\
+  \navigator.mediaDevices.getUserMedia({video: true}).then( function(stream) { $r.srcObject = stream; } );"
+  videoForWebCam :: IO HTMLVideoElement
+
+foreign import javascript safe
+  "if($3.isPlaying) { $1.activeTexture($1.TEXTURE3);\
+  \$1.bindTexture($1.TEXTURE_2D,$2);\
+  \$1.texImage2D($1.TEXTURE_2D, 0, $1.RGBA, $1.RGBA, $1.UNSIGNED_BYTE, $3);\
+  \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_WRAP_S, $1.CLAMP_TO_EDGE);\
+  \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_WRAP_T, $1.CLAMP_TO_EDGE);\
+  \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_MIN_FILTER, $1.LINEAR); } "
+  updateWebCamTexture :: WebGLRenderingContext -> WebGLTexture -> HTMLVideoElement -> IO ()
+
+
 -- given a list of requested texture sources (images) and the previous map of requested texture sources
 -- request any textures we don't already have
 -- Note: deleting of unused textures disactivated, ie. to cache them against imminent reuse
@@ -182,9 +204,12 @@ newPunctualWebGL mic out res _brightness cvs ctx = runGL ctx $ do
   ts <- createBuffer
   bindBufferArray ts
   liftIO $ bufferDataArrayStatic glCtx
-  -- create textures to hold output fft (FFT) and input fft (IFFT) data
+  -- create textures to hold output fft (FFT), input fft (IFFT), and webcam data
   oFFT <- createTexture
   iFFT <- createTexture
+  -- allocate permanent objects for webcam-as-texture access
+  camVid <- liftIO $ videoForWebCam
+  camTex <- createTexture
   -- create two framebuffers to ping-pong between as backbuffer/feedback
   frameBuffer0 <- makeFrameBufferTexture res
   frameBuffer1 <- makeFrameBufferTexture res
@@ -197,6 +222,8 @@ newPunctualWebGL mic out res _brightness cvs ctx = runGL ctx $ do
     triangleStrip = ts,
     fftTexture = oFFT,
     ifftTexture = iFFT,
+    camVideo = camVid,
+    camTexture = camTex,
     textures = Map.empty,
     fb0 = frameBuffer0,
     fb1 = frameBuffer1,
@@ -329,10 +356,16 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
   st'' <- liftIO $ updateAudioAnalysis st'
   return (st'',newFragmentShader)
 
+updateWebCam :: PunctualWebGL -> GL ()
+updateWebCam st = do
+  rCtx <- gl
+  -- liftIO $ updateWebCamImage (camVideo st) (camCanvas st) (camImage st)
+  liftIO $ updateWebCamTexture rCtx (camTexture st) (camVideo st)
 
 drawPunctualWebGL :: GLContext -> Tempo -> UTCTime -> Int -> PunctualWebGL -> IO PunctualWebGL
 drawPunctualWebGL ctx tempo now z st = runGL ctx $ do
-  let mainUniforms = ["res","width","height","_fb","_fft","_ifft","tex0","tex1","tex2","tex3","tex4","tex5","tex6","tex7","tex8","tex9","tex10","tex11","tex12","lo","mid","hi","ilo","imid","ihi","_defaultAlpha","_cps","_time","_etime","_beat","_ebeat"]
+  updateWebCam st
+  let mainUniforms = ["res","width","height","_fb","_cam","_fft","_ifft","tex0","tex1","tex2","tex3","tex4","tex5","tex6","tex7","tex8","tex9","tex10","tex11","tex12","lo","mid","hi","ilo","imid","ihi","_defaultAlpha","_cps","_time","_etime","_beat","_ebeat"]
   let mainAttribs = ["p"]
   let prevAsync = IntMap.findWithDefault emptyAsyncProgram z $ mainPrograms st
   (newProgramReady,asyncProgram) <- useAsyncProgram prevAsync mainUniforms mainAttribs
@@ -358,11 +391,13 @@ drawPunctualWebGL ctx tempo now z st = runGL ctx $ do
     ifftLoc <- getUniformLocation program "_ifft"
     bindTex 1 (fftTexture st') fftLoc
     bindTex 2 (ifftTexture st') ifftLoc
+    camLoc <- getUniformLocation program "_cam"
+    bindTex 3 (camTexture st') camLoc
     -- bind textures to uniforms representing textures in the program
     let uMap = uniformsMap asyncProgram
     let texs = IntMap.findWithDefault (Map.empty) z $ textureMapsDraw st' -- Map Text Int
     let bindTex' k a = do
-          let textureSlot = a + 3
+          let textureSlot = a + 4
           let theTexture = textures st' ! k
           let uniformName = "tex" <> showt a
           let uniformLoc = uMap ! uniformName

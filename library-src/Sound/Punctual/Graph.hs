@@ -34,6 +34,7 @@ data Graph =
   Tex TextureRef Graph | -- deprecated
   Img TextureRef |
   Vid TextureRef |
+  Cam |
   Blend Graph |
   RgbHsv Graph | HsvRgb Graph |
   HsvH Graph | HsvS Graph | HsvV Graph | HsvR Graph | HsvG Graph | HsvB Graph |

@@ -241,6 +241,7 @@ graph = asum [
   multiSeries,
   img,
   vid,
+  cam,
   reserved "audioin" >> return AudioIn,
   reserved "cps" >> return Cps,
   reserved "time" >> return Time,
@@ -443,6 +444,9 @@ vid = do
   let ref = VidRef url
   modify' $ \s -> s { textureRefs = Set.insert ref $ textureRefs s }
   return (Img ref)
+
+cam :: H Graph
+cam = reserved "cam" >> return Cam
 
 -- deprecated
 textureRef_graph_graph :: H (TextureRef -> Graph -> Graph)

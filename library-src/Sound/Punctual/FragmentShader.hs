@@ -139,6 +139,8 @@ graphToGLSL _ (texMap,fxy) (Img texRef) = texture2D ("tex" <> showb n) fxy
 graphToGLSL _ (texMap,fxy) (Vid texRef) = texture2D ("tex" <> showb n) fxy
   where n = min 14 $ max 0 $ Map.findWithDefault 0 texRef texMap
 
+graphToGLSL _ (_,fxy) Cam = texture2D "_cam" fxy
+
 -- deprecated
 graphToGLSL _ env@(texMap,_) (Tex texRef xy) = graphToGLSL (Just Vec2) env xy >>= texture2D ("tex" <> showb n)
   where n = min 14 $ max 0 $ Map.findWithDefault 0 texRef texMap
@@ -455,7 +457,7 @@ header
    \uniform lowp vec2 res;\
    \uniform lowp float width;\
    \uniform lowp float height;\
-   \uniform sampler2D _fb;\
+   \uniform sampler2D _fb,_cam;\
    \uniform sampler2D _fft,_ifft;\
    \uniform sampler2D tex0,tex1,tex2,tex3,tex4,tex5,tex6,tex7,tex8,tex9,tex10,tex11,tex12;\
    \uniform float lo,mid,hi,ilo,imid,ihi;\
