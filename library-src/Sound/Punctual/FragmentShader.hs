@@ -294,17 +294,23 @@ binaryMatchedGraphs Combinatorial = binaryMatchedGraphsCombinatorial
 binaryMatchedGraphs PairWise = binaryMatchedGraphsPairWise
 
 binaryMatchedGraphsPairWise :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
-binaryMatchedGraphsPairWise f ah env x y = do
-  x' <- graphToGLSL ah env x
-  y' <- graphToGLSL ah env y
-  (x'',y'') <- alignExprsOptimized x' y' -- alignExprsOptimized aligns so that 1-channel signals are GLFloat no matter what
-  return $ zipWith f x'' y''
+binaryMatchedGraphsPairWise f ah (texMap,fxy) a b = concat <$> mapM (\fxy' -> binaryMatchedGraphsPairWise' f ah texMap fxy' a b) fxy
+
+binaryMatchedGraphsPairWise' :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> Map TextureRef Int -> GLSLExpr -> Graph -> Graph -> GLSL [GLSLExpr]
+binaryMatchedGraphsPairWise' f ah texMap fxy a b = do
+  a' <- graphToGLSL ah (texMap,[fxy]) a
+  b' <- graphToGLSL ah (texMap,[fxy]) b
+  (a'',b'') <- alignExprsOptimized a' b' -- alignExprsOptimized aligns so that 1-channel signals are GLFloat no matter what
+  return $ zipWith f a'' b''
 
 binaryMatchedGraphsCombinatorial :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
-binaryMatchedGraphsCombinatorial f ah env x y = do
-  x' <- graphToGLSL ah env x
-  y' <- graphToGLSL ah env y
-  binaryMatchedGLSLExprs f ah x' y'
+binaryMatchedGraphsCombinatorial f ah (texMap,fxy) a b = concat <$> mapM (\fxy' -> binaryMatchedGraphsCombinatorial' f ah texMap fxy' a b) fxy
+
+binaryMatchedGraphsCombinatorial' :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> Map TextureRef Int -> GLSLExpr -> Graph -> Graph -> GLSL [GLSLExpr]
+binaryMatchedGraphsCombinatorial' f ah texMap fxy a b = do
+  a' <- graphToGLSL ah (texMap,[fxy]) a
+  b' <- graphToGLSL ah (texMap,[txy]) b
+  binaryMatchedGLSLExprs f ah a' b'
 
 binaryMatchedGLSLExprs :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
 binaryMatchedGLSLExprs f ah xs ys = case (exprsChannels xs == 1 || exprsChannels ys == 1) of
