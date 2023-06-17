@@ -8,7 +8,7 @@ build:
 
 devBuild:
 	cabal --ghcjs --builddir=dev-result new-build all --disable-library-profiling --disable-documentation --ghcjs-options=-DGHCJS_GC_INTERVAL=60000
-	cp -Rf dev-result/build/x86_64-linux/ghcjs-8.6.0.1/punctual-0.4.1.1/x/punctual/build/punctual/punctual.jsexe .
+	cp -Rf dev-result/build/x86_64-linux/ghcjs-8.6.0.1/punctual-0.4.1.2/x/punctual/build/punctual/punctual.jsexe .
 	chmod +w punctual.jsexe
 	cp -f style.css punctual.jsexe/style.css
 
@@ -22,16 +22,16 @@ buildBenchmark:
 	cabal --ghcjs --builddir=benchmark new-build punctual-benchmarks --disable-library-profiling --disable-documentation --ghcjs-options=-DGHCJS_GC_INTERVAL=60000
 
 runBenchmark:
-	node benchmark/build/x86_64-linux/ghcjs-8.6.0.1/punctual-0.4.1.1/b/punctual-benchmarks/build/punctual-benchmarks/punctual-benchmarks.jsexe/all.js
+	node benchmark/build/x86_64-linux/ghcjs-8.6.0.1/punctual-0.4.1.2/b/punctual-benchmarks/build/punctual-benchmarks/punctual-benchmarks.jsexe/all.js
 
 runBenchmarkInBrowser:
-	open benchmark/build/x86_64-linux/ghcjs-8.6.0.1/punctual-0.4.1.1/b/punctual-benchmarks/build/punctual-benchmarks/punctual-benchmarks.jsexe/index.html
+	open benchmark/build/x86_64-linux/ghcjs-8.6.0.1/punctual-0.4.1.2/b/punctual-benchmarks/build/punctual-benchmarks/punctual-benchmarks.jsexe/index.html
 
 bundleClient:
 	zip -r - ./punctual.jsexe/* > punctual-standalone.zip
 
 serve:
-	cd punctual.jsexe; python -m SimpleHTTPServer 8000
+	cd punctual.jsexe; python3 -m http.server 8000
 
 clean:
 	rm -rf punctual.jsexe

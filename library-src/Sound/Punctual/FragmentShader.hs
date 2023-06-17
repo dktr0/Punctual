@@ -274,7 +274,7 @@ multiToGLSL :: AlignHint -> GraphEnv -> [Graph] -> GLSL [GLSLExpr]
 multiToGLSL _ _ [] = return [constantFloat 0.0]
 multiToGLSL ah env xs = do
   xs' <- mapM (graphToGLSL ah env) xs
-  xs'' <- mapM (align GLFloat) xs'
+  xs'' <- mapM (align GLFloat) xs' -- ?? is this intermediate alignment to float necessary?
   alignHint ah $ concat $ multi xs''
 
 
@@ -309,7 +309,7 @@ binaryMatchedGraphsCombinatorial f ah (texMap,fxy) a b = concat <$> mapM (\fxy' 
 binaryMatchedGraphsCombinatorial' :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> Map TextureRef Int -> GLSLExpr -> Graph -> Graph -> GLSL [GLSLExpr]
 binaryMatchedGraphsCombinatorial' f ah texMap fxy a b = do
   a' <- graphToGLSL ah (texMap,[fxy]) a
-  b' <- graphToGLSL ah (texMap,[txy]) b
+  b' <- graphToGLSL ah (texMap,[fxy]) b
   binaryMatchedGLSLExprs f ah a' b'
 
 binaryMatchedGLSLExprs :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
