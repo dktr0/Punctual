@@ -148,13 +148,13 @@ graphToGLSL _ env@(texMap,_) (Tex texRef xy) = graphToGLSL (Just Vec2) env xy >>
 graphToGLSL _ env (Fb xy) = graphToGLSL (Just Vec2) env xy >>= texture2D "_fb"
 
 graphToGLSL ah env (FFT x) = do
-  a <- graphToGLSL (Just GLFloat) env (Unipolar x) >>= align GLFloat
+  a <- graphToGLSL (Just GLFloat) env (Bipolar x) >>= align GLFloat
   let b = zipWith exprExprToVec2 a (repeat 0) -- [GLSLExpr] where each is a Vec2
   c <- texture2D "_fft" b
   alignHint ah $ fmap swizzleX c
 
 graphToGLSL ah env (IFFT x) = do
-  a <- graphToGLSL (Just GLFloat) env (Unipolar x) >>= align GLFloat
+  a <- graphToGLSL (Just GLFloat) env (Bipolar x) >>= align GLFloat
   let b = zipWith exprExprToVec2 a (repeat 0)
   c <- texture2D "_ifft" b
   alignHint ah $ fmap swizzleX c

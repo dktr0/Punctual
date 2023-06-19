@@ -57,7 +57,8 @@ parseProgram eTime x = do
   return $ p {
     textureSet = textureRefs st,
     programNeedsAudioInputAnalysis = audioInputAnalysis st,
-    programNeedsAudioOutputAnalysis = audioOutputAnalysis st
+    programNeedsAudioOutputAnalysis = audioOutputAnalysis st,
+    programNeedsWebcam = needsWebcam st
   }
 
 reformatProgramAsList :: String -> String
@@ -78,7 +79,8 @@ data ParserState = ParserState {
 --  definitions2 :: Map Identifier (Graph -> Graph),
 --  definitions3 :: Map Identifier (Graph -> Graph -> Graph),
   audioInputAnalysis :: Bool,
-  audioOutputAnalysis :: Bool
+  audioOutputAnalysis :: Bool,
+  needsWebcam :: Bool
 } deriving (Show)
 
 emptyParserState :: ParserState
@@ -90,7 +92,8 @@ emptyParserState = ParserState {
 --  definitions2 = Map.empty,
 --  definitions3 = Map.empty,
   audioInputAnalysis = False,
-  audioOutputAnalysis = False
+  audioOutputAnalysis = False,
+  needsWebcam = False
   }
 
 type H = Haskellish ParserState
@@ -446,7 +449,7 @@ vid = do
   return (Img ref)
 
 cam :: H Graph
-cam = reserved "cam" >> return Cam
+cam = reserved "cam" >> modify (\s -> s { needsWebcam = True }) >> return Cam
 
 -- deprecated
 textureRef_graph_graph :: H (TextureRef -> Graph -> Graph)

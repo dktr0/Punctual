@@ -1,5 +1,10 @@
 # ChangeLog
 
+0.4.2:
+
+- webcam support officially added, via 'cam'
+- bug fixes impacting audio input/output analysis 
+
 0.4.1.2:
 
 - bug fix impacting binary expressions (+ - etc) with multichannel geometry translations
