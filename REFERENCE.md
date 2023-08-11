@@ -2,13 +2,13 @@
 
 ## Punctual Oscillators, Filters, Noise, Audio Input
 
-sin [freq] -- sine wave, ranging from 1 to -1
+osc [freq] -- sine wave oscillator, ranging from 1 to -1 (note: calling this sin is deprecated, see also sin' below; as of Punctual 0.5, only osc will produce a sine oscillator (as opposed to sine function))
 
-tri [freq] -- triangle wave (in audio rendering, this will be band-limited - see also lftri, below)
+tri [freq] -- triangle wave oscillator (in audio rendering, this will be band-limited - see also lftri, below)
 
-saw [freq] -- sawtooth wave (in audio rendering, this will be band-limited - see also lfsaw, below)
+saw [freq] -- sawtooth wave oscillator(in audio rendering, this will be band-limited - see also lfsaw, below)
 
-sqr [freq] -- square wave (in audio rendering, this will be band-limited - see also lfsqr, below)
+sqr [freq] -- square wave oscillator (in audio rendering, this will be band-limited - see also lfsqr, below)
 
 lftri [freq] -- "low frequency" triangle wave which unlike tri is not band-limited (in audio), and which goes from -1 to 1. In WebGL graphics output, tri and lftri are identical.
 
@@ -56,6 +56,8 @@ When Punctual functions or operators take two or more arguments that are, themse
 
 [graph] / [graph] -- "safe" division, where dividing by 0 yields a result of 0 (combinatorial, for pairwise use /: )
 
+[graph] % [graph] -- mod/modulo operation, ie. the remainder when dividing x by y (combinatorial, for pairwise use %: )
+
 [graph] ** [graph] -- exponentiation, ie. x to the power of y (combinatorial, for pairwise use **: )
 
 [graph] == [graph] -- equal to (1 = true, 0 = false, combinatorial, for pairwise use ==: )
@@ -76,9 +78,51 @@ min [graph] [graph] -- returns the minimum value from two graphs (combinatorial)
 
 abs [graph] -- absolute value of provided graph
 
-floor [graph] -- the first whole number below the value of the argument, eg. given 2.3 the return value would be 2.0
+acos [graph] -- area cosine of provided graph
+
+acosh [graph] -- hyperbolic area cosine of provided graph
+
+asin [graph] -- area sine of provided graph
+
+asinh [graph] -- hyperbolic area sine of provided graph
+
+atan [graph] -- area tangent of provided graph
+
+atanh [graph] -- hyperbolic area tangent of provided graph
+
+cbrt [graph] -- cube root of provided graph
 
 ceil [graph] -- the first whole number above the value of the argument, eg. given 2.3 the return value would be 3.0
+
+cos [graph] -- cosine of provided graph
+
+cosh [graph] -- hyperbolic cosine of provided graph
+
+exp [graph] -- the constant e to the power of provided graph
+
+floor [graph] -- the first whole number below the value of the argument, eg. given 2.3 the return value would be 2.0
+
+log [graph] -- the natural logarithm of provided graph
+
+log2 [graph] -- the base 2 logarithm of provided graph
+
+log10 [graph] -- the base 10 logarithm of provided graph
+
+round [graph] -- values in the provided graph are rounded to the nearest whole number
+
+sign [graph] -- the sign of the provided graph (-1 for negative numbers, 0 for zero, 1 for positive numbers)
+
+sin' [graph] -- the sine of the provided graph (note: as of Punctual 0.5 this will be called sin, and the function previously known as sin will only be accessible as osc)
+
+sinh [graph] -- the hyperbolic sine of the provided graph
+
+sqrt [graph] -- returns the square root of the graph
+
+tan [graph] -- the tangent of the provided graph
+
+tanh [graph] -- the hyperbolic tangent of the provided graph
+
+trunc [graph] -- values in the provided graph are truncated to whole numbers by discarding any decimal components
 
 fract [graph] - the fractional part of the argument, eg. given 2.3 the return value would be 0.3
 
@@ -102,8 +146,6 @@ bipolar [graph] -- input is rescaled as if input range was unipolar (0,1) and ou
 
 step [graph,graph,graph,...] [graph] -- given a list of graphs and a second, final, "modulating" graph, output the value of a selected graph from the list according to the second argument (drive with lfsaw to produce a simple step sequencer-like behaviour).
 
-sqrt [graph] -- returns the square root of the graph
-
 mono [graph] -- takes multi-channel graphs down to a single channel by summing/mixing
 
 gate [graph] [graph] -- when the absolute value of the second graph is lower than the absolute value of the first graph the output is zero, otherwise the output is just the value of the second graph (note: unlike a typical audio noise gate this gate closes and opens immediately)
@@ -111,6 +153,8 @@ gate [graph] [graph] -- when the absolute value of the second graph is lower tha
 zero [graph] -- returns a graph that is always 0 regardless of the input graph (useful for quickly silencing/erasing particular lines of code). The synonym 'zer0' is also available.
 
 [graph] ++ [graph] -- appends two graphs to each other in a way that preserves the multiple channels of both graphs. For example if the graph on the left has 3 channels, and the one on the right has 2 channels, then the result will be a 5-channel graph consisting of the 3 channels from the left operand, followed by the 2 channels from the right operand.
+
+pi -- the value of PI (3.1415926535897932384626433832795)
 
 ## Punctual Graph Functions Specialised for Graphics
 

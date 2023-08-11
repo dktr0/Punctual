@@ -49,10 +49,10 @@ intro
    \-- documentation @ https://github.com/dktr0/Punctual.git\n\
    \-- help/discussion @ Estuary discord server\n\
    \\n\
-   \x1 << sin $ 0.11*[1,2]; y1 << sin $ 0.08/[3,4];\n\
-   \x2 << sin $ 0.06/[5,6]; y2 << sin $ 0.04*[7,8];\n\
+   \x1 << osc $ 0.11*[1,2]; y1 << osc $ 0.08/[3,4];\n\
+   \x2 << osc $ 0.06/[5,6]; y2 << osc $ 0.04*[7,8];\n\
    \lines << mono $ iline [x1,y1] [x2,y2] 0.002;\n\
-   \col << hsvrgb [sin 0.11,0.5 ~~ 1 $ sin 0.12, 1];\n\
+   \col << hsvrgb [osc 0.11,0.5 ~~ 1 $ sin 0.12, 1];\n\
    \mask << prox 0 ** 8;\n\
    \fit 1 $ lines * col  * mask >> video <> 5;\n\
    \0.98 >> fdbk\n"
