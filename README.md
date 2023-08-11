@@ -49,7 +49,7 @@ osc (fx * 60m) * osc (fy * 60.05m) * fx * fy * 10db >> blue; -- pretty patterns
 # Oscillators and Filters
 
 ```
-sosc 440; -- a 440 Hz sine wave
+osc 440; -- a 440 Hz sine wave
 tri 440; -- a 440 Hz triangle wave
 sqr 440; -- a 440 Hz square wave
 saw 440; -- a 440 Hz sawtooth wave
