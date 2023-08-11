@@ -76,6 +76,8 @@ max [graph] [graph] -- returns the maximum value from two graphs (combinatorial)
 
 min [graph] [graph] -- returns the minimum value from two graphs (combinatorial)
 
+between [min1,max1,min2,max2, ...] [x, ...] -- returns 1 (true) if values of x are between ranges specified by min1,max1,min2,max2,etc
+
 abs [graph] -- absolute value of provided graph
 
 acos [graph] -- area cosine of provided graph
