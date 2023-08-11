@@ -39,6 +39,7 @@ graphToGLSL :: AlignHint -> GraphEnv -> Graph -> GLSL [GLSLExpr]
 -- constants and uniforms
 
 graphToGLSL _ _ (Constant x) = return [ constantFloat x ]
+graphToGLSL _ _ Pi = return [glFloat "PI"]
 graphToGLSL _ _ Px = return [px]
 graphToGLSL _ _ Py = return [py]
 graphToGLSL _ _ Aspect = return [glFloat "(width/height)"]
@@ -88,21 +89,42 @@ graphToGLSL ah env (UnRep n x) = do
   x' <- graphToGLSL (Just GLFloat) env x >>= align GLFloat
   alignHint ah $ fmap (Foldable.foldr1 (+)) $ chunksOf n x'
 
--- unary functions
+-- unary functions from the JavaScript Math library
+graphToGLSL ah env (Abs x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "abs")
+graphToGLSL ah env (Acos x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "acos")
+graphToGLSL ah env (Acosh x) = graphToGLSL ah env $ Log $ x + Sqrt (x*x - 1) -- for WebGL1 compatibility, WebGL 2 has "acosh" directly
+graphToGLSL ah env (Asin x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "asin")
+graphToGLSL ah env (Asinh x) = graphToGLSL ah env $ Log $ x + Sqrt (x*x + 1) -- for WebGL1 compatibility, WebGL 2 has "asinh" directly
+graphToGLSL ah env (Atan x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "atan")
+graphToGLSL ah env (Atanh x) = graphToGLSL ah env $ Log ((1 + x) / (1 - x)) / 2 -- for WebGL1 compatibility, WebGL 2 has "atanh" directly
+graphToGLSL ah env (Cbrt x) = graphToGLSL ah env $ Pow PairWise x 0.3333333333
+graphToGLSL ah env (Ceil x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "ceil")
+graphToGLSL ah env (Cos x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "cos")
+graphToGLSL ah env (Cosh x) = graphToGLSL ah env $ (Exp x + Exp (x * (-1))) / 2 -- for WebGL1 compatibility, WebGL 2 has "cosh" directly
+graphToGLSL ah env (Exp x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "exp")
+graphToGLSL ah env (Floor x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "floor")
+graphToGLSL ah env (Log x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "log")
+graphToGLSL ah env (Log2 x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "log2")
+graphToGLSL ah env (Log10 x) = graphToGLSL ah env $ Log x / Log 10
+graphToGLSL ah env (Round x) = graphToGLSL ah env $ Floor $ x + 0.5 -- for WebGL1 compatibility, WebGL 2 has "round" directly
+graphToGLSL ah env (Sign x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "sign")
+graphToGLSL ah env (Sin x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "sin")
+graphToGLSL ah env (Sinh x) = graphToGLSL ah env $ (Exp x - Exp (x * (-1))) / 2 -- for WebGL1 compatibility, WebGL 2 has "sinh" directly
+graphToGLSL ah env (Sqrt x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "sqrt")
+graphToGLSL ah env (Tan x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "tan")
+graphToGLSL ah env (Tanh x) = graphToGLSL ah env $ Sinh x / Cosh x -- for WebGL1 compatibility, WebGL 2 has "tanh" directly 
+graphToGLSL ah env (Trunc x) = graphToGLSL ah env $ Floor (Abs x) * Sign x -- for WebGL1 compatibility, WebGL 2 has "trunc" directly
 
+-- other unary functions
 graphToGLSL ah env (Bipolar x) = graphToGLSL ah env x >>= return . fmap bipolar
 graphToGLSL ah env (Unipolar x) =graphToGLSL ah env x >>= return . fmap unipolar
-graphToGLSL ah env (Sin x) = do
+graphToGLSL ah env (Osc x) = do
   x' <- graphToGLSL ah env x
   return $ fmap (unaryFunctionMatched "sin" . (*) (constantFloat 3.14159265 * constantFloat 2 * _time)) x'
 graphToGLSL ah env (MidiCps x) = graphToGLSL ah env x >>= return . fmap midicps
 graphToGLSL ah env (CpsMidi x) = graphToGLSL ah env x >>= return . fmap cpsmidi
 graphToGLSL ah env (DbAmp x) = graphToGLSL ah env x >>= return . fmap dbamp
 graphToGLSL ah env (AmpDb x) = graphToGLSL ah env x >>= return . fmap ampdb
-graphToGLSL ah env (Abs x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "abs")
-graphToGLSL ah env (Sqrt x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "sqrt")
-graphToGLSL ah env (Floor x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "floor")
-graphToGLSL ah env (Ceil x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "ceil")
 graphToGLSL ah env (Fract x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "fract")
 graphToGLSL ah env (Tri x) = graphToGLSL (Just GLFloat) env x >>= align GLFloat >>= alignHint ah . fmap (unaryFunctionMatched "tri")
 graphToGLSL ah env (Saw x) = graphToGLSL (Just GLFloat) env x >>= align GLFloat >>= alignHint ah . fmap (unaryFunctionMatched "saw")
@@ -459,7 +481,8 @@ defaultFragmentShader = (toText header) <> "void main() { gl_FragColor = vec4(0.
 
 header :: Builder
 header
- = "precision mediump float;\
+ = "precision mediump float;\n\
+   \#define PI 3.1415926535897932384626433832795\n\
    \uniform lowp vec2 res;\
    \uniform lowp float width;\
    \uniform lowp float height;\

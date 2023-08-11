@@ -26,18 +26,12 @@ with pkgs.haskell.lib;
 
     punctual = dontCheck (dontHaddock (appendConfigureFlags super.punctual ["--ghcjs-options=-DGHCJS_BROWSER" "--ghcjs-options=-O2" "--ghcjs-options=-dedupe" "--ghcjs-options=-DGHCJS_GC_INTERVAL=60000"]));
 
-    # musicw = self.callHackageDirect {
-    # musicw = self.callHackage "musicw" "0.3.10" {};
-    #  pkg = "musicw";
-    #    ver = "0.3.10";
-    #  sha256 = "05xc7jd3k45ymq3pd4q37rnxcj7z0jxmpxj6gmbp7p0n4p49cagh";
-    # } { };
-    # temporary hash for when you don't know the hash in the above: pkgs.lib.fakeSha256
+    # temporary hash for when you don't know the hash: pkgs.lib.fakeSha256
     musicw = self.callCabal2nix "musicw" (pkgs.fetchFromGitHub {
       owner = "dktr0";
       repo = "musicw";
-      sha256 = "19c31jnsdhw85qczgwcmfch217nfc631qv9jf4wzbyg0xz50s64c";
-      rev = "b42ff7b1ea3ea322fb830a4e4757626761aebcd5";
+      sha256 = "1ir4nw3hx4anl5pdvf8kz0v9jhf0bd0ck0sfj867a9p9y0zfwwfz";
+      rev = "2bc30b1add5043e467088999b7971b5f28e1b063";
     }) {};
     # musicw = if (!self.ghc.isGhcjs or false) then null else self.callCabal2nix "musicw" ../MusicW {};
 

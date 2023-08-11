@@ -16,6 +16,7 @@ data Graph =
   Multi [Graph] |
   Append Graph Graph |
   Zip Graph Graph |
+  Pi |
   Px | Py | Aspect |
   Fx | Fy | Fxy |
   SetFx Graph Graph | SetFy Graph Graph | SetFxy Graph Graph |
@@ -39,13 +40,34 @@ data Graph =
   RgbHsv Graph | HsvRgb Graph |
   HsvH Graph | HsvS Graph | HsvV Graph | HsvR Graph | HsvG Graph | HsvB Graph |
   RgbH Graph | RgbS Graph | RgbV Graph | RgbR Graph | RgbG Graph | RgbB Graph |
+  -- oscillators
+  Osc Graph | Tri Graph | Saw Graph | Sqr Graph | LFTri Graph | LFSaw Graph | LFSqr Graph |
+  -- unary Math functions based on (or emulating) JavaScript Math unary functions
+  Abs Graph |
+  Acos Graph |
+  Acosh Graph |
+  Asin Graph |
+  Asinh Graph |
+  Atan Graph |
+  Atanh Graph |
+  Cbrt Graph |
+  Ceil Graph |
+  Cos Graph |
+  Cosh Graph |
+  Exp Graph |
+  Floor Graph |
+  Log Graph |
+  Log2 Graph |
+  Log10 Graph |
+  Round Graph |
+  Sign Graph |
   Sin Graph |
-  Tri Graph |
-  Saw Graph |
-  Sqr Graph |
-  LFTri Graph |
-  LFSaw Graph |
-  LFSqr Graph |
+  Sinh Graph |
+  Sqrt Graph |
+  Tan Graph |
+  Tanh Graph |
+  Trunc Graph |  
+  -- other unary functions
   Point Graph |
   Distance Graph |
   Prox Graph |
@@ -53,14 +75,11 @@ data Graph =
   CpsMidi Graph |
   DbAmp Graph |
   AmpDb Graph |
-  Abs Graph |
-  Sqrt Graph |
-  Floor Graph |
-  Ceil Graph |
   Fract Graph |
   Sum MultiMode Graph Graph |
   Product MultiMode Graph Graph |
   Division MultiMode Graph Graph |
+  Mod MultiMode Graph Graph |
   Pow MultiMode Graph Graph |
   Equal MultiMode Graph Graph |
   NotEqual MultiMode Graph Graph |

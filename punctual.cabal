@@ -1,5 +1,5 @@
 name:                punctual
-version:             0.4.2
+version:             0.4.3
 synopsis:            Live coding language
 description:         Please see README.md
 homepage:            http://github.com/dktr0/Punctual/blob/master/README.md
@@ -7,7 +7,7 @@ license:             GPL-3
 license-file:        LICENSE
 author:              David Ogborn
 maintainer:          ogbornd@mcmaster.ca
-copyright:           2018-21 David Ogborn
+copyright:           2018-23 David Ogborn
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.10
@@ -23,7 +23,7 @@ Library
       base,
       time,
       mtl,
-      musicw >= 0.3.10 && <0.4,
+      musicw >= 0.3.11 && <0.4,
       containers,
       ghcjs-base,
       ghcjs-dom-jsffi,
@@ -84,7 +84,7 @@ executable punctual
       reflex-dom,
       time,
       mtl,
-      musicw >= 0.3.2,
+      musicw >= 0.3.11,
       text,
       containers,
       ghcjs-base,
@@ -109,7 +109,7 @@ benchmark punctual-benchmarks
       reflex-dom,
       time,
       mtl,
-      musicw >= 0.3.1,
+      musicw >= 0.3.11,
       text,
       containers,
       ghcjs-base,

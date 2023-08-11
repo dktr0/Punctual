@@ -61,7 +61,11 @@ main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
   putStrLn "Punctual standalone"
-  getGlobalAudioContextPlayback >>= addWorklets
+  ctx <- getGlobalAudioContextPlayback 
+  putStrLn "global audio context (playback mode) acquired"
+  putStrLn "loading MusicW audio worklets..."
+  addWorklets ctx
+  putStrLn "audio worklets loaded."
   mainWidgetWithHead headElement bodyElement
 
 
