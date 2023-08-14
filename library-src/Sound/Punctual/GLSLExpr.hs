@@ -226,6 +226,9 @@ log = unaryFunctionMatched "log"
 pow :: GLSLExpr -> GLSLExpr -> GLSLExpr
 pow x y = binaryFunctionMatched "pow" x y
 
+mod :: GLSLExpr -> GLSLExpr -> GLSLExpr
+mod x y = binaryFunctionMatched "mod" x y
+
 distance :: GLSLExpr -> GLSLExpr -> GLSLExpr
 distance x y = binaryFunction "distance" GLFloat x y
 

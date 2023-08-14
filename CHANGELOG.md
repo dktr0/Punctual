@@ -1,12 +1,16 @@
 # ChangeLog
 
+0.4.4.1:
+
+-bug fix (mod operators)
+
 0.4.4:
 
 -added polar coordinate queries and conversions: frt, fr, ft, xyrt, xyr, xyt, rtxy, rtx, rty 
 
 0.4.3:
 
--added 'mod', 'pi' and 20 other unary functions (basically completing coverage of JavaScript Math library's unary functions)
+-added mod operators (% and %:), 'pi' and 20 other unary functions (basically completing coverage of JavaScript Math library's unary functions)
 -added 'osc' as a synonym for the now deprecated 'sin'; as of version 0.5, 'osc' will be the oscillator, and 'sin' will be the sine function
 
 0.4.2:

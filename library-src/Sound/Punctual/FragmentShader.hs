@@ -244,6 +244,7 @@ graphToGLSL ah env (Spin a b) = unaryPositionTransform spin GLFloat ah env a b
 graphToGLSL ah env (Sum mm x y) = binaryMatchedGraphs mm (+) ah env x y
 graphToGLSL ah env (Product mm x y) = binaryMatchedGraphs mm (*) ah env x y
 graphToGLSL ah env (Division mm x y) = binaryMatchedGraphs mm (/) ah env x y
+graphToGLSL ah env (Mod mm x y) = binaryMatchedGraphs mm Sound.Punctual.GLSLExpr.mod ah env x y
 graphToGLSL ah env (Pow mm x y) = binaryMatchedGraphs mm pow ah env x y
 graphToGLSL ah env (Equal mm x y) = binaryMatchedGraphs mm equal ah env x y
 graphToGLSL ah env (NotEqual mm x y) = binaryMatchedGraphs mm notEqual ah env x y

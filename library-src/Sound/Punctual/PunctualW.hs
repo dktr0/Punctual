@@ -563,6 +563,7 @@ expandMultis (Fract x) = fmap Fract (expandMultis x)
 expandMultis (Sum mm x y) = expandWith mm (Sum mm) x y
 expandMultis (Product mm x y) = expandWith mm (Product mm) x y
 expandMultis (Division mm x y) = expandWith mm (Division mm) x y
+expandMultis (Mod mm x y) = expandWith mm (Mod mm) x y
 expandMultis (Pow mm x y) = expandWith mm (Pow mm) x y
 expandMultis (Equal mm x y) = expandWith mm (Equal mm) x y
 expandMultis (NotEqual mm x y) = expandWith mm (NotEqual mm) x y
