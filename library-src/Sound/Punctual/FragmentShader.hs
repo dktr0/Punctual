@@ -57,6 +57,10 @@ graphToGLSL _ _ EBeat = return [glFloat "_ebeat"]
 graphToGLSL ah (_,fxy) Fx = alignHint ah $ fmap swizzleX fxy
 graphToGLSL ah (_,fxy) Fy = alignHint ah $ fmap swizzleY fxy
 graphToGLSL ah (_,fxy) Fxy = alignHint ah $ fxy
+graphToGLSL ah env FRt = graphToGLSL ah env $ XyRt Fxy
+graphToGLSL ah env FR = graphToGLSL ah env $ XyR Fxy
+graphToGLSL ah env FT = graphToGLSL ah env $ XyT Fxy
+
 
 -- multichannel operations: multi, mono, rep, unrep, Append (++)
 
@@ -116,6 +120,47 @@ graphToGLSL ah env (Tanh x) = graphToGLSL ah env $ Sinh x / Cosh x -- for WebGL1
 graphToGLSL ah env (Trunc x) = graphToGLSL ah env $ Floor (Abs x) * Sign x -- for WebGL1 compatibility, WebGL 2 has "trunc" directly
 
 -- other unary functions
+
+graphToGLSL ah env (RtXy rt) = do
+  rts <- graphToGLSL (Just Vec2) env rt >>= align Vec2 
+  let rs = swizzleX <$> rts
+  let ts = swizzleY <$> rts
+  let xs = zipWith (*) rs $ fmap (unaryFunctionMatched "cos") ts
+  let ys = zipWith (*) rs $ fmap (unaryFunctionMatched "sin") ts
+  alignHint ah $ concat $ zipWith (\x y -> [x,y]) xs ys
+  
+graphToGLSL ah env (RtX rt) = do
+  rts <- graphToGLSL (Just Vec2) env rt >>= align Vec2 
+  let rs = swizzleX <$> rts
+  let ts = swizzleY <$> rts
+  alignHint ah $ zipWith (*) rs $ fmap (unaryFunctionMatched "cos") ts
+    
+graphToGLSL ah env (RtY rt) = do
+  rts <- graphToGLSL (Just Vec2) env rt >>= align Vec2 
+  let rs = swizzleX <$> rts
+  let ts = swizzleY <$> rts
+  alignHint ah $ zipWith (*) rs $ fmap (unaryFunctionMatched "sin") ts
+
+graphToGLSL ah env (XyRt xy) = do
+  xys <- graphToGLSL (Just Vec2) env xy >>= align Vec2
+  xs <- mapM assign $ swizzleX <$> xys
+  ys <- mapM assign $ swizzleY <$> xys
+  let rs = zipWith (\x y -> unaryFunctionMatched "sqrt" ((x*x) + (y*y)) ) xs ys
+  let ts = zipWith (binaryFunctionMatched "atan") xs ys
+  alignHint ah $ concat $ zipWith (\r t -> [r,t]) rs ts
+  
+graphToGLSL ah env (XyR xy) = do
+  xys <- graphToGLSL (Just Vec2) env xy >>= align Vec2
+  xs <- mapM assign $ swizzleX <$> xys
+  ys <- mapM assign $ swizzleY <$> xys
+  alignHint ah $ zipWith (\x y -> unaryFunctionMatched "sqrt" ((x*x) + (y*y)) ) xs ys
+
+graphToGLSL ah env (XyT xy) = do
+  xys <- graphToGLSL (Just Vec2) env xy >>= align Vec2
+  let xs = swizzleX <$> xys
+  let ys = swizzleY <$> xys
+  alignHint ah $ zipWith (binaryFunctionMatched "atan") xs ys
+
 graphToGLSL ah env (Bipolar x) = graphToGLSL ah env x >>= return . fmap bipolar
 graphToGLSL ah env (Unipolar x) =graphToGLSL ah env x >>= return . fmap unipolar
 graphToGLSL ah env (Osc x) = do

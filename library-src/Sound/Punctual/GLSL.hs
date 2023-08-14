@@ -102,7 +102,7 @@ align t xs = do
   (x,xs') <- splitAligned t xs
   xs'' <- align t xs'
   return (x:xs'')
-
+  
 
 -- | alignRGBA aligns to groups of 4 channels (vec4) as follows:
 -- 1 channel: repeat as channel 2 and 3, set channel 4 (alpha) to 1

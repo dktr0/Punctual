@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.4:
+
+-added polar coordinate queries and conversions: frt, fr, ft, xyrt, xyr, xyt, rtxy, rtx, rty 
+
 0.4.3:
 
 -added 'mod', 'pi' and 20 other unary functions (basically completing coverage of JavaScript Math library's unary functions)

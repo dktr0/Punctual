@@ -169,11 +169,29 @@ fy -- the position of the current fragment along the y-axis from bottom (-1) to 
 
 fxy -- the position of the current fragment along the x and y axes as a 2-channel signal
 
+frt -- the position of the current fragment in polar coordinates (radius, angle/theta)
+
+fr -- the radius of the position of the current fragment in polar coordinates
+
+ft -- the angle (theta) of the position of the current fragment in polar coordinates
+
 px -- the width of an actually displayed pixel (ie. in terms of Punctual's -1 to 1 geometry)
 
 py -- the height of an actually displayed pixel (ie. in terms of Punctual's -1 to 1 geometry)
 
 aspect -- the aspect ratio of the canvas on which Punctual draws
+
+xyrt [x,y,...] -- convert cartesian coordinates to polar coordinates
+
+xyr [x,y,...] -- convert cartesian coordinates to polar coordinates (radii only)
+
+xyt [x,y,...] -- convert cartesian coordinates to polar coordinates (angles/thetas only)
+
+rtxy [r,t,...] -- convert polar coordinates to cartesian coordinates
+
+rtx [r,t,...] -- convert polar coordinates to cartesian coordinates (x dimension only)
+
+rty [r,t,...] -- convert polar coordinates to cartesian coordinates (y dimension only)
 
 dist [x,y,...] -- the distance from specified position to current fragment
 

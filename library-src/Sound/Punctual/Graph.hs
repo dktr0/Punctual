@@ -18,7 +18,8 @@ data Graph =
   Zip Graph Graph |
   Pi |
   Px | Py | Aspect |
-  Fx | Fy | Fxy |
+  Fx | Fy | Fxy | -- cartesian coordinates of current fragment
+  FRt | FR | FT | -- polar coordinates of current fragment
   SetFx Graph Graph | SetFy Graph Graph | SetFxy Graph Graph |
   Zoom Graph Graph | Move Graph Graph | Tile Graph Graph | Spin Graph Graph |
   Lo | Mid | Hi | ILo | IMid | IHi |
@@ -68,6 +69,12 @@ data Graph =
   Tanh Graph |
   Trunc Graph |  
   -- other unary functions
+  RtXy Graph | -- polar to cartesian conversion
+  RtX Graph | -- x = r * cos theta
+  RtY Graph | -- y = r * sin theta
+  XyRt Graph | -- cartesian to polar conversion
+  XyR Graph | -- r = sqrt (x^2 + y ^2)
+  XyT Graph | -- theta = atan2(y,x)
   Point Graph |
   Distance Graph |
   Prox Graph |
