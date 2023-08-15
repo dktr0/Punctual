@@ -136,7 +136,7 @@ graphToGLSL ah env (RtX rt) = do
   alignHint ah $ zipWith (*) rs $ fmap (unaryFunctionMatched "cos") ts
     
 graphToGLSL ah env (RtY rt) = do
-  rts <- graphToGLSL (Just Vec2) env rt >>= align Vec2 
+  rts <- graphToGLSL (Just Vec2) env rt >>= align Vec2
   let rs = swizzleX <$> rts
   let ts = swizzleY <$> rts
   alignHint ah $ zipWith (*) rs $ fmap (unaryFunctionMatched "sin") ts
@@ -146,7 +146,7 @@ graphToGLSL ah env (XyRt xy) = do
   xs <- mapM assign $ swizzleX <$> xys
   ys <- mapM assign $ swizzleY <$> xys
   let rs = zipWith (\x y -> unaryFunctionMatched "sqrt" ((x*x) + (y*y)) ) xs ys
-  let ts = zipWith (binaryFunctionMatched "atan") xs ys
+  let ts = zipWith (binaryFunctionMatched "atan") ys xs
   alignHint ah $ concat $ zipWith (\r t -> [r,t]) rs ts
   
 graphToGLSL ah env (XyR xy) = do
@@ -159,7 +159,7 @@ graphToGLSL ah env (XyT xy) = do
   xys <- graphToGLSL (Just Vec2) env xy >>= align Vec2
   let xs = swizzleX <$> xys
   let ys = swizzleY <$> xys
-  alignHint ah $ zipWith (binaryFunctionMatched "atan") xs ys
+  alignHint ah $ zipWith (binaryFunctionMatched "atan") ys xs
 
 graphToGLSL ah env (Bipolar x) = graphToGLSL ah env x >>= return . fmap bipolar
 graphToGLSL ah env (Unipolar x) =graphToGLSL ah env x >>= return . fmap unipolar

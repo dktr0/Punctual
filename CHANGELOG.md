@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.4.2:
+
+-bug fix (xyt,xyrt,frt,ft)
+
 0.4.4.1:
 
 -bug fix (mod operators)
