@@ -293,7 +293,7 @@ A Punctual statement does not cause audio or video output unless it ends with >>
 
 \>> audio -- audio output: If multiple channels of audio are present, they are spread/panned "equidistantly" over the available audio outputs.
 
-\>> video -- video output: every three channels of signal are interpreted as red, green, and blue intensities (from 0 to 1); if only a one-channel signal is provided the value of that signal is used for all of red, green, and blue intensities; if a two-channel signal is provided the first channel is used for red and green, and the second channel is used for blue. (note: 'rgb' is a synonym for 'video')
+\>> video -- video output: every three channels of signal are interpreted as red, green, and blue intensities (from 0 to 1); if only a one-channel signal is provided the value of that signal is used for all of red, green, and blue intensities; if a two-channel signal is provided the first channel is used for red, and the second channel is used for green and blue. (note: 'rgb' is a synonym for 'video')
 
 There are a number of additional output types for particular purposes, as follows:
 
