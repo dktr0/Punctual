@@ -17,6 +17,7 @@ data Program = Program {
   textureSet :: Set TextureRef,
   programNeedsAudioInputAnalysis :: Bool,
   programNeedsAudioOutputAnalysis :: Bool,
+  programNeedsWebcam :: Bool,
   actions :: IntMap Action,
   evalTime :: UTCTime
   } deriving (Show, Eq, Generic, NFData)
@@ -27,6 +28,7 @@ emptyProgram _t0 = Program {
   textureSet = Set.empty,
   programNeedsAudioInputAnalysis = False,
   programNeedsAudioOutputAnalysis = False,
+  programNeedsWebcam = False,
   actions = IntMap.empty,
   evalTime = _t0
 }

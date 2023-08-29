@@ -151,7 +151,7 @@ deleteSynth timePair xfadeStart xfadeEnd (prevSynth,prevGainNode) = do
     W.disconnectSynth prevSynth
   return ()
 
--- non-recursive: specific optimizations go here, don't use this directly (use optimize instead)
+-- non-recursive: specific optimizations go here, don't call this directly (use optimize instead)
 optimize' :: Graph -> Graph
 optimize' (Sum _ (Constant x) (Constant y)) = Constant $ x+y
 optimize' (Product _ (Constant x) (Constant y)) = Constant $ x*y
@@ -164,51 +164,81 @@ optimize' (DbAmp (Constant x)) = Constant $ W.dbamp x
 optimize' (AmpDb (Constant x)) = Constant $ W.ampdb x
 optimize' x = x
 
--- recursive: use this when optimizing, calls optimize' for specific optimizations but recursively walks the tree to make sure the whole tree is optimized
+-- recursive: call this when optimizing, calls optimize' for specific optimizations but recursively walks the tree to make sure the whole tree is optimized
 optimize :: Graph -> Graph
-optimize (Multi xs) = Multi $ fmap optimize xs
-optimize (Append xs ys) = Append (optimize xs) (optimize ys)
-optimize (Mono x) = Mono $ optimize x
-optimize (Rep n x) = Rep n $ optimize x
-optimize (UnRep n x) = UnRep n $ optimize x
-optimize (Bipolar x) = Bipolar $ optimize x
-optimize (Unipolar x) = Bipolar $ optimize x
-optimize (Sin x) = Sin $ optimize x
-optimize (Tri x) = Tri $ optimize x
-optimize (Saw x) = Saw $ optimize x
-optimize (Sqr x) = Sqr $ optimize x
+optimize x = x
+optimize (Multi xs) = optimize' $ Multi $ fmap optimize xs
+optimize (Append xs ys) = optimize' $ Append (optimize xs) (optimize ys)
+optimize (Zip xs ys) = optimize' $ Zip (optimize xs) (optimize ys)
+optimize (Mono x) = optimize' $ Mono $ optimize x
+optimize (Rep n x) = optimize' $ Rep n $ optimize x
+optimize (UnRep n x) = optimize' $ UnRep n $ optimize x
+optimize (Bipolar x) = optimize' $ Bipolar $ optimize x
+optimize (Unipolar x) = optimize' $ Bipolar $ optimize x
+-- oscillators
+optimize (Osc x) = optimize' $ Osc $ optimize x
+optimize (Tri x) = optimize' $ Tri $ optimize x
+optimize (Saw x) = optimize' $ Saw $ optimize x
+optimize (Sqr x) = optimize' $ Sqr $ optimize x
+optimize (LFTri x) = optimize' $ LFTri $ optimize x
+optimize (LFSaw x) = optimize' $ LFSaw $ optimize x
+optimize (LFSqr x) = optimize' $ LFSqr $ optimize x
+-- unary functions from Javascript Math library
+optimize (Abs x) = optimize' $ Abs $ optimize x
+optimize (Acos x) = optimize' $ Acos $ optimize x
+optimize (Acosh x) = optimize' $ Acosh $ optimize x
+optimize (Asin x) = optimize' $ Asin $ optimize x
+optimize (Asinh x) = optimize' $ Asinh $ optimize x
+optimize (Atan x) = optimize' $ Atan $ optimize x
+optimize (Atanh x) = optimize' $ Atanh $ optimize x
+optimize (Cbrt x) = optimize' $ Cbrt $ optimize x
+optimize (Ceil x) = optimize' $ Ceil $ optimize x
+optimize (Cos x) = optimize' $ Cos $ optimize x
+optimize (Cosh x) = optimize' $ Cosh $ optimize x
+optimize (Exp x) = optimize' $ Exp $ optimize x
+optimize (Floor x) = optimize' $ Floor $ optimize x
+optimize (Log x) = optimize' $ Log $ optimize x
+optimize (Log2 x) = optimize' $ Log2 $ optimize x
+optimize (Log10 x) = optimize' $ Log10 $ optimize x
+optimize (Round x) = optimize' $ Round $ optimize x
+optimize (Sign x) = optimize' $ Sign $ optimize x
+optimize (Sin x) = optimize' $ Sin $ optimize x
+optimize (Sinh x) = optimize' $ Sinh $ optimize x
+optimize (Sqrt x) = optimize' $ Sqrt $ optimize x
+optimize (Tan x) = optimize' $ Tan $ optimize x
+optimize (Tanh x) = optimize' $ Tanh $ optimize x
+optimize (Trunc x) = optimize' $ Trunc $ optimize x
+-- other unary functions
 optimize (MidiCps x) = optimize' $ MidiCps $ optimize x
 optimize (CpsMidi x) = optimize' $ CpsMidi $ optimize x
 optimize (DbAmp x) = optimize' $ DbAmp $ optimize x
 optimize (AmpDb x) = optimize' $ AmpDb $ optimize x
-optimize (Abs x) = Abs $ optimize x
-optimize (Sqrt x) = Sqrt $ optimize x
-optimize (Floor x) = Floor $ optimize x
-optimize (Ceil x) = Ceil $ optimize x
-optimize (Fract x) = Fract $ optimize x
+optimize (Fract x) = optimize' $ Fract $ optimize x
+-- other functions
 optimize (Sum mm x y) = optimize' $ Sum mm (optimize x) (optimize y)
 optimize (Product mm x y) = optimize' $ Product mm (optimize x) (optimize y)
 optimize (Division mm x y) = optimize' $ Division mm (optimize x) (optimize y)
-optimize (Pow mm x y) = Pow mm (optimize x) (optimize y)
-optimize (Equal mm x y) = Equal mm (optimize x) (optimize y)
-optimize (NotEqual mm x y) = NotEqual mm (optimize x) (optimize y)
-optimize (GreaterThan mm x y) = GreaterThan mm (optimize x) (optimize y)
-optimize (GreaterThanOrEqual mm x y) = GreaterThanOrEqual mm (optimize x) (optimize y)
-optimize (LessThan mm x y) = LessThan mm (optimize x) (optimize y)
-optimize (LessThanOrEqual mm x y) = LessThanOrEqual mm (optimize x) (optimize y)
-optimize (Max x y) = Max (optimize x) (optimize y)
-optimize (Min x y) = Min (optimize x) (optimize y)
-optimize (Gate x y) = Gate (optimize x) (optimize y)
-optimize (Clip x y) = Clip (optimize x) (optimize y)
-optimize (Between x y) = Between (optimize x) (optimize y)
-optimize (Step xs y) = Step xs $ optimize y
-optimize (IfThenElse x y z) = IfThenElse (optimize x) (optimize y) (optimize z)
-optimize (LinLin x y z) = LinLin (optimize x) (optimize y) (optimize z)
-optimize (LPF f q i) = LPF (optimize f) (optimize q) (optimize i)
-optimize (HPF f q i) = HPF (optimize f) (optimize q) (optimize i)
-optimize (BPF f q i) = BPF (optimize f) (optimize q) (optimize i)
-optimize (Delay maxT t i) = Delay maxT (optimize t) (optimize i)
-optimize x = x
+optimize (Mod mm x y) = optimize' $ Mod mm (optimize x) (optimize y)
+optimize (Pow mm x y) = optimize' $ Pow mm (optimize x) (optimize y)
+optimize (Equal mm x y) = optimize' $ Equal mm (optimize x) (optimize y)
+optimize (NotEqual mm x y) = optimize' $ NotEqual mm (optimize x) (optimize y)
+optimize (GreaterThan mm x y) = optimize' $ GreaterThan mm (optimize x) (optimize y)
+optimize (GreaterThanOrEqual mm x y) = optimize' $ GreaterThanOrEqual mm (optimize x) (optimize y)
+optimize (LessThan mm x y) = optimize' $ LessThan mm (optimize x) (optimize y)
+optimize (LessThanOrEqual mm x y) = optimize' $ LessThanOrEqual mm (optimize x) (optimize y)
+optimize (Max x y) = optimize' $ Max (optimize x) (optimize y)
+optimize (Min x y) = optimize' $ Min (optimize x) (optimize y)
+optimize (Gate x y) = optimize' $ Gate (optimize x) (optimize y)
+optimize (Clip x y) = optimize' $ Clip (optimize x) (optimize y)
+optimize (Between x y) = optimize' $ Between (optimize x) (optimize y)
+optimize (Step xs y) = optimize' $ Step xs $ optimize y
+optimize (IfThenElse x y z) = optimize' $ IfThenElse (optimize x) (optimize y) (optimize z)
+optimize (LinLin x y z) = optimize' $ LinLin (optimize x) (optimize y) (optimize z)
+optimize (LPF f q i) = optimize' $ LPF (optimize f) (optimize q) (optimize i)
+optimize (HPF f q i) = optimize' $ HPF (optimize f) (optimize q) (optimize i)
+optimize (BPF f q i) = optimize' $ BPF (optimize f) (optimize q) (optimize i)
+optimize (Delay maxT t i) = optimize' $ Delay maxT (optimize t) (optimize i)
+optimize x = optimize' x
 
 graphToSynthDef' :: AudioIO m => W.Node -> Graph -> SynthDef m NodeRef
 graphToSynthDef' i g = do
@@ -227,8 +257,10 @@ graphToSynthDef i (Unipolar x) = graphToSynthDef i $ optimize $ x * 0.5 + 0.5
 
 graphToSynthDef i AudioIn = W.externalNode i
 
-graphToSynthDef _ (Sin (Constant x)) = W.oscillator W.Sine x
-graphToSynthDef i (Sin x) = do
+graphToSynthDef i Pi = graphToSynthDef i 3.1415926535897932384626433832795
+
+graphToSynthDef _ (Osc (Constant x)) = W.oscillator W.Sine x
+graphToSynthDef i (Osc x) = do
   s <- W.oscillator W.Sine 0
   graphToSynthDef i x >>= W.param W.Frequency s
   return s
@@ -344,7 +376,12 @@ graphToSynthDef i (Division _ x y) = do
   x' <- graphToSynthDef i x
   y' <- graphToSynthDef i y
   W.safeDivideWorklet x' y'
-
+  
+graphToSynthDef i (Mod _ x y) = do
+  x' <- graphToSynthDef i x
+  y' <- graphToSynthDef i y
+  W.modWorklet x' y'
+  
 graphToSynthDef i (GreaterThan _ x y) = do
   x' <- graphToSynthDef i x
   y' <- graphToSynthDef i y
@@ -392,14 +429,37 @@ graphToSynthDef i (Delay maxT t x) = do
   W.param W.DelayTime theDelay t'
   return theDelay
 
+-- unary functions from JavaScript Math
+graphToSynthDef i (Abs x) = graphToSynthDef i x >>= W.absWorklet
+graphToSynthDef i (Acos x) = graphToSynthDef i x >>= W.acosWorklet
+graphToSynthDef i (Acosh x) = graphToSynthDef i x >>= W.acoshWorklet
+graphToSynthDef i (Asin x) = graphToSynthDef i x >>= W.asinWorklet
+graphToSynthDef i (Asinh x) = graphToSynthDef i x >>= W.asinhWorklet
+graphToSynthDef i (Atan x) = graphToSynthDef i x >>= W.atanWorklet
+graphToSynthDef i (Atanh x) = graphToSynthDef i x >>= W.atanhWorklet
+graphToSynthDef i (Cbrt x) = graphToSynthDef i x >>= W.cbrtWorklet
+graphToSynthDef i (Ceil x) = graphToSynthDef i x >>= W.ceilWorklet
+graphToSynthDef i (Cos x) = graphToSynthDef i x >>= W.cosWorklet
+graphToSynthDef i (Cosh x) = graphToSynthDef i x >>= W.coshWorklet
+graphToSynthDef i (Exp x) = graphToSynthDef i x >>= W.expWorklet
+graphToSynthDef i (Floor x) = graphToSynthDef i x >>= W.floorWorklet
+graphToSynthDef i (Log x) = graphToSynthDef i x >>= W.logWorklet
+graphToSynthDef i (Log2 x) = graphToSynthDef i x >>= W.log2Worklet
+graphToSynthDef i (Log10 x) = graphToSynthDef i x >>= W.log10Worklet
+graphToSynthDef i (Round x) = graphToSynthDef i x >>= W.roundWorklet
+graphToSynthDef i (Sign x) = graphToSynthDef i x >>= W.signWorklet
+graphToSynthDef i (Sin x) = graphToSynthDef i x >>= W.sinWorklet
+graphToSynthDef i (Sinh x) = graphToSynthDef i x >>= W.sinhWorklet
+graphToSynthDef i (Sqrt x) = graphToSynthDef i x >>= W.sqrtWorklet
+graphToSynthDef i (Tan x) = graphToSynthDef i x >>= W.tanWorklet
+graphToSynthDef i (Tanh x) = graphToSynthDef i x >>= W.tanhWorklet
+graphToSynthDef i (Trunc x) = graphToSynthDef i x >>= W.truncWorklet
+
+-- other unary functions
 graphToSynthDef i (MidiCps x) = graphToSynthDef i x >>= W.midiCpsWorklet
 graphToSynthDef i (CpsMidi x) = graphToSynthDef i x >>= W.cpsMidiWorklet
 graphToSynthDef i (DbAmp x) = graphToSynthDef i x >>= W.dbAmpWorklet
 graphToSynthDef i (AmpDb x) = graphToSynthDef i x >>= W.ampDbWorklet
-graphToSynthDef i (Abs x) = graphToSynthDef i x >>= W.absWorklet
-graphToSynthDef i (Sqrt x) = graphToSynthDef i x >>= W.sqrtWorklet
-graphToSynthDef i (Floor x) = graphToSynthDef i x >>= W.floorWorklet
-graphToSynthDef i (Ceil x) = graphToSynthDef i x >>= W.ceilWorklet
 graphToSynthDef i (Fract x) = graphToSynthDef i x >>= W.fractWorklet
 
 graphToSynthDef i (Clip (Multi [r1,r2]) x) = do -- *** THIS IS PRETTY HACKY
@@ -448,6 +508,7 @@ expandMultis :: Graph -> [Graph]
 expandMultis (Multi []) = []
 expandMultis (Multi xs) = concat $ multi $ fmap expandMultis xs
 expandMultis (Append xs ys) = expandMultis xs ++ expandMultis ys
+expandMultis (Zip xs ys) = concat $ zipWith (\a b -> [a,b]) (expandMultis xs) (expandMultis ys)
 expandMultis (Mono x) = [graphsToMono $ expandMultis x]
 expandMultis (Constant x) = [Constant x]
 expandMultis (Rep n x) = concat $ fmap (replicate n) $ expandMultis x
@@ -456,28 +517,53 @@ expandMultis (UnRep n x) = fmap ((/ fromIntegral n) . graphsToMono) $ chunksOf n
 -- unary functions
 expandMultis (Bipolar x) = fmap Bipolar $ expandMultis x
 expandMultis (Unipolar x) = fmap Unipolar $ expandMultis x
+expandMultis Pi = [Pi]
 expandMultis Rnd = [Rnd]
 expandMultis AudioIn = [AudioIn]
-expandMultis (Sin x) = fmap Sin (expandMultis x)
+-- oscillators
+expandMultis (Osc x) = fmap Osc (expandMultis x)
 expandMultis (Tri x) = fmap Tri (expandMultis x)
 expandMultis (Saw x) = fmap Saw (expandMultis x)
 expandMultis (Sqr x) = fmap Sqr (expandMultis x)
 expandMultis (LFTri x) = fmap LFTri (expandMultis x)
 expandMultis (LFSaw x) = fmap LFSaw (expandMultis x)
 expandMultis (LFSqr x) = fmap LFSqr (expandMultis x)
+-- unary functions from Javascript Math
+expandMultis (Abs x) = fmap Abs (expandMultis x)
+expandMultis (Acos x) = fmap Acos (expandMultis x)
+expandMultis (Acosh x) = fmap Acosh (expandMultis x)
+expandMultis (Asin x) = fmap Asin (expandMultis x)
+expandMultis (Asinh x) = fmap Asinh (expandMultis x)
+expandMultis (Atan x) = fmap Atan (expandMultis x)
+expandMultis (Atanh x) = fmap Atanh (expandMultis x)
+expandMultis (Cbrt x) = fmap Cbrt (expandMultis x)
+expandMultis (Ceil x) = fmap Ceil (expandMultis x)
+expandMultis (Cos x) = fmap Cos (expandMultis x)
+expandMultis (Cosh x) = fmap Cosh (expandMultis x)
+expandMultis (Exp x) = fmap Exp (expandMultis x)
+expandMultis (Floor x) = fmap Floor (expandMultis x)
+expandMultis (Log x) = fmap Log (expandMultis x)
+expandMultis (Log2 x) = fmap Log2 (expandMultis x)
+expandMultis (Log10 x) = fmap Log10 (expandMultis x)
+expandMultis (Round x) = fmap Round (expandMultis x)
+expandMultis (Sign x) = fmap Sign (expandMultis x)
+expandMultis (Sin x) = fmap Sin (expandMultis x)
+expandMultis (Sinh x) = fmap Sinh (expandMultis x)
+expandMultis (Sqrt x) = fmap Sqrt (expandMultis x)
+expandMultis (Tan x) = fmap Tan (expandMultis x)
+expandMultis (Tanh x) = fmap Tanh (expandMultis x)
+expandMultis (Trunc x) = fmap Trunc (expandMultis x)
+-- other unary functions
 expandMultis (MidiCps x) = fmap MidiCps (expandMultis x)
 expandMultis (CpsMidi x) = fmap CpsMidi (expandMultis x)
 expandMultis (DbAmp x) = fmap DbAmp (expandMultis x)
 expandMultis (AmpDb x) = fmap AmpDb (expandMultis x)
-expandMultis (Abs x) = fmap Abs (expandMultis x)
-expandMultis (Sqrt x) = fmap Sqrt (expandMultis x)
-expandMultis (Floor x) = fmap Floor (expandMultis x)
-expandMultis (Ceil x) = fmap Ceil (expandMultis x)
 expandMultis (Fract x) = fmap Fract (expandMultis x)
 -- binary functions with two multi-modes
 expandMultis (Sum mm x y) = expandWith mm (Sum mm) x y
 expandMultis (Product mm x y) = expandWith mm (Product mm) x y
 expandMultis (Division mm x y) = expandWith mm (Division mm) x y
+expandMultis (Mod mm x y) = expandWith mm (Mod mm) x y
 expandMultis (Pow mm x y) = expandWith mm (Pow mm) x y
 expandMultis (Equal mm x y) = expandWith mm (Equal mm) x y
 expandMultis (NotEqual mm x y) = expandWith mm (NotEqual mm) x y

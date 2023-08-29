@@ -100,7 +100,7 @@ align t xs = do
   (x,xs') <- splitAligned t xs
   xs'' <- align t xs'
   return (x:xs'')
-
+  
 
 -- | alignRGBA aligns to groups of 4 channels (vec4) as follows:
 -- 1 channel: repeat as channel 2 and 3, set channel 4 (alpha) to 1
@@ -317,3 +317,11 @@ texture2D n xy = do
   xy' <- align Vec2 xy
   let f x = GLSLExpr Vec3 False $ "tex(" <> n <> "," <> builder x <> ")"
   mapM assign $ fmap f xy'
+
+
+-- used by Punctual's 'zip' operation
+zipGLSLExpr :: [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
+zipGLSLExpr xs ys = do
+  xs' <- align GLFloat xs
+  ys' <- align GLFloat ys
+  pure $ Foldable.concat $ zipWith (\a b -> [a,b]) xs' ys' -- Haskell-style zip, excess elements in longer list discarded

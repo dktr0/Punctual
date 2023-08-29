@@ -38,6 +38,7 @@ import Sound.Punctual.GL
 import Sound.Punctual.AsyncProgram
 import Sound.Punctual.Resolution
 import Sound.Punctual.Texture
+import qualified Sound.Punctual.Webcam as Webcam
 
 data PunctualWebGL = PunctualWebGL {
   theCanvas :: HTMLCanvasElement,
@@ -46,6 +47,7 @@ data PunctualWebGL = PunctualWebGL {
   triangleStrip :: WebGLBuffer,
   fftTexture :: WebGLTexture,
   ifftTexture :: WebGLTexture,
+  webcam :: Webcam.Webcam,
   textures :: Map TextureRef Texture,
   fb0 :: (WebGLFramebuffer,WebGLTexture),
   fb1 :: (WebGLFramebuffer,WebGLTexture),
@@ -155,11 +157,12 @@ getAudioOutputAnalysis glCtx st = case (audioOutputAnalyser st) of
 
 foreign import javascript safe
   "$1.bindTexture($1.TEXTURE_2D, $3);\
-  \$1.texImage2D($1.TEXTURE_2D, 0, $1.LUMINANCE, 64, 1, 0, $1.LUMINANCE, $1.UNSIGNED_BYTE, $2);\
+  \$1.texImage2D($1.TEXTURE_2D, 0, $1.LUMINANCE, 512, 1, 0, $1.LUMINANCE, $1.UNSIGNED_BYTE, $2);\
   \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_WRAP_S, $1.CLAMP_TO_EDGE);\
   \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_WRAP_T, $1.CLAMP_TO_EDGE);\
   \$1.texParameteri($1.TEXTURE_2D, $1.TEXTURE_MIN_FILTER, $1.LINEAR);"
   _fftToTexture :: WebGLRenderingContext -> JSVal -> WebGLTexture -> IO ()
+
 
 -- given a list of requested texture sources (images) and the previous map of requested texture sources
 -- request any textures we don't already have
@@ -182,9 +185,10 @@ newPunctualWebGL mic out res _brightness cvs ctx = runGL ctx $ do
   ts <- createBuffer
   bindBufferArray ts
   liftIO $ bufferDataArrayStatic glCtx
-  -- create textures to hold output fft (FFT) and input fft (IFFT) data
+  -- create textures to hold output fft (FFT), input fft (IFFT)
   oFFT <- createTexture
   iFFT <- createTexture
+  wc <- Webcam.new
   -- create two framebuffers to ping-pong between as backbuffer/feedback
   frameBuffer0 <- makeFrameBufferTexture res
   frameBuffer1 <- makeFrameBufferTexture res
@@ -197,6 +201,7 @@ newPunctualWebGL mic out res _brightness cvs ctx = runGL ctx $ do
     triangleStrip = ts,
     fftTexture = oFFT,
     ifftTexture = iFFT,
+    webcam = wc,
     textures = Map.empty,
     fb0 = frameBuffer0,
     fb1 = frameBuffer1,
@@ -293,7 +298,7 @@ deletePunctualWebGL ctx z st = runGL ctx $ do
     firstZone = head $ IntMap.keys newCurrPrograms
   }
 
-evaluatePunctualWebGL :: GLContext -> Tempo -> Int -> Program -> PunctualWebGL -> IO PunctualWebGL
+evaluatePunctualWebGL :: GLContext -> Tempo -> Int -> Program -> PunctualWebGL -> IO (PunctualWebGL,Text)
 evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
   let newCurrPrograms = IntMap.insert z p $ currPrograms st
   let prevProgram = IntMap.lookup z $ currPrograms st
@@ -309,13 +314,11 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
   let progTexMap = Map.fromList $ zip (Set.elems progTexSet) [0..]
   let newTextureMaps = IntMap.insert z progTexMap $ textureMapsEval st
   let newFragmentShader = fragmentShader tempo progTexMap prevProgram' p
-  liftIO $ T.putStrLn $ newFragmentShader
+  -- liftIO $ T.putStrLn $ newFragmentShader
 
   let prevAsync = IntMap.findWithDefault emptyAsyncProgram z (mainPrograms st)
   newAsync <- updateAsyncProgram prevAsync defaultVertexShader newFragmentShader
-  let prevProgramsNeedAudioInputAnalysis = elem True $ fmap programNeedsAudioInputAnalysis $ IntMap.elems $ newPrevPrograms
-  let prevProgramsNeedAudioOutputAnalysis = elem True $ fmap programNeedsAudioOutputAnalysis $ IntMap.elems $ newPrevPrograms
-
+  let currAndPrevPrograms = IntMap.elems newCurrPrograms ++ IntMap.elems newPrevPrograms
   let st' = st {
     prevPrograms = newPrevPrograms,
     currPrograms = newCurrPrograms,
@@ -323,15 +326,25 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
     textures = newTextures,
     textureMapsEval = newTextureMaps,
     firstZone = head $ IntMap.keys newCurrPrograms, -- recalculate which zone is first in drawing order so that defaultAlpha can be correct
-    needsAudioInputAnalysis = programNeedsAudioInputAnalysis p || prevProgramsNeedAudioInputAnalysis,
-    needsAudioOutputAnalysis = programNeedsAudioOutputAnalysis p || prevProgramsNeedAudioOutputAnalysis
+    needsAudioInputAnalysis = elem True $ fmap programNeedsAudioInputAnalysis currAndPrevPrograms,
+    needsAudioOutputAnalysis =elem True $ fmap programNeedsAudioOutputAnalysis currAndPrevPrograms
     }
-  liftIO $ updateAudioAnalysis st'
+  st'' <- liftIO $ updateAudioAnalysis st'
+  setWebcamActive st''
+  return (st'',newFragmentShader)
+  
+  
+setWebcamActive :: PunctualWebGL -> GL ()
+setWebcamActive st = do
+  -- the webcam should be active if any current or previous programs in any zone require it, otherwise it should be inactive
+  let shouldBeActive = (elem True $ fmap programNeedsWebcam $ IntMap.elems $ currPrograms st) || (elem True $ fmap programNeedsWebcam $ IntMap.elems $ prevPrograms st)
+  Webcam.setActive (webcam st) shouldBeActive
 
 
 drawPunctualWebGL :: GLContext -> Tempo -> UTCTime -> Int -> PunctualWebGL -> IO PunctualWebGL
 drawPunctualWebGL ctx tempo now z st = runGL ctx $ do
-  let mainUniforms = ["res","width","height","_fb","_fft","_ifft","tex0","tex1","tex2","tex3","tex4","tex5","tex6","tex7","tex8","tex9","tex10","tex11","tex12","lo","mid","hi","ilo","imid","ihi","_defaultAlpha","_cps","_time","_etime","_beat","_ebeat"]
+  Webcam.updateTexture (webcam st)
+  let mainUniforms = ["res","width","height","_fb","_cam","_fft","_ifft","tex0","tex1","tex2","tex3","tex4","tex5","tex6","tex7","tex8","tex9","tex10","tex11","tex12","lo","mid","hi","ilo","imid","ihi","_defaultAlpha","_cps","_time","_etime","_beat","_ebeat"]
   let mainAttribs = ["p"]
   let prevAsync = IntMap.findWithDefault emptyAsyncProgram z $ mainPrograms st
   (newProgramReady,asyncProgram) <- useAsyncProgram prevAsync mainUniforms mainAttribs
@@ -357,11 +370,13 @@ drawPunctualWebGL ctx tempo now z st = runGL ctx $ do
     ifftLoc <- getUniformLocation program "_ifft"
     bindTex 1 (fftTexture st') fftLoc
     bindTex 2 (ifftTexture st') ifftLoc
+    camLoc <- getUniformLocation program "_cam"
+    bindTex 3 (Webcam._texture $ webcam st') camLoc
     -- bind textures to uniforms representing textures in the program
     let uMap = uniformsMap asyncProgram
     let texs = IntMap.findWithDefault (Map.empty) z $ textureMapsDraw st' -- Map Text Int
     let bindTex' k a = do
-          let textureSlot = a + 3
+          let textureSlot = a + 4
           let theTexture = textures st' ! k
           let uniformName = "tex" <> showt a
           let uniformLoc = uMap ! uniformName
@@ -385,16 +400,21 @@ drawPunctualWebGL ctx tempo now z st = runGL ctx $ do
     uniform1fAsync asyncProgram "ilo" ilo
     uniform1fAsync asyncProgram "imid" imid
     uniform1fAsync asyncProgram "ihi" ihi
-    let defaultAlpha = if z == firstZone st' then 1.0 else 0.0
+    let isFirstZone = z == firstZone st'
+    let defaultAlpha = if isFirstZone then 1.0 else 0.0
     uniform1fAsync asyncProgram "_defaultAlpha" defaultAlpha
-    pingPongFrameBuffers (uniformsMap asyncProgram ! "_fb") st'
     let (w,h) = pixels (resolution st')
     uniform2fAsync asyncProgram "res" (fromIntegral w) (fromIntegral h)
-    viewport 0 0 w h
     actualWidth <- liftIO $ getClientWidth (theCanvas st)
     uniform1fAsync asyncProgram "width" actualWidth
     actualHeight <- liftIO $ getClientHeight (theCanvas st)
     uniform1fAsync asyncProgram "height" actualHeight
+    viewport 0 0 w h
+    pingPongFrameBuffers (uniformsMap asyncProgram ! "_fb") st'
+    -- clear before drawing only if it is the first zone:
+    when isFirstZone $ do
+      clearColor 0 0 0 0
+      clearColorBuffer
     drawArraysTriangleStrip 0 4
   return $ st' { mainPrograms = IntMap.insert z asyncProgram (mainPrograms st') }
 
@@ -428,6 +448,8 @@ displayPunctualWebGL ctx st = if (IntMap.null $ currPrograms st) then (return st
     uniform1fAsync asyncProgram "brightness" (brightness st)
     uniform2fAsync asyncProgram "res" (fromIntegral w) (fromIntegral h)
     viewport 0 0 w h
+    clearColor 0 0 0 0
+    clearColorBuffer
     drawArraysTriangleStrip 0 4
     return ()
   return $ st { postProgram = asyncProgram, pingPong = not (pingPong st) }

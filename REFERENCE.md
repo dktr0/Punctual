@@ -2,13 +2,13 @@
 
 ## Punctual Oscillators, Filters, Noise, Audio Input
 
-sin [freq] -- sine wave, ranging from 1 to -1
+osc [freq] -- sine wave oscillator, ranging from 1 to -1 (note: calling this sin is deprecated, see also sin' below; as of Punctual 0.5, only osc will produce a sine oscillator (as opposed to sine function))
 
-tri [freq] -- triangle wave (in audio rendering, this will be band-limited - see also lftri, below)
+tri [freq] -- triangle wave oscillator (in audio rendering, this will be band-limited - see also lftri, below)
 
-saw [freq] -- sawtooth wave (in audio rendering, this will be band-limited - see also lfsaw, below)
+saw [freq] -- sawtooth wave oscillator(in audio rendering, this will be band-limited - see also lfsaw, below)
 
-sqr [freq] -- square wave (in audio rendering, this will be band-limited - see also lfsqr, below)
+sqr [freq] -- square wave oscillator (in audio rendering, this will be band-limited - see also lfsqr, below)
 
 lftri [freq] -- "low frequency" triangle wave which unlike tri is not band-limited (in audio), and which goes from -1 to 1. In WebGL graphics output, tri and lftri are identical.
 
@@ -56,6 +56,8 @@ When Punctual functions or operators take two or more arguments that are, themse
 
 [graph] / [graph] -- "safe" division, where dividing by 0 yields a result of 0 (combinatorial, for pairwise use /: )
 
+[graph] % [graph] -- mod/modulo operation, ie. the remainder when dividing x by y (combinatorial, for pairwise use %: )
+
 [graph] ** [graph] -- exponentiation, ie. x to the power of y (combinatorial, for pairwise use **: )
 
 [graph] == [graph] -- equal to (1 = true, 0 = false, combinatorial, for pairwise use ==: )
@@ -74,11 +76,55 @@ max [graph] [graph] -- returns the maximum value from two graphs (combinatorial)
 
 min [graph] [graph] -- returns the minimum value from two graphs (combinatorial)
 
+between [min1,max1,min2,max2, ...] [x, ...] -- returns 1 (true) if values of x are between ranges specified by min1,max1,min2,max2,etc
+
 abs [graph] -- absolute value of provided graph
+
+acos [graph] -- area cosine of provided graph
+
+acosh [graph] -- hyperbolic area cosine of provided graph
+
+asin [graph] -- area sine of provided graph
+
+asinh [graph] -- hyperbolic area sine of provided graph
+
+atan [graph] -- area tangent of provided graph
+
+atanh [graph] -- hyperbolic area tangent of provided graph
+
+cbrt [graph] -- cube root of provided graph
+
+ceil [graph] -- the first whole number above the value of the argument, eg. given 2.3 the return value would be 3.0
+
+cos [graph] -- cosine of provided graph
+
+cosh [graph] -- hyperbolic cosine of provided graph
+
+exp [graph] -- the constant e to the power of provided graph
 
 floor [graph] -- the first whole number below the value of the argument, eg. given 2.3 the return value would be 2.0
 
-ceil [graph] -- the first whole number above the value of the argument, eg. given 2.3 the return value would be 3.0
+log [graph] -- the natural logarithm of provided graph
+
+log2 [graph] -- the base 2 logarithm of provided graph
+
+log10 [graph] -- the base 10 logarithm of provided graph
+
+round [graph] -- values in the provided graph are rounded to the nearest whole number
+
+sign [graph] -- the sign of the provided graph (-1 for negative numbers, 0 for zero, 1 for positive numbers)
+
+sin' [graph] -- the sine of the provided graph (note: as of Punctual 0.5 this will be called sin, and the function previously known as sin will only be accessible as osc)
+
+sinh [graph] -- the hyperbolic sine of the provided graph
+
+sqrt [graph] -- returns the square root of the graph
+
+tan [graph] -- the tangent of the provided graph
+
+tanh [graph] -- the hyperbolic tangent of the provided graph
+
+trunc [graph] -- values in the provided graph are truncated to whole numbers by discarding any decimal components
 
 fract [graph] - the fractional part of the argument, eg. given 2.3 the return value would be 0.3
 
@@ -102,8 +148,6 @@ bipolar [graph] -- input is rescaled as if input range was unipolar (0,1) and ou
 
 step [graph,graph,graph,...] [graph] -- given a list of graphs and a second, final, "modulating" graph, output the value of a selected graph from the list according to the second argument (drive with lfsaw to produce a simple step sequencer-like behaviour).
 
-sqrt [graph] -- returns the square root of the graph
-
 mono [graph] -- takes multi-channel graphs down to a single channel by summing/mixing
 
 gate [graph] [graph] -- when the absolute value of the second graph is lower than the absolute value of the first graph the output is zero, otherwise the output is just the value of the second graph (note: unlike a typical audio noise gate this gate closes and opens immediately)
@@ -111,6 +155,8 @@ gate [graph] [graph] -- when the absolute value of the second graph is lower tha
 zero [graph] -- returns a graph that is always 0 regardless of the input graph (useful for quickly silencing/erasing particular lines of code). The synonym 'zer0' is also available.
 
 [graph] ++ [graph] -- appends two graphs to each other in a way that preserves the multiple channels of both graphs. For example if the graph on the left has 3 channels, and the one on the right has 2 channels, then the result will be a 5-channel graph consisting of the 3 channels from the left operand, followed by the 2 channels from the right operand.
+
+pi -- the value of PI (3.1415926535897932384626433832795)
 
 ## Punctual Graph Functions Specialised for Graphics
 
@@ -123,19 +169,37 @@ fy -- the position of the current fragment along the y-axis from bottom (-1) to 
 
 fxy -- the position of the current fragment along the x and y axes as a 2-channel signal
 
+frt -- the position of the current fragment in polar coordinates (radius, angle/theta)
+
+fr -- the radius of the position of the current fragment in polar coordinates
+
+ft -- the angle (theta) of the position of the current fragment in polar coordinates
+
 px -- the width of an actually displayed pixel (ie. in terms of Punctual's -1 to 1 geometry)
 
 py -- the height of an actually displayed pixel (ie. in terms of Punctual's -1 to 1 geometry)
 
 aspect -- the aspect ratio of the canvas on which Punctual draws
 
+xyrt [x,y,...] -- convert cartesian coordinates to polar coordinates
+
+xyr [x,y,...] -- convert cartesian coordinates to polar coordinates (radii only)
+
+xyt [x,y,...] -- convert cartesian coordinates to polar coordinates (angles/thetas only)
+
+rtxy [r,t,...] -- convert polar coordinates to cartesian coordinates
+
+rtx [r,t,...] -- convert polar coordinates to cartesian coordinates (x dimension only)
+
+rty [r,t,...] -- convert polar coordinates to cartesian coordinates (y dimension only)
+
 dist [x,y,...] -- the distance from specified position to current fragment
 
 prox [x,y,...] -- the "proximity" of specified position to current fragment; equivalent to (2.828427-dist[x,y,...])/2.828427, clamped to be between 0 and 1 (2.828427 is maximum on-screen distance)
 
-circle [x,y,...] [r] -- returns 1 when current fragment within a circle at x and y with radius r
+circle [x,y,...] [d] -- returns 1 when current fragment within a circle at x and y with diameter d
 
-point [x,y,...] -- returns 1 when current fragment is within a pixel of x and y, 0 otherwise
+point [x,y,...] -- returns 1 when current fragment is within approximately half a pixel of x and y, 0 otherwise
 
 rect [x,y,...] [w,h,...] -- returns 1 when current fragment is within rectangle (x and y are centre not corner), 0 otherwise
 
@@ -150,6 +214,8 @@ line [x1,y1,...] [x2,y2,...] [w] -- returns 1 when current fragment is within w 
 img "https://url-to-image-file" -- accesses a texture built from the image file in question as red-green-blue (3-channel signal).
 
 vid "https://url-to-video-file" -- accesses a texture built from the video file in question as red-green-blue (3-channel signal).
+
+cam -- accesses a texture built from the webcam as red-green-blue (3-channel signal).
 
 tex "https://url-to-image-file" [x,y,...] -- accesses a texture built from the image file in question as red-green-blue (3-channel signal). *Deprecated* (use ```img "url"``` instead).
 
@@ -227,7 +293,7 @@ A Punctual statement does not cause audio or video output unless it ends with >>
 
 \>> audio -- audio output: If multiple channels of audio are present, they are spread/panned "equidistantly" over the available audio outputs.
 
-\>> video -- video output: every three channels of signal are interpreted as red, green, and blue intensities (from 0 to 1); if only a one-channel signal is provided the value of that signal is used for all of red, green, and blue intensities; if a two-channel signal is provided the first channel is used for red and green, and the second channel is used for blue. (note: 'rgb' is a synonym for 'video')
+\>> video -- video output: every three channels of signal are interpreted as red, green, and blue intensities (from 0 to 1); if only a one-channel signal is provided the value of that signal is used for all of red, green, and blue intensities; if a two-channel signal is provided the first channel is used for red, and the second channel is used for green and blue. (note: 'rgb' is a synonym for 'video')
 
 There are a number of additional output types for particular purposes, as follows:
 

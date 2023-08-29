@@ -50,7 +50,7 @@ newGLContext cv = do
   }
 
 foreign import javascript unsafe
-  "$1.getContext('webgl2',{ powerPreference: 'high-performance', antialias: true })"
+  "$1.getContext('webgl',{ powerPreference: 'high-performance', antialias: true })"
   _getWebGLRenderingContext :: HTMLCanvasElement -> IO WebGLRenderingContext
 
 foreign import javascript unsafe

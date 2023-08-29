@@ -57,7 +57,8 @@ parseProgram eTime x = do
   return $ p {
     textureSet = textureRefs st,
     programNeedsAudioInputAnalysis = audioInputAnalysis st,
-    programNeedsAudioOutputAnalysis = audioOutputAnalysis st
+    programNeedsAudioOutputAnalysis = audioOutputAnalysis st,
+    programNeedsWebcam = needsWebcam st
   }
 
 reformatProgramAsList :: String -> String
@@ -78,7 +79,8 @@ data ParserState = ParserState {
 --  definitions2 :: Map Identifier (Graph -> Graph),
 --  definitions3 :: Map Identifier (Graph -> Graph -> Graph),
   audioInputAnalysis :: Bool,
-  audioOutputAnalysis :: Bool
+  audioOutputAnalysis :: Bool,
+  needsWebcam :: Bool
 } deriving (Show)
 
 emptyParserState :: ParserState
@@ -90,7 +92,8 @@ emptyParserState = ParserState {
 --  definitions2 = Map.empty,
 --  definitions3 = Map.empty,
   audioInputAnalysis = False,
-  audioOutputAnalysis = False
+  audioOutputAnalysis = False,
+  needsWebcam = False
   }
 
 type H = Haskellish ParserState
@@ -241,6 +244,8 @@ graph = asum [
   multiSeries,
   img,
   vid,
+  cam,
+  reserved "pi" >> return Pi,
   reserved "audioin" >> return AudioIn,
   reserved "cps" >> return Cps,
   reserved "time" >> return Time,
@@ -253,6 +258,9 @@ graph = asum [
   reserved "fxy" >> return Fxy,
   reserved "px" >> return Px,
   reserved "py" >> return Py,
+  reserved "frt" >> return FRt,
+  reserved "fr" >> return FR,
+  reserved "ft" >> return FT,
   reserved "aspect" >> return Aspect,
   reserved "lo" >> modify (\s -> s { audioOutputAnalysis = True } ) >> return Lo,
   reserved "mid" >> modify (\s -> s { audioOutputAnalysis = True } ) >> return Mid,
@@ -280,11 +288,44 @@ ifThenElseParser = do
 
 graph2 :: H (Graph -> Graph)
 graph2 = asum [
+  -- unary functions from JavaScript Math
+  reserved "abs" >> return Abs,
+  reserved "acos" >> return Acos,
+  reserved "acosh" >> return Acosh,
+  reserved "asin" >> return Asin,
+  reserved "asinh" >> return Asinh,
+  reserved "atan" >> return Atan,
+  reserved "atanh" >> return Atanh,
+  reserved "cbrt" >> return Cbrt,
+  reserved "ceil" >> return Ceil,
+  reserved "cos" >> return Cos,
+  reserved "cosh" >> return Cosh,
+  reserved "exp" >> return Exp,
+  reserved "floor" >> return Floor,
+  reserved "log" >> return Log,
+  reserved "log2" >> return Log2,
+  reserved "log10" >> return Log10,
+  reserved "round" >> return Round,
+  reserved "sign" >> return Sign,
+  reserved "sin'" >> return Sin,
+  reserved "sinh" >> return Sinh,
+  reserved "sqrt" >> return Sqrt,
+  reserved "tan" >> return Tan,
+  reserved "tanh" >> return Tanh,
+  reserved "trunc" >> return Trunc,
+  -- other unary functions
+  reserved "rtxy" >> return RtXy,
+  reserved "rtx" >> return RtX,
+  reserved "rty" >> return RtY,
+  reserved "xyrt" >> return XyRt,
+  reserved "xyr" >> return XyR,
+  reserved "xyt" >> return XyT,
   reserved "zero" >> return ((*) 0),
   reserved "zer0" >> return ((*) 0),
   reserved "bipolar" >> return Bipolar,
   reserved "unipolar" >> return Unipolar,
-  reserved "sin" >> return Sin,
+  reserved "sin" >> return Osc, -- deprecated, so that sinf can become sin
+  reserved "osc" >> return Osc,
   reserved "tri" >> return Tri,
   reserved "saw" >> return Saw,
   reserved "sqr" >> return Sqr,
@@ -292,14 +333,10 @@ graph2 = asum [
   reserved "lfsaw" >> return LFSaw,
   reserved "lfsqr" >> return LFSqr,
   reserved "mono" >> return Mono,
-  reserved "abs" >> return Abs,
   reserved "cpsmidi" >> return CpsMidi,
   reserved "midicps" >> return MidiCps,
   reserved "dbamp" >> return DbAmp,
   reserved "ampdb" >> return AmpDb,
-  reserved "sqrt" >> return Sqrt,
-  reserved "floor" >> return Floor,
-  reserved "ceil" >> return Ceil,
   reserved "fract" >> return Fract,
   reserved "blend" >> return Blend,
   reserved "hsvrgb" >> return HsvRgb,
@@ -333,12 +370,14 @@ graph2 = asum [
 graph3 :: H (Graph -> Graph -> Graph)
 graph3 = asum [
   reserved "++" >> return Append,
+  reserved "zip" >> return Zip,
 
   -- combinatorial arithmetic operators
   reserved "+" >> return (+),
   reserved "-" >> return (-),
   reserved "*" >> return (Product Combinatorial),
   reserved "/" >> return (Division Combinatorial),
+  reserved "%" >> return (Mod Combinatorial),
   reserved "**" >> return (Pow Combinatorial),
   reserved "==" >> return (Equal Combinatorial),
   reserved "/=" >> return (NotEqual Combinatorial),
@@ -352,6 +391,7 @@ graph3 = asum [
   reserved "-:" >> return (\a b -> Sum PairWise a $ negate b),
   reserved "*:" >> return (Product PairWise),
   reserved "/:" >> return (Division PairWise),
+  reserved "%:" >> return (Mod PairWise),
   reserved "**:" >> return (Pow PairWise),
   reserved "==:" >> return (Equal PairWise),
   reserved "/=:" >> return (NotEqual PairWise),
@@ -442,6 +482,9 @@ vid = do
   let ref = VidRef url
   modify' $ \s -> s { textureRefs = Set.insert ref $ textureRefs s }
   return (Img ref)
+
+cam :: H Graph
+cam = reserved "cam" >> modify (\s -> s { needsWebcam = True }) >> return Cam
 
 -- deprecated
 textureRef_graph_graph :: H (TextureRef -> Graph -> Graph)

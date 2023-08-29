@@ -1,5 +1,5 @@
 name:                punctual
-version:             0.4.0.0
+version:             0.4.4.2
 synopsis:            Live coding language
 description:         Please see README.md
 homepage:            http://github.com/dktr0/Punctual/blob/master/README.md
@@ -7,7 +7,7 @@ license:             GPL-3
 license-file:        LICENSE
 author:              David Ogborn
 maintainer:          ogbornd@mcmaster.ca
-copyright:           2018-21 David Ogborn
+copyright:           2018-23 David Ogborn
 category:            Web
 build-type:          Simple
 cabal-version:       >=1.10
@@ -23,7 +23,7 @@ Library
       base,
       time,
       mtl,
-      musicw >= 0.3.7 && <0.4,
+      musicw >= 0.3.11 && <0.4,
       containers,
       ghcjs-base,
       ghcjs-dom-jsffi,
@@ -33,7 +33,6 @@ Library
       haskell-src-exts >= 1.21.0,
       transformers,
       deepseq,
-      criterion,
       split >= 0.2.3.3 && < 0.3,
       tempi >= 1.0.1.1 && < 1.1
   GHC-Options:       -Wall -fwarn-tabs -fno-warn-unused-do-bind
@@ -53,8 +52,10 @@ Library
                      Sound.Punctual.FragmentShader
                      Sound.Punctual.Resolution
                      Sound.Punctual.WebGL
+                     Sound.Punctual.Texture
   other-modules:     Sound.Punctual.GLSL
                      Sound.Punctual.GLSLExpr
+                     Sound.Punctual.Webcam
   default-language:  Haskell2010
 
 
@@ -83,12 +84,11 @@ executable punctual
       reflex-dom,
       time,
       mtl,
-      musicw >= 0.3.2,
+      musicw >= 0.3.11,
       text,
       containers,
       ghcjs-base,
       ghcjs-dom-jsffi,
-      reflex-dom-contrib,
       text,
       text-show,
       haskellish >= 0.3,
@@ -96,7 +96,8 @@ executable punctual
       transformers,
       deepseq,
       split >= 0.2.3.3,
-      tempi >= 1.0.1.1 && < 1.1
+      tempi >= 1.0.1.1 && < 1.1,
+      keycode
   other-modules: MovingAverage
   default-language:  Haskell2010
 
@@ -108,12 +109,11 @@ benchmark punctual-benchmarks
       reflex-dom,
       time,
       mtl,
-      musicw >= 0.3.1,
+      musicw >= 0.3.11,
       text,
       containers,
       ghcjs-base,
       ghcjs-dom-jsffi,
-      reflex-dom-contrib,
       text,
       text-show,
       haskellish >= 0.3,
