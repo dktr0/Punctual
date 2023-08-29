@@ -6,10 +6,8 @@ module Sound.Punctual.GLSL where
 -- A fundamental goal is elegantly bridging the gap between GLSL's 4 basic float types
 -- and the multi-channel expressions of Punctual (which are not limited to 1-4 channels).
 
-import Data.Text.Lazy as T hiding (zipWith,length,cycle)
 import TextShow
 import Data.Map as Map
-import Control.Monad
 import Control.Monad.State
 import Data.Foldable as Foldable hiding (length)
 
@@ -166,6 +164,7 @@ alignNoExtension Vec4 xs | exprsChannels xs >= 4 = do
   return (x:xs'')
 alignNoExtension _ xs = alignMax xs
 
+
 -- splitAligned: given a GLSLType and a non-empty list of GLSLExpr-s, "pop" stuff from the
 -- head of the list in such a way that a specific GLSLType is guaranteed, returning
 -- both a GLSLExpr that is guaranteed to be of the requested type, and a list that
@@ -174,15 +173,24 @@ alignNoExtension _ xs = alignMax xs
 splitAligned :: GLSLType -> [GLSLExpr] -> GLSL (GLSLExpr,[GLSLExpr])
 splitAligned _ [] = error "splitAligned called with empty list"
 
--- 1. when the requested type is at the head of the list, simply separate head & tail of list
-splitAligned t (x:xs) | t == glslType x = return (x,xs)
+-- 1. when the requested item can be constructed exactly from one or more items at the head of the list in various ways, do that
+splitAligned GLFloat (x@(GLSLExpr GLFloat _ _):xs) = return (x,xs)
+splitAligned Vec2 (x@(GLSLExpr Vec2 _ _):xs) = return (x,xs)
+splitAligned Vec2 (x@(GLSLExpr GLFloat _ _):y@(GLSLExpr GLFloat _ _):xs) = return (exprExprToVec2 x y, xs)
+splitAligned Vec3 (x@(GLSLExpr Vec3 _ _):xs) = return (x,xs)
+splitAligned Vec3 (x@(GLSLExpr GLFloat _ _):y@(GLSLExpr GLFloat _ _):z@(GLSLExpr GLFloat _ _):xs) = return (exprExprExprToVec3 x y z, xs)
+splitAligned Vec3 (x@(GLSLExpr Vec2 _ _):y@(GLSLExpr GLFloat _ _):xs) = return (exprExprToVec3 x y, xs)
+splitAligned Vec3 (x@(GLSLExpr GLFloat _ _):y@(GLSLExpr Vec2 _ _):xs) = return (exprExprToVec3 x y, xs)
+splitAligned Vec4 (x@(GLSLExpr Vec4 _ _):xs) = return (x,xs)
+splitAligned Vec4 (w@(GLSLExpr GLFloat _ _):x@(GLSLExpr GLFloat _ _):y@(GLSLExpr GLFloat _ _):z@(GLSLExpr GLFloat _ _):xs) = return (exprExprExprExprToVec4 w x y z, xs)
+splitAligned Vec4 (x@(GLSLExpr GLFloat _ _):y@(GLSLExpr GLFloat _ _):z@(GLSLExpr Vec2 _ _):xs) = return (exprExprExprToVec4 x y z, xs)
+splitAligned Vec4 (x@(GLSLExpr GLFloat _ _):y@(GLSLExpr Vec2 _ _):z@(GLSLExpr GLFloat _ _):xs) = return (exprExprExprToVec4 x y z, xs)
+splitAligned Vec4 (x@(GLSLExpr Vec2 _ _):y@(GLSLExpr GLFloat _ _):z@(GLSLExpr GLFloat _ _):xs) = return (exprExprExprToVec4 x y z, xs)
+splitAligned Vec4 (x@(GLSLExpr Vec2 _ _):y@(GLSLExpr Vec2 _ _):xs) = return (exprExprToVec4 x y, xs)
+splitAligned Vec4 (x@(GLSLExpr GLFloat _ _):y@(GLSLExpr Vec3 _ _):xs) = return (exprExprToVec4 x y, xs)
+splitAligned Vec4 (x@(GLSLExpr Vec3 _ _):y@(GLSLExpr GLFloat _ _):xs) = return (exprExprToVec4 x y, xs)
 
--- 2. when the requested item can be constructed exactly from items at the head of the list in various ways, do that
-splitAligned Vec3 (x@(GLSLExpr GLFloat _ _):y@(GLSLExpr GLFloat _ _):z@(GLSLExpr GLFloat _ _):xs) = do
-  return (exprExprExprToVec3 x y z, xs)
--- *** TODO: there are many more patterns that should be matched here.
-
--- 3. when the list has one item that is smaller than requested type, repeat channels to provide type
+-- 2. when the list has one item that is smaller than requested type, repeat channels to provide type
 splitAligned Vec2 (x@(GLSLExpr GLFloat _ _):[]) = return (exprToVec2 x,[])
 splitAligned Vec3 (x@(GLSLExpr GLFloat _ _):[]) = return (exprToVec3 x,[])
 splitAligned Vec3 (x@(GLSLExpr Vec2 _ _):[]) = return (exprToVec3 x,[])
@@ -190,8 +198,7 @@ splitAligned Vec4 (x@(GLSLExpr GLFloat _ _):[]) = return (exprToVec4 x,[])
 splitAligned Vec4 (x@(GLSLExpr Vec2 _ _):[]) = return (exprToVec4 x,[])
 splitAligned Vec4 (x@(GLSLExpr Vec3 _ _):[]) = return (exprToVec4 x,[])
 
-
--- 4. when the requested item is smaller than the type at head of list, split it by assigning and swizzling
+-- 3. when the requested item is smaller than the type at head of list, split it by assigning and swizzling
 splitAligned GLFloat (x@(GLSLExpr Vec2 _ _):xs) = do
   x' <- assign x
   return (swizzleX x',(swizzleY x'):xs)
@@ -211,7 +218,7 @@ splitAligned Vec3 (x@(GLSLExpr Vec4 _ _):xs) = do
   x' <- assign x
   return (swizzleXYZ x',(swizzleW x'):xs)
 
--- 3. when the requested item is larger than the type at the head of the list (n>=2), call splitAligned
+-- 4. when the requested item is larger than the type at the head of the list (n>=2), call splitAligned
 -- recursively to provide a second value that, combined with the first, produces requested type
 splitAligned Vec2 (x@(GLSLExpr GLFloat _ _):xs) = do
   (y,xs') <- splitAligned GLFloat xs
@@ -231,7 +238,37 @@ splitAligned Vec4 (x@(GLSLExpr Vec2 _ _):xs) = do
 splitAligned Vec4 (x@(GLSLExpr Vec3 _ _):xs) = do
   (y,xs') <- splitAligned GLFloat xs
   return (exprExprToVec4 x y,xs')
+  
+  
+-- | mix takes two [GLSLExpr] which might represent different numbers of channels
+-- it mixes them together to produce a result which has as many channels as the input
+-- with the most channels, effectively treating the shorter input as 0 when channels "run out"
+-- the result is aligned to the mode of whichever input was (originally) longer
+mix :: [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
+mix xs ys = do
+  let xChnls = exprsChannels xs
+  let yChnls = exprsChannels ys
+  let nChnls = max xChnls yChnls
+  let xs' = extendWithZeros nChnls xs
+  let ys' = extendWithZeros nChnls ys
+  let xIsModel = nChnls == xChnls 
+  (xs'',ys'') <- case xIsModel of
+    True -> do
+      ys'' <- alignToModel xs' ys'
+      pure (xs',ys'')
+    False -> do
+      xs'' <- alignToModel ys' xs'
+      pure (xs'',ys') 
+  pure $ zipWith (+) xs'' ys''
+  
 
+extendWithZeros :: Int -> [GLSLExpr] -> [GLSLExpr]
+extendWithZeros nChnls xs = xs'
+  where
+    xChnls = exprsChannels xs
+    xs' = xs ++ Prelude.replicate (nChnls - xChnls) 0
+
+    
 -- this could use a better name...
 alignExprs :: [GLSLExpr] -> [GLSLExpr] -> GLSL ([GLSLExpr],[GLSLExpr])
 alignExprs x y = do
@@ -267,20 +304,8 @@ alignExprsOptimized x y
 alignToModel :: [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
 alignToModel [] _ = return []
 alignToModel _ [] = error "alignToModel ran out of expressions in second argument"
-alignToModel (m@(GLSLExpr GLFloat _ _):ms) xs = do
-  (x',xs') <- splitAligned GLFloat xs
-  xs'' <- alignToModel ms xs'
-  return $ x' : xs''
-alignToModel (m@(GLSLExpr Vec2 _ _):ms) xs = do
-  (x',xs') <- splitAligned Vec2 xs
-  xs'' <- alignToModel ms xs'
-  return $ x' : xs''
-alignToModel (m@(GLSLExpr Vec3 _ _):ms) xs = do
-  (x',xs') <- splitAligned Vec3 xs
-  xs'' <- alignToModel ms xs'
-  return $ x' : xs''
-alignToModel (m@(GLSLExpr Vec4 _ _):ms) xs = do
-  (x',xs') <- splitAligned Vec4 xs
+alignToModel (m:ms) xs = do
+  (x',xs') <- splitAligned (glslType m) xs
   xs'' <- alignToModel ms xs'
   return $ x' : xs''
 

@@ -185,7 +185,17 @@ exprExprToVec4 _ _ = error "exprExprToVec4 called with inappropriate types"
 
 exprExprExprToVec3 :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
 exprExprExprToVec3 (GLSLExpr GLFloat _ x) (GLSLExpr GLFloat _ y) (GLSLExpr GLFloat _ z) = GLSLExpr Vec3 False $ "vec3(" <> x <> "," <> y <> "," <> z <> ")"
+exprExprExprToVec3 _ _ _ = error "exprExprExprToVec3 called with inappropriate types"
 
+exprExprExprToVec4 :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
+exprExprExprToVec4 (GLSLExpr GLFloat _ x) (GLSLExpr GLFloat _ y) (GLSLExpr Vec2 _ z) = GLSLExpr Vec4 False $ "vec4(" <> x <> "," <> y <> "," <> z <> ")"
+exprExprExprToVec4 (GLSLExpr GLFloat _ x) (GLSLExpr Vec2 _ y) (GLSLExpr GLFloat _ z) = GLSLExpr Vec4 False $ "vec4(" <> x <> "," <> y <> "," <> z <> ")"
+exprExprExprToVec4 (GLSLExpr Vec2 _ x) (GLSLExpr GLFloat _ y) (GLSLExpr GLFloat _ z) = GLSLExpr Vec4 False $ "vec4(" <> x <> "," <> y <> "," <> z <> ")"
+exprExprExprToVec4 _ _ _ = error "exprExprExprToVec4 called with inappropriate types"
+
+exprExprExprExprToVec4 :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
+exprExprExprExprToVec4 (GLSLExpr GLFloat _ w) (GLSLExpr GLFloat _ x) (GLSLExpr GLFloat _ y) (GLSLExpr GLFloat _ z) = GLSLExpr Vec4 False $ "vec4(" <> w <> "," <> x <> "," <> y <> "," <> z <> ")"
+exprExprExprExprToVec4 _ _ _ _ = error "exprExprExprExprToVec4 called with inappropriate types"
 
 instance Num GLSLExpr where
   x + y = binaryOperatorMatched "+" x y
