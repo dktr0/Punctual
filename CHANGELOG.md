@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.4.3:
+
+-bug fix (to [a,b .. c] expressions)
+
 0.4.4.2:
 
 -bug fix (xyt,xyrt,frt,ft)

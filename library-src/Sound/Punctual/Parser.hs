@@ -515,14 +515,14 @@ multiSeries1 :: H Graph
 multiSeries1 = do
   (a,b,c) <- Language.Haskellish.enumFromThenTo double double double
   return $ Multi $ fmap Constant $ Data.List.take 64 $ multiSeries1' a b c
-
+  
 multiSeries1' :: Double -> Double -> Double -> [Double]
 multiSeries1' a b c
-  | (b > a) && (a > c) = []
-  | (b < a) && (a < c) = []
-  | (b == a) = []
-  | otherwise = a : multiSeries1' b (b+b-a) c
+  | (b == a) = [a]
+  | (c == a) = [a]
+  | otherwise = [a, b .. c]
 
+-- will be removed in punctual 0.5
 multiSeriesDeprecated :: H Graph
 multiSeriesDeprecated = (reserved "..." >> return f) <*> i <*> i
   where
