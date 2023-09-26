@@ -4,6 +4,7 @@ module Sound.Punctual
   evaluate,
   render,
   postRender,
+  clear,
   setTempo,
   setAudioInput,
   setAudioOutput,
@@ -132,4 +133,18 @@ postRender p canDraw =
       pwgl' <- displayPunctualWebGL pwgl
       writeIORef (punctualWebGL p) pwgl'
     False -> pure ()
+
+clear :: Punctual -> Int -> IO ()
+clear p z = do
+  -- clear Punctual audio (in a given zone)
+  pws <- readIORef (punctualWs p)
+  case (IntMap.lookup z pws) of
+    Just x -> do
+      liftAudioIO $ deletePunctualW x
+      writeIORef (punctualWs p) $ IntMap.delete z pws
+    Nothing -> pure ()
+  -- clear Punctual video (in a given zone)
+  pwgl <- readIORef (punctualWebGL p)
+  pwgl' <- deletePunctualWebGL z pwgl
+  writeIORef (punctualWebGL p) pwgl'
 
