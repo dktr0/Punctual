@@ -53,6 +53,7 @@ Library
                      Sound.Punctual.Resolution
                      Sound.Punctual.WebGL
                      Sound.Punctual.Texture
+                     Sound.Punctual
   other-modules:     Sound.Punctual.GLSL
                      Sound.Punctual.GLSLExpr
                      Sound.Punctual.Webcam

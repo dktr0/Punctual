@@ -1,39 +1,56 @@
-module Sound.Punctual where
+module Sound.Punctual 
+  (Punctual,
+  new,
+  evaluate,
+  render,
+  postRender,
+  setTempo,
+  setAudioInput,
+  setAudioOutput,
+  setNchnls,
+  Sound.Punctual.setBrightness,
+  Sound.Punctual.setResolution)
+  where
 
-import Data.Text
+import Data.Text as T
 import Data.IntMap as IntMap
 import Data.IORef
+import Data.Time
+import Sound.MusicW as MusicW
+import Data.Tempo
+import GHCJS.DOM.Types hiding (Text)
+import Control.Exception hiding (evaluate)
 
 import Sound.Punctual.WebGL
 import Sound.Punctual.PunctualW
 import Sound.Punctual.Resolution
 import Sound.Punctual.GL
+import Sound.Punctual.Program
+import Sound.Punctual.Parser
 
 
 data Punctual = Punctual {
   punctualWs :: IORef (IntMap PunctualW),
   punctualWebGL :: IORef PunctualWebGL,
-  glCtx :: GLContext,
   tempo :: IORef Tempo,
   audioInput :: IORef MusicW.Node,
   audioOutput :: IORef MusicW.Node,
   nchnls :: IORef Int
   }
   
-newPunctual :: Tempo -> MusicW.Node -> MusicW.Node -> Int -> HTMLCanvasElement -> IO Punctual
-newPunctual iTempo iAudioInput iAudioOutput iNchnls cvs = do
+new :: Tempo -> MusicW.Node -> MusicW.Node -> Int -> HTMLCanvasElement -> IO Punctual
+new iTempo iAudioInput iAudioOutput iNchnls cvs = do
   punctualWs' <- newIORef IntMap.empty
-  punctualWebGL' <- newPunctualWebGL audioIn audioOut HD 1.0 cvs glCtx
-  punctualWebGL'' <- newIORef punctualWebGL'
   glCtx' <- newGLContext cvs
+  punctualWebGL' <- newPunctualWebGL (Just iAudioInput) (Just iAudioOutput) HD 1.0 cvs glCtx'
+  punctualWebGL'' <- newIORef punctualWebGL'
   tempo' <- newIORef iTempo
   audioInput' <- newIORef iAudioInput
-  audioOuput' <- newIORef iAudioOutput
+  audioOutput' <- newIORef iAudioOutput
   nchnls' <- newIORef iNchnls
   pure $ Punctual {
     punctualWs = punctualWs',
     punctualWebGL = punctualWebGL'',
-    glCtx = glCtx',
     tempo = tempo',
     audioInput = audioInput',
     audioOutput = audioOutput',
@@ -49,38 +66,70 @@ setAudioInput p x = writeIORef (audioInput p) x
 setAudioOutput :: Punctual -> MusicW.Node -> IO ()
 setAudioOutput p x = writeIORef (audioOutput p) x
 
-setNchnls :: Punctual -> Tempo -> IO ()
+setNchnls :: Punctual -> Int -> IO ()
 setNchnls p x = writeIORef (nchnls p) x
 
+setResolution :: Punctual -> Resolution -> IO ()
+setResolution p r = do
+  pwgl <- readIORef (punctualWebGL p)
+  pwgl' <- Sound.Punctual.WebGL.setResolution r pwgl
+  writeIORef (punctualWebGL p) pwgl'
 
-evaluate :: Punctual -> Int -> Text -> UTCTime -> IO (Either Text Text) -- left error, right shader src
-evaluate p z txt evalTime = do
-  parseResult <- liftIO $ try $ return $! parse evalTime txt
-  parseResult' <- case parseResult of
+setBrightness :: Punctual -> Double -> IO ()
+setBrightness p b = do
+  pwgl <- readIORef (punctualWebGL p)
+  pwgl' <- Sound.Punctual.WebGL.setBrightness b pwgl
+  writeIORef (punctualWebGL p) pwgl'
+
+
+evaluate :: Punctual -> Int -> Text -> UTCTime -> IO (Either Text Text) -- left=error, right=shader src
+evaluate p z txt eTime = do
+  parseResult <- try $ return $! parse eTime txt
+  case parseResult of
     Right (Right prog) -> do      
-      programChangedAudio p z prog evalTime
-      Right <$> programChangedVideo p z prog
+      evaluateAudio p z prog eTime
+      Right <$> evaluateVideo p z prog
     Right (Left parseErr) -> pure (Left $ T.pack $ show parseErr)
     Left exception -> pure (Left $ T.pack $ show (exception :: SomeException))
   
-programChangedAudio :: Punctual -> Int -> Program -> UTCTime -> IO ()
-programChangedAudio p z prog evalTime = do
+evaluateAudio :: Punctual -> Int -> Program -> UTCTime -> IO ()
+evaluateAudio p z prog eTime = do
   pws <- readIORef (punctualWs p)
   ac <- liftAudioIO $ audioContext
   pIn <- readIORef (audioInput p)
   pOut <- readIORef (audioOutput p)
   n <- readIORef (nchnls p)
-  let defPunctualW = emtpyPunctualW ac pIn pOut n evalTime
-  pw <- findWithDefault defPunctualW z pws
-  let pw' = setPunctualWChannels n
-  pw'' <- runAudioContextIO ac $ updatePunctualW pw' tempo prog `catch` (\e -> putStrLn (show (e :: SomeException)) >> return pw')
+  t <- readIORef (tempo p)
+  let defPunctualW = emptyPunctualW ac pIn pOut n eTime
+  let pw = findWithDefault defPunctualW z pws
+  let pw' = setPunctualWChannels n pw
+  pw'' <- do
+    runAudioContextIO ac $ updatePunctualW pw' t prog
+    `catch` (\e -> putStrLn (show (e :: SomeException)) >> return pw')
   writeIORef (punctualWs p) $ IntMap.insert z pw'' pws
   
-programChangedWebGL :: Punctual -> Int -> Program -> IO Text
-programChangedWebGL p z prog = do
+evaluateVideo :: Punctual -> Int -> Program -> IO Text
+evaluateVideo p z prog = do
   pwgl <- readIORef (punctualWebGL p)
   tempo' <- readIORef (tempo p)
-  (pwgl',shaderSrc) <- evaluatePunctualWebGL (glCtx p) tempo' z prog pwgl -- :: (PunctualWebGL,Text)
+  (pwgl',shaderSrc) <- evaluatePunctualWebGL tempo' z prog pwgl -- :: (PunctualWebGL,Text)
   writeIORef (punctualWebGL p) pwgl'
   pure shaderSrc
+
+render :: Punctual -> Bool -> Int -> UTCTime -> IO ()
+render p canDraw z tNow = do
+  tempo' <- readIORef (tempo p)
+  pwgl <- readIORef (punctualWebGL p)
+  case canDraw of 
+    True -> drawPunctualWebGL tempo' tNow z pwgl >>= writeIORef (punctualWebGL p)
+    False -> pure ()
+    
+postRender :: Punctual -> Bool -> IO ()
+postRender p canDraw = 
+  case canDraw of
+    True -> do
+      pwgl <- readIORef (punctualWebGL p)
+      pwgl' <- displayPunctualWebGL pwgl
+      writeIORef (punctualWebGL p) pwgl'
+    False -> pure ()
 
