@@ -164,8 +164,10 @@ launchAnimationThread canvas = do
   connectNodes comp dest
   ac <- getGlobalAudioContext
   tNow <- getCurrentTime
-  let iTempo = Tempo { freq=0.5, time=tNow, Data.Tempo.count=0}
-  p <- new iTempo mic comp 2 canvas
+  p <- new canvas
+  setAudioInput p mic
+  setAudioOutput p comp
+  setNchnls p 2
   setBrightness p 1.0
   setResolution p FHD
   shader' <- newIORef ""

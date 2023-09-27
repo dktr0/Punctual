@@ -39,16 +39,19 @@ data Punctual = Punctual {
   nchnls :: IORef Int
   }
   
-new :: Tempo -> MusicW.Node -> MusicW.Node -> Int -> HTMLCanvasElement -> IO Punctual
-new iTempo iAudioInput iAudioOutput iNchnls cvs = do
-  punctualWs' <- newIORef IntMap.empty
-  glCtx' <- newGLContext cvs
-  punctualWebGL' <- newPunctualWebGL (Just iAudioInput) (Just iAudioOutput) HD 1.0 cvs glCtx'
-  punctualWebGL'' <- newIORef punctualWebGL'
-  tempo' <- newIORef iTempo
+new :: HTMLCanvasElement -> IO Punctual
+new canvas = do
+  iAudioInput <- liftAudioIO $ createConstantSource 0
+  iAudioOutput <- liftAudioIO $ createDestination
   audioInput' <- newIORef iAudioInput
   audioOutput' <- newIORef iAudioOutput
-  nchnls' <- newIORef iNchnls
+  nchnls' <- newIORef $ numberOfOutputs iAudioOutput
+  punctualWs' <- newIORef IntMap.empty
+  glCtx' <- newGLContext canvas
+  punctualWebGL' <- newPunctualWebGL (Just iAudioInput) (Just iAudioOutput) HD 1.0 canvas glCtx'
+  punctualWebGL'' <- newIORef punctualWebGL'
+  tNow <- getCurrentTime
+  tempo' <- newIORef $ Tempo { time=tNow, freq=0.5, Data.Tempo.count=0 }
   pure $ Punctual {
     punctualWs = punctualWs',
     punctualWebGL = punctualWebGL'',
