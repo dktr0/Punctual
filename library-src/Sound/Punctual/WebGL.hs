@@ -11,7 +11,8 @@ module Sound.Punctual.WebGL
   displayPunctualWebGL,
   arrayForAnalysis,
   getByteFrequencyData,
-  getLo,getMid,getHi
+  getLo,getMid,getHi,
+  setAudioInput,setAudioOutput
   )
   where
 
@@ -283,6 +284,15 @@ setResolution r st = if r == resolution st then return st else runGL (glContext 
 
 setBrightness :: Double -> PunctualWebGL -> IO PunctualWebGL
 setBrightness _brightness st = return $ st { brightness = _brightness }
+
+-- TODO: rework so takes effect immmediately, instead of at next eval
+setAudioInput :: Maybe MusicW.Node -> PunctualWebGL -> IO PunctualWebGL
+setAudioInput x pwgl = pure $ pwgl { microphoneNode = x }
+
+-- TODO: rework so takes effect immmediately, instead of at next eval
+setAudioOutput :: Maybe MusicW.Node -> PunctualWebGL -> IO PunctualWebGL
+setAudioOutput x pwgl = pure $ pwgl { audioOutputNode = x }
+
 
 deletePunctualWebGL :: Int -> PunctualWebGL -> IO PunctualWebGL
 deletePunctualWebGL z st = runGL (glContext st) $ do

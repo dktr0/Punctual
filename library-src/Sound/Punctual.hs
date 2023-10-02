@@ -6,8 +6,8 @@ module Sound.Punctual
   postRender,
   clear,
   setTempo,
-  setAudioInput,
-  setAudioOutput,
+  Sound.Punctual.setAudioInput,
+  Sound.Punctual.setAudioOutput,
   setNchnls,
   Sound.Punctual.setBrightness,
   Sound.Punctual.setResolution)
@@ -65,10 +65,18 @@ setTempo :: Punctual -> Tempo -> IO ()
 setTempo p x = writeIORef (tempo p) x
 
 setAudioInput :: Punctual -> MusicW.Node -> IO ()
-setAudioInput p x = writeIORef (audioInput p) x
-
+setAudioInput p x = do
+  writeIORef (audioInput p) x
+  pwgl <- readIORef (punctualWebGL p)
+  pwgl' <- Sound.Punctual.WebGL.setAudioInput (Just x) pwgl
+  writeIORef (punctualWebGL p) pwgl'
+ 
 setAudioOutput :: Punctual -> MusicW.Node -> IO ()
-setAudioOutput p x = writeIORef (audioOutput p) x
+setAudioOutput p x = do
+  writeIORef (audioOutput p) x
+  pwgl <- readIORef (punctualWebGL p)
+  pwgl' <- Sound.Punctual.WebGL.setAudioOutput (Just x) pwgl
+  writeIORef (punctualWebGL p) pwgl'
 
 setNchnls :: Punctual -> Int -> IO ()
 setNchnls p x = writeIORef (nchnls p) x
