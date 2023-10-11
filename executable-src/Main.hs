@@ -55,7 +55,7 @@ intro
 main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
-  putStrLn "Punctual standalone, version 0.4.4.3"
+  putStrLn "Punctual standalone, version 0.4.4.4"
   ctx <- getGlobalAudioContextPlayback 
   putStrLn "global audio context (playback mode) acquired"
   putStrLn "loading MusicW audio worklets..."
