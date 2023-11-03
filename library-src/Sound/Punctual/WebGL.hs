@@ -21,6 +21,7 @@ import GHCJS.DOM.Types hiding (Text)
 import Data.Maybe
 import Data.Semigroup ((<>))
 import Data.Text (Text)
+import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import TextShow
 import Data.Map as Map
@@ -382,6 +383,7 @@ drawPunctualWebGL ctx tempo now z st = runGL ctx $ do
           let uniformLoc = uMap ! uniformName
           updateTexture theTexture
           bindTex textureSlot (webGLTexture theTexture) uniformLoc
+          liftIO $ putStrLn $ "bindTex' " ++ show k ++ " " ++ show a ++ " textureSlot=" ++ show textureSlot ++ " uniformName=" ++ T.unpack uniformName ++ " uniformLoc=" ++ show uniformLoc 
     sequence_ $ mapWithKey bindTex' texs
     uniform1fAsync asyncProgram "_cps" (realToFrac $ freq tempo)
     case IntMap.lookup z (evalTimes st') of
