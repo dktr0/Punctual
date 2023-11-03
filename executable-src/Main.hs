@@ -38,7 +38,7 @@ headElement = do
 
 intro :: Text
 intro
-  ="-- Punctual, an audiovisual live coding language\n\
+  ="-- Punctual, an audiovisual live coding language, version 0.4.4.5\n\
    \-- Chromium/Chrome/Edge/Opera browser required\n\
    \-- Press Shift-Enter to (re)evaluate/activate code\n\
    \-- documentation @ https://github.com/dktr0/Punctual.git\n\
@@ -55,7 +55,7 @@ intro
 main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
-  putStrLn "Punctual standalone, version 0.4.4.3"
+  putStrLn "Punctual standalone, version 0.4.4.5"
   ctx <- getGlobalAudioContextPlayback 
   putStrLn "global audio context (playback mode) acquired"
   putStrLn "loading MusicW audio worklets..."
