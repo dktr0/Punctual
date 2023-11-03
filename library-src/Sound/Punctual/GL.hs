@@ -146,7 +146,7 @@ getUniformLocation :: WebGLProgram -> Text -> GL WebGLUniformLocation
 getUniformLocation p n = gl >>= (liftIO . _getUniformLocation p n)
 
 foreign import javascript unsafe
-  "$3.getUniformLocation($1,$2)"
+  "$r = $3.getUniformLocation($1,$2);" -- console.log('getUniformLocation(<program>,' + $2 + ')'); console.log($r);"
   _getUniformLocation :: WebGLProgram -> Text -> WebGLRenderingContext -> IO WebGLUniformLocation
 
 getAttribLocation :: WebGLProgram -> Text -> GL Int

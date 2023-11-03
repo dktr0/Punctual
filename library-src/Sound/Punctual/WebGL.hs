@@ -341,6 +341,8 @@ evaluatePunctualWebGL tempo z p st = runGL (glContext st) $ do
     needsAudioInputAnalysis = elem True $ fmap programNeedsAudioInputAnalysis currAndPrevPrograms,
     needsAudioOutputAnalysis =elem True $ fmap programNeedsAudioOutputAnalysis currAndPrevPrograms
     }
+  -- liftIO $ putStrLn $ "evaluatePunctualWebGL, textures: " ++ show newTextures
+  -- liftIO $ putStrLn $ "evaluatePunctualWebGL, textureMapsEval: " ++ show newTextureMaps
   st'' <- liftIO $ updateAudioAnalysis st'
   setWebcamActive st''
   return (st'',newFragmentShader)
@@ -383,7 +385,7 @@ drawPunctualWebGL tempo now z st = runGL (glContext st) $ do
     bindTex 1 (fftTexture st') fftLoc
     bindTex 2 (ifftTexture st') ifftLoc
     camLoc <- getUniformLocation program "_cam"
-    bindTex 3 (Webcam._texture $ webcam st') camLoc
+    bindTex 3 (Webcam._texture $ webcam st') camLoc    
     -- bind textures to uniforms representing textures in the program
     let uMap = uniformsMap asyncProgram
     let texs = IntMap.findWithDefault (Map.empty) z $ textureMapsDraw st' -- Map Text Int
@@ -392,8 +394,8 @@ drawPunctualWebGL tempo now z st = runGL (glContext st) $ do
           let theTexture = textures st' ! k
           let uniformName = "tex" <> showt a
           let uniformLoc = uMap ! uniformName
-          updateTexture theTexture
           bindTex textureSlot (webGLTexture theTexture) uniformLoc
+          updateTexture theTexture -- updateTexture comes after the preceding bindText because this ensures active texture slot has been set accurately
     sequence_ $ mapWithKey bindTex' texs
     uniform1fAsync asyncProgram "_cps" (realToFrac $ freq tempo)
     case IntMap.lookup z (evalTimes st') of
