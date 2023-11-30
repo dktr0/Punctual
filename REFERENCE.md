@@ -217,6 +217,8 @@ vid "https://url-to-video-file" -- accesses a texture built from the video file 
 
 cam -- accesses a texture built from the webcam as red-green-blue (3-channel signal).
 
+fb [x1,y1,...] -- accesses feedback (Punctual video output from the previous frame) as red-green-blue (3-channel signal per 2 channels of input argument)
+
 tex "https://url-to-image-file" [x,y,...] -- accesses a texture built from the image file in question as red-green-blue (3-channel signal). *Deprecated* (use ```img "url"``` instead).
 
 hi -- analysis of how much power there is in the highest frequencies of the spectrum of the current sound output. Result is unipolar (0 to 1).
@@ -320,3 +322,6 @@ There are a number of additional output types for particular purposes, as follow
 \>> saturation: *Deprecated*
 
 \>> value: *Deprecated*
+
+\>> fdbk: A shortcut for providing some simple video feedback in which the output of the previous frame of video is blended with the output of the current frame. Sending 0.5 to fdbk would mix in 50% of the levels from the previous frame in the current frame. 
+
