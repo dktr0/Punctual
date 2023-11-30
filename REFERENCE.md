@@ -323,5 +323,5 @@ There are a number of additional output types for particular purposes, as follow
 
 \>> value: *Deprecated*
 
-\>> fdbk: A shortcut for providing some simple video feedback in which the output of the previous frame of video is blended with the output of the current frame. Sending 0.5 to fdbk would mix in 50% of the levels from the previous frame in the current frame. 
+\>> fdbk: *Deprecated* A shortcut for providing some simple video feedback in which the output of the previous frame of video is blended with the output of the current frame. Sending 0.5 to fdbk would mix in 50% of the levels from the previous frame in the current frame. 
 
