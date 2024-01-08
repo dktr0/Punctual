@@ -96,28 +96,28 @@ graphToGLSL ah env (UnRep n x) = do
 -- unary functions from the JavaScript Math library
 graphToGLSL ah env (Abs x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "abs")
 graphToGLSL ah env (Acos x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "acos")
-graphToGLSL ah env (Acosh x) = graphToGLSL ah env $ Log $ x + Sqrt (x*x - 1) -- for WebGL1 compatibility, WebGL 2 has "acosh" directly
+graphToGLSL ah env (Acosh x) = graphToGLSL ah env $ Log $ Sum PairWise x $ Sqrt (Pow PairWise x 2 - 1) -- for WebGL1 compatibility, WebGL 2 has "acosh" directly
 graphToGLSL ah env (Asin x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "asin")
-graphToGLSL ah env (Asinh x) = graphToGLSL ah env $ Log $ x + Sqrt (x*x + 1) -- for WebGL1 compatibility, WebGL 2 has "asinh" directly
+graphToGLSL ah env (Asinh x) = graphToGLSL ah env $ Log $ Sum PairWise x $ Sqrt (Pow PairWise x 2 + 1) -- for WebGL1 compatibility, WebGL 2 has "asinh" directly
 graphToGLSL ah env (Atan x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "atan")
-graphToGLSL ah env (Atanh x) = graphToGLSL ah env $ Log ((1 + x) / (1 - x)) / 2 -- for WebGL1 compatibility, WebGL 2 has "atanh" directly
+graphToGLSL ah env (Atanh x) = graphToGLSL ah env $ Log (Division PairWise (1 + x) (1 - x)) / 2 -- for WebGL1 compatibility, WebGL 2 has "atanh" directly
 graphToGLSL ah env (Cbrt x) = graphToGLSL ah env $ Pow PairWise x 0.3333333333
 graphToGLSL ah env (Ceil x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "ceil")
 graphToGLSL ah env (Cos x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "cos")
-graphToGLSL ah env (Cosh x) = graphToGLSL ah env $ (Exp x + Exp (x * (-1))) / 2 -- for WebGL1 compatibility, WebGL 2 has "cosh" directly
+graphToGLSL ah env (Cosh x) = graphToGLSL ah env $ (Sum PairWise (Exp x) (Exp (x * (-1)))) / 2 -- for WebGL1 compatibility, WebGL 2 has "cosh" directly
 graphToGLSL ah env (Exp x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "exp")
 graphToGLSL ah env (Floor x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "floor")
 graphToGLSL ah env (Log x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "log")
 graphToGLSL ah env (Log2 x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "log2")
-graphToGLSL ah env (Log10 x) = graphToGLSL ah env $ Log x / Log 10
+graphToGLSL ah env (Log10 x) = graphToGLSL ah env $ Division PairWise (Log x) (Log 10)
 graphToGLSL ah env (Round x) = graphToGLSL ah env $ Floor $ x + 0.5 -- for WebGL1 compatibility, WebGL 2 has "round" directly
 graphToGLSL ah env (Sign x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "sign")
 graphToGLSL ah env (Sin x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "sin")
-graphToGLSL ah env (Sinh x) = graphToGLSL ah env $ (Exp x - Exp (x * (-1))) / 2 -- for WebGL1 compatibility, WebGL 2 has "sinh" directly
+graphToGLSL ah env (Sinh x) = graphToGLSL ah env $ (Sum PairWise (Exp x) (Exp (x * (-1)) * (-1))) / 2 -- for WebGL1 compatibility, WebGL 2 has "sinh" directly
 graphToGLSL ah env (Sqrt x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "sqrt")
 graphToGLSL ah env (Tan x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "tan")
-graphToGLSL ah env (Tanh x) = graphToGLSL ah env $ Sinh x / Cosh x -- for WebGL1 compatibility, WebGL 2 has "tanh" directly 
-graphToGLSL ah env (Trunc x) = graphToGLSL ah env $ Floor (Abs x) * Sign x -- for WebGL1 compatibility, WebGL 2 has "trunc" directly
+graphToGLSL ah env (Tanh x) = graphToGLSL ah env $ Division PairWise (Sinh x) (Cosh x) -- for WebGL1 compatibility, WebGL 2 has "tanh" directly 
+graphToGLSL ah env (Trunc x) = graphToGLSL ah env $ Product PairWise (Floor (Abs x)) (Sign x) -- for WebGL1 compatibility, WebGL 2 has "trunc" directly
 
 -- other unary functions
 

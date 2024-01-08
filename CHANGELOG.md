@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.4.6:
+
+-fixed bug affecting multichannel use of trunc, acosh, asinh, atanh, cosh, log10, sinh, and tanh
+
 0.4.4.5:
 
 -fixed bug that was scrambling access to multiple image and video textures
