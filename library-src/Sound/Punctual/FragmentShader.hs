@@ -253,13 +253,14 @@ graphToGLSL ah env (GreaterThanOrEqual mm x y) = binaryMatchedGraphs mm greaterT
 graphToGLSL ah env (LessThan mm x y) = binaryMatchedGraphs mm lessThan ah env x y
 graphToGLSL ah env (LessThanOrEqual mm x y) = binaryMatchedGraphs mm lessThanEqual ah env x y
 
-graphToGLSL ah env (Max x y) = binaryMatchedGraphs Combinatorial (binaryFunctionMatched "max") ah env x y
-graphToGLSL ah env (Min x y) = binaryMatchedGraphs Combinatorial (binaryFunctionMatched "min") ah env x y
-graphToGLSL ah env (Gate x y) = do
+graphToGLSL ah env (Max mm x y) = binaryMatchedGraphs mm (binaryFunctionMatched "max") ah env x y
+graphToGLSL ah env (Min mm x y) = binaryMatchedGraphs mm (binaryFunctionMatched "min") ah env x y
+graphToGLSL ah env (Gate mm x y) = binaryMatchedGraphs mm gate ah env x y
+{- do
   x' <- graphToGLSL ah env x
   y' <- graphToGLSL ah env y
   y'' <- mapM assign y'
-  binaryMatchedGLSLExprs gate ah x' y''
+  binaryMatchedGLSLExprs gate ah x' y'' -}
 
 graphToGLSL ah env (Clip r x) = do
   r' <- graphToGLSL (Just Vec2) env r >>= align Vec2

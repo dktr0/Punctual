@@ -226,9 +226,9 @@ optimize (GreaterThan mm x y) = optimize' $ GreaterThan mm (optimize x) (optimiz
 optimize (GreaterThanOrEqual mm x y) = optimize' $ GreaterThanOrEqual mm (optimize x) (optimize y)
 optimize (LessThan mm x y) = optimize' $ LessThan mm (optimize x) (optimize y)
 optimize (LessThanOrEqual mm x y) = optimize' $ LessThanOrEqual mm (optimize x) (optimize y)
-optimize (Max x y) = optimize' $ Max (optimize x) (optimize y)
-optimize (Min x y) = optimize' $ Min (optimize x) (optimize y)
-optimize (Gate x y) = optimize' $ Gate (optimize x) (optimize y)
+optimize (Max mm x y) = optimize' $ Max mm (optimize x) (optimize y)
+optimize (Min mm x y) = optimize' $ Min mm (optimize x) (optimize y)
+optimize (Gate mm x y) = optimize' $ Gate mm (optimize x) (optimize y)
 optimize (Clip x y) = optimize' $ Clip (optimize x) (optimize y)
 optimize (Between x y) = optimize' $ Between (optimize x) (optimize y)
 optimize (Step xs y) = optimize' $ Step xs $ optimize y
@@ -362,12 +362,12 @@ graphToSynthDef i (Product _ x y) = do
   graphToSynthDef i y >>= W.param W.Gain m
   return m
 
-graphToSynthDef i (Max x y) = do
+graphToSynthDef i (Max _ x y) = do
   x' <- graphToSynthDef i x
   y' <- graphToSynthDef i y
   W.maxWorklet x' y'
 
-graphToSynthDef i (Min x y) = do
+graphToSynthDef i (Min _ x y) = do
   x' <- graphToSynthDef i x
   y' <- graphToSynthDef i y
   W.minWorklet x' y'
@@ -417,7 +417,7 @@ graphToSynthDef i (Pow _ x y) = do
   y' <- graphToSynthDef i y
   W.powWorklet x' y'
 
-graphToSynthDef i (Gate x y) = graphToSynthDef i $ optimize $ (LessThan Combinatorial (Abs x) (Abs y)) * y
+graphToSynthDef i (Gate _ x y) = graphToSynthDef i $ optimize $ (GreaterThan PairWise (Abs y) (Abs x)) * y
 
 graphToSynthDef i (Delay maxT (Constant t) x) = do
   x' <- graphToSynthDef i x
@@ -572,9 +572,9 @@ expandMultis (GreaterThanOrEqual mm x y) = expandWith mm (GreaterThanOrEqual mm)
 expandMultis (LessThan mm x y) = expandWith mm (LessThan mm) x y
 expandMultis (LessThanOrEqual mm x y) = expandWith mm (LessThanOrEqual mm) x y
 -- other binary functions (generally with combinatorial semantics)
-expandMultis (Max x y) = expandWith Combinatorial Max x y
-expandMultis (Min x y) = expandWith Combinatorial Min x y
-expandMultis (Gate x y) = expandWith Combinatorial Gate x y
+expandMultis (Max mm x y) = expandWith mm (Max mm) x y
+expandMultis (Min mm x y) = expandWith mm (Min mm) x y
+expandMultis (Gate mm x y) = expandWith mm (Gate mm) x y
 expandMultis (Delay maxT t i) = expandWith Combinatorial (Delay maxT) t i
 expandMultis (Clip r x) = [ Clip r'' x' | r'' <- r', x' <- expandMultis x]
   where r' = fmap (\(a,b) -> Multi [a,b]) $ listIntoTuples $ expandMultis r -- *** VERY HACKY

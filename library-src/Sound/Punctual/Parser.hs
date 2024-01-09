@@ -400,8 +400,10 @@ graph3 = asum [
 
   -- other binary functions (with combinatorial semantics, generally speaking)
   reserved "fit" >> return fit,
-  reserved "min" >> return Min,
-  reserved "max" >> return Max,
+  reserved "min" >> return (Min Combinatorial),
+  reserved "max" >> return (Max Combinatorial),
+  reserved "minp" >> return (Min PairWise),
+  reserved "maxp" >> return (Max PairWise),
   reserved "hline" >> return HLine,
   reserved "vline" >> return VLine,
   reserved "circle" >> return Circle,
@@ -409,7 +411,8 @@ graph3 = asum [
   reserved "clip" >> return Clip,
   reserved "between" >> return Between,
   reserved "when" >> return Sound.Punctual.Graph.when,
-  reserved "gate" >> return Gate,
+  reserved "gate" >> return (Gate Combinatorial),
+  reserved "gatep" >> return (Gate PairWise),
   reserved "setfx" >> return SetFx,
   reserved "setfy" >> return SetFy,
   reserved "setfxy" >> return SetFxy,

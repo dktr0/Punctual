@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.4.7:
+
+-added pairwise variants of max, min, and gate (maxp, minp, gatep)
+
 0.4.4.6:
 
 -fixed bug affecting multichannel use of trunc, acosh, asinh, atanh, cosh, log10, sinh, and tanh

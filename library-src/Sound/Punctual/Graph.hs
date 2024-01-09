@@ -94,9 +94,9 @@ data Graph =
   GreaterThanOrEqual MultiMode Graph Graph |
   LessThan MultiMode Graph Graph |
   LessThanOrEqual MultiMode Graph Graph |
-  Max Graph Graph |
-  Min Graph Graph |
-  Gate Graph Graph |
+  Max MultiMode Graph Graph |
+  Min MultiMode Graph Graph |
+  Gate MultiMode Graph Graph |
   Circle Graph Graph |
   Rect Graph Graph |
   Clip Graph Graph |
