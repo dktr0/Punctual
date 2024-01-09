@@ -74,7 +74,11 @@ When Punctual functions or operators take two or more arguments that are, themse
 
 max [graph] [graph] -- returns the maximum value from two graphs (combinatorial)
 
+maxp [graph] [graph] -- returns the maximum value from two graphs (pairwise)
+
 min [graph] [graph] -- returns the minimum value from two graphs (combinatorial)
+
+minp [graph] [graph] -- returns the minimum value from two graphs (pairwise)
 
 between [min1,max1,min2,max2, ...] [x, ...] -- returns 1 (true) if values of x are between ranges specified by min1,max1,min2,max2,etc
 
@@ -150,7 +154,9 @@ step [graph,graph,graph,...] [graph] -- given a list of graphs and a second, fin
 
 mono [graph] -- takes multi-channel graphs down to a single channel by summing/mixing
 
-gate [graph] [graph] -- when the absolute value of the second graph is lower than the absolute value of the first graph the output is zero, otherwise the output is just the value of the second graph (note: unlike a typical audio noise gate this gate closes and opens immediately)
+gate [graph] [graph] -- when the absolute value of the second graph is lower than the absolute value of the first graph the output is zero, otherwise the output is just the value of the second graph (note: unlike a typical audio noise gate this gate closes and opens immediately; also, this has combinatorial semantics so if the first graph has x channels and the second graph has y channels, the output will have x*y channels)
+
+gatep [graph] [graph] -- when the absolute value of the second graph is lower than the absolute value of the first graph the output is zero, otherwise the output is just the value of the second graph (note: unlike a typical audio noise gate this gate closes and opens immediately; this variant has pairwise semantics, so if the first graph has x channels and the second graph has y channels, the output will have as many channels as the greatest of x or y)
 
 zero [graph] -- returns a graph that is always 0 regardless of the input graph (useful for quickly silencing/erasing particular lines of code). The synonym 'zer0' is also available.
 
