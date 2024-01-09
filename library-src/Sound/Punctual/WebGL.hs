@@ -11,7 +11,8 @@ module Sound.Punctual.WebGL
   displayPunctualWebGL,
   arrayForAnalysis,
   getByteFrequencyData,
-  getLo,getMid,getHi
+  getLo,getMid,getHi,
+  setAudioInput,setAudioOutput
   )
   where
 
@@ -43,6 +44,7 @@ import qualified Sound.Punctual.Webcam as Webcam
 
 data PunctualWebGL = PunctualWebGL {
   theCanvas :: HTMLCanvasElement,
+  glContext :: GLContext,
   resolution :: Resolution,
   brightness :: Double,
   triangleStrip :: WebGLBuffer,
@@ -197,6 +199,7 @@ newPunctualWebGL mic out res _brightness cvs ctx = runGL ctx $ do
   pp <- updateAsyncProgram emptyAsyncProgram defaultVertexShader postFragmentShaderSrc
   return $ PunctualWebGL {
     theCanvas = cvs,
+    glContext = ctx,
     resolution = res,
     brightness = _brightness,
     triangleStrip = ts,
@@ -270,8 +273,8 @@ postFragmentShaderSrc =
   \  gl_FragColor = vec4(t.xyz*brightness,t.w);\
   \}"
 
-setResolution :: GLContext -> Resolution -> PunctualWebGL -> IO PunctualWebGL
-setResolution ctx r st = if r == resolution st then return st else runGL ctx $ do
+setResolution :: Resolution -> PunctualWebGL -> IO PunctualWebGL
+setResolution r st = if r == resolution st then return st else runGL (glContext st) $ do
   frameBuffer0 <- makeFrameBufferTexture r
   frameBuffer1 <- makeFrameBufferTexture r
   return $ st {
@@ -283,8 +286,17 @@ setResolution ctx r st = if r == resolution st then return st else runGL ctx $ d
 setBrightness :: Double -> PunctualWebGL -> IO PunctualWebGL
 setBrightness _brightness st = return $ st { brightness = _brightness }
 
-deletePunctualWebGL :: GLContext -> Int -> PunctualWebGL -> IO PunctualWebGL
-deletePunctualWebGL ctx z st = runGL ctx $ do
+-- TODO: rework so takes effect immmediately, instead of at next eval
+setAudioInput :: Maybe MusicW.Node -> PunctualWebGL -> IO PunctualWebGL
+setAudioInput x pwgl = pure $ pwgl { microphoneNode = x }
+
+-- TODO: rework so takes effect immmediately, instead of at next eval
+setAudioOutput :: Maybe MusicW.Node -> PunctualWebGL -> IO PunctualWebGL
+setAudioOutput x pwgl = pure $ pwgl { audioOutputNode = x }
+
+
+deletePunctualWebGL :: Int -> PunctualWebGL -> IO PunctualWebGL
+deletePunctualWebGL z st = runGL (glContext st) $ do
   case IntMap.lookup z (mainPrograms st) of
     Just x -> deleteAsyncProgram x
     Nothing -> return ()
@@ -299,8 +311,8 @@ deletePunctualWebGL ctx z st = runGL ctx $ do
     firstZone = head $ IntMap.keys newCurrPrograms
   }
 
-evaluatePunctualWebGL :: GLContext -> Tempo -> Int -> Program -> PunctualWebGL -> IO (PunctualWebGL,Text)
-evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
+evaluatePunctualWebGL :: Tempo -> Int -> Program -> PunctualWebGL -> IO (PunctualWebGL,Text)
+evaluatePunctualWebGL tempo z p st = runGL (glContext st) $ do
   let newCurrPrograms = IntMap.insert z p $ currPrograms st
   let prevProgram = IntMap.lookup z $ currPrograms st
   let newPrevPrograms = maybe (prevPrograms st) (\x -> IntMap.insert z x $ prevPrograms st) $ prevProgram
@@ -330,6 +342,8 @@ evaluatePunctualWebGL ctx tempo z p st = runGL ctx $ do
     needsAudioInputAnalysis = elem True $ fmap programNeedsAudioInputAnalysis currAndPrevPrograms,
     needsAudioOutputAnalysis =elem True $ fmap programNeedsAudioOutputAnalysis currAndPrevPrograms
     }
+  -- liftIO $ putStrLn $ "evaluatePunctualWebGL, textures: " ++ show newTextures
+  -- liftIO $ putStrLn $ "evaluatePunctualWebGL, textureMapsEval: " ++ show newTextureMaps
   st'' <- liftIO $ updateAudioAnalysis st'
   setWebcamActive st''
   return (st'',newFragmentShader)
@@ -342,8 +356,8 @@ setWebcamActive st = do
   Webcam.setActive (webcam st) shouldBeActive
 
 
-drawPunctualWebGL :: GLContext -> Tempo -> UTCTime -> Int -> PunctualWebGL -> IO PunctualWebGL
-drawPunctualWebGL ctx tempo now z st = runGL ctx $ do
+drawPunctualWebGL :: Tempo -> UTCTime -> Int -> PunctualWebGL -> IO PunctualWebGL
+drawPunctualWebGL tempo now z st = runGL (glContext st) $ do
   Webcam.updateTexture (webcam st)
   let mainUniforms = ["res","width","height","_fb","_cam","_fft","_ifft","tex0","tex1","tex2","tex3","tex4","tex5","tex6","tex7","tex8","tex9","tex10","tex11","tex12","lo","mid","hi","ilo","imid","ihi","_defaultAlpha","_cps","_time","_etime","_beat","_ebeat"]
   let mainAttribs = ["p"]
@@ -372,7 +386,7 @@ drawPunctualWebGL ctx tempo now z st = runGL ctx $ do
     bindTex 1 (fftTexture st') fftLoc
     bindTex 2 (ifftTexture st') ifftLoc
     camLoc <- getUniformLocation program "_cam"
-    bindTex 3 (Webcam._texture $ webcam st') camLoc
+    bindTex 3 (Webcam._texture $ webcam st') camLoc    
     -- bind textures to uniforms representing textures in the program
     let uMap = uniformsMap asyncProgram
     let texs = IntMap.findWithDefault (Map.empty) z $ textureMapsDraw st' -- Map Text Int
@@ -381,9 +395,8 @@ drawPunctualWebGL ctx tempo now z st = runGL ctx $ do
           let theTexture = textures st' ! k
           let uniformName = "tex" <> showt a
           let uniformLoc = uMap ! uniformName
-          updateTexture theTexture
           bindTex textureSlot (webGLTexture theTexture) uniformLoc
-          liftIO $ putStrLn $ "bindTex' " ++ show k ++ " " ++ show a ++ " textureSlot=" ++ show textureSlot ++ " uniformName=" ++ T.unpack uniformName ++ " uniformLoc=" ++ show uniformLoc 
+          updateTexture theTexture -- updateTexture comes after the preceding bindText because this ensures active texture slot has been set accurately
     sequence_ $ mapWithKey bindTex' texs
     uniform1fAsync asyncProgram "_cps" (realToFrac $ freq tempo)
     case IntMap.lookup z (evalTimes st') of
@@ -394,8 +407,8 @@ drawPunctualWebGL ctx tempo now z st = runGL ctx $ do
         uniform1fAsync asyncProgram "_etime" eTime'
         uniform1fAsync asyncProgram "_ebeat" (eTime' * realToFrac (freq tempo))
       Nothing -> liftIO $ putStrLn "strange error: no eval time stored for current Punctual WebGL program"
-    (lo,mid,hi) <- liftIO $ getAudioOutputAnalysis ctx st'
-    (ilo,imid,ihi) <- liftIO $ getAudioInputAnalysis ctx st'
+    (lo,mid,hi) <- liftIO $ getAudioOutputAnalysis (glContext st) st'
+    (ilo,imid,ihi) <- liftIO $ getAudioInputAnalysis (glContext st) st'
     uniform1fAsync asyncProgram "lo" lo
     uniform1fAsync asyncProgram "hi" hi
     uniform1fAsync asyncProgram "mid" mid
@@ -430,8 +443,8 @@ pingPongFrameBuffers l st = do
   bindFramebuffer fb
 
 
-displayPunctualWebGL :: GLContext -> PunctualWebGL -> IO PunctualWebGL
-displayPunctualWebGL ctx st = if (IntMap.null $ currPrograms st) then (return st) else runGL ctx $ do
+displayPunctualWebGL :: PunctualWebGL -> IO PunctualWebGL
+displayPunctualWebGL st = if (IntMap.null $ currPrograms st) then (return st) else runGL (glContext st) $ do
   let postUniforms = ["res","tex","brightness"]
   let postAttribs = ["p"]
   (newProgramReady,asyncProgram) <- useAsyncProgram (postProgram st) postUniforms postAttribs

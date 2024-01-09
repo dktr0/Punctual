@@ -109,7 +109,7 @@ useAsyncProgram a uniformNames attribNames = do
               nextVertexShader = Nothing,
               nextFragmentShader = Nothing
             })
-          _ -> do -- delete old program, use new program, query inform locations
+          _ -> do -- delete old program, use new program, query uniform and attribute locations
             when (isJust $ activeProgram a) $ do
               deleteProgram $ fromJust $ activeProgram a
               deleteShader $ fromJust $ activeVertexShader a

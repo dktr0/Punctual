@@ -102,33 +102,31 @@ haskellSrcExtsParseMode :: ParseMode
 haskellSrcExtsParseMode = defaultParseMode {
       fixities = Just [
         Fixity (AssocRight ()) 9 (UnQual () (Symbol () ".")),
-        Fixity (AssocLeft ()) 9 (UnQual () (Symbol () "!!")),
-        Fixity (AssocRight ()) 8 (UnQual () (Symbol () "^")),
-        Fixity (AssocRight ()) 8 (UnQual () (Symbol () "^^")),
         Fixity (AssocRight ()) 8 (UnQual () (Symbol () "**")),
+        Fixity (AssocRight ()) 8 (UnQual () (Symbol () "**:")),   
         Fixity (AssocLeft ()) 7 (UnQual () (Symbol () "*")),
+        Fixity (AssocLeft ()) 7 (UnQual () (Symbol () "*:")),
         Fixity (AssocLeft ()) 7 (UnQual () (Symbol () "/")),
-        Fixity (AssocLeft ()) 7 (UnQual () (Ident () "quot")),
-        Fixity (AssocLeft ()) 7 (UnQual () (Ident () "rem")),
-        Fixity (AssocLeft ()) 7 (UnQual () (Ident () "div")),
-        Fixity (AssocLeft ()) 7 (UnQual () (Ident () "mod")),
+        Fixity (AssocLeft ()) 7 (UnQual () (Symbol () "/:")),
+        Fixity (AssocLeft ()) 7 (UnQual () (Symbol () "%")),
+        Fixity (AssocLeft ()) 7 (UnQual () (Symbol () "%:")),
         Fixity (AssocLeft ()) 6 (UnQual () (Symbol () "+")),
+        Fixity (AssocLeft ()) 6 (UnQual () (Symbol () "+:")),
         Fixity (AssocLeft ()) 6 (UnQual () (Symbol () "-")),
-        Fixity (AssocRight ()) 5 (UnQual () (Symbol () ":")),
+        Fixity (AssocLeft ()) 6 (UnQual () (Symbol () "-:")),
         Fixity (AssocRight ()) 5 (UnQual () (Symbol () "++")),
         Fixity (AssocNone ()) 4 (UnQual () (Symbol () "==")),
+        Fixity (AssocNone ()) 4 (UnQual () (Symbol () "==:")),
         Fixity (AssocNone ()) 4 (UnQual () (Symbol () "/=")),
+        Fixity (AssocNone ()) 4 (UnQual () (Symbol () "/=:")),
         Fixity (AssocNone ()) 4 (UnQual () (Symbol () "<")),
+        Fixity (AssocNone ()) 4 (UnQual () (Symbol () "<:")),
         Fixity (AssocNone ()) 4 (UnQual () (Symbol () "<=")),
+        Fixity (AssocNone ()) 4 (UnQual () (Symbol () "<=:")),
         Fixity (AssocNone ()) 4 (UnQual () (Symbol () ">=")),
+        Fixity (AssocNone ()) 4 (UnQual () (Symbol () ">=:")),
         Fixity (AssocNone ()) 4 (UnQual () (Symbol () ">")),
-        Fixity (AssocNone ()) 4 (UnQual () (Ident () "elem")),
-        Fixity (AssocNone ()) 4 (UnQual () (Ident () "notElem")),
-        Fixity (AssocLeft ()) 4 (UnQual () (Symbol () "<$>")),
-        Fixity (AssocLeft ()) 4 (UnQual () (Symbol () "<$")),
-        Fixity (AssocLeft ()) 4 (UnQual () (Symbol () "<*>")),
-        Fixity (AssocLeft ()) 4 (UnQual () (Symbol () "<*")),
-        Fixity (AssocLeft ()) 4 (UnQual () (Symbol () "*>")),
+        Fixity (AssocNone ()) 4 (UnQual () (Symbol () ">:")),
         Fixity (AssocRight ()) 3 (UnQual () (Symbol () "&&")),
         Fixity (AssocRight ()) 2 (UnQual () (Symbol () "||")),
         Fixity (AssocLeft ()) 0 (UnQual () (Symbol () ">>")), -- modified from Haskell default (1) to have equal priority to ops below...
@@ -402,8 +400,10 @@ graph3 = asum [
 
   -- other binary functions (with combinatorial semantics, generally speaking)
   reserved "fit" >> return fit,
-  reserved "min" >> return Min,
-  reserved "max" >> return Max,
+  reserved "min" >> return (Min Combinatorial),
+  reserved "max" >> return (Max Combinatorial),
+  reserved "minp" >> return (Min PairWise),
+  reserved "maxp" >> return (Max PairWise),
   reserved "hline" >> return HLine,
   reserved "vline" >> return VLine,
   reserved "circle" >> return Circle,
@@ -411,7 +411,8 @@ graph3 = asum [
   reserved "clip" >> return Clip,
   reserved "between" >> return Between,
   reserved "when" >> return Sound.Punctual.Graph.when,
-  reserved "gate" >> return Gate,
+  reserved "gate" >> return (Gate Combinatorial),
+  reserved "gatep" >> return (Gate PairWise),
   reserved "setfx" >> return SetFx,
   reserved "setfy" >> return SetFy,
   reserved "setfxy" >> return SetFxy,
@@ -515,14 +516,14 @@ multiSeries1 :: H Graph
 multiSeries1 = do
   (a,b,c) <- Language.Haskellish.enumFromThenTo double double double
   return $ Multi $ fmap Constant $ Data.List.take 64 $ multiSeries1' a b c
-
+  
 multiSeries1' :: Double -> Double -> Double -> [Double]
 multiSeries1' a b c
-  | (b > a) && (a > c) = []
-  | (b < a) && (a < c) = []
-  | (b == a) = []
-  | otherwise = a : multiSeries1' b (b+b-a) c
+  | (b == a) = [a]
+  | (c == a) = [a]
+  | otherwise = [a, b .. c]
 
+-- will be removed in punctual 0.5
 multiSeriesDeprecated :: H Graph
 multiSeriesDeprecated = (reserved "..." >> return f) <*> i <*> i
   where

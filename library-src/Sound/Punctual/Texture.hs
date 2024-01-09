@@ -22,6 +22,9 @@ data Texture = Texture {
   imageObject :: Maybe Image,
   webGLTexture :: WebGLTexture
   }
+  
+instance Show Texture where
+  show x = "a Texture, video=" ++ show (isJust (videoObject x)) ++ " image=" ++ show (isJust (imageObject x))
 
 newtype Video = Video JSVal
 

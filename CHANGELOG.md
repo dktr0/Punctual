@@ -1,5 +1,25 @@
 # ChangeLog
 
+0.4.4.7:
+
+-added pairwise variants of max, min, and gate (maxp, minp, gatep)
+
+0.4.4.6:
+
+-fixed bug affecting multichannel use of trunc, acosh, asinh, atanh, cosh, log10, sinh, and tanh
+
+0.4.4.5:
+
+-fixed bug that was scrambling access to multiple image and video textures
+
+0.4.4.4:
+
+-bug fixes to precedence of pairwise arithmetic operators
+
+0.4.4.3:
+
+-bug fix (to [a,b .. c] expressions)
+
 0.4.4.2:
 
 -bug fix (xyt,xyrt,frt,ft)

@@ -12,7 +12,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import TextShow
-import Control.Concurrent.MVar
+import Data.IORef
 import Control.Concurrent
 import Data.Map
 import Control.Monad
@@ -24,15 +24,10 @@ import Data.Bool
 import Data.Maybe
 import Data.Either
 
-import Sound.Punctual.Action hiding ((>>),(<>))
-import Sound.Punctual.Program
-import Sound.Punctual.Parser
-import Sound.Punctual.PunctualW
-import Sound.Punctual.WebGL
 import Sound.MusicW
 import Sound.MusicW.AudioContext hiding (AudioTime)
-import Sound.Punctual.GL
 import Sound.Punctual.Resolution
+import Sound.Punctual
 import MovingAverage
 
 headElement :: DomBuilder t m => m ()
@@ -43,7 +38,7 @@ headElement = do
 
 intro :: Text
 intro
-  ="-- Punctual, an audiovisual live coding language\n\
+  ="-- Punctual, an audiovisual live coding language, version 0.4.4.7\n\
    \-- Chromium/Chrome/Edge/Opera browser required\n\
    \-- Press Shift-Enter to (re)evaluate/activate code\n\
    \-- documentation @ https://github.com/dktr0/Punctual.git\n\
@@ -52,15 +47,15 @@ intro
    \x1 << osc $ 0.11*[1,2]; y1 << osc $ 0.08/[3,4];\n\
    \x2 << osc $ 0.06/[5,6]; y2 << osc $ 0.04*[7,8];\n\
    \lines << mono $ iline [x1,y1] [x2,y2] 0.002;\n\
-   \col << hsvrgb [osc 0.11,0.5 ~~ 1 $ sin 0.12, 1];\n\
+   \col << hsvrgb [osc 0.11,0.5 ~~ 1 $ osc 0.12, 1];\n\
    \mask << prox 0 ** 8;\n\
-   \fit 1 $ lines * col  * mask >> video <> 5;\n\
-   \0.98 >> fdbk\n"
+   \a << fit 1 $ lines * col  * mask;\n\
+   \gatep 0.1 (maxp a (fb fxy * 0.98)) >> video <> 5\n"
 
 main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
-  putStrLn "Punctual standalone, version 0.4.4.2"
+  putStrLn "Punctual standalone, version 0.4.4.7"
   ctx <- getGlobalAudioContextPlayback 
   putStrLn "global audio context (playback mode) acquired"
   putStrLn "loading MusicW audio worklets..."
@@ -102,7 +97,7 @@ standalone :: (MonadIO m, MonadIO (Performable m), PerformEvent t m, MonadFix m,
 standalone ksc = do
   let attrs = fromList [("class","canvas"),("style",T.pack $ "z-index: -1;"), ("width","1920"), ("height","1080")]
   canvas <- liftM (uncheckedCastTo HTMLCanvasElement .  _element_raw . fst) $ elAttr' "canvas" attrs $ return ()
-  mv <- liftIO $ forkRenderThreads canvas
+  rs <- liftIO $ launchAnimationThread canvas
 
   elClass "div" "editorAndStatus" $ do
     (statusVisible,status) <- mdo
@@ -112,11 +107,11 @@ standalone ksc = do
       let evaled = tagPromptlyDyn (_textArea_value code) $ ffilter (==Evaluate) ksc
       shStatus <- toggle True $ ffilter (==ToggleStatus) ksc
       shInfo <- toggle False $ ffilter (==ToggleInfo) ksc
-      (status,shader) <- performEvaluate mv evaled
+      (status,shader) <- performEvaluate rs evaled
       return (shStatus,status)
 
     hideableEl "div" statusVisible "status" $ do
-      fps <- pollFPS mv
+      fps <- pollFPS rs
       elClass "div" "errors" $ dynText status
       elClass "div" "fps" $ do
         let fpsText = fmap ((<> " FPS") . showt . (round :: Double -> Int)) fps
@@ -127,34 +122,23 @@ standalone ksc = do
 
 
 
-performEvaluate :: (PerformEvent t m, MonadIO (Performable m), MonadHold t m) => MVar RenderState -> Event t Text -> m (Dynamic t Text, Dynamic t Text)
-performEvaluate mv e = do
-  x <- performEvent $ ffor e (liftIO . doEvaluate mv)
+performEvaluate :: (PerformEvent t m, MonadIO (Performable m), MonadHold t m) => RenderState -> Event t Text -> m (Dynamic t Text, Dynamic t Text)
+performEvaluate rs e = do
+  x <- performEvent $ ffor e (liftIO . doEvaluate rs)
   status <- holdDyn "" $ fmap fst x
   shader <- holdDyn "" $ fmap snd x
   return (status,shader)
 
-doEvaluate :: MVar RenderState -> Text -> IO (Text,Text)
-doEvaluate mv x = do
+doEvaluate :: RenderState -> Text -> IO (Text,Text)
+doEvaluate rs txt = do
   now <- getCurrentTime
-  case parse now x of
+  evalResult <- evaluate (punctual rs) 0 txt now
+  case evalResult of
     Left err -> do
-      let err' = T.pack err
-      rs <- readMVar mv
-      return (err',shader rs)
-    Right p -> do
-      rs <- takeMVar mv
-      nW <- liftAudioIO $ updatePunctualW (punctualW rs) (tempo rs) p
-      nGL <- setResolution (glCtx rs) FHD (punctualWebGL rs)
-      nGL' <- setBrightness 1.0 nGL
-      (nGL'',newShader) <- evaluatePunctualWebGL (glCtx rs) (tempo rs) 1 p nGL'
-      putMVar mv $ rs {
-        shader = newShader,
-        punctualW = nW,
-        punctualWebGL = nGL''
-      }
-      return ("",newShader)
-
+      oldShader <- readIORef (shader rs)
+      return (err,oldShader)
+    Right newShader -> pure ("",newShader) -- TODO: brightness and resolution should be updated, but not here, in animationFrame instead
+          
 
 hideableEl :: (DomBuilder t m, PostBuild t m) => Text -> Dynamic t Bool -> Text -> m a -> m a
 hideableEl elType isVisible cssClass childWidget = do
@@ -163,20 +147,15 @@ hideableEl elType isVisible cssClass childWidget = do
 
 
 data RenderState = RenderState {
-  glCtx :: GLContext,
-  punctualW :: PunctualW,
-  punctualWebGL :: PunctualWebGL,
-  shader :: Text,
-  fps :: MovingAverage,
-  t0 :: UTCTime,
-  tEval :: UTCTime,
-  tempo :: Tempo,
-  tPrevAnimationFrame :: UTCTime
+  punctual :: Punctual,
+  shader :: IORef Text,
+  tPrevAnimationFrame :: IORef UTCTime,
+  fps :: IORef MovingAverage
 }
 
 
-forkRenderThreads :: HTMLCanvasElement -> IO (MVar RenderState)
-forkRenderThreads canvas = do
+launchAnimationThread :: HTMLCanvasElement -> IO RenderState
+launchAnimationThread canvas = do
   mic <- liftAudioIO createMicrophone
   gain <- liftAudioIO $ createGain (dbamp (-10))
   comp <- liftAudioIO $ createCompressor (-20) 3 4 0.050 0.1
@@ -185,50 +164,45 @@ forkRenderThreads canvas = do
   connectNodes comp dest
   ac <- getGlobalAudioContext
   tNow <- getCurrentTime
-  let iW = emptyPunctualW ac mic gain 2 tNow -- hard coded stereo for now
-  -- create PunctualWebGL for animation
-  glc <- newGLContext canvas
-  initialPunctualWebGL <- newPunctualWebGL (Just mic) (Just comp) FHD 1.0 canvas glc
-  -- create an MVar for the render state, fork render threads, return the MVar
-  t0system <- getCurrentTime
-  mv <- newMVar $ RenderState {
-    glCtx = glc,
-    punctualW = iW,
-    punctualWebGL = initialPunctualWebGL,
-    shader = "",
-    fps = newAverage 60,
-    t0 = tNow,
-    tEval = tNow,
-    tempo = Tempo { freq=0.5, time=tNow, Data.Tempo.count=0},
-    tPrevAnimationFrame = t0system
-  }
-  forkIO $ void $ animationThread mv 0
-  return mv
+  p <- new canvas
+  setAudioInput p mic
+  setAudioOutput p comp
+  setNchnls p 2
+  setBrightness p 1.0
+  setResolution p FHD
+  shader' <- newIORef ""
+  fps' <- newIORef $ newAverage 60
+  tPrevAnimationFrame' <- newIORef tNow
+  let rs = RenderState {
+    punctual = p,
+    shader = shader',
+    tPrevAnimationFrame = tPrevAnimationFrame',
+    fps = fps'
+    }
+  forkIO $ void $ animationThread rs 0
+  return rs
 
 
-animationThread :: MVar RenderState -> Double -> IO ()
-animationThread mv _ = do
-  rs <- takeMVar mv
-  t1system <- getCurrentTime
-  let tDiff = diffUTCTime t1system (tPrevAnimationFrame rs)
-  let newFps = updateAverage (fps rs) $ 1 / realToFrac tDiff
-  -- t1audio <- liftAudioIO $ audioTime
-  let pwgl = punctualWebGL rs
-  nGL <- drawPunctualWebGL (glCtx rs) (tempo rs) t1system 1 pwgl
-  nGL' <- displayPunctualWebGL (glCtx rs) nGL
-  putMVar mv $ rs {
-    tPrevAnimationFrame = t1system,
-    fps = newFps,
-    punctualWebGL = nGL'
-  }
-  void $ inAnimationFrame ContinueAsync $ animationThread mv
+animationThread :: RenderState -> Double -> IO ()
+animationThread rs _ = do
+  -- update FPS measurements 
+  newTime <- getCurrentTime
+  prevTime <- readIORef (tPrevAnimationFrame rs)
+  let timeDiff = diffUTCTime newTime prevTime
+  prevFps <- readIORef (fps rs)
+  writeIORef (fps rs) $ updateAverage prevFps $ 1 / realToFrac timeDiff
+  writeIORef (tPrevAnimationFrame rs) newTime
+  -- update rendering
+  render (punctual rs) True 0 newTime
+  postRender (punctual rs) True
+  void $ inAnimationFrame ContinueAsync $ animationThread rs
 
 
-pollFPS :: (PostBuild t m, PerformEvent t m, TriggerEvent t m, MonadIO (Performable m), MonadFix m, MonadHold t m, MonadIO m) => MVar RenderState -> m (Dynamic t Double)
-pollFPS mv = do
+pollFPS :: (PostBuild t m, PerformEvent t m, TriggerEvent t m, MonadIO (Performable m), MonadFix m, MonadHold t m, MonadIO m) => RenderState -> m (Dynamic t Double)
+pollFPS rs = do
   now <- liftIO $ getCurrentTime
   ticks <- tickLossy (1.004::NominalDiffTime) now
   x <- performEvent $ ffor ticks $ \_ -> liftIO $ do
-    rs <- readMVar mv
-    return $ getAverage $ fps rs
+    y <- readIORef (fps rs)
+    pure $ getAverage y
   holdDyn 0 x

@@ -1,5 +1,5 @@
 name:                punctual
-version:             0.4.4.2
+version:             0.4.4.7
 synopsis:            Live coding language
 description:         Please see README.md
 homepage:            http://github.com/dktr0/Punctual/blob/master/README.md
@@ -53,6 +53,7 @@ Library
                      Sound.Punctual.Resolution
                      Sound.Punctual.WebGL
                      Sound.Punctual.Texture
+                     Sound.Punctual
   other-modules:     Sound.Punctual.GLSL
                      Sound.Punctual.GLSLExpr
                      Sound.Punctual.Webcam
