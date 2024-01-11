@@ -1,10 +1,16 @@
 module Signal where
 
-import Data.List (List)
+import Prelude (class Eq,class Show,negate,($))
+import Data.Generic.Rep (class Generic)
+import Data.Show.Generic (genericShow)
+import Data.List (List(..),(:))
 
-data MultiMode = Combinatorial | PairWise -- deriving (Show,Eq,NFData,Generic)
+data MultiMode = Combinatorial | Pairwise
 
-data TextureRef = ImgRef String | VidRef String -- deriving (Show,Eq,Ord,NFData,Generic)
+derive instance Eq MultiMode
+derive instance Generic MultiMode _
+instance Show MultiMode where
+  show = genericShow
 
 data Signal =
   LocalBinding Int |
@@ -29,8 +35,8 @@ data Signal =
   Bipolar Signal |
   Unipolar Signal |
   Fb Signal |
-  Img TextureRef |
-  Vid TextureRef |
+  Img String |
+  Vid String |
   Cam |
   Blend Signal |
   RgbHsv Signal | HsvRgb Signal |
@@ -79,6 +85,7 @@ data Signal =
   AmpDb Signal |
   Fract Signal |
   Sum MultiMode Signal Signal |
+  Difference MultiMode Signal Signal |
   Product MultiMode Signal Signal |
   Division MultiMode Signal Signal |
   Mod MultiMode Signal Signal |
@@ -105,39 +112,40 @@ data Signal =
   LinLin Signal Signal Signal |
   LPF Signal Signal Signal | HPF Signal Signal Signal | BPF Signal Signal Signal |
   Delay Number Signal Signal
-  -- deriving (Show,Eq,Generic,NFData)
 
-{-
-instance Num Signal where
-  x + y = Sum Combinatorial x y
-  x * y = Product Combinatorial x y
-  negate x = Product Combinatorial x (Constant (-1))
-  abs x = Abs x
-  signum x = (GreaterThan Combinatorial x 0) + (LessThan Combinatorial x 0 * (-1))
-  fromInteger x = Constant $ fromInteger x
+derive instance Eq Signal
+derive instance Generic Signal _
+instance Show Signal where
+  show x = genericShow x
 
-instance Fractional Signal where
-  x / y = Division Combinatorial x y
-  fromRational x = Constant $ fromRational x
 
 -- Miscellaneous functions over Signals:
 
 when :: Signal -> Signal -> Signal
-when x y = IfThenElse x y 0
+when x y = IfThenElse x y (Constant 0.0)
 
-modulatedRangeSignal :: Signal -> Signal -> Signal -> Signal
-modulatedRangeSignal low high m = LinLin (Multi [-1,1]) (Multi [low,high]) m
+modulatedRangeLowHigh :: Signal -> Signal -> Signal -> Signal
+modulatedRangeLowHigh low high x = LinLin (SignalList $ Constant (-1.0):Constant 1.0:Nil) (SignalList $ low:high:Nil) x
 
-(+-) :: Signal -> Signal -> Signal -> Signal
-a +- b = modulatedRangeSignal (a - (a*b)) (a + (a*b))
-
+modulatedRangePlusOrMinus :: Signal -> Signal -> Signal -> Signal
+modulatedRangePlusOrMinus a b = modulatedRangeLowHigh low high 
+  where
+    low = Product Combinatorial a (Difference Pairwise (Constant 1.0) b)
+    high = Product Combinatorial a (Sum Pairwise (Constant 1.0) b)
+    
 fit :: Signal -> Signal -> Signal
-fit ar x = IfThenElse ((GreaterThanOrEqual Combinatorial) Aspect ar) (Zoom (Multi [ar/Aspect,1]) $ x) (Zoom (Multi [1,Aspect/ar]) $ x)
+fit ar x = IfThenElse cond ifTrue ifFalse
+  where
+    cond = GreaterThanOrEqual Combinatorial Aspect ar
+    ifTrue = Zoom (SignalList $ Division Pairwise ar Aspect : Constant 1.0 : Nil) x
+    ifFalse = Zoom (SignalList $ Constant 1.0 : Division Pairwise Aspect ar : Nil) x
 
+{-
+-- was used in multiToGLSL in FragmentShader.hs, and expandMultis (for Multi) in PunctualW.hs
+-- but it's not at all a function over Signal so perhaps it should be defined locally instead?
 multi :: [[a]] -> [[a]]
 multi [] = []
 multi (xs:[]) = fmap pure xs
 multi (xs:ys) = [ x:y | x <- xs, y <- multi ys ]
-
 -}
 
