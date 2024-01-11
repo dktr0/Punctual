@@ -1,6 +1,6 @@
 module Signal where
 
-import Prelude (class Eq,class Show,negate,($))
+import Prelude (class Eq,class Show,($),negate)
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.List (List(..),(:))
@@ -13,7 +13,7 @@ instance Show MultiMode where
   show = genericShow
 
 data Signal =
-  LocalBinding Int |
+  Reference String |
   Constant Number |
   SignalList (List Signal) |
   Append Signal Signal |
