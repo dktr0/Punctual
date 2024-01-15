@@ -13,14 +13,19 @@ to generate this file without the comments in this block.
 { name = "my-project"
 , dependencies =
   [ "console"
+  , "datetime"
   , "effect"
   , "either"
   , "foldable-traversable"
   , "identity"
   , "integers"
   , "lists"
+  , "maybe"
+  , "newtype"
   , "parsing"
   , "prelude"
+  , "purescript-tempi"
+  , "rationals"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]
