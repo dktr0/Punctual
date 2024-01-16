@@ -15,10 +15,8 @@ in  upstream
       , "now"
       , "partial"
       , "prelude"
-      , "psci-support"
       , "rationals"
       ]
     , repo = "https://github.com/dktr0/purescript-tempi"
-    , version = "104e1b8b299c02893a9edcc07c25440c1f9edcb8"
+    , version = "37e698d70b7e2c6cdaac92da820135f74d7e6e7f"
     }
-    

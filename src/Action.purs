@@ -1,46 +1,25 @@
 module Action where
 
-{- import Signal
-import DefTime
-import Transition
-import Output
+import Prelude (identity,($))
+import Data.Tuple (Tuple(..))
+import Data.Tempo (Tempo)
+import Data.DateTime (DateTime, adjust)
+import Data.Maybe (maybe)
+
+import Signal (Signal)
+import DefTime (DefTime, calculateT1)
+import Transition (Transition, transitionToXfade)
+import Output (Output)
 
 type Action = {
   signal :: Signal,
   defTime :: DefTime,
   transition :: Transition,
-  outputs :: [Output]
-  } deriving (Show, Eq, Generic, NFData)
-
-emptyAction :: Action
-emptyAction = actionFromGraph $ Constant 0
-
-actionFromGraph :: Graph -> Action
-actionFromGraph g = Action {
-  graph = g,
-  defTime = Quant 1.0 (Seconds 0.0),
-  transition = DefaultCrossFade,
-  outputs = []
+  output :: Output
   }
 
-(<>) :: Action -> Duration -> Action
-a <> d = a { transition = CrossFade d }
-
-(@@) :: Action -> DefTime -> Action
-a @@ d = a { defTime = d }
-
-(>>) :: Action -> [Output] -> Action
-a >> o = a { outputs = o ++ outputs a }
-
-actionToTimes :: Tempo -> UTCTime -> Action -> (UTCTime,UTCTime)
-actionToTimes tempo eTime x = (t1,t2)
+actionToTimes :: Tempo -> DateTime -> Action -> Tuple DateTime DateTime
+actionToTimes tempo eTime x = Tuple t1 t2
   where
-    t1 = calculateT1 tempo eTime (defTime x)
-    t2 = addUTCTime (transitionToXfade tempo $ transition x) t1
-
-actionOutputsAudio :: Action -> Bool
-actionOutputsAudio = outputsAudio . outputs
-
-actionOutputsWebGL :: Action -> Bool
-actionOutputsWebGL = outputsWebGL . outputs
--}
+    t1 = calculateT1 tempo eTime x.defTime
+    t2 = maybe eTime identity $ adjust (transitionToXfade tempo x.transition) t1

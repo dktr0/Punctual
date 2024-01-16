@@ -26,6 +26,7 @@ to generate this file without the comments in this block.
   , "prelude"
   , "purescript-tempi"
   , "rationals"
+  , "tuples"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]
