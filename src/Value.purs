@@ -3,17 +3,22 @@ module Value where
 -- Value represents Signals and functions over Signals (ie. Signal -> Signal, Signal -> Signal -> Signal, etc)
 -- The List of Strings are the names of any function arguments, which appear also in the Signal constructor Reference
 
-import Prelude (class Eq,class Show)
-import Data.Generic.Rep (class Generic)
-import Data.Show.Generic (genericShow)
-import Data.List (List)
+import Data.Either (Either)
+import Parsing (ParseError,Position)
 
 import Signal
 
-data Value = Value (List String) Signal
+data Value = 
+  ValueSignal Position Signal |
+  ValueString Position String |
+  ValueInt Position Int |
+  ValueNumber Position Number |
+  ValueFunction Position (Value -> Either ParseError Value)
+  
+valuePosition :: Value -> Position
+valuePosition (ValueSignal p _) = p
+valuePosition (ValueString p _) = p
+valuePosition (ValueInt p _) = p
+valuePosition (ValueNumber p _) = p
+valuePosition (ValueFunction p _) = p
 
-derive instance Eq Value
-derive instance Generic Value _
-
-instance Show Value where
-  show = genericShow

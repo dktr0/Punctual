@@ -1,4 +1,4 @@
-module Sound.Punctual.Program where
+module Program where
 
 import Data.DateTime (DateTime)
 import Data.Map as Map

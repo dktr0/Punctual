@@ -27,6 +27,7 @@ to generate this file without the comments in this block.
   , "prelude"
   , "purescript-tempi"
   , "rationals"
+  , "transformers"
   , "tuples"
   ]
 , packages = ./packages.dhall

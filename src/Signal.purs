@@ -105,8 +105,8 @@ data Signal =
   Between Signal Signal |
   VLine Signal Signal |
   HLine Signal Signal |
-  Step (List Signal) Signal |
-  IfThenElse Signal Signal Signal |
+  Step Signal Signal |
+  IfThenElse Signal Signal Signal | -- no pathways for this exist yet in PureScript port, from the AST level up
   ILine Signal Signal Signal |
   Line Signal Signal Signal |
   LinLin Signal Signal Signal |
