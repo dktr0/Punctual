@@ -1,11 +1,14 @@
 module Parser where
 
-import Prelude (($),pure,bind,(<>))
+import Prelude (($),pure,bind,(<>),(>>=),(<<<))
 import Data.Int (toNumber)
 import Data.Tuple (Tuple)
 import Data.Either (Either)
+import Data.Maybe (Maybe(..))
+import Data.List (List)
+import Data.Traversable (traverse)
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.State.Trans (StateT,runStateT)
+import Control.Monad.State.Trans (StateT,runStateT,get)
 import Control.Monad.Error.Class (throwError)
 import Parsing (ParseError(..),Position)
 import Data.Map as Map
@@ -28,11 +31,15 @@ runP i d p = runStateT p { info: i, defs: d }
 
 parseExpression :: Expression -> P Value
 parseExpression (Reserved p x) = parseReserved p x
-parseExpression (Identifier p _) = throwError $ ParseError "parsing identifiers not supported yet" p -- should succeed if identifier is in state
+parseExpression (Identifier p x) = do
+  s <- get
+  case Map.lookup x s.defs of
+    Just v -> pure v
+    Nothing -> throwError $ ParseError ("unrecognized identifier " <> x) p
 parseExpression (LiteralInt p x) = pure $ ValueInt p x
 parseExpression (LiteralNumber p x) = pure $ ValueNumber p x
 parseExpression (LiteralString p x) = pure $ ValueString p x
-parseExpression (ListExpression p _) = throwError $ ParseError "parsing lists of expressions not supported yet" p -- succeeds if all items signals
+parseExpression (ListExpression p xs) = traverse parseExpression xs >>= listValueToValueSignal p -- succeeds if all items can be signals
 parseExpression (Application p f x) = do
   f' <- parseExpression f
   case f' of
@@ -227,4 +234,18 @@ numberSignalSignalSignal p f =
       ValueNumber _ x' -> signalSignalSignal p (f x')
       y -> throwError $ ParseError "expected Signal" (valuePosition y)
     )
+
+-- convert a list of Values to a single value that is a multi-channel Signal
+-- succeeds only if each of the provided values can be meaningfully cast to a Signal
+listValueToValueSignal :: Position -> List Value -> P Value
+listValueToValueSignal p xs = traverse valueToValueSignal xs >>= (pure <<< ValueSignal p <<< SignalList)
+
+-- convert a Value to a Signal
+-- succeeds only if the provided value can be meaningfully cast to a Signal
+valueToValueSignal :: Value -> P Signal
+valueToValueSignal (ValueSignal _ x) = pure x
+valueToValueSignal (ValueInt _ x) = pure $ Constant $ toNumber x
+valueToValueSignal (ValueNumber _ x) = pure $ Constant x
+valueToValueSignal (ValueString p _) = throwError $ ParseError "expected Signal (found String)" p
+valueToValueSignal (ValueFunction p _) = throwError $ ParseError "expected Signal (found Function)" p
 
