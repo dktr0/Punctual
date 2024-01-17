@@ -127,8 +127,8 @@ when x y = IfThenElse x y (Constant 0.0)
 modulatedRangeLowHigh :: Signal -> Signal -> Signal -> Signal
 modulatedRangeLowHigh low high x = LinLin (SignalList $ Constant (-1.0):Constant 1.0:Nil) (SignalList $ low:high:Nil) x
 
-modulatedRangePlusOrMinus :: Signal -> Signal -> Signal -> Signal
-modulatedRangePlusOrMinus a b = modulatedRangeLowHigh low high 
+modulatedRangePlusMinus :: Signal -> Signal -> Signal -> Signal
+modulatedRangePlusMinus a b = modulatedRangeLowHigh low high 
   where
     low = Product Combinatorial a (Difference Pairwise (Constant 1.0) b)
     high = Product Combinatorial a (Sum Pairwise (Constant 1.0) b)

@@ -1,22 +1,24 @@
 module Parser where
 
-import Prelude (($),pure,bind,(<>),(>>=),(<<<))
+import Prelude (($),pure,bind,(<>),(>>=),(<<<),(<$>),class Applicative)
 import Data.Int (toNumber)
 import Data.Tuple (Tuple)
-import Data.Either (Either)
+import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
-import Data.List (List)
+import Data.List (range)
 import Data.Traversable (traverse)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.State.Trans (StateT,runStateT,get)
-import Control.Monad.Error.Class (throwError)
-import Parsing (ParseError(..),Position)
+import Control.Monad.Error.Class (class MonadThrow,throwError)
+import Parsing (ParseError(..),Position,runParser)
 import Data.Map as Map
 
-import AST (Expression(..))
-import Program (ProgramInfo)
-import Signal (MultiMode(..), Signal(..))
-import Value (Value(..),valuePosition)
+import AST (Expression(..),expression1)
+import Program (ProgramInfo,emptyProgramInfo)
+import Signal (MultiMode(..), Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus)
+import Value (Value(..),valuePosition,listValueToValueSignal,valueToValueSignal)
+import Action (Action,signalToAction,setOutput,setCrossFade)
+import Output (Output(..))
 
 type PState = {
   info :: ProgramInfo,
@@ -28,6 +30,10 @@ type P a = StateT PState (Either ParseError) a
 runP :: forall a. ProgramInfo -> Map.Map String Value -> P a -> Either ParseError (Tuple a PState)
 runP i d p = runStateT p { info: i, defs: d }  
 
+test :: String -> Either ParseError (Tuple Value PState)
+test x = do
+  exp <- runParser x expression1
+  runP emptyProgramInfo Map.empty $ parseExpression exp
 
 parseExpression :: Expression -> P Value
 parseExpression (Reserved p x) = parseReserved p x
@@ -39,20 +45,31 @@ parseExpression (Identifier p x) = do
 parseExpression (LiteralInt p x) = pure $ ValueInt p x
 parseExpression (LiteralNumber p x) = pure $ ValueNumber p x
 parseExpression (LiteralString p x) = pure $ ValueString p x
-parseExpression (ListExpression p xs) = traverse parseExpression xs >>= listValueToValueSignal p -- succeeds if all items can be signals
-parseExpression (Application p f x) = do
+parseExpression (ListExpression p xs) = traverse parseExpression xs >>= listValueToValueSignal p
+parseExpression (Application _ f x) = do
   f' <- parseExpression f
-  case f' of
-    ValueFunction _ ff -> do
-      x' <- parseExpression x      
-      lift $ ff x'
-    _ -> throwError $ ParseError "only a function can be on the left-hand side of an application" p
-parseExpression (Operation p _ _ _) = throwError $ ParseError "Operation not supported yet" p
-{-  x' <- parseExpression x
+  x' <- parseExpression x
+  application f' x'
+parseExpression (Operation p op x y) = do
+  f <- parseOperator p op 
+  x' <- parseExpression x
   y' <- parseExpression y
-  parseOperation p op x' y' -}
-parseExpression (FromTo p _ _) = throwError $ ParseError "FromTo not supported yet" p
+  z <- application f x'
+  application z y'
+parseExpression (FromTo p x y) = pure $ ValueSignal p $ SignalList $ (Constant <<< toNumber) <$> range x y   
 parseExpression (FromThenTo p _ _ _) = throwError $ ParseError "FromThenTo not supported yet" p
+-- TODO: implement FromThenTo and fix implementation of FromTo to match Haskell behaviour
+
+
+application :: forall m. Applicative m => MonadThrow ParseError m => Value -> Value -> m Value
+application f x = do
+  case f of
+    ValueFunction _ f' -> do
+      case f' x of
+        Left err -> throwError err
+        Right y -> pure y
+    v -> throwError $ ParseError "expected function" (valuePosition v)
+
 
 parseReserved :: Position -> String -> P Value
 parseReserved p "append" = lift $ signalSignalSignal p Append
@@ -178,7 +195,47 @@ parseReserved p "lpf" = lift $ signalSignalSignalSignal p LPF
 parseReserved p "hpf" = lift $ signalSignalSignalSignal p HPF
 parseReserved p "bpf" = lift $ signalSignalSignalSignal p BPF
 parseReserved p "delay" = lift $ numberSignalSignalSignal p Delay
+parseReserved p "audio" = pure $ ValueOutput p Audio
+parseReserved p "video" = pure $ ValueOutput p Video
+parseReserved p "rgba" = pure $ ValueOutput p RGBA
+parseReserved p "rgb" = pure $ ValueOutput p Video
+parseReserved p "alpha" = pure $ ValueOutput p Alpha
 parseReserved p x = throwError $ ParseError ("internal error in Punctual: parseReserved called with unknown reserved word " <> x) p
+
+parseOperator :: Position -> String -> P Value
+parseOperator p ">>" = lift $ actionOutputAction p setOutput
+parseOperator p "<>" = lift $ actionNumberAction p setCrossFade
+parseOperator p "$" = pure $ ValueFunction p (\f -> pure $ ValueFunction p (\x -> application f x))
+parseOperator p "&" = pure $ ValueFunction p (\x -> pure $ ValueFunction p (\f -> application f x))
+parseOperator p "++" = lift $ signalSignalSignal p Zip
+parseOperator p "~~" = lift $ signalSignalSignalSignal p modulatedRangeLowHigh
+parseOperator p "+-" = lift $ signalSignalSignalSignal p modulatedRangePlusMinus
+parseOperator p "+" = lift $ signalSignalSignal p $ Sum Combinatorial
+parseOperator p "-" = lift $ signalSignalSignal p $ Difference Combinatorial
+parseOperator p "*" = lift $ signalSignalSignal p $ Product Combinatorial
+parseOperator p "/" = lift $ signalSignalSignal p $ Division Combinatorial
+parseOperator p "%" = lift $ signalSignalSignal p $ Mod Combinatorial
+parseOperator p "**" = lift $ signalSignalSignal p $ Pow Combinatorial
+parseOperator p "==" = lift $ signalSignalSignal p $ Equal Combinatorial
+parseOperator p "/=" = lift $ signalSignalSignal p $ NotEqual Combinatorial
+parseOperator p ">" = lift $ signalSignalSignal p $ GreaterThan Combinatorial
+parseOperator p "<" = lift $ signalSignalSignal p $ LessThan Combinatorial
+parseOperator p ">=" = lift $ signalSignalSignal p $ GreaterThanOrEqual Combinatorial
+parseOperator p "<=" = lift $ signalSignalSignal p $ LessThanOrEqual Combinatorial
+parseOperator p "+:" = lift $ signalSignalSignal p $ Sum Pairwise
+parseOperator p "-:" = lift $ signalSignalSignal p $ Difference Pairwise
+parseOperator p "*:" = lift $ signalSignalSignal p $ Product Pairwise
+parseOperator p "/:" = lift $ signalSignalSignal p $ Division Pairwise
+parseOperator p "%:" = lift $ signalSignalSignal p $ Mod Pairwise
+parseOperator p "**:" = lift $ signalSignalSignal p $ Pow Pairwise
+parseOperator p "==:" = lift $ signalSignalSignal p $ Equal Pairwise
+parseOperator p "/=:" = lift $ signalSignalSignal p $ NotEqual Pairwise
+parseOperator p ">:" = lift $ signalSignalSignal p $ GreaterThan Pairwise
+parseOperator p "<:" = lift $ signalSignalSignal p $ LessThan Pairwise
+parseOperator p ">=:" = lift $ signalSignalSignal p $ GreaterThanOrEqual Pairwise
+parseOperator p "<=:" = lift $ signalSignalSignal p $ LessThanOrEqual Pairwise
+parseOperator p x = throwError $ ParseError ("internal error in Punctual: parseOperator called with unsupported operator " <> x) p
+
 
 signalSignal :: Position -> (Signal -> Signal) -> Either ParseError Value
 signalSignal p f =
@@ -198,6 +255,23 @@ stringSignal p f =
       y -> throwError $ ParseError "expected String" (valuePosition y)
     )
 
+outputAction :: Position -> (Output -> Action) -> Either ParseError Value
+outputAction p f =
+  pure $ ValueFunction p (\x -> 
+    case x of
+      ValueOutput _ x' -> pure $ ValueAction p (f x')
+      y -> throwError $ ParseError "expected Output" (valuePosition y)
+    )
+
+numberAction :: Position -> (Number -> Action) -> Either ParseError Value
+numberAction p f =
+  pure $ ValueFunction p (\x -> 
+    case x of
+      ValueNumber _ x' -> pure $ ValueAction p (f x')
+      ValueInt _ x' -> pure $ ValueAction p (f $ toNumber x')
+      y -> throwError $ ParseError "expected Number or Int" (valuePosition y)
+    )
+      
 signalSignalSignal :: Position -> (Signal -> Signal -> Signal) -> Either ParseError Value
 signalSignalSignal p f = 
   pure $ ValueFunction p (\x ->
@@ -216,6 +290,24 @@ intSignalSignal p f =
       y -> throwError $ ParseError "expected Int" (valuePosition y)
     )
 
+actionOutputAction :: Position -> (Action -> Output -> Action) -> Either ParseError Value
+actionOutputAction p f = 
+  pure $ ValueFunction p (\x ->
+    case x of
+      ValueAction _ x' -> outputAction p (f x')
+      ValueSignal _ x' -> outputAction p (f $ signalToAction x')
+      y -> throwError $ ParseError "expected Signal or Action" (valuePosition y)
+    )
+
+actionNumberAction :: Position -> (Action -> Number -> Action) -> Either ParseError Value
+actionNumberAction p f = 
+  pure $ ValueFunction p (\x ->
+    case x of
+      ValueAction _ x' -> numberAction p (f x')
+      ValueSignal _ x' -> numberAction p (f $ signalToAction x')
+      y -> throwError $ ParseError "expected Signal or Action" (valuePosition y)
+    )
+      
 signalSignalSignalSignal :: Position -> (Signal -> Signal -> Signal -> Signal) -> Either ParseError Value
 signalSignalSignalSignal p f = 
   pure $ ValueFunction p (\x ->
@@ -234,18 +326,4 @@ numberSignalSignalSignal p f =
       ValueNumber _ x' -> signalSignalSignal p (f x')
       y -> throwError $ ParseError "expected Signal" (valuePosition y)
     )
-
--- convert a list of Values to a single value that is a multi-channel Signal
--- succeeds only if each of the provided values can be meaningfully cast to a Signal
-listValueToValueSignal :: Position -> List Value -> P Value
-listValueToValueSignal p xs = traverse valueToValueSignal xs >>= (pure <<< ValueSignal p <<< SignalList)
-
--- convert a Value to a Signal
--- succeeds only if the provided value can be meaningfully cast to a Signal
-valueToValueSignal :: Value -> P Signal
-valueToValueSignal (ValueSignal _ x) = pure x
-valueToValueSignal (ValueInt _ x) = pure $ Constant $ toNumber x
-valueToValueSignal (ValueNumber _ x) = pure $ Constant x
-valueToValueSignal (ValueString p _) = throwError $ ParseError "expected Signal (found String)" p
-valueToValueSignal (ValueFunction p _) = throwError $ ParseError "expected Signal (found Function)" p
 

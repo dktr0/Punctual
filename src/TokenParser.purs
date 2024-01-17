@@ -58,9 +58,13 @@ reservedNamesDef = [
   "rep","unrep",
   "img","vid","cam"
   ]
+  
+-- operators0 are used at the top-level of parsing (statements) but not in recursive expressions
+operators0 :: Array String
+operators0 = ["<<","="] 
 
 operators1 :: Array String
-operators1 = ["<<",">>","@@","<>"]
+operators1 = [">>","<>"]
 
 operators2 :: Array String
 operators2 = ["$","&"]
@@ -75,7 +79,7 @@ operators3 = [
 tokenParser :: GenTokenParser String Identity
 tokenParser = makeTokenParser $ LanguageDef (unGenLanguageDef emptyDef) {
   reservedNames = reservedNamesDef,
-  reservedOpNames = operators1 <> operators2 <> operators3,
+  reservedOpNames = operators0 <> operators1 <> operators2 <> operators3,
   commentStart = "{-",
   commentEnd = "-}",
   commentLine = "--",

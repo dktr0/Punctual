@@ -8,7 +8,7 @@ import Data.Newtype (wrap)
 import Data.Tempo (Tempo)
 import Data.Time.Duration (Seconds)
 
-data Duration = InSeconds Rational | InCycles Rational
+data Duration = InSeconds Number | InCycles Rational
 
 derive instance Eq Duration
 derive instance Generic Duration _
@@ -17,5 +17,5 @@ instance Show Duration where
   show = genericShow
 
 toSeconds :: Tempo -> Duration -> Seconds
-toSeconds _ (InSeconds x) = wrap $ toNumber x
+toSeconds _ (InSeconds x) = wrap x
 toSeconds tempo (InCycles x) = wrap $ toNumber $ x / tempo.freq
