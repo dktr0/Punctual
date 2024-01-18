@@ -3,7 +3,7 @@ module DefTime where
 import Prelude (class Eq,class Show,($),identity,(*))
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
-import Data.Rational (Rational,toNumber,toRational)
+import Data.Rational (Rational,toRational)
 import Data.Tempo (Tempo,nextBeatExclusive,timeToCount,countToTime)
 import Data.DateTime (DateTime, adjust)
 import Data.Maybe (maybe)

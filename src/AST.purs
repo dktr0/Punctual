@@ -4,8 +4,9 @@ import Prelude (class Eq,class Show,bind,pure,unit,discard,(<$>),($),map,($>),(<
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.List (List(..),(:))
+import Data.List.NonEmpty (toList)
 import Parsing (Position(..),ParseError,runParser,position)
-import Parsing.Combinators (chainl1,(<|>),try,choice,lookAhead,many,option)
+import Parsing.Combinators (chainl1,(<|>),try,choice,lookAhead,many,many1,option)
 import Parsing.String (eof)
 import Data.Either (Either(..))
 import Data.Foldable (foldl)
@@ -15,16 +16,18 @@ import TokenParser (P, commaSep, identifier, number, parens, reserved, reservedO
 
 type AST = List Statement
 
+data Statement =
+  Statement Position (List String) Expression |
+  EmptyStatement Position
 
-data Statement = Expression Expression | EmptyStatement Position
 
 derive instance Eq Statement
 derive instance Generic Statement _
 instance Show Statement where
   show x = genericShow x
 
-  
-data Expression = 
+
+data Expression =
   Reserved Position String |
   Identifier Position String |
   LiteralInt Position Int |
@@ -34,8 +37,9 @@ data Expression =
   Application Position Expression Expression |
   Operation Position String Expression Expression |
   FromTo Position Int Int |
-  FromThenTo Position Number Number Number
-    
+  FromThenTo Position Number Number Number |
+  Lambda Position (List String) Expression
+
 derive instance Eq Expression
 derive instance Generic Expression _
 instance Show Expression where
@@ -56,7 +60,24 @@ ast = do
   pure $ xs
 
 statement :: P Statement
-statement = try (Expression <$> expression1) <|> emptyStatement
+statement =
+  try statementWithAssignment <|>
+  try statementNoAssignment <|>
+  emptyStatement
+
+statementWithAssignment :: P Statement
+statementWithAssignment = do
+  p <- position
+  xs <- many1 identifier
+  reservedOp "=" <|> reservedOp "<<"
+  e <- expression1
+  pure $ Statement p (toList xs) e
+
+statementNoAssignment :: P Statement
+statementNoAssignment = do
+  p <- position
+  e <- expression1
+  pure $ Statement p Nil e
 
 emptyStatement :: P Statement
 emptyStatement = do
@@ -69,17 +90,17 @@ operator :: Array String -> P (Expression -> Expression -> Expression)
 operator xs = do
   p <- position
   choice $ map (\x -> reservedOp x $> Operation p x) xs
-  
+
 expression1 :: P Expression
 expression1 = do
   _ <- pure unit
   chainl1 expression2 (operator operators1)
-  
+
 expression2 :: P Expression
 expression2 = do
   _ <- pure unit
   chainl1 expression3 (operator operators2)
-  
+
 expression3 :: P Expression
 expression3 = do
   _ <- pure unit
@@ -114,6 +135,7 @@ argument = do
     try fromTo,
     try fromThenTo,
     try list,
+    try lambda,
     Identifier p <$> identifier
     ]
 
@@ -124,7 +146,7 @@ reservedName :: String -> P Expression
 reservedName x = do
   p <- position
   Reserved p x <$ reserved x
-  
+
 fromTo :: P Expression
 fromTo = do
   _ <- pure unit
@@ -134,7 +156,7 @@ fromTo = do
     reservedOp ".."
     y <- integer
     pure $ FromTo p x y
-    
+
 fromThenTo :: P Expression
 fromThenTo = do
   _ <- pure unit
@@ -164,3 +186,11 @@ intOrNumber = do
     Left i -> if isPositive then (pure $ LiteralInt p i) else (pure $ LiteralInt p (i*(-1)))
     Right f -> if isPositive then (pure $ LiteralNumber p f) else (pure $ LiteralNumber p (f*(-1.0)))
 
+lambda :: P Expression
+lambda = do
+  p <- position
+  reservedOp "\\"
+  xs <- many1 identifier
+  reservedOp "->"
+  e <- expression1
+  pure $ Lambda p (toList xs) e

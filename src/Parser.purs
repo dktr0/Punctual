@@ -1,22 +1,22 @@
 module Parser where
 
-import Prelude (($),pure,bind,(<>),(>>=),(<<<),(<$>),class Applicative)
+import Prelude (($),pure,bind,(<>),(>>=),(<<<),(<$>),class Applicative,discard)
 import Data.Int (toNumber)
 import Data.Tuple (Tuple)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
-import Data.List (range)
+import Data.List (range,List(..),(:))
 import Data.Traversable (traverse)
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.State.Trans (StateT,runStateT,get)
+import Control.Monad.State.Trans (StateT,evalStateT,runStateT,get,modify_)
 import Control.Monad.Error.Class (class MonadThrow,throwError)
 import Parsing (ParseError(..),Position,runParser)
 import Data.Map as Map
 
-import AST (Expression(..),expression1)
+import AST (Expression(..),Statement(..),expression1,statement)
 import Program (ProgramInfo,emptyProgramInfo)
 import Signal (MultiMode(..), Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus)
-import Value (Value(..),valuePosition,listValueToValueSignal,valueToValueSignal)
+import Value (Value(..),valuePosition,listValueToValueSignal)
 import Action (Action,signalToAction,setOutput,setCrossFade)
 import Output (Output(..))
 
@@ -28,12 +28,34 @@ type PState = {
 type P a = StateT PState (Either ParseError) a
 
 runP :: forall a. ProgramInfo -> Map.Map String Value -> P a -> Either ParseError (Tuple a PState)
-runP i d p = runStateT p { info: i, defs: d }  
+runP i d p = runStateT p { info: i, defs: d }
 
-test :: String -> Either ParseError (Tuple Value PState)
-test x = do
+testStatement :: String -> Either ParseError (Tuple (Maybe Action) PState)
+testStatement x = do
+  stmt <- runParser x statement
+  runP emptyProgramInfo Map.empty $ parseStatement stmt
+
+testExpression :: String -> Either ParseError (Tuple Value PState)
+testExpression x = do
   exp <- runParser x expression1
   runP emptyProgramInfo Map.empty $ parseExpression exp
+
+parseStatement :: Statement -> P (Maybe Action)
+parseStatement (EmptyStatement _) = pure Nothing
+parseStatement (Statement _ Nil e) = do
+  v <- parseExpression e
+  case v of
+    ValueAction _ a -> pure $ Just a
+    _ -> pure Nothing
+parseStatement (Statement p (x:xs) e) = do
+  v <- embedLambdas p xs e
+  let vForDefs = case v of -- if the value is an Action, we only want to store the signal component for later uses/references
+                   ValueAction p a -> ValueSignal p a.signal
+                   _ -> v
+  modify_ $ \s -> s { defs = Map.insert x vForDefs s.defs }
+  case v of
+    ValueAction _ a -> pure $ Just a
+    _ -> pure Nothing
 
 parseExpression :: Expression -> P Value
 parseExpression (Reserved p x) = parseReserved p x
@@ -51,14 +73,15 @@ parseExpression (Application _ f x) = do
   x' <- parseExpression x
   application f' x'
 parseExpression (Operation p op x y) = do
-  f <- parseOperator p op 
+  f <- parseOperator p op
   x' <- parseExpression x
   y' <- parseExpression y
   z <- application f x'
   application z y'
-parseExpression (FromTo p x y) = pure $ ValueSignal p $ SignalList $ (Constant <<< toNumber) <$> range x y   
+parseExpression (FromTo p x y) = pure $ ValueSignal p $ SignalList $ (Constant <<< toNumber) <$> range x y
 parseExpression (FromThenTo p _ _ _) = throwError $ ParseError "FromThenTo not supported yet" p
 -- TODO: implement FromThenTo and fix implementation of FromTo to match Haskell behaviour
+parseExpression (Lambda p xs e) = embedLambdas p xs e
 
 
 application :: forall m. Applicative m => MonadThrow ParseError m => Value -> Value -> m Value
@@ -133,7 +156,7 @@ parseReserved p "rgbb" = lift $ signalSignal p RgbB
 parseReserved p "osc" = lift $ signalSignal p Osc
 parseReserved p "tri" = lift $ signalSignal p Tri
 parseReserved p "saw" = lift $ signalSignal p Saw
-parseReserved p "sqr" = lift $ signalSignal p Sqr 
+parseReserved p "sqr" = lift $ signalSignal p Sqr
 parseReserved p "lftri" = lift $ signalSignal p LFTri
 parseReserved p "lfsaw" = lift $ signalSignal p LFSaw
 parseReserved p "lfsqr" = lift $ signalSignal p LFSqr
@@ -239,7 +262,7 @@ parseOperator p x = throwError $ ParseError ("internal error in Punctual: parseO
 
 signalSignal :: Position -> (Signal -> Signal) -> Either ParseError Value
 signalSignal p f =
-  pure $ ValueFunction p (\x -> 
+  pure $ ValueFunction p (\x ->
     case x of
       ValueSignal _ x' -> pure $ ValueSignal p (f x')
       ValueInt _ x' -> pure $ ValueSignal p (f $ Constant $ toNumber x')
@@ -249,7 +272,7 @@ signalSignal p f =
 
 stringSignal :: Position -> (String -> Signal) -> Either ParseError Value
 stringSignal p f =
-  pure $ ValueFunction p (\x -> 
+  pure $ ValueFunction p (\x ->
     case x of
       ValueString _ x' -> pure $ ValueSignal p (f x')
       y -> throwError $ ParseError "expected String" (valuePosition y)
@@ -257,7 +280,7 @@ stringSignal p f =
 
 outputAction :: Position -> (Output -> Action) -> Either ParseError Value
 outputAction p f =
-  pure $ ValueFunction p (\x -> 
+  pure $ ValueFunction p (\x ->
     case x of
       ValueOutput _ x' -> pure $ ValueAction p (f x')
       y -> throwError $ ParseError "expected Output" (valuePosition y)
@@ -265,15 +288,15 @@ outputAction p f =
 
 numberAction :: Position -> (Number -> Action) -> Either ParseError Value
 numberAction p f =
-  pure $ ValueFunction p (\x -> 
+  pure $ ValueFunction p (\x ->
     case x of
       ValueNumber _ x' -> pure $ ValueAction p (f x')
       ValueInt _ x' -> pure $ ValueAction p (f $ toNumber x')
       y -> throwError $ ParseError "expected Number or Int" (valuePosition y)
     )
-      
+
 signalSignalSignal :: Position -> (Signal -> Signal -> Signal) -> Either ParseError Value
-signalSignalSignal p f = 
+signalSignalSignal p f =
   pure $ ValueFunction p (\x ->
     case x of
       ValueSignal _ x' -> signalSignal p (f x')
@@ -283,7 +306,7 @@ signalSignalSignal p f =
     )
 
 intSignalSignal :: Position -> (Int -> Signal -> Signal) -> Either ParseError Value
-intSignalSignal p f = 
+intSignalSignal p f =
   pure $ ValueFunction p (\x ->
     case x of
       ValueInt _ x' -> signalSignal p (f x')
@@ -291,7 +314,7 @@ intSignalSignal p f =
     )
 
 actionOutputAction :: Position -> (Action -> Output -> Action) -> Either ParseError Value
-actionOutputAction p f = 
+actionOutputAction p f =
   pure $ ValueFunction p (\x ->
     case x of
       ValueAction _ x' -> outputAction p (f x')
@@ -300,16 +323,16 @@ actionOutputAction p f =
     )
 
 actionNumberAction :: Position -> (Action -> Number -> Action) -> Either ParseError Value
-actionNumberAction p f = 
+actionNumberAction p f =
   pure $ ValueFunction p (\x ->
     case x of
       ValueAction _ x' -> numberAction p (f x')
       ValueSignal _ x' -> numberAction p (f $ signalToAction x')
       y -> throwError $ ParseError "expected Signal or Action" (valuePosition y)
     )
-      
+
 signalSignalSignalSignal :: Position -> (Signal -> Signal -> Signal -> Signal) -> Either ParseError Value
-signalSignalSignalSignal p f = 
+signalSignalSignalSignal p f =
   pure $ ValueFunction p (\x ->
     case x of
       ValueSignal _ x' -> signalSignalSignal p (f x')
@@ -317,9 +340,9 @@ signalSignalSignalSignal p f =
       ValueNumber _ x' -> signalSignalSignal p (f $ Constant x')
       y -> throwError $ ParseError "expected Signal" (valuePosition y)
     )
-    
+
 numberSignalSignalSignal :: Position -> (Number -> Signal -> Signal -> Signal) -> Either ParseError Value
-numberSignalSignalSignal p f = 
+numberSignalSignalSignal p f =
   pure $ ValueFunction p (\x ->
     case x of
       ValueInt _ x' -> signalSignalSignal p (f $ toNumber x')
@@ -327,3 +350,8 @@ numberSignalSignalSignal p f =
       y -> throwError $ ParseError "expected Signal" (valuePosition y)
     )
 
+embedLambdas :: Position -> List String -> Expression -> P Value
+embedLambdas _ Nil e = parseExpression e
+embedLambdas p (x:xs) e = do
+  s <- get
+  pure $ ValueFunction p (\v -> evalStateT (embedLambdas (valuePosition v) xs e) (s { defs = Map.insert x v s.defs }))

@@ -15,25 +15,25 @@ import Signal (Signal(..))
 import Action (Action)
 import Output (Output)
 
-data Value = 
+data Value =
   ValueSignal Position Signal |
   ValueString Position String |
   ValueInt Position Int |
   ValueNumber Position Number |
   ValueFunction Position (Value -> Either ParseError Value) |
   ValueOutput Position Output |
-  ValueAction Position Action 
-  
+  ValueAction Position Action
+
 instance Show Value where
   show (ValueSignal p x) = "ValueSignal (" <> show p <> ") (" <> show x <> ")"
   show (ValueString p x) = "ValueString (" <> show p <> ") (" <> show x <> ")"
   show (ValueInt p x) = "ValueInt (" <> show p <> ") (" <> show x <> ")"
   show (ValueNumber p x) = "ValueNumber (" <> show p <> ") (" <> show x <> ")"
-  show (ValueFunction p x) = "ValueFunction..."
+  show (ValueFunction _ _) = "ValueFunction..."
   show (ValueOutput p x) = "ValueOutput (" <> show p <> ") " <> show x
   show (ValueAction p x) = "ValueAction (" <> show p <> ") (" <> show x <> ")"
 
-  
+
 valuePosition :: Value -> Position
 valuePosition (ValueSignal p _) = p
 valuePosition (ValueString p _) = p
@@ -51,7 +51,7 @@ listValueToValueSignal p xs = traverse valueToSignal xs >>= (pure <<< ValueSigna
 -- convert a Value to a ValueSignal
 -- succeeds only if the provided value can be meaningfully cast to a Signal
 valueToValueSignal :: forall m. Applicative m => MonadThrow ParseError m => Value -> m Value
-valueToValueSignal x = ValueSignal (valuePosition x) <$> valueToSignal x 
+valueToValueSignal x = ValueSignal (valuePosition x) <$> valueToSignal x
 
 -- convert a Value to a Signal
 -- succeeds only if the provided value can be meaningfully cast to a Signal
@@ -63,4 +63,3 @@ valueToSignal (ValueString p _) = throwError $ ParseError "expected Signal (foun
 valueToSignal (ValueFunction p _) = throwError $ ParseError "expected Signal (found Function)" p
 valueToSignal (ValueOutput p _) = throwError $ ParseError "expected Signal (found Output)" p
 valueToSignal (ValueAction p _) = throwError $ ParseError "expected Signal (found Action)" p
-
