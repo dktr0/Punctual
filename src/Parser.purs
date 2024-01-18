@@ -2,7 +2,7 @@ module Parser where
 
 import Prelude (($),pure,bind,(<>),(>>=),(<<<),(<$>),class Applicative,discard)
 import Data.Int (toNumber)
-import Data.Tuple (Tuple)
+import Data.Tuple (Tuple(..))
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.List (range,List(..),(:))
@@ -12,9 +12,10 @@ import Control.Monad.State.Trans (StateT,evalStateT,runStateT,get,modify_)
 import Control.Monad.Error.Class (class MonadThrow,throwError)
 import Parsing (ParseError(..),Position,runParser)
 import Data.Map as Map
+import Data.DateTime (DateTime)
 
-import AST (Expression(..),Statement(..),expression1,statement)
-import Program (ProgramInfo,emptyProgramInfo)
+import AST (AST,Expression(..),Statement,expression1,statement,parseAST)
+import Program (Program,ProgramInfo,emptyProgramInfo)
 import Signal (MultiMode(..), Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus)
 import Value (Value(..),valuePosition,listValueToValueSignal)
 import Action (Action,signalToAction,setOutput,setCrossFade)
@@ -30,32 +31,46 @@ type P a = StateT PState (Either ParseError) a
 runP :: forall a. ProgramInfo -> Map.Map String Value -> P a -> Either ParseError (Tuple a PState)
 runP i d p = runStateT p { info: i, defs: d }
 
+parsePunctual :: String -> DateTime -> Either ParseError Program
+parsePunctual txt eTime = do
+  ast <- parseAST txt
+  Tuple xs pState <- runP emptyProgramInfo Map.empty $ astToListMaybeAction ast
+  pure { actions: xs, evalTime: eTime, info: pState.info }
+
+testAST :: String -> Either ParseError { actions :: List (Maybe Action), info :: ProgramInfo }
+testAST txt = do
+  ast <- parseAST txt
+  Tuple xs pState <- runP emptyProgramInfo Map.empty $ astToListMaybeAction ast
+  pure { actions: xs, info: pState.info }
+
 testStatement :: String -> Either ParseError (Tuple (Maybe Action) PState)
-testStatement x = do
-  stmt <- runParser x statement
-  runP emptyProgramInfo Map.empty $ parseStatement stmt
+testStatement txt = do
+  stmt <- runParser txt statement
+  runP emptyProgramInfo Map.empty $ parseMaybeStatement stmt
 
 testExpression :: String -> Either ParseError (Tuple Value PState)
-testExpression x = do
-  exp <- runParser x expression1
+testExpression txt = do
+  exp <- runParser txt expression1
   runP emptyProgramInfo Map.empty $ parseExpression exp
+  
+astToListMaybeAction :: AST -> P (List (Maybe Action))
+astToListMaybeAction = traverse parseMaybeStatement
 
-parseStatement :: Statement -> P (Maybe Action)
-parseStatement (EmptyStatement _) = pure Nothing
-parseStatement (Statement _ Nil e) = do
-  v <- parseExpression e
+parseMaybeStatement :: Maybe Statement -> P (Maybe Action)
+parseMaybeStatement Nothing = pure Nothing
+parseMaybeStatement (Just stmt) = do
+  v <- case stmt.identifiers of
+    Nil -> parseExpression stmt.expression
+    (x:xs) -> do
+      v <- embedLambdas stmt.position xs stmt.expression
+      let vForDefs = case v of -- if the value is an Action, we only want to store the signal component for later uses/references
+                       ValueAction p a -> ValueSignal p a.signal
+                       _ -> v
+      modify_ $ \s -> s { defs = Map.insert x vForDefs s.defs }
+      pure v
   case v of
-    ValueAction _ a -> pure $ Just a
-    _ -> pure Nothing
-parseStatement (Statement p (x:xs) e) = do
-  v <- embedLambdas p xs e
-  let vForDefs = case v of -- if the value is an Action, we only want to store the signal component for later uses/references
-                   ValueAction p a -> ValueSignal p a.signal
-                   _ -> v
-  modify_ $ \s -> s { defs = Map.insert x vForDefs s.defs }
-  case v of
-    ValueAction _ a -> pure $ Just a
-    _ -> pure Nothing
+      ValueAction _ a -> pure $ Just a
+      _ -> pure Nothing
 
 parseExpression :: Expression -> P Value
 parseExpression (Reserved p x) = parseReserved p x

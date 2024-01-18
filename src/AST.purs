@@ -3,9 +3,10 @@ module AST where
 import Prelude (class Eq,class Show,bind,pure,unit,discard,(<$>),($),map,($>),(<$),(<<<),(*),negate)
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
-import Data.List (List(..),(:))
+import Data.List (List(..))
 import Data.List.NonEmpty (toList)
-import Parsing (Position(..),ParseError,runParser,position)
+import Data.Maybe (Maybe(..))
+import Parsing (Position,ParseError,runParser,position)
 import Parsing.Combinators (chainl1,(<|>),try,choice,lookAhead,many,many1,option)
 import Parsing.String (eof)
 import Data.Either (Either(..))
@@ -14,18 +15,13 @@ import Data.Foldable (foldl)
 import TokenParser (P, commaSep, identifier, number, parens, reserved, reservedOp, semiSep, stringLiteral, whiteSpace, brackets, reservedNamesDef, operators1, operators2, operators3, comma, integer,naturalOrFloat)
 
 
-type AST = List Statement
+type AST = List (Maybe Statement)
 
-data Statement =
-  Statement Position (List String) Expression |
-  EmptyStatement Position
-
-
-derive instance Eq Statement
-derive instance Generic Statement _
-instance Show Statement where
-  show x = genericShow x
-
+type Statement = {
+  position :: Position,
+  identifiers :: List String,
+  expression :: Expression
+  }
 
 data Expression =
   Reserved Position String |
@@ -45,10 +41,6 @@ derive instance Generic Expression _
 instance Show Expression where
   show x = genericShow x
 
-
-emptyAST :: AST
-emptyAST = EmptyStatement (Position { column: 1, index: 0, line: 1 }) : Nil
-
 parseAST :: String -> Either ParseError AST
 parseAST x = runParser x ast
 
@@ -59,10 +51,10 @@ ast = do
   eof
   pure $ xs
 
-statement :: P Statement
+statement :: P (Maybe Statement)
 statement =
-  try statementWithAssignment <|>
-  try statementNoAssignment <|>
+  (Just <$> try statementWithAssignment) <|>
+  (Just <$> try statementNoAssignment) <|>
   emptyStatement
 
 statementWithAssignment :: P Statement
@@ -71,20 +63,19 @@ statementWithAssignment = do
   xs <- many1 identifier
   reservedOp "=" <|> reservedOp "<<"
   e <- expression1
-  pure $ Statement p (toList xs) e
-
+  pure { position: p, identifiers: (toList xs), expression: e }
+  
 statementNoAssignment :: P Statement
 statementNoAssignment = do
   p <- position
   e <- expression1
-  pure $ Statement p Nil e
-
-emptyStatement :: P Statement
+  pure { position: p, identifiers: Nil, expression: e }
+  
+emptyStatement :: P (Maybe Statement)
 emptyStatement = do
-  p <- position
   lookAhead whiteSpace
   lookAhead eof <|> lookAhead (reservedOp ";")
-  pure $ EmptyStatement p
+  pure Nothing
 
 operator :: Array String -> P (Expression -> Expression -> Expression)
 operator xs = do

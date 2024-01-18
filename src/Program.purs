@@ -1,13 +1,13 @@
 module Program where
 
 import Data.DateTime (DateTime)
-import Data.Map as Map
-import Data.List as List
+import Data.List (List(..))
+import Data.Maybe (Maybe)
 
 import Action (Action)
 
 type Program = {
-  actions :: Map.Map Int Action,
+  actions :: List (Maybe Action),
   evalTime :: DateTime,
   info :: ProgramInfo
   }
@@ -16,13 +16,13 @@ type ProgramInfo = {
   needsAudioInputAnalysis :: Boolean,
   needsAudioOutputAnalysis :: Boolean,
   needsWebCam :: Boolean,
-  imgURLs :: List.List String,
-  vidURLs :: List.List String
+  imgURLs :: List String,
+  vidURLs :: List String
   }
 
 emptyProgram :: DateTime -> Program
 emptyProgram et = {
-  actions: Map.empty,
+  actions: Nil,
   evalTime: et,
   info: emptyProgramInfo
   }
@@ -32,6 +32,6 @@ emptyProgramInfo = {
   needsAudioInputAnalysis: false,
   needsAudioOutputAnalysis: false,
   needsWebCam: false,
-  imgURLs: List.Nil,
-  vidURLs: List.Nil
+  imgURLs: Nil,
+  vidURLs: Nil
   }
