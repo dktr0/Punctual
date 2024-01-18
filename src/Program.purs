@@ -1,37 +1,18 @@
 module Program where
 
+import Prelude (($),map)
 import Data.DateTime (DateTime)
-import Data.List (List(..))
+import Data.List (List,catMaybes)
 import Data.Maybe (Maybe)
+import Data.Foldable (foldMap)
 
 import Action (Action)
+import Signal (SignalInfo,signalInfo)
 
 type Program = {
   actions :: List (Maybe Action),
-  evalTime :: DateTime,
-  info :: ProgramInfo
+  evalTime :: DateTime
   }
 
-type ProgramInfo = {
-  needsAudioInputAnalysis :: Boolean,
-  needsAudioOutputAnalysis :: Boolean,
-  needsWebCam :: Boolean,
-  imgURLs :: List String,
-  vidURLs :: List String
-  }
-
-emptyProgram :: DateTime -> Program
-emptyProgram et = {
-  actions: Nil,
-  evalTime: et,
-  info: emptyProgramInfo
-  }
-
-emptyProgramInfo :: ProgramInfo
-emptyProgramInfo = {
-  needsAudioInputAnalysis: false,
-  needsAudioOutputAnalysis: false,
-  needsWebCam: false,
-  imgURLs: Nil,
-  vidURLs: Nil
-  }
+programInfo :: forall z. { actions :: List (Maybe Action) | z } -> SignalInfo
+programInfo x = foldMap signalInfo $ map _.signal $ catMaybes x.actions

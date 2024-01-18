@@ -12,10 +12,12 @@ to generate this file without the comments in this block.
 -}
 { name = "my-project"
 , dependencies =
-  [ "console"
+  [ "aff"
+  , "console"
   , "datetime"
   , "effect"
   , "either"
+  , "exceptions"
   , "foldable-traversable"
   , "identity"
   , "integers"
@@ -27,6 +29,7 @@ to generate this file without the comments in this block.
   , "prelude"
   , "purescript-tempi"
   , "rationals"
+  , "spec"
   , "transformers"
   , "tuples"
   ]

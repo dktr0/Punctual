@@ -23,7 +23,7 @@ data Value =
   ValueFunction Position (Value -> Either ParseError Value) |
   ValueOutput Position Output |
   ValueAction Position Action
-
+  
 instance Show Value where
   show (ValueSignal p x) = "ValueSignal (" <> show p <> ") (" <> show x <> ")"
   show (ValueString p x) = "ValueString (" <> show p <> ") (" <> show x <> ")"
