@@ -26,18 +26,18 @@ main = launchAff_ $ runSpec [consoleReporter] do
     "0 >> video" `firstActionSignalIs` Constant 0.0
     "0.5 >> audio" `firstActionSignalIs` Constant 0.5
     "sin 440 >> audio" `firstActionSignalIs` (Sin (Constant 440.0))
-  describe "needsWebCam flag in ProgramInfo is true/false as appropriate" do
+  describe "needsWebCam flag in programInfo is true/false as appropriate" do
     "sin 440 >> video" `needsWebCam` false
     "cam >> video" `needsWebCam` true
-    "f x = cam * sin 440; 0 >> audio" `needsWebCam` false
-    "f x = cam * sin 440; f 1 >> audio" `needsWebCam` true
-  describe "needsAudioInputAnalysis flag in ProgramInfo is true/false as appropriate" do
+    "f x = cam * sin 440; 0 >> video" `needsWebCam` false
+    "f x = cam * sin 440; f 1 >> video" `needsWebCam` true
+  describe "needsAudioInputAnalysis flag in programInfo is true/false as appropriate" do
     "sin 440 >> video" `needsAudioInputAnalysis` false
     "sin 440 * ilo >> video" `needsAudioInputAnalysis` true
     "sin 440 * imid >> video" `needsAudioInputAnalysis` true
     "sin 440 * ihi>> video" `needsAudioInputAnalysis` true
     "sin 440 * ifft fx >> video" `needsAudioInputAnalysis` true
-  describe "needsAudioOutputAnalysis flag in ProgramInfo is true/false as appropriate" do
+  describe "needsAudioOutputAnalysis flag in programInfo is true/false as appropriate" do
     "sin 440 >> video" `needsAudioOutputAnalysis` false
     "sin 440 * lo >> video" `needsAudioOutputAnalysis` true
     "sin 440 * mid >> video" `needsAudioOutputAnalysis` true
