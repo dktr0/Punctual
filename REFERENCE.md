@@ -16,17 +16,25 @@ lfsaw [freq] -- "low frequency" sawtooth wave which unlike saw is not band-limit
 
 lfsqr [freq] -- "low frequency" square wave which unlike sqr is not band-limited (in audio), and which goes from -1 to 1. In WebGL graphics output, sqr and lfsqr are identical.
 
-lpf [freq] [Q] [input] -- lowpass filter at specified filter and Q
+lpf [freq] [Q] [input] -- lowpass filter at specified filter and Q, combinatorial semantics
 
-hpf [freq] [Q] [input] -- highpass filter at specified filter and Q
+lpfp [freq] [Q] [input] -- lowpass filter at specified filter and Q, pairwise semantics
 
-bpf [freq] [Q] [input] -- bandpass filter at specified filter and Q
+hpf [freq] [Q] [input] -- highpass filter at specified filter and Q, combinatorial semantics
+
+hpfp [freq] [Q] [input] -- highpass filter at specified filter and Q, pairwise semantics
+
+bpf [freq] [Q] [input] -- bandpass filter at specified filter and Q, combinatorial semantics
+
+bpfp [freq] [Q] [input] -- bandpass filter at specified filter and Q, pairwise semantics
 
 rnd -- random, "white" noise ranging from -1 to 1
 
 audioin -- input from Punctual's audio input (normally, the "microphone"; audio only, equivalent to 0 in fragment shaders)
 
-delay [maxDelayTime] [delayTimes] [signals] -- audio delay line, delay signals by specified delay times which must be less than maxDelayTime (audio only, equivalent to 0 in fragment shaders)
+delay [maxDelayTime] [delayTimes] [signals] -- audio delay line, delay signals by specified delay times which must be less than maxDelayTime (audio only, equivalent to 0 in fragment shaders), combinatorial semantics
+
+delayp [maxDelayTime] [delayTimes] [signals] -- audio delay line, delay signals by specified delay times which must be less than maxDelayTime (audio only, equivalent to 0 in fragment shaders), pairwise semantics
 
 (Note: filters and noise are not implemented in graphics (WebGL) implementation yet.)
 
@@ -80,7 +88,9 @@ min [graph] [graph] -- returns the minimum value from two graphs (combinatorial)
 
 minp [graph] [graph] -- returns the minimum value from two graphs (pairwise)
 
-between [min1,max1,min2,max2, ...] [x, ...] -- returns 1 (true) if values of x are between ranges specified by min1,max1,min2,max2,etc
+between [min1,max1,min2,max2, ...] [x, ...] -- returns 1 (true) if values of x are between ranges specified by min1,max1,min2,max2,etc (combinatorial)
+
+betweenp [min1,max1,min2,max2, ...] [x, ...] -- returns 1 (true) if values of x are between ranges specified by min1,max1,min2,max2,etc (pairwise)
 
 abs [graph] -- absolute value of provided graph
 
@@ -140,15 +150,17 @@ dbamp [graph] -- the raw amplitude corresponding to the provided value in decibe
 
 ampdb [graph] -- the value in decibels corresponding to the provided raw amplitude value
 
-linlin [min1,max1,...] [min2,max2,...] [input] -- input graph is linearly scaled such that the range (min1,max1) becomes the range (min2,max2)
+linlin [min1,max1,...] [min2,max2,...] [input] -- input graph is linearly scaled such that the range (min1,max1) becomes the range (min2,max2) (combinatorial, for pairwise use linlinp)
+
+clip [min1,max1,...] [input] -- input values are clipped to stay between min and max (combinatorial, for pairwise use clipp)
 
 unipolar [graph] -- input is rescaled as if input range was bipolar (-1,1) and output range unipolar (0,1)
 
 bipolar [graph] -- input is rescaled as if input range was unipolar (0,1) and output range bipolar (-1,1)
 
-[min] ~~  [max] $ [input] -- bipolar (-1,1) input rescaled to range (min,max)
+[min] ~~  [max] $ [input] -- bipolar (-1,1) input rescaled to range (min,max) (combinatorial, for pairwise use ~~:)
 
-[centre] +- [offsetRatio] [input] -- bipolar (-1,1) input rescaled to range centre +- (offsetRatio * centre), e.g. a +- 0.5 ranges from 0.5a to 1.5a
+[centre] +- [offsetRatio] [input] -- bipolar (-1,1) input rescaled to range centre +- (offsetRatio * centre), e.g. a +- 0.5 ranges from 0.5a to 1.5a (combinatorial, for pairwise use +-:)
 
 step [graph,graph,graph,...] [graph] -- given a list of graphs and a second, final, "modulating" graph, output the value of a selected graph from the list according to the second argument (drive with lfsaw to produce a simple step sequencer-like behaviour).
 
@@ -203,19 +215,19 @@ dist [x,y,...] -- the distance from specified position to current fragment
 
 prox [x,y,...] -- the "proximity" of specified position to current fragment; equivalent to (2.828427-dist[x,y,...])/2.828427, clamped to be between 0 and 1 (2.828427 is maximum on-screen distance)
 
-circle [x,y,...] [d] -- returns 1 when current fragment within a circle at x and y with diameter d
+circle [x,y,...] [d] -- returns 1 when current fragment within a circle at x and y with diameter d (combinatorial, for pairwise use circlep)
 
 point [x,y,...] -- returns 1 when current fragment is within approximately half a pixel of x and y, 0 otherwise
 
-rect [x,y,...] [w,h,...] -- returns 1 when current fragment is within rectangle (x and y are centre not corner), 0 otherwise
+rect [x,y,...] [w,h,...] -- returns 1 when current fragment is within rectangle (x and y are centre not corner), 0 otherwise (combinatorial, for pairwise use rectp)
 
-hline [y] [w] -- returns 1 when current fragment is within w of a horizontal line at y, 0 otherwise
+hline [y] [w] -- returns 1 when current fragment is within w of a horizontal line at y, 0 otherwise (combinatorial, for pairwise use hlinep)
 
-vline [x] [w] -- returns 1 when current fragment is within w of a vertical line at x, 0 otherwise
+vline [x] [w] -- returns 1 when current fragment is within w of a vertical line at x, 0 otherwise (combinatorial, for pairwise use vlinep)
 
-iline [x1,y1,...] [x2,y2,...] [w] -- returns 1 when current fragment is within w of an infinite line that passes through x1,y1 and x2,y2; otherwise 0
+iline [x1,y1,...] [x2,y2,...] [w] -- returns 1 when current fragment is within w of an infinite line that passes through x1,y1 and x2,y2; otherwise 0 (combinatorial, for pairwise use ilinep)
 
-line [x1,y1,...] [x2,y2,...] [w] -- returns 1 when current fragment is within w of a line that goes from x1,y1 and x2,y2; otherwise 0
+line [x1,y1,...] [x2,y2,...] [w] -- returns 1 when current fragment is within w of a line that goes from x1,y1 and x2,y2; otherwise 0 (combinatorial, for pairwise use linep)
 
 img "https://url-to-image-file" -- accesses a texture built from the image file in question as red-green-blue (3-channel signal).
 
