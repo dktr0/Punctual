@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.4.8:
+
+-added pairwise variants: circlep, rectp, vlinep, hlinep, linep, ilinep, clipp, betweenp, lpfp, hpfp, bpfp, ~~:, +=:, linlinp
+
 0.4.4.7:
 
 -added pairwise variants of max, min, and gate (maxp, minp, gatep)

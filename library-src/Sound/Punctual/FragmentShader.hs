@@ -10,6 +10,7 @@ import Data.Map as Map
 import Data.Foldable as Foldable
 import Data.Maybe
 import Data.List.Split
+import Data.List (zipWith4)
 import Data.Time
 import Data.Tempo
 import Control.Monad
@@ -262,16 +263,16 @@ graphToGLSL ah env (Gate mm x y) = binaryMatchedGraphs mm gate ah env x y
   y'' <- mapM assign y'
   binaryMatchedGLSLExprs gate ah x' y'' -}
 
-graphToGLSL ah env (Clip r x) = do
+graphToGLSL ah env (Clip mm r x) = do
   r' <- graphToGLSL (Just Vec2) env r >>= align Vec2
   x' <- graphToGLSL ah env x
-  sequence [ clip r'' x'' | r'' <- r', x'' <- x' ]
-
-graphToGLSL ah env (Between r x) = do
+  sequence $ combineBinary mm clip r' x'
+    
+graphToGLSL ah env (Between mm r x) = do
   r' <- graphToGLSL (Just Vec2) env r >>= align Vec2
   x' <- graphToGLSL ah env x
-  return [ between r'' x'' | r'' <- r', x'' <- x' ]
-
+  return $ combineBinary mm between r' x'
+    
 -- *** TODO: Step's semantics currently only make sense for single-channel outputs.
 graphToGLSL _ _ (Step [] _) = return [constantFloat 0]
 graphToGLSL ah env (Step (x:[]) _) = graphToGLSL ah env x
@@ -287,32 +288,32 @@ graphToGLSL _ env (Step xs y) = do
 
 -- binary functions, with position
 
-graphToGLSL ah env (Rect xy wh) = do
+graphToGLSL ah env (Rect mm xy wh) = do
   xy' <- graphToGLSL (Just Vec2) env xy >>= align Vec2
   wh' <- graphToGLSL (Just Vec2) env wh >>= align Vec2
-  binaryFunctionWithPositionGraphM rect env xy' wh' >>= alignHint ah
+  binaryFunctionWithPositionGraphM rect env mm xy' wh' >>= alignHint ah
 
-graphToGLSL ah env (Circle xy r) = do
+graphToGLSL ah env (Circle mm xy r) = do
   xy' <- graphToGLSL (Just Vec2) env xy >>= align Vec2
   r' <- graphToGLSL (Just GLFloat) env r >>= align GLFloat
-  binaryFunctionWithPositionGraph circle env xy' r' >>= alignHint ah
+  binaryFunctionWithPositionGraph circle env mm xy' r' >>= alignHint ah
 
-graphToGLSL ah env (VLine x w) = do
+graphToGLSL ah env (VLine mm x w) = do
   x' <- graphToGLSL (Just GLFloat) env x >>= align GLFloat
   w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
-  binaryFunctionWithPositionGraph vline env x' w' >>= alignHint ah
+  binaryFunctionWithPositionGraph vline env mm x' w' >>= alignHint ah
 
-graphToGLSL ah env (HLine y w) = do
+graphToGLSL ah env (HLine mm y w) = do
   y' <- graphToGLSL (Just GLFloat) env y >>= align GLFloat
   w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
-  binaryFunctionWithPositionGraph hline env y' w' >>= alignHint ah
+  binaryFunctionWithPositionGraph hline env mm y' w' >>= alignHint ah
 
 -- (simple) ternary functions
-graphToGLSL ah env (LinLin r1 r2 w) = do
+graphToGLSL ah env (LinLin mm r1 r2 w) = do
   r1' <- graphToGLSL (Just Vec2) env r1 >>= align Vec2
   r2' <- graphToGLSL (Just Vec2) env r2 >>= align Vec2
   w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
-  alignHint ah [ linlin r1'' r2'' w'' | r1'' <- r1', r2'' <- r2', w'' <- w' ]
+  alignHint ah $ combineTernary mm linlin r1' r2' w'
 
 -- get all channels of a result branch per channel of condition, by
 -- aligning result branches to each other + aligning condition to GLFloat
@@ -325,17 +326,17 @@ graphToGLSL ah env (IfThenElse x y z) = do
 
 -- ternary functions with position
 
-graphToGLSL ah env@(_,fxy) (ILine xy1 xy2 w) = do
+graphToGLSL ah env@(_,fxy) (ILine mm xy1 xy2 w) = do
   xy1' <- graphToGLSL (Just Vec2) env xy1 >>= align Vec2
   xy2' <- graphToGLSL (Just Vec2) env xy2 >>= align Vec2
   w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
-  alignHint ah [ iline xy1'' xy2'' w'' fxy' | xy1'' <- xy1', xy2'' <- xy2', w'' <- w', fxy' <- fxy ]
+  alignHint ah $ combineQuaternary mm iline xy1' xy2' w' fxy
 
-graphToGLSL ah env@(_,fxy) (Line xy1 xy2 w) = do
+graphToGLSL ah env@(_,fxy) (Line mm xy1 xy2 w) = do
   xy1' <- graphToGLSL (Just Vec2) env xy1 >>= align Vec2
   xy2' <- graphToGLSL (Just Vec2) env xy2 >>= align Vec2
   w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
-  alignHint ah [ line xy1'' xy2'' w'' fxy' | xy1'' <- xy1', xy2'' <- xy2', w'' <- w', fxy' <- fxy ]
+  alignHint ah $ combineQuaternary mm line xy1' xy2' w' fxy
 
 graphToGLSL _ _ _ = return [constantFloat 0]
 
@@ -389,12 +390,11 @@ binaryMatchedGLSLExprs f ah xs ys = case (exprsChannels xs == 1 || exprsChannels
     ys' <- align GLFloat ys
     alignHint ah [ f x y  | x <- xs', y <- ys' ]
 
+binaryFunctionWithPositionGraph :: (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr) -> GraphEnv -> MultiMode -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
+binaryFunctionWithPositionGraph f (_,fxys) mm as bs = return $ combineTernary mm f as bs fxys
 
-binaryFunctionWithPositionGraph :: (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr) -> GraphEnv -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
-binaryFunctionWithPositionGraph f (_,fxys) as bs = return [ f a b c | a <- as, b <- bs, c <- fxys ]
-
-binaryFunctionWithPositionGraphM :: (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSL GLSLExpr) -> GraphEnv -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
-binaryFunctionWithPositionGraphM f (_,fxys) as bs = sequence [ f a b c | a <- as, b <- bs, c <- fxys ]
+binaryFunctionWithPositionGraphM :: (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSL GLSLExpr) -> GraphEnv -> MultiMode -> [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
+binaryFunctionWithPositionGraphM f (_,fxys) mm as bs = sequence $ combineTernary mm f as bs fxys
 
 setfx :: GLSLExpr -> GLSLExpr -> GLSLExpr  -- Vec2 -> GLFloat -> Vec2
 setfx fxy x = exprExprToVec2 x (swizzleY fxy)
@@ -728,3 +728,32 @@ fragmentShader tempo texMap oldProgram newProgram = toText $ header <> body
     (gl_FragColor,assignments) = runGLSL $ fragmentShaderGLSL tempo texMap oldProgram newProgram
     gl_FragColor' = "gl_FragColor = " <> builder gl_FragColor <> ";\n"
     body = "\nvoid main() {\n" <> assignments <> gl_FragColor' <> "}"
+    
+combineBinary :: MultiMode -> (x -> y -> z) -> [x] -> [y] -> [z]
+combineBinary Combinatorial f xs ys = [ f x y | x <- xs, y <- ys ]
+combineBinary PairWise f xs ys = zipWith f xs' ys'
+  where
+    n = maximum [length xs,length ys]
+    xs' = Prelude.take n (cycle xs)
+    ys' = Prelude.take n (cycle ys)
+    
+combineTernary :: MultiMode -> (w -> x -> y -> z) -> [w] -> [x] -> [y] -> [z]
+combineTernary Combinatorial f ws xs ys = [ f w x y | w <- ws, x <- xs, y <- ys ]
+combineTernary PairWise f ws xs ys = zipWith3 f ws' xs' ys'
+  where
+    n = maximum [length ws,length xs,length ys]
+    ws' = Prelude.take n (cycle ws)
+    xs' = Prelude.take n (cycle xs)
+    ys' = Prelude.take n (cycle ys)
+    
+combineQuaternary :: MultiMode -> (v -> w -> x -> y -> z) -> [v] -> [w] -> [x] -> [y] -> [z]
+combineQuaternary Combinatorial f vs ws xs ys = [ f v w x y | v <- vs, w <- ws, x <- xs, y <- ys ]
+combineQuaternary PairWise f vs ws xs ys = zipWith4 f vs' ws' xs' ys'
+  where
+    n = maximum [length vs,length ws,length xs,length ys]
+    vs' = Prelude.take n (cycle vs)
+    ws' = Prelude.take n (cycle ws)
+    xs' = Prelude.take n (cycle xs)
+    ys' = Prelude.take n (cycle ys)
+    
+    

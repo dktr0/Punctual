@@ -401,18 +401,23 @@ graph3 = asum [
   -- other binary functions (with combinatorial semantics, generally speaking)
   reserved "fit" >> return fit,
   reserved "min" >> return (Min Combinatorial),
-  reserved "max" >> return (Max Combinatorial),
   reserved "minp" >> return (Min PairWise),
+  reserved "max" >> return (Max Combinatorial),
   reserved "maxp" >> return (Max PairWise),
-  reserved "hline" >> return HLine,
-  reserved "vline" >> return VLine,
-  reserved "circle" >> return Circle,
-  reserved "rect" >> return Rect,
-  reserved "clip" >> return Clip,
-  reserved "between" >> return Between,
-  reserved "when" >> return Sound.Punctual.Graph.when,
   reserved "gate" >> return (Gate Combinatorial),
   reserved "gatep" >> return (Gate PairWise),
+  reserved "circle" >> return (Circle Combinatorial),
+  reserved "circlep" >> return (Circle PairWise),
+  reserved "rect" >> return (Rect Combinatorial),
+  reserved "rectp" >> return (Rect PairWise),
+  reserved "vline" >> return (VLine Combinatorial),
+  reserved "vlinep" >> return (VLine PairWise),
+  reserved "hline" >> return (HLine Combinatorial),
+  reserved "hlinep" >> return (HLine PairWise),
+  reserved "clip" >> return (Clip Combinatorial),
+  reserved "clipp" >> return (Clip PairWise),
+  reserved "between" >> return (Between Combinatorial),
+  reserved "betweenp" >> return (Between PairWise),
   reserved "setfx" >> return SetFx,
   reserved "setfy" >> return SetFy,
   reserved "setfxy" >> return SetFxy,
@@ -420,20 +425,29 @@ graph3 = asum [
   reserved "move" >> return Move,
   reserved "tile" >> return Tile,
   reserved "spin" >> return Spin,
+  reserved "when" >> return Sound.Punctual.Graph.when,
   double_graph_graph_graph <*> double,
   graph4 <*> graph
   ] <?> "expected Graph -> Graph -> Graph"
 
 graph4 :: H (Graph -> Graph -> Graph -> Graph)
 graph4 = asum [
-  reserved "lpf" >> return LPF,
-  reserved "hpf" >> return HPF,
-  reserved "bpf" >> return BPF,
-  reserved "~~" >> return modulatedRangeGraph,
-  reserved "+-" >> return (+-),
-  reserved "linlin" >> return LinLin,
-  reserved "iline" >> return ILine,
-  reserved "line" >> return Line
+  reserved "lpf" >> return (LPF Combinatorial),
+  reserved "lpfp" >> return (LPF PairWise),
+  reserved "hpf" >> return (HPF Combinatorial),
+  reserved "hpfp" >> return (HPF PairWise),
+  reserved "bpf" >> return (BPF Combinatorial),
+  reserved "bpfp" >> return (BPF PairWise),
+  reserved "~~" >> return (modulatedRangeLowHigh Combinatorial),
+  reserved "~~:" >> return (modulatedRangeLowHigh PairWise),
+  reserved "+-" >> return (modulatedRangePlusMinus Combinatorial),
+  reserved "+-:" >> return (modulatedRangePlusMinus PairWise),
+  reserved "linlin" >> return (LinLin Combinatorial),
+  reserved "linlinp" >> return (LinLin PairWise),
+  reserved "iline" >> return (ILine Combinatorial),
+  reserved "ilinep" >> return (ILine PairWise),
+  reserved "line" >> return (Line Combinatorial),
+  reserved "linep" >> return (Line PairWise)
   ] <?> "expected Graph -> Graph -> Graph -> Graph"
 
 lGraph_graph_graph :: H ([Graph] -> Graph -> Graph)
@@ -446,7 +460,10 @@ int_graph_graph = asum [
   ]
 
 double_graph_graph_graph :: H (Double -> Graph -> Graph -> Graph)
-double_graph_graph_graph = reserved "delay" >> return Delay
+double_graph_graph_graph = asum [
+  reserved "delay" >> return (Delay Combinatorial),
+  reserved "delayp" >> return (Delay PairWise)
+  ]
 
 graph2_graph :: H ((Graph -> Graph) -> Graph)
 graph2_graph = graph_graph2_graph <*> graph
