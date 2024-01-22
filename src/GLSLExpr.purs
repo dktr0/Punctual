@@ -3,22 +3,39 @@ module GLSLExpr where
 -- This module provides types and functions to represent and manipulate the text of
 -- strongly-typed GLSL expressions (with Purescript-compile-time type checking).
 
-import Prelude (class Eq,class Show,show,(+),(<>))
+import Prelude (class Eq,class Show,(+),(<>),(==),otherwise)
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.Foldable (class Foldable,foldl)
 
-class GLSLExpr c where
-  isSimple :: c -> Boolean
-  string :: c -> String
-  channels :: c -> Int
+class GLSLExpr e where
+  isSimple :: e -> Boolean
+  string :: e -> String
+  channels :: e -> Int
+
+-- classes to mark types that can be safely and simply cast to Vec2, 3, or 4
+class GLSLExpr e <= ToVec2 e
+class GLSLExpr e <= ToVec3 e
+class GLSLExpr e <= ToVec4 e
+
+toVec2 :: forall e. ToVec2 e => e -> Vec2
+toVec2 e = Vec2 (isSimple e) ("vec2(" <> string e <> ")")
+
+toVec3 :: forall e. ToVec3 e => e -> Vec3
+toVec3 e = Vec3 (isSimple e) ("vec3(" <> string e <> ")")
+
+toVec4 :: forall e. ToVec4 e => e -> Vec4
+toVec4 e = Vec4 (isSimple e) ("vec4(" <> string e <> ")")
+
 
 -- additional classes can be declared for conditions characteristic of GLSL's slightly-strict-slightly-loose typing
 -- such as something that can be either a Float or a Vec4, things that can be any of the types, etc, then these
 -- classes can be constraints on polymorphic functions we use to assemble fragment shader expressions.
 -- (we'll still need some kind of type that unifies the four types Float,Vec2,Vec3,Vec4 though so we can have heterogenous collections.)
 
-class FloatVec4 c
+class GLSLExpr e <= FloatVec4 e
+class GLSLExpr e <= Vec2Vec3Vec4 e
+class GLSLExpr e <= Vec3Vec4 e
 
 data Float = Float Boolean String
 derive instance Eq Float
@@ -40,7 +57,8 @@ instance GLSLExpr Vec2 where
   isSimple (Vec2 x _) = x
   string (Vec2 _ x) = x
   channels (Vec2 _ _) = 2
-  
+instance Vec2Vec3Vec4 Vec2
+
 data Vec3 = Vec3 Boolean String
 derive instance Eq Vec3
 derive instance Generic Vec3 _
@@ -50,7 +68,9 @@ instance GLSLExpr Vec3 where
   isSimple (Vec3 x _) = x
   string (Vec3 _ x) = x
   channels (Vec3 _ _) = 3
-  
+instance Vec2Vec3Vec4 Vec3
+instance Vec3Vec4 Vec3
+
 data Vec4 = Vec4 Boolean String
 derive instance Eq Vec4
 derive instance Generic Vec4 _
@@ -61,28 +81,13 @@ instance GLSLExpr Vec4 where
   string (Vec4 _ x) = x
   channels (Vec4 _ _) = 4
 instance FloatVec4 Vec4
-  
+instance Vec2Vec3Vec4 Vec4
+instance Vec3Vec4 Vec4
+
+exprsChannels :: forall f g. Foldable f => GLSLExpr g => f g -> Int
+exprsChannels = foldl (\n g -> n + channels g) 0
+
 {-
-exprsChannels :: forall f. Foldable f => f GLSLExpr -> Int
-exprsChannels = foldl (\n e -> n + exprChannels e) 0 
-
--- a convenience function for making a no-dependency (simple) Float
-stringToFloat :: String -> GLSLExpr
-stringToFloat x = { glslType: Float, isSimple: true, string: x }
-
--- and another one for doing the same thing from a Purescript Number
-numberToFloat :: Number -> GLSLExpr
-numberToFloat x = { glslType: Float, isSimple: true, string: show x }
-
--- unsafe because performs no checking that the indicated cast is valid GLSL
--- considering: any benefit to making a safe cast function that can throw an Error?
--- *but actually even better would be to have compile-time type safety for this*
-unsafeCast :: GLSLType -> GLSLExpr -> GLSLExpr
-unsafeCast Float x = { glslType: Float, isSimple: x.isSimple, string: "float(" <> x.string <> ")" }
-unsafeCast Vec2 x = { glslType: Vec2, isSimple: x.isSimple, string: "vec2(" <> x.string <> ")" }
-unsafeCast Vec3 x = { glslType: Vec3, isSimple: x.isSimple, string: "vec3(" <> x.string <> ")" }
-unsafeCast Vec4 x = { glslType: Vec4, isSimple: x.isSimple, string: "vec4(" <> x.string <> ")" }
-
 unaryFunction :: String -> GLSLType -> GLSLExpr -> GLSLExpr
 unaryFunction funcName t x = { glslType: t, isSimple: false, string: funcName <> "(" <> x.string <> ")" }
 
@@ -94,6 +99,7 @@ binaryOperator op t x y =  { glslType: t, isSimple: false, string: "(" <> x.stri
 
 ternaryFunction :: String -> GLSLType -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
 ternaryFunction funcName t x y z = { glslType: t, isSimple: false, string: funcName <> "(" <> x.string <> "," <> y.string <> "," <> z.string <> ")" }
+-}
 
 {-
 -- for unary functions like sin(x) where any float type can be the argument
@@ -126,53 +132,54 @@ comparisonOperator opName funcName x y
   | glslType y == GLFloat = unsafeCast (glslType x) $ binaryFunctionMatched funcName x y
   | glslType x == glslType y = unsafeCast (glslType x) $ binaryFunctionMatched funcName x y
   | otherwise = error "uhoh - comparisonOp called with mismatched/misaligned GLSLExpr types"
+-}
 
 
--- note: the swizzle_ definitions don't perform any type-checking on the expression
--- they are given. However, this is probably something we should add!
+-- note: former exprToGLFloat not necessary - is identical to swizzleX
+swizzleX :: forall e. GLSLExpr e => e -> Float
+swizzleX e
+  | channels e == 1 = Float (isSimple e) (string e)
+  | otherwise = Float (isSimple e) (string e <> ".x")
 
-swizzleX :: GLSLExpr -> GLSLExpr
-swizzleX x = GLSLExpr GLFloat False $ builder x <> ".x"
+swizzleY :: forall e. Vec2Vec3Vec4 e => e -> Float
+swizzleY e = Float (isSimple e) (string e <> ".y")
 
-swizzleY :: GLSLExpr -> GLSLExpr
-swizzleY x = GLSLExpr GLFloat False $ builder x <> ".y"
+swizzleZ :: forall e. Vec3Vec4 e => e -> Float
+swizzleZ e = Float (isSimple e) (string e <> ".z")
 
-swizzleZ :: GLSLExpr -> GLSLExpr
-swizzleZ x = GLSLExpr GLFloat False $ builder x <> ".z"
+swizzleW :: Vec4 -> Float
+swizzleW e = Float (isSimple e) (string e <> ".w")
 
-swizzleW :: GLSLExpr -> GLSLExpr
-swizzleW x = GLSLExpr GLFloat False $ builder x <> ".w"
+swizzleXY :: forall e. Vec2Vec3Vec4 e => e -> Vec2
+swizzleXY e
+  | channels e == 2 = Vec2 (isSimple e) (string e)
+  | otherwise = Vec2 (isSimple e) (string e <> ".xy")
 
-swizzleXY :: GLSLExpr -> GLSLExpr
-swizzleXY x = GLSLExpr Vec2 False $ builder x <> ".xy"
+swizzleYZ :: forall e. Vec3Vec4 e => e -> Vec2
+swizzleYZ e = Vec2 (isSimple e) (string e <> ".yz")
 
-swizzleYZ :: GLSLExpr -> GLSLExpr
-swizzleYZ x = GLSLExpr Vec2 False $ builder x <> ".yz"
+swizzleZW :: Vec4 -> Vec2
+swizzleZW e = Vec2 (isSimple e) (string e <> ".zw")
 
-swizzleZW :: GLSLExpr -> GLSLExpr
-swizzleZW x = GLSLExpr Vec2 False $ builder x <> ".zw"
+swizzleXYZ :: forall e. Vec3Vec4 e => e -> Vec3
+swizzleXYZ e
+  | channels e == 3 = Vec3 (isSimple e) (string e)
+  | otherwise = Vec3 (isSimple e) (string e <> ".xyz")
 
-swizzleXYZ :: GLSLExpr -> GLSLExpr
-swizzleXYZ x = GLSLExpr Vec3 False $ builder x <> ".xyz"
+swizzleYZW :: Vec4 -> Vec3
+swizzleYZW e = Vec3 (isSimple e) (string e <> ".yzw")
 
-swizzleYZW :: GLSLExpr -> GLSLExpr
-swizzleYZW x = GLSLExpr Vec3 False $ builder x <> ".yzw"
+swizzleXYY :: forall e. Vec2Vec3Vec4 e => e -> Vec3
+swizzleXYY e = Vec3 (isSimple e) (string e <> ".xyy")
 
-swizzleXYY :: GLSLExpr -> GLSLExpr
-swizzleXYY x = GLSLExpr Vec3 False $ builder x <> ".xyy"
+swizzleXYYY :: forall e. Vec2Vec3Vec4 e => e -> Vec4
+swizzleXYYY e = Vec4 (isSimple e) (string e <> ".xyyy")
 
-swizzleXYYY :: GLSLExpr -> GLSLExpr
-swizzleXYYY x = GLSLExpr Vec4 False $ builder x <> ".xyyy"
+swizzleXYZZ :: forall e. Vec3Vec4 e => e -> Vec4
+swizzleXYZZ e = Vec4 (isSimple e) (string e <> ".xyzz")
 
-swizzleXYZZ :: GLSLExpr -> GLSLExpr
-swizzleXYZZ x = GLSLExpr Vec4 False $ builder x <> ".xyzz"
 
--- convert any GLSLExpr to an GLSLExpr containing a GLFloat, by discarding "channels" after the first one
-exprToGLFloat :: GLSLExpr -> GLSLExpr
-exprToGLFloat x
-  | glslType x == GLFloat = x
-  | otherwise = swizzleX x
-
+{-
 -- convert any GLSLExpr to an GLSLExpr containing a Vec2, by repeating or discarding channels
 exprToVec2 :: GLSLExpr -> GLSLExpr
 exprToVec2 x
