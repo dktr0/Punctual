@@ -36,20 +36,6 @@ vec3 = ternaryFunction "vec3" Vec3
 vec4 :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
 vec4 = quaternaryFunction "vec4" Vec4 
 
--- the List Int should be the index of the variable to which this refers as well as the index of all of its dependencies, etc
-floatRef :: String -> List Int -> GLSLExpr
-floatRef x ds = { string: x, glslType: Float, isSimple: true, deps: ds }
-
-vec2Ref :: String -> List Int -> GLSLExpr
-vec2Ref x ds = { string: x, glslType: Vec2, isSimple: true, deps: ds }
-
-vec3Ref :: String -> List Int -> GLSLExpr
-vec3Ref x ds = { string: x, glslType: Vec3, isSimple: true, deps: ds }
-
-vec4Ref :: String -> List Int -> GLSLExpr
-vec4Ref x ds = { string: x, glslType: Vec4, isSimple: true, deps: ds }
-
-
 simpleUnaryFunction :: String -> GLSLType -> GLSLExpr -> GLSLExpr
 simpleUnaryFunction funcName rType x = { string: funcName <> "(" <> x.string <> ")", glslType: rType, isSimple: x.isSimple, deps: x.deps }
 
@@ -66,42 +52,5 @@ quaternaryFunction :: String -> GLSLType -> GLSLExpr -> GLSLExpr -> GLSLExpr -> 
 quaternaryFunction funcName rType w x y z = { string: funcName <> "(" <> w.string <> "," <> x.string <> "," <> y.string <> "," <> z.string <> ")", glslType: rType, isSimple: false, deps: w.deps <> x.deps <> y.deps <> z.deps }
 
 
-_swizzle :: String -> GLSLType -> GLSLExpr -> GLSLExpr
-_swizzle spec rType x = { string: x.string <> "." <> spec, glslType: rType, isSimple: x.isSimple, deps: x.deps }
 
-swizzleX :: GLSLExpr -> GLSLExpr
-swizzleX = _swizzle "x" Float 
-
-swizzleY :: GLSLExpr -> GLSLExpr
-swizzleY = _swizzle "y" Float
-
-swizzleZ :: GLSLExpr -> GLSLExpr
-swizzleZ = _swizzle "z" Float
-
-swizzleW :: GLSLExpr -> GLSLExpr
-swizzleW = _swizzle "w" Float
-
-swizzleXY :: GLSLExpr -> GLSLExpr
-swizzleXY = _swizzle "xy" Vec2
-
-swizzleYZ :: GLSLExpr -> GLSLExpr
-swizzleYZ = _swizzle "yz" Vec2
-
-swizzleZW :: GLSLExpr -> GLSLExpr
-swizzleZW = _swizzle "zw" Vec2
-
-swizzleXYZ :: GLSLExpr -> GLSLExpr
-swizzleXYZ = _swizzle "xyz" Vec3
-
-swizzleYZW :: GLSLExpr -> GLSLExpr
-swizzleYZW = _swizzle "yzw" Vec3
-
-swizzleXYY :: GLSLExpr -> GLSLExpr
-swizzleXYY = _swizzle "xyy" Vec3
-
-swizzleXYYY :: GLSLExpr -> GLSLExpr
-swizzleXYYY = _swizzle "xyyy" Vec4
- 
-swizzleXYZZ :: GLSLExpr -> GLSLExpr
-swizzleXYZZ = _swizzle "xyzz" Vec4
 

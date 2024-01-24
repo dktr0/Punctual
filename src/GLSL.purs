@@ -7,45 +7,74 @@ module GLSL where
 
 import Prelude (pure,(<>),otherwise,bind,discard,show,(+),($))
 import Data.Map (Map,insert)
-import Data.List (List,(:))
+import Data.List ((:))
 import Control.Monad.State (State,get,put)
 
 import GLSLExpr
 
-
--- thought experiment
-
 type GLSLState = {
   nextIndex :: Int,
-  statements :: Map Int String
+  exprs :: Map Int GLSLExpr
   }
   
 type GLSL = State GLSLState
 
+assign :: GLSLExpr -> GLSL GLSLExpr
+assign x 
+  | x.isSimple = pure x -- don't assign/reassign expressions that are marked simple
+  | otherwise = do
+      s <- get
+      put { nextIndex: s.nextIndex+1, exprs: insert s.nextIndex x s.exprs }
+      pure $ { string: "_" <> show s.nextIndex, glslType: x.glslType, isSimple: true, deps: s.nextIndex:x.deps } 
 
-data GLSLExpr = 
-  Float Number | 
-  Vec2 GLSLExpr GLSLExpr |
-  Vec3 GLSLExpr GLSLExpr GLSLExpr |
-  Vec4 GLSLExpr GLSLExpr GLSLExpr GLSLExpr |
-  FloatRef String |
-  Vec2Ref String |
-  Vec3Ref String |
-  Vec4Ref String |
-  MatchedUnaryFunction String GLSLExpr |
-  MatchedBinaryFunction String GLSLExpr GLSLExpr |
-  MatchedBinaryOperator String GLSLExpr GLSLExpr
-  
-toGLSL :: GLSLExpr -> String
-toGLSL (Float x) = show x
-toGLSL (Vec2 x y) = "vec2(" <> toGLSL x <> "," <> toGLSL y <> ")"
-toGLSL (MatchedUnaryFunction f x) = f <> "(" <> toGLSL x <> ")"
-toGLSL (MatchedBinaryFunction f x y) = f <> "(" <> toGLSL x <> "," <> toGLSL y <> ")"
-toGLSL (MatchedBinaryOperator op x y) = "(" <> toGLSL x <> op <> toGLSL y <> ")"
-  
+
+_swizzle :: String -> GLSLType -> GLSLExpr -> GLSL GLSLExpr
+_swizzle spec rType x = do
+  x' <- assign x -- as per definition of assign, this won't reassign expressions marked simple, so x' is simple
+  pure { string: x'.string <> "." <> spec, glslType: rType, isSimple: true, deps: x'.deps }
+
+swizzleX :: GLSLExpr -> GLSL GLSLExpr
+swizzleX = _swizzle "x" Float 
+
+swizzleY :: GLSLExpr -> GLSL GLSLExpr
+swizzleY = _swizzle "y" Float
+
+swizzleZ :: GLSLExpr -> GLSL GLSLExpr
+swizzleZ = _swizzle "z" Float
+
+swizzleW :: GLSLExpr -> GLSL GLSLExpr
+swizzleW = _swizzle "w" Float
+
+swizzleXY :: GLSLExpr -> GLSL GLSLExpr
+swizzleXY = _swizzle "xy" Vec2
+
+swizzleYZ :: GLSLExpr -> GLSL GLSLExpr
+swizzleYZ = _swizzle "yz" Vec2
+
+swizzleZW :: GLSLExpr -> GLSL GLSLExpr
+swizzleZW = _swizzle "zw" Vec2
+
+swizzleXYZ :: GLSLExpr -> GLSL GLSLExpr
+swizzleXYZ = _swizzle "xyz" Vec3
+
+swizzleYZW :: GLSLExpr -> GLSL GLSLExpr
+swizzleYZW = _swizzle "yzw" Vec3
+
+swizzleXYY :: GLSLExpr -> GLSL GLSLExpr
+swizzleXYY = _swizzle "xyy" Vec3
+
+swizzleXYYY :: GLSLExpr -> GLSL GLSLExpr
+swizzleXYYY = _swizzle "xyyy" Vec4
+ 
+swizzleXYZZ :: GLSLExpr -> GLSL GLSLExpr
+swizzleXYZZ = _swizzle "xyzz" Vec4
+
+
+{-
 signalToGLSL :: Signal -> GLSL (List GLSLExpr)
-signalToGLSL (Constant x) = pure $ singleton $ Float x
+signalToGLSL (Constant x) = pure $ Expr.float x
 signalToGLSL (SignalList xs) = traverse signalToGLSL xs
+
 signalToGLSL (Log x) = do
   xs <- signalToGLSL x
   pure map (MatchedUnaryFunction "log") xs
@@ -54,77 +83,8 @@ signalToGLSL (Sum mm x y) = do
   xs <- signalToGLSL x
   ys <- signalToGLSL y
   ... now we have the alignment challenge ...
-  
+-}
 
-assignFloat :: String -> GLSL Int
-assignFloat x = do
-  s <- get
-  let x' = "float _" <> show s.nextIndex <> "=" <> x <> ";\n"
-  put { nextIndex: s.nextIndex+1, statements: insert s.nextIndex x' s.statements }
-  pure s.nextIndex
-  
-assignVec2 :: String -> GLSL Int
-assignVec2 x = do
-  s <- get
-  let x' = "vec2 _" <> show s.nextIndex <> "=" <> x <> ";\n"
-  put { nextIndex: s.nextIndex+1, statements: insert s.nextIndex x' s.statements }
-  pure s.nextIndex
-
-
-signalToGLSL :: Signal -> GLSL (List GLSLExpr)
-signalToGLSL (Constant n) = pure $ singleton $ 
-signalToGLSL (SignalList xs) = traverse signalToGLSL xs -- List ?
-signalToGLSL (Append x y) = do
-  x' <- signalToGLSL x
-  y' <- signalToGLSL y
-  pure $ .... some kind of list combining x and y?
-signalToGLSL (Zip x y) = do
-  x' <- signalToGLSL x
-  y' <- signalToGLSL y
-  pure $ .... some kind of list combining x and y?
-
-signalToGLSL (Sum mm x y) = do
-
-  
-
-
-
-
-
-
-type GLSLState = {
-  nextIndex :: Int,
-  exprs :: Map Int GLSLExpr
-  }
-
-type GLSL = State GLSLState
-
-assign :: GLSLExpr -> GLSL GLSLExpr
-assign x 
-  | isSimple x = pure x -- don't assign expressions that are marked simple
-  | otherwise = do
-      s <- get
-      put { nextIndex: s.nextIndex+1, exprs: insert s.nextIndex x s.exprs }
-      pure $ _glslExprFromAssignment s.nextIndex x
-
-_glslExprFromAssignment :: Int -> GLSLExpr -> GLSLExpr
-_glslExprFromAssignment n (FloatExpr _ ds) = FloatExpr (Float true $ "_" <> show n) (n:ds)
-_glslExprFromAssignment n (Vec2Expr _ ds) = Vec2Expr (Vec2 true $ "_" <> show n) (n:ds)
-_glslExprFromAssignment n (Vec3Expr _ ds) = Vec3Expr (Vec3 true $ "_" <> show n) (n:ds)
-_glslExprFromAssignment n (Vec4Expr _ ds) = Vec4Expr (Vec4 true $ "_" <> show n) (n:ds)
-
-
-constantFloat :: Number -> GLSL GLSLExpr
-constantFloat x = pure $ FloatExpr (Float true (show x)) Nil
-
-binaryMatchedFunction :: String -> GLSLExpr -> GLSLExpr -> GLSL GLSLExpr
-binaryMatchedFunction func x y = ...
-
-   
-
--- runGLSL :: GLSL a -> (a,String)
--- runGLSL x = (a,b)
---  where (a,(_,_,b)) = runState x (0,Map.empty,"")
 
 {-
 -- write code to the accumulated Builder without adding a new variable assignment
