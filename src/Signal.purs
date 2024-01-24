@@ -21,11 +21,9 @@ data Signal =
   Append Signal Signal |
   Zip Signal Signal |
   Pi |
-  Px | Py | Aspect |
+  Px | Py | Pxy | Aspect |
   Fx | Fy | Fxy | -- cartesian coordinates of current fragment
   FRt | FR | FT | -- polar coordinates of current fragment
-  SetFx Signal Signal | SetFy Signal Signal | SetFxy Signal Signal |
-  Zoom Signal Signal | Move Signal Signal | Tile Signal Signal | Spin Signal Signal |
   Lo | Mid | Hi | ILo | IMid | IHi |
   Cps | Time | Beat | EBeat | ETime |
   Rnd |
@@ -86,6 +84,8 @@ data Signal =
   DbAmp Signal |
   AmpDb Signal |
   Fract Signal |
+  SetFx Signal Signal | SetFy Signal Signal | SetFxy Signal Signal |
+  Zoom Signal Signal | Move Signal Signal | Tile Signal Signal | Spin Signal Signal |
   Sum MultiMode Signal Signal |
   Difference MultiMode Signal Signal |
   Product MultiMode Signal Signal |

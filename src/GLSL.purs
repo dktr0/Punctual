@@ -5,10 +5,12 @@ module GLSL where
 -- A fundamental goal is elegantly bridging the gap between GLSL's 4 basic float types
 -- and the multi-channel expressions of Punctual (which are not limited to 1-4 channels).
 
-import Prelude (pure,(<>),otherwise,bind,discard,show,(+),($))
+import Prelude (pure,(<>),otherwise,bind,discard,show,(+),($),(==),(<<<),(>>=))
 import Data.Map (Map,insert)
-import Data.List ((:))
+import Data.List.NonEmpty (NonEmptyList,singleton,concat,cons)
 import Control.Monad.State (State,get,put)
+import Data.Traversable (traverse)
+import Data.Set as Set
 
 import GLSLExpr
 
@@ -25,7 +27,7 @@ assign x
   | otherwise = do
       s <- get
       put { nextIndex: s.nextIndex+1, exprs: insert s.nextIndex x s.exprs }
-      pure $ { string: "_" <> show s.nextIndex, glslType: x.glslType, isSimple: true, deps: s.nextIndex:x.deps } 
+      pure $ { string: "_" <> show s.nextIndex, glslType: x.glslType, isSimple: true, deps: Set.insert s.nextIndex x.deps } 
 
 
 _swizzle :: String -> GLSLType -> GLSLExpr -> GLSL GLSLExpr
@@ -70,21 +72,34 @@ swizzleXYZZ :: GLSLExpr -> GLSL GLSLExpr
 swizzleXYZZ = _swizzle "xyzz" Vec4
 
 
-{-
-signalToGLSL :: Signal -> GLSL (List GLSLExpr)
-signalToGLSL (Constant x) = pure $ Expr.float x
-signalToGLSL (SignalList xs) = traverse signalToGLSL xs
+textureFFT :: String -> GLSLExpr -> GLSL GLSLExpr
+textureFFT texName x = assign { string: "texture2D(" <> texName <> ",vec2(" <> x.string <> "*0.5+0.5,0.)).x", glslType: Float, isSimple: false, deps: x.deps }
 
-signalToGLSL (Log x) = do
-  xs <- signalToGLSL x
-  pure map (MatchedUnaryFunction "log") xs
 
-signalToGLSL (Sum mm x y) = do
-  xs <- signalToGLSL x
-  ys <- signalToGLSL y
-  ... now we have the alignment challenge ...
--}
+alignFloat :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+alignFloat xs = traverse splitIntoFloats xs >>= (pure <<< concat)
 
+splitIntoFloats :: GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+splitIntoFloats e
+  | e.glslType == Float = pure $ singleton e
+  | e.glslType == Vec2 = do
+      e' <- assign e -- pre-assigning ahead of swizzles so that multiple swizzles don't multiply assign e
+      x <- swizzleX e'
+      y <- swizzleY e'
+      pure $ x `cons` singleton y
+  | e.glslType == Vec3 = do
+      e' <- assign e
+      x <- swizzleX e'
+      y <- swizzleY e'
+      z <- swizzleZ e'
+      pure (x `cons` (y `cons` singleton z))
+  | otherwise = do
+      e' <- assign e
+      x <- swizzleX e'
+      y <- swizzleY e'
+      z <- swizzleZ e'
+      w <- swizzleW e'
+      pure (x `cons` (y `cons` (z `cons` singleton w)))
 
 {-
 -- write code to the accumulated Builder without adding a new variable assignment

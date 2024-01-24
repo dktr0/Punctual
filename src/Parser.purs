@@ -112,6 +112,7 @@ parseReserved p "zip" = lift $ signalSignalSignal p Zip
 parseReserved p "pi" = pure $ ValueSignal p Pi
 parseReserved p "px" = pure $ ValueSignal p Px
 parseReserved p "py" = pure $ ValueSignal p Py
+parseReserved p "pxy" = pure $ ValueSignal p Pxy
 parseReserved p "aspect" = pure $ ValueSignal p Aspect
 parseReserved p "fx" = pure $ ValueSignal p Fx
 parseReserved p "fy" = pure $ ValueSignal p Fy

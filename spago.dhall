@@ -32,6 +32,7 @@ to generate this file without the comments in this block.
   , "spec"
   , "transformers"
   , "tuples"
+  , "unfoldable"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]
