@@ -263,15 +263,23 @@ graphToGLSL ah env (Gate mm x y) = binaryMatchedGraphs mm gate ah env x y
   y'' <- mapM assign y'
   binaryMatchedGLSLExprs gate ah x' y'' -}
 
-graphToGLSL ah env (Clip mm r x) = do
+graphToGLSL ah env (Clip Combinatorial r x) = do
   r' <- graphToGLSL (Just Vec2) env r >>= align Vec2
   x' <- graphToGLSL ah env x
-  sequence $ combineBinary mm clip r' x'
+  sequence $ combineBinary Combinatorial clip r' x'
+graphToGLSL _ env (Clip PairWise r x) = do
+  r' <- graphToGLSL (Just Vec2) env r >>= align Vec2
+  x' <- graphToGLSL (Just GLFloat) env x >>= align GLFloat
+  sequence $ combineBinary PairWise clip r' x'
     
-graphToGLSL ah env (Between mm r x) = do
+graphToGLSL ah env (Between Combinatorial r x) = do
   r' <- graphToGLSL (Just Vec2) env r >>= align Vec2
   x' <- graphToGLSL ah env x
-  return $ combineBinary mm between r' x'
+  return $ combineBinary Combinatorial between r' x'
+graphToGLSL _ env (Between PairWise r x) = do
+  r' <- graphToGLSL (Just Vec2) env r >>= align Vec2
+  x' <- graphToGLSL (Just GLFloat) env x >>= align GLFloat
+  return $ combineBinary PairWise between r' x'
     
 -- *** TODO: Step's semantics currently only make sense for single-channel outputs.
 graphToGLSL _ _ (Step [] _) = return [constantFloat 0]

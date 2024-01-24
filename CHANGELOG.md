@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.4.9:
+
+-fixed bugs affecting between, betweenp, clip, and clipp
+
 0.4.4.8:
 
 -added pairwise variants: circlep, rectp, vlinep, hlinep, linep, ilinep, clipp, betweenp, lpfp, hpfp, bpfp, ~~:, +=:, linlinp
