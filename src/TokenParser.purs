@@ -47,15 +47,15 @@ reservedNamesDef = [
   "hsvrgb","hsvh","hsvs","hsvv","hsvr","hsvg","hsvb",
   "rgbhsv","rgbh","rgbs","rgbv","rgbr","rgbg","rgbb",
   "dist","prox",
-  "point","hline","vline","circle","rect","iline","line",
+  "point","hline","hlinep","vline","vlinep","circle","circlep","rect","rectp","iline","ilinep","line","linep",
   "fb",
   "zip",
   "fit","min","max","minp","maxp",
-  "clip","between","gate","gatep","when",
+  "clip","clipp","between","betweenp","smoothstep","smoothstepp","gate","gatep","when",
   "setfx","setfy","setfxy","zoom","move","tile","spin",
-  "lpf","hpf","bpf","delay",
+  "lpf","lpfp","hpf","hpfp","bpf","bpfp","delay",
   "linlin",
-  "rep","unrep",
+  "rep",
   "img","vid","cam"
   ]
 

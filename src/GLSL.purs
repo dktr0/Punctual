@@ -72,6 +72,11 @@ swizzleXYZZ :: GLSLExpr -> GLSL GLSLExpr
 swizzleXYZZ = _swizzle "xyzz" Vec4
 
 
+-- expression must be Vec2
+texture2D :: String -> GLSLExpr -> GLSL GLSLExpr
+texture2D texName x = assign { string: "texture2D(" <> texName <> "," <> x.string <> "*0.5+0.5).x", glslType: Float, isSimple: false, deps: x.deps }
+
+-- variant of texture2D specialized for one-dimensions textures, such as those used for fft and ifft
 textureFFT :: String -> GLSLExpr -> GLSL GLSLExpr
 textureFFT texName x = assign { string: "texture2D(" <> texName <> ",vec2(" <> x.string <> "*0.5+0.5,0.)).x", glslType: Float, isSimple: false, deps: x.deps }
 
@@ -100,6 +105,63 @@ splitIntoFloats e
       z <- swizzleZ e'
       w <- swizzleW e'
       pure (x `cons` (y `cons` (z `cons` singleton w)))
+
+
+alignVec2 :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+alignVec2 xs = do
+  h <- headVec2 xs
+  t <- tailVec2 xs
+  case t of
+    Nothing -> pure $ singleton h
+    Just t' -> do
+      t'' <- alignVec2 t'
+      pure $ h `cons` t''
+
+headVec2 :: NonEmptyList GLSLExpr -> GLSL GLSLExpr
+headVec2 xs
+  | _.glslType (head xs) == Float = do
+      case List.head (tail xs) of
+        Nothing -> pure $ vec2unary $ head xs
+        Just y -> do
+          y' <- swizzleX y
+          pure $ vec2binary (head xs) y'
+  | _.glslType (head xs) == Vec2 = pure $ head xs
+  | otherwise = swizzleXY (head xs)
+  
+tailVec2 :: NonEmptyList GLSLExpr -> GLSL (List GLSLExpr)
+tailVec2 xs 
+  | _.glslType (head xs) == Float = do
+     case List.tail xs of
+       Just t -> 
+  && length xs == 1 = pure Nothing
+  | _.glslType (head xs) == Float = ...basically tailFloat of tail xs?
+  | _.glslType (head xs) == Vec2 = pure $ tail xs
+  | _.glslType (head xs) == Vec3 = ...swizzleZ of head xs `cons` the tail of xs
+  | otherwise = ...swizzle ZW of head `cons` the tail of xs
+
+tailFloat :: NonEmptyList GLSLExpr -> GLSL (Maybe (NonEmptyList GLSLExpr))
+tailFloat xs
+  | _.glslType (head xs) == Float = pure $ tail xs
+  | _.glslType (head xs) == Vec2 = do
+        
+
+vec2 a =
+vec3 b = 
+vec4 c = 
+...now we want to vec2 align a b and c...
+vec2(a.x,a.y) -> this is a (has to be a no-op)
+vec2(b.x,b.y) -> this is b.xy (just a swizzle)
+vec2(b.z,c.x) -> this is vec2(b.z,c.x) (combines two values)
+vec2(c.y,c.z) -> this is c.yz (just a swizzle)
+vec2(c.w)     -> this is vec2(c.w) (a cast/function)
+
+
+
+
+
+
+getVec2 :: GLSLExpr -> Tuple GLSLExpr
+getVec2 x | _.glslType x == Vec2 = 
 
 {-
 -- write code to the accumulated Builder without adding a new variable assignment

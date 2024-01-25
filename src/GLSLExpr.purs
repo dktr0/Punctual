@@ -29,9 +29,12 @@ simpleFromString t x = { string: x, glslType: t, isSimple: true, deps: empty }
 
 zero :: GLSLExpr
 zero = { string: "0.", glslType: Float, isSimple: true, deps: empty }
+
+vec2unary :: GLSLExpr -> GLSLExpr -> GLSLExpr
+vec2unary = simpleUnaryFunction "vec2" Vec2 
    
-vec2 :: GLSLExpr -> GLSLExpr -> GLSLExpr
-vec2 = binaryFunction "vec2" Vec2 
+vec2binary :: GLSLExpr -> GLSLExpr -> GLSLExpr
+vec2binary = simpleBinaryFunction "vec2" Vec2 
 
 vec3 :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
 vec3 = ternaryFunction "vec3" Vec3 
@@ -44,6 +47,9 @@ simpleUnaryFunction funcName rType x = { string: funcName <> "(" <> x.string <> 
 
 unaryFunction :: String -> GLSLType -> GLSLExpr -> GLSLExpr
 unaryFunction funcName rType x = { string: funcName <> "(" <> x.string <> ")", glslType: rType, isSimple: false, deps: x.deps }
+
+simpleBinaryFunction :: String -> GLSLType -> GLSLExpr -> GLSLExpr -> GLSLExpr
+simpleBinaryFunction funcName rType x y = { string: funcName <> "(" <> x.string <> "," <> y.string <> ")", glslType: rType, isSimple: x.isSimple && y.isSimple, deps: x.deps <> y.deps }
 
 binaryFunction :: String -> GLSLType -> GLSLExpr -> GLSLExpr -> GLSLExpr
 binaryFunction funcName rType x y = { string: funcName <> "(" <> x.string <> "," <> y.string <> ")", glslType: rType, isSimple: false, deps: x.deps <> y.deps }

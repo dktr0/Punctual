@@ -1,12 +1,13 @@
 module FragmentShader where
 
-import Prelude(($),pure,show,bind,(<>),(>>=),(<$>))
+import Prelude(($),pure,show,bind,(<>),(>>=),(<$>),(<<<),map)
 import Data.Maybe (Maybe(..))
 import Data.List.NonEmpty (NonEmptyList,singleton,concat,fromList,zipWith,cons)
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
 import Data.Foldable (fold,intercalate)
 import Data.Set as Set
+import Data.Unfoldable1 (replicate1)
 
 import NonEmptyList
 import Signal (Signal(..))
@@ -82,33 +83,31 @@ signalToGLSL fxys (FFT x) = signalToGLSL fxys x >>= traverse assign >>= alignFlo
 
 signalToGLSL fxys (IFFT x) = signalToGLSL fxys x >>= traverse assign >>= alignFloat >>= traverse (textureFFT "_ifft")
 
+signalToGLSL fxys (Fb xy) = signalToGLSL fxys xy >>= traverse assign >>= alignVec2 >>= traverse (texture2D "_fb")
+
+signalToGLSL fxys Cam = traverse (texture2D "_fb") fxys
+  
+{-
+  Img String 
+  Vid String |
+-}
+
 signalToGLSL fxys (Mono x) = do
   xs <- signalToGLSL fxys x
   let xs' = dotSum <$> xs
   let s = "(" <> intercalate " + " (_.string <$> xs') <> ")"
   pure $ singleton $ { string: s, glslType: Float, isSimple: false, deps: fold (_.deps <$> xs) }
-  
 
-{-
-graphToGLSL ah env (Rep n x) = do
-  x' <- mapM (graphToGLSL Nothing env) $ replicate n x
-  alignHint ah $ concat x'
+signalToGLSL _ (Rep 0 _) = pure $ singleton $ zero
+signalToGLSL fxys (Rep n x) = (concat <<< replicate1 n) <$> signalToGLSL fxys x
 
-graphToGLSL _ _ (UnRep 0 _) = return [constantFloat 0]
-graphToGLSL ah env (UnRep n x) = do
-  x' <- graphToGLSL (Just GLFloat) env x >>= align GLFloat
-  alignHint ah $ fmap (Foldable.foldr1 (+)) $ chunksOf n x'
--}  
+signalToGLSL fxys (Bipolar x) = simpleUnaryFunction fxys x $ \s -> "(" <> s <> "*2.-1.)"
+
+signalToGLSL fxys (Unipolar x) = simpleUnaryFunction fxys x $ \s -> "(" <> s <> "*0.5+0.5)"
    
+
+
 {-
-  Rep Int Signal |
-  UnRep Int Signal |
-  Bipolar Signal |
-  Unipolar Signal |
-  Fb Signal |
-  Img String |
-  Vid String |
-  Cam |
   Blend Signal |
   RgbHsv Signal | HsvRgb Signal |
   HsvH Signal | HsvS Signal | HsvV Signal | HsvR Signal | HsvG Signal | HsvB Signal |
@@ -190,4 +189,9 @@ graphToGLSL ah env (UnRep n x) = do
 
 signalToGLSL _ _ = pure $ singleton $ zero
 
+
+simpleUnaryFunction :: NonEmptyList GLSLExpr -> Signal -> (String -> String) -> GLSL (NonEmptyList GLSLExpr)
+simpleUnaryFunction fxys x f = do
+  xs <- signalToGLSL fxys x
+  pure $ map (\e -> { string: f e.string, glslType: e.glslType, isSimple: e.isSimple, deps: e.deps }) xs 
 

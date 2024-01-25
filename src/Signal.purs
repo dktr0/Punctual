@@ -28,10 +28,10 @@ data Signal =
   Cps | Time | Beat | EBeat | ETime |
   Rnd |
   AudioIn |
-  FFT Signal | IFFT Signal |
+  FFT Signal |
+  IFFT Signal |
   Mono Signal |
   Rep Int Signal |
-  UnRep Int Signal |
   Bipolar Signal |
   Unipolar Signal |
   Fb Signal |
@@ -101,18 +101,19 @@ data Signal =
   Max MultiMode Signal Signal |
   Min MultiMode Signal Signal |
   Gate MultiMode Signal Signal |
-  Circle Signal Signal |
-  Rect Signal Signal |
-  Clip Signal Signal |
-  Between Signal Signal |
-  VLine Signal Signal |
-  HLine Signal Signal |
+  Circle MultiMode Signal Signal |
+  Rect MultiMode Signal Signal |
+  Clip MultiMode Signal Signal |
+  Between MultiMode Signal Signal |
+  SmoothStep MultiMode Signal Signal |
+  VLine MultiMode Signal Signal |
+  HLine MultiMode Signal Signal |
   Step Signal Signal |
   IfThenElse Signal Signal Signal | -- no pathways for this exist yet in PureScript port, from the AST level up
-  ILine Signal Signal Signal |
-  Line Signal Signal Signal |
+  ILine MultiMode Signal Signal Signal |
+  Line MultiMode Signal Signal Signal |
   LinLin Signal Signal Signal |
-  LPF Signal Signal Signal | HPF Signal Signal Signal | BPF Signal Signal Signal |
+  LPF MultiMode Signal Signal Signal | HPF MultiMode Signal Signal Signal | BPF MultiMode Signal Signal Signal |
   Delay Number Signal Signal
 
 derive instance Eq Signal
@@ -207,7 +208,6 @@ subSignals (FFT x) = x:Nil
 subSignals (IFFT x) = x:Nil
 subSignals (Mono x) = x:Nil
 subSignals (Rep _ x) = x:Nil
-subSignals (UnRep _ x) = x:Nil
 subSignals (Bipolar x) = x:Nil
 subSignals (Unipolar x) = x:Nil
 subSignals (Fb x) = x:Nil
@@ -286,20 +286,21 @@ subSignals (LessThanOrEqual _ x y) = x:y:Nil
 subSignals (Max _ x y) = x:y:Nil
 subSignals (Min _ x y) = x:y:Nil
 subSignals (Gate _ x y) = x:y:Nil
-subSignals (Circle x y) = x:y:Nil
-subSignals (Rect x y) = x:y:Nil
-subSignals (Clip x y) = x:y:Nil
-subSignals (Between x y) = x:y:Nil
-subSignals (VLine x y) = x:y:Nil
-subSignals (HLine x y) = x:y:Nil
+subSignals (Circle _ x y) = x:y:Nil
+subSignals (Rect _ x y) = x:y:Nil
+subSignals (Clip _ x y) = x:y:Nil
+subSignals (Between _ x y) = x:y:Nil
+subSignals (SmoothStep _ x y) = x:y:Nil
+subSignals (VLine _ x y) = x:y:Nil
+subSignals (HLine _ x y) = x:y:Nil
 subSignals (Step x y) = x:y:Nil
 subSignals (IfThenElse x y z) = x:y:z:Nil
-subSignals (ILine x y z) = x:y:z:Nil
-subSignals (Line x y z) = x:y:z:Nil
+subSignals (ILine _ x y z) = x:y:z:Nil
+subSignals (Line _ x y z) = x:y:z:Nil
 subSignals (LinLin x y z) = x:y:z:Nil
-subSignals (LPF x y z) = x:y:z:Nil
-subSignals (HPF x y z) = x:y:z:Nil
-subSignals (BPF x y z) = x:y:z:Nil
+subSignals (LPF _ x y z) = x:y:z:Nil
+subSignals (HPF _ x y z) = x:y:z:Nil
+subSignals (BPF _ x y z) = x:y:z:Nil
 subSignals (Delay _ x y)  = x:y:Nil
 subSignals _ = Nil
 
