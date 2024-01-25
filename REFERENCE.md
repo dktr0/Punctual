@@ -154,6 +154,8 @@ linlin [min1,max1,...] [min2,max2,...] [input] -- input graph is linearly scaled
 
 clip [min1,max1,...] [input] -- input values are clipped to stay between min and max (combinatorial, for pairwise use clipp)
 
+smoothstep [lowEdge1,highEdge1,...] [input] -- input values below lowEdge yield 0, above highEdge yield 1, in between they are smoothly interpolated, cf. GLSL's smoothstep function (combinatorial, for pairwise use smoothstepp)
+
 unipolar [graph] -- input is rescaled as if input range was bipolar (-1,1) and output range unipolar (0,1)
 
 bipolar [graph] -- input is rescaled as if input range was unipolar (0,1) and output range bipolar (-1,1)

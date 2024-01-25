@@ -418,6 +418,8 @@ graph3 = asum [
   reserved "clipp" >> return (Clip PairWise),
   reserved "between" >> return (Between Combinatorial),
   reserved "betweenp" >> return (Between PairWise),
+  reserved "smoothstep" >> return (SmoothStep Combinatorial),
+  reserved "smoothstepp" >> return (SmoothStep PairWise),
   reserved "setfx" >> return SetFx,
   reserved "setfy" >> return SetFy,
   reserved "setfxy" >> return SetFxy,

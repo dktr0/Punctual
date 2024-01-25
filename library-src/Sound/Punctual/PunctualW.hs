@@ -231,6 +231,7 @@ optimize (Min mm x y) = optimize' $ Min mm (optimize x) (optimize y)
 optimize (Gate mm x y) = optimize' $ Gate mm (optimize x) (optimize y)
 optimize (Clip mm x y) = optimize' $ Clip mm (optimize x) (optimize y)
 optimize (Between mm x y) = optimize' $ Between mm (optimize x) (optimize y)
+optimize (SmoothStep mm x y) = optimize' $ SmoothStep mm (optimize x) (optimize y)
 optimize (Step xs y) = optimize' $ Step xs $ optimize y
 optimize (IfThenElse x y z) = optimize' $ IfThenElse (optimize x) (optimize y) (optimize z)
 optimize (LinLin mm x y z) = optimize' $ LinLin mm (optimize x) (optimize y) (optimize z)
@@ -472,6 +473,11 @@ graphToSynthDef i (Between _ (Multi [r1,r2]) x) = graphToSynthDef i g -- ***** T
   where g = (GreaterThan Combinatorial r2 r1) * (GreaterThan Combinatorial x r1) * (LessThan Combinatorial x r2) +
             (GreaterThan Combinatorial r1 r2) * (GreaterThan Combinatorial x r2) * (LessThan Combinatorial x r1)
 
+graphToSynthDef i (SmoothStep mm edges x) = graphToSynthDef i ((Pow mm t 2) * t')
+  where 
+    t  = Clip mm (Multi [Constant 0, Constant 1]) $ LinLin mm edges (Multi [Constant 0,Constant 1]) x
+    t' = 3 - (t * 2)
+
 graphToSynthDef _ (Step [] _) = W.constantSource 0
 graphToSynthDef i (Step (x:[]) _) = graphToSynthDef i x
 graphToSynthDef i (Step xs (Constant y)) = do
@@ -578,6 +584,7 @@ expandMultis (Gate mm x y) = expandWith mm (Gate mm) x y
 expandMultis (Delay mm maxT t i) = expandWith mm (Delay mm maxT) t i
 expandMultis (Clip mm r x) = expandTuplesSingles mm (Clip mm) r x
 expandMultis (Between mm r x) = expandTuplesSingles mm (Between mm) r x
+expandMultis (SmoothStep mm e x) = expandTuplesSingles mm (SmoothStep mm) e x
 expandMultis (Step xs y) = fmap (Step xs) $ expandMultis y
 
 -- ternary functions

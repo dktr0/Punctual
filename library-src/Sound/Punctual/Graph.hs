@@ -102,6 +102,7 @@ data Graph =
   ILine MultiMode Graph Graph Graph |
   Line MultiMode Graph Graph Graph |
   Clip MultiMode Graph Graph |
+  SmoothStep MultiMode Graph Graph |
   Between MultiMode Graph Graph |
   SetFx Graph Graph |
   SetFy Graph Graph |

@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.7:
+
+-added smoothstep/smoothstepp
+
 0.4.4.9:
 
 -fixed bugs affecting between, betweenp, clip, and clipp
