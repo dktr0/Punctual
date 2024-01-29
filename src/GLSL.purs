@@ -6,13 +6,14 @@ module GLSL where
 -- and the multi-channel expressions of Punctual (which are not limited to 1-4 channels).
 
 import Prelude (pure,(<>),otherwise,bind,discard,show,(+),($),(==),(<<<),(>>=))
-import Data.Map (Map,insert)
+import Data.Map (Map,insert,empty)
 import Data.Maybe (Maybe(..))
 import Data.List (List,(:))
 import Data.List.NonEmpty (NonEmptyList,singleton,concat,cons,head,tail,fromList)
-import Control.Monad.State (State,get,put)
+import Control.Monad.State (State,get,put,runState)
 import Data.Traversable (traverse)
 import Data.Set as Set
+import Data.Tuple (Tuple)
 
 import GLSLExpr
 
@@ -26,13 +27,19 @@ type GLSLState = {
 
 type GLSL = State GLSLState
 
+runGLSL :: forall a. GLSL a -> Tuple a GLSLState
+runGLSL x = runState x { nextIndex: 0, exprs: empty, fxys: singleton { string:"_fxy()", glslType:Vec2, isSimple:true, deps:Set.empty}, imgMap: empty, vidMap: empty } 
+
 assign :: GLSLExpr -> GLSL GLSLExpr
 assign x
   | x.isSimple = pure x -- don't assign/reassign expressions that are marked simple
-  | otherwise = do
-      s <- get
-      put { nextIndex: s.nextIndex+1, exprs: insert s.nextIndex x s.exprs, fxys: s.fxys, imgMap: s.imgMap, vidMap: s.vidMap }
-      pure $ { string: "_" <> show s.nextIndex, glslType: x.glslType, isSimple: true, deps: Set.insert s.nextIndex x.deps }
+  | otherwise = assignForced x
+  
+assignForced :: GLSLExpr -> GLSL GLSLExpr
+assignForced x = do
+  s <- get
+  put { nextIndex: s.nextIndex+1, exprs: insert s.nextIndex x s.exprs, fxys: s.fxys, imgMap: s.imgMap, vidMap: s.vidMap }
+  pure $ { string: "_" <> show s.nextIndex, glslType: x.glslType, isSimple: true, deps: Set.insert s.nextIndex x.deps }
 
 
 _swizzle :: String -> GLSLType -> GLSLExpr -> GLSL GLSLExpr
@@ -77,13 +84,14 @@ swizzleXYZZ :: GLSLExpr -> GLSL GLSLExpr
 swizzleXYZZ = _swizzle "xyzz" Vec4
 
 
--- expression must be Vec2
+-- expression must be Vec2, assumes unipolar coordinates (this facilitates upstream use of larger types, since conversions to unipolar can happen on larger types that are then force-assigned)
 texture2D :: String -> GLSLExpr -> GLSL GLSLExpr
-texture2D texName x = assign { string: "texture2D(" <> texName <> "," <> x.string <> "*0.5+0.5).x", glslType: Float, isSimple: false, deps: x.deps }
+texture2D texName x = assign { string: "texture2D(" <> texName <> "," <> x.string <> ").xyz", glslType: Vec3, isSimple: false, deps: x.deps }
 
--- variant of texture2D specialized for one-dimensions textures, such as those used for fft and ifft
+-- variant of texture2D specialized for one-dimensional, single-channel textures, such as those used for fft and ifft
+-- assumes unipolar coordinates (this facilitates upstream use of larger types, since conversions to unipolar can happen on larger types that are then force-assigned)
 textureFFT :: String -> GLSLExpr -> GLSL GLSLExpr
-textureFFT texName x = assign { string: "texture2D(" <> texName <> ",vec2(" <> x.string <> "*0.5+0.5,0.)).x", glslType: Float, isSimple: false, deps: x.deps }
+textureFFT texName x = assign { string: "texture2D(" <> texName <> ",vec2(" <> x.string <> ",0.)).x", glslType: Float, isSimple: false, deps: x.deps }
 
 
 alignFloat :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)

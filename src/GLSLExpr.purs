@@ -15,7 +15,14 @@ derive instance Eq GLSLType
 derive instance Generic GLSLType _
 instance Show GLSLType where
   show = genericShow
+  
+glslTypeToString :: GLSLType -> String
+glslTypeToString Float = "float"
+glslTypeToString Vec2 = "vec2"
+glslTypeToString Vec3 = "vec3"
+glslTypeToString Vec4 = "vec4"
 
+  
 type GLSLExpr = {
   string :: String,
   glslType :: GLSLType,

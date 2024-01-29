@@ -1,6 +1,6 @@
 module FragmentShader where
 
-import Prelude(($),pure,show,bind,(<>),(>>=),(<$>),(<<<))
+import Prelude(($),pure,show,bind,(<>),(>>=),(<$>),(<<<),map)
 import Data.Maybe (Maybe(..))
 import Data.List.NonEmpty (NonEmptyList,singleton,concat,fromList,zipWith,cons,head,tail)
 import Data.Traversable (traverse)
@@ -10,12 +10,23 @@ import Data.Set as Set
 import Data.Unfoldable1 (replicate1)
 import Control.Monad.State (get)
 import Data.Map (lookup)
+import Data.FunctorWithIndex (mapWithIndex)
 
 import NonEmptyList
 import Signal (Signal(..),MultiMode(..))
-import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction)
-import GLSL (GLSL,assign,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignRGBA)
+import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString)
+import GLSL (GLSL,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignRGBA,runGLSL)
 
+testCodeGen :: Signal -> String
+testCodeGen x = assignments <> lastExprs
+  where
+    (Tuple a st) = runGLSL (signalToGLSL x)
+    assignments = fold $ mapWithIndex indexedGLSLExprToString st.exprs
+    lastExprs = fold $ map (\x -> x.string <> "\n") a
+    
+
+indexedGLSLExprToString :: Int -> GLSLExpr -> String
+indexedGLSLExprToString n x = glslTypeToString x.glslType <> " _" <> show n <> " = " <> x.string <> ";\n"
 
 signalToGLSL :: Signal -> GLSL (NonEmptyList GLSLExpr)
 
@@ -96,11 +107,11 @@ signalToGLSL ETime = pure $ singleton $ simpleFromString Float "_etime"
 
 signalToGLSL EBeat = pure $ singleton $ simpleFromString Float "_ebeat"
 
-signalToGLSL (FFT x) = signalToGLSL x >>= traverse assign >>= alignFloat >>= traverse (textureFFT "_fft")
+signalToGLSL (FFT x) = signalToGLSL x >>= unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "_fft")
 
-signalToGLSL (IFFT x) = signalToGLSL x >>= traverse assign >>= alignFloat >>= traverse (textureFFT "_ifft")
+signalToGLSL (IFFT x) = signalToGLSL x >>= unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "_ifft")
 
-signalToGLSL (Fb xy) = signalToGLSL xy >>= traverse assign >>= alignVec2 >>= traverse (texture2D "_fb")
+signalToGLSL (Fb xy) = signalToGLSL xy >>= unipolar >>= traverse assignForced >>= alignVec2 >>= traverse (texture2D "_fb")
 
 signalToGLSL Cam = do
   s <- get
@@ -178,7 +189,7 @@ signalToGLSL (Sqrt x) = signalToGLSL x >>= simpleUnaryFunction "sqrt"
 signalToGLSL (Tan x) = signalToGLSL x >>= simpleUnaryFunction "tan"
 signalToGLSL (Tanh x) = signalToGLSL $ Division Pairwise (Sinh x) (Cosh x) -- TODO: use built-in on WebGL2 and rework WebGL1 to reuse xs
 signalToGLSL (Trunc x) = signalToGLSL $ Product Pairwise (Floor (Abs x)) (Sign x) -- TODO: use built-in on WebGL2 and rework WebGL1 to reuse xs
-signalToGLSL (Unipolar x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(" <> s <> "*0.5+0.5)")
+signalToGLSL (Unipolar x) = signalToGLSL x >>= unipolar 
 
 signalToGLSL (RtXy rt) = do
   rts <- signalToGLSL rt >>= alignVec2 
@@ -272,6 +283,8 @@ simpleUnaryExpression f = traverse $ \x -> pure { string: f x.string, glslType: 
 zipBinaryExpression :: GLSLType -> (String -> String -> String) -> NonEmptyList GLSLExpr -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
 zipBinaryExpression t f xs ys = pure $ zipWith (\x y -> { string: f x.string y.string, glslType: t, isSimple: false, deps: x.deps <> y.deps }) xs ys
 
+unipolar :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+unipolar = simpleUnaryExpression (\s -> "(" <> s <> "*0.5+0.5)")
 
 blend :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec4
 blend a b = do
