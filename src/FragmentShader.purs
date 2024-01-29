@@ -150,16 +150,16 @@ signalToGLSL (LFSqr x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "
 
 signalToGLSL (Abs x) = signalToGLSL x >>= simpleUnaryFunction "abs"
 signalToGLSL (Acos x) = signalToGLSL x >>= simpleUnaryFunction "acos"
-signalToGLSL (Acosh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "log(" <> s <> "+sqrt(" <> s <> "*" <> s <> "-1.))") -- later: use built-in on WebGL2 
+signalToGLSL (Acosh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "log(" <> s <> "+sqrt(" <> s <> "*" <> s <> "-1.))") -- TODO: use built-in on WebGL2 
 signalToGLSL (Asin x) = signalToGLSL x >>= simpleUnaryFunction "asin"
-signalToGLSL (Asinh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "log(" <> s <> "+sqrt(" <> s <> "*" <> s <> "+1.))") -- later: use built-in on WebGL2 
+signalToGLSL (Asinh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "log(" <> s <> "+sqrt(" <> s <> "*" <> s <> "+1.))") -- TODO: use built-in on WebGL2 
 signalToGLSL (Atan x) = signalToGLSL x >>= simpleUnaryFunction "atan"
-signalToGLSL (Atanh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "(log((1.+" <> s <> ")/(" <> "1.-" <> s <> "))/2.)") -- later: use built-in on WebGL2
+signalToGLSL (Atanh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "(log((1.+" <> s <> ")/(" <> "1.-" <> s <> "))/2.)") -- TODO: use built-in on WebGL2
 signalToGLSL (Bipolar x) = signalToGLSL x >>= simpleUnaryExpression (\e -> "(" <> e <> "*2.-1.)")
 signalToGLSL (Cbrt x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "pow(" <> s <> ",0.3333333333)")
 signalToGLSL (Ceil x) = signalToGLSL x >>= simpleUnaryFunction "ceil"
 signalToGLSL (Cos x) = signalToGLSL x >>= simpleUnaryFunction "cos"
-signalToGLSL (Cosh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "((exp(" <> s <> ")+exp(" <> s <> "*-1.))/2.)") -- later: use built-in on WebGL2
+signalToGLSL (Cosh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "((exp(" <> s <> ")+exp(" <> s <> "*-1.))/2.)") -- TODO: use built-in on WebGL2
 signalToGLSL (Exp x) = signalToGLSL x >>= simpleUnaryFunction "exp"
 signalToGLSL (Floor x) = signalToGLSL x >>= simpleUnaryFunction "floor"
 signalToGLSL (Log x) = signalToGLSL x >>= simpleUnaryFunction "log"
@@ -168,21 +168,54 @@ signalToGLSL (Log10 x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(log("
 signalToGLSL (Round x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(floor(" <> s <> ")+0.5)")
 signalToGLSL (Sign x) = signalToGLSL x >>= simpleUnaryFunction "sign"
 signalToGLSL (Sin x) = signalToGLSL x >>= simpleUnaryFunction "sin"
-signalToGLSL (Sinh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "((exp(" <> s <> ")-exp(" <> s <> "*-1.))/2.)") -- later: use built-in on WebGL2
+signalToGLSL (Sinh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "((exp(" <> s <> ")-exp(" <> s <> "*-1.))/2.)") -- TODO: use built-in on WebGL2
 signalToGLSL (Sqrt x) = signalToGLSL x >>= simpleUnaryFunction "sqrt"
 signalToGLSL (Tan x) = signalToGLSL x >>= simpleUnaryFunction "tan"
-signalToGLSL (Tanh x) = signalToGLSL $ Division Pairwise (Sinh x) (Cosh x) -- later: use built-in on WebGL2 and rework WebGL1 to reuse xs
-signalToGLSL (Trunc x) = signalToGLSL $ Product Pairwise (Floor (Abs x)) (Sign x) -- later: use built-in on WebGL2 and rework WebGL1 to reuse xs
+signalToGLSL (Tanh x) = signalToGLSL $ Division Pairwise (Sinh x) (Cosh x) -- TODO: use built-in on WebGL2 and rework WebGL1 to reuse xs
+signalToGLSL (Trunc x) = signalToGLSL $ Product Pairwise (Floor (Abs x)) (Sign x) -- TODO: use built-in on WebGL2 and rework WebGL1 to reuse xs
 signalToGLSL (Unipolar x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(" <> s <> "*0.5+0.5)")
 
+signalToGLSL (RtXy rt) = do
+  rts <- signalToGLSL rt >>= alignVec2 
+  rs <- traverse swizzleX rts
+  ts <- traverse swizzleY rts
+  xs <- zipBinaryExpression Float (\r t -> "(" <> r <> "*cos(" <> t <> "))") rs ts
+  ys <- zipBinaryExpression Float (\r t -> "(" <> r <> "*sin(" <> t <> "))") rs ts
+  pure $ concat $ zipWith (\x y -> x `cons` singleton y) xs ys
+  
+signalToGLSL (RtX rt) = do
+  rts <- signalToGLSL rt >>= alignVec2 
+  rs <- traverse swizzleX rts
+  ts <- traverse swizzleY rts
+  zipBinaryExpression Float (\r t -> "(" <> r <> "*cos(" <> t <> "))") rs ts
+
+signalToGLSL (RtY rt) = do
+  rts <- signalToGLSL rt >>= alignVec2 
+  rs <- traverse swizzleX rts
+  ts <- traverse swizzleY rts
+  zipBinaryExpression Float (\r t -> "(" <> r <> "*sin(" <> t <> "))") rs ts
+  
+signalToGLSL (XyRt xy) = do
+  xys <- signalToGLSL xy >>= alignVec2
+  xs <- traverse swizzleX xys
+  ys <- traverse swizzleY xys
+  rs <- zipBinaryExpression Float (\x y -> "sqrt((" <> x <> "*" <> x <> ")+(" <> y <> "*" <> y <> "))") xs ys
+  ts <- zipBinaryExpression Float (\x y -> "atan(" <> x <> "," <> y <> ")") xs ys
+  pure $ concat $ zipWith (\x y -> x `cons` singleton y) rs ts
+
+signalToGLSL (XyR xy) = do
+  xys <- signalToGLSL xy >>= alignVec2
+  xs <- traverse swizzleX xys
+  ys <- traverse swizzleY xys
+  zipBinaryExpression Float (\x y -> "sqrt((" <> x <> "*" <> x <> ")+(" <> y <> "*" <> y <> "))") xs ys
+  
+signalToGLSL (XyT xy) = do
+  xys <- signalToGLSL xy >>= alignVec2
+  xs <- traverse swizzleX xys
+  ys <- traverse swizzleY xys
+  zipBinaryExpression Float (\x y -> "atan(" <> x <> "," <> y <> ")") xs ys
+  
 {-
-  -- more unary functions
-  RtXy Signal | -- polar to cartesian conversion
-  RtX Signal | -- x = r * cos theta
-  RtY Signal | -- y = r * sin theta
-  XyRt Signal | -- cartesian to polar conversion
-  XyR Signal | -- r = sqrt (x^2 + y ^2)
-  XyT Signal | -- theta = atan2(y,x)
   Distance Signal |
   Prox Signal |
   MidiCps Signal |
@@ -235,6 +268,10 @@ simpleUnaryFunction funcName = simpleUnaryExpression $ \x -> funcName <> "(" <> 
 
 simpleUnaryExpression :: (String -> String) -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
 simpleUnaryExpression f = traverse $ \x -> pure { string: f x.string, glslType: x.glslType, isSimple: x.isSimple, deps: x.deps }
+
+zipBinaryExpression :: GLSLType -> (String -> String -> String) -> NonEmptyList GLSLExpr -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+zipBinaryExpression t f xs ys = pure $ zipWith (\x y -> { string: f x.string y.string, glslType: t, isSimple: false, deps: x.deps <> y.deps }) xs ys
+
 
 blend :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec4
 blend a b = do
