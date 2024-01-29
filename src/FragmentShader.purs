@@ -8,6 +8,7 @@ import Data.Tuple (Tuple(..))
 import Data.Foldable (fold,intercalate)
 import Data.Set as Set
 import Data.Unfoldable1 (replicate1)
+import Control.Monad.State (get)
 
 import NonEmptyList
 import Signal (Signal(..))
@@ -15,95 +16,103 @@ import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum)
 import GLSL (GLSL,assign,swizzleX,swizzleY,alignFloat,texture2D,textureFFT,alignVec2)
 
 
-signalToGLSL :: NonEmptyList GLSLExpr -> Signal -> GLSL (NonEmptyList GLSLExpr)
+signalToGLSL :: Signal -> GLSL (NonEmptyList GLSLExpr)
 
-signalToGLSL _ (Constant x) = pure $ singleton { string: show x, glslType: Float, isSimple: true, deps: Set.empty } -- !! TODO: make sure value is shown in GLSL compatible way, ie always ending with a period
+signalToGLSL (Constant x) = pure $ singleton { string: show x, glslType: Float, isSimple: true, deps: Set.empty } -- !! TODO: make sure value is shown in GLSL compatible way, ie always ending with a period
 
-signalToGLSL fxys (SignalList xs) = do
+signalToGLSL (SignalList xs) = do
   case fromList xs of
     Nothing -> pure $ singleton $ zero
-    Just xs' -> concat <$> traverse (signalToGLSL fxys) xs'
+    Just xs' -> concat <$> traverse signalToGLSL xs'
 
-signalToGLSL fxys (Append x y) = do -- note: we will redo this soon with more of an "in advance" concept of alignment
-  xs <- signalToGLSL fxys x
-  ys <- signalToGLSL fxys y
+signalToGLSL (Append x y) = do -- note: we will redo this soon with more of an "in advance" concept of alignment
+  xs <- signalToGLSL x
+  ys <- signalToGLSL y
   pure $ xs <> ys
 
-signalToGLSL fxys (Zip x y) = do
-  xs <- signalToGLSL fxys x >>= alignFloat
-  ys <- signalToGLSL fxys y >>= alignFloat
+signalToGLSL (Zip x y) = do
+  xs <- signalToGLSL x >>= alignFloat
+  ys <- signalToGLSL y >>= alignFloat
   let (Tuple xs' ys') = extendToEqualLength xs ys
   pure $ concat $ zipWith (\anX anY -> anX `cons` singleton anY ) xs' ys'
 
-signalToGLSL _ Pi = pure $ singleton $ simpleFromString Float "PI"
+signalToGLSL Pi = pure $ singleton $ simpleFromString Float "PI"
 
-signalToGLSL _ Px = pure $ singleton $ simpleFromString Float "(2./width)"
+signalToGLSL Px = pure $ singleton $ simpleFromString Float "(2./width)"
 
-signalToGLSL _ Py = pure $ singleton $ simpleFromString Float "(2./height)"
+signalToGLSL Py = pure $ singleton $ simpleFromString Float "(2./height)"
 
-signalToGLSL _ Pxy = pure $ singleton $ simpleFromString Vec2 "(2./vec2(width,height))"
+signalToGLSL Pxy = pure $ singleton $ simpleFromString Vec2 "(2./vec2(width,height))"
 
-signalToGLSL _ Aspect = pure $ singleton $ simpleFromString Float "(width/height)"
+signalToGLSL Aspect = pure $ singleton $ simpleFromString Float "(width/height)"
 
-signalToGLSL fxys Fx = traverse swizzleX fxys
+signalToGLSL Fx = do
+  s <- get
+  traverse swizzleX s.fxys
 
-signalToGLSL fxys Fy = traverse swizzleY fxys
+signalToGLSL Fy = do
+  s <- get
+  traverse swizzleY s.fxys
 
-signalToGLSL fxys Fxy = pure fxys
+signalToGLSL Fxy = do
+  s <- get
+  pure s.fxys
 
-signalToGLSL fxys FRt = signalToGLSL fxys $ XyRt Fxy
+signalToGLSL FRt = signalToGLSL $ XyRt Fxy
 
-signalToGLSL fxys FR = signalToGLSL fxys $ XyR Fxy
+signalToGLSL FR = signalToGLSL $ XyR Fxy
 
-signalToGLSL fxys FT = signalToGLSL fxys $ XyT Fxy
+signalToGLSL FT = signalToGLSL $ XyT Fxy
 
-signalToGLSL _ Lo = pure $ singleton $ simpleFromString Float "lo"
+signalToGLSL Lo = pure $ singleton $ simpleFromString Float "lo"
 
-signalToGLSL _ Mid = pure $ singleton $ simpleFromString Float "mid"
+signalToGLSL Mid = pure $ singleton $ simpleFromString Float "mid"
 
-signalToGLSL _ Hi = pure $ singleton $ simpleFromString Float "hi"
+signalToGLSL Hi = pure $ singleton $ simpleFromString Float "hi"
 
-signalToGLSL _ ILo = pure $ singleton $ simpleFromString Float "ilo"
+signalToGLSL ILo = pure $ singleton $ simpleFromString Float "ilo"
 
-signalToGLSL _ IMid = pure $ singleton $ simpleFromString Float "imid"
+signalToGLSL IMid = pure $ singleton $ simpleFromString Float "imid"
 
-signalToGLSL _ IHi = pure $ singleton $ simpleFromString Float "ihi"
+signalToGLSL IHi = pure $ singleton $ simpleFromString Float "ihi"
 
-signalToGLSL _ Cps = pure $ singleton $ simpleFromString Float "_cps"
+signalToGLSL Cps = pure $ singleton $ simpleFromString Float "_cps"
 
-signalToGLSL _ Time = pure $ singleton $ simpleFromString Float "_time"
+signalToGLSL Time = pure $ singleton $ simpleFromString Float "_time"
 
-signalToGLSL _ Beat = pure $ singleton $ simpleFromString Float "_beat"
+signalToGLSL Beat = pure $ singleton $ simpleFromString Float "_beat"
 
-signalToGLSL _ ETime = pure $ singleton $ simpleFromString Float "_etime"
+signalToGLSL ETime = pure $ singleton $ simpleFromString Float "_etime"
 
-signalToGLSL _ EBeat = pure $ singleton $ simpleFromString Float "_ebeat"
+signalToGLSL EBeat = pure $ singleton $ simpleFromString Float "_ebeat"
 
-signalToGLSL fxys (FFT x) = signalToGLSL fxys x >>= traverse assign >>= alignFloat >>= traverse (textureFFT "_fft")
+signalToGLSL (FFT x) = signalToGLSL x >>= traverse assign >>= alignFloat >>= traverse (textureFFT "_fft")
 
-signalToGLSL fxys (IFFT x) = signalToGLSL fxys x >>= traverse assign >>= alignFloat >>= traverse (textureFFT "_ifft")
+signalToGLSL (IFFT x) = signalToGLSL x >>= traverse assign >>= alignFloat >>= traverse (textureFFT "_ifft")
 
-signalToGLSL fxys (Fb xy) = signalToGLSL fxys xy >>= traverse assign >>= alignVec2 >>= traverse (texture2D "_fb")
+signalToGLSL (Fb xy) = signalToGLSL xy >>= traverse assign >>= alignVec2 >>= traverse (texture2D "_fb")
 
-signalToGLSL fxys Cam = traverse (texture2D "_fb") fxys
+signalToGLSL Cam = do
+  s <- get
+  traverse (texture2D "_fb") s.fxys
 
 {-
   Img String
   Vid String |
 -}
 
-signalToGLSL fxys (Mono x) = do
-  xs <- signalToGLSL fxys x
+signalToGLSL (Mono x) = do
+  xs <- signalToGLSL x
   let xs' = dotSum <$> xs
   let s = "(" <> intercalate " + " (_.string <$> xs') <> ")"
   pure $ singleton $ { string: s, glslType: Float, isSimple: false, deps: fold (_.deps <$> xs) }
 
-signalToGLSL _ (Rep 0 _) = pure $ singleton $ zero
-signalToGLSL fxys (Rep n x) = (concat <<< replicate1 n) <$> signalToGLSL fxys x
+signalToGLSL (Rep 0 _) = pure $ singleton $ zero
+signalToGLSL (Rep n x) = (concat <<< replicate1 n) <$> signalToGLSL x
 
-signalToGLSL fxys (Bipolar x) = simpleUnaryFunction fxys x $ \s -> "(" <> s <> "*2.-1.)"
+signalToGLSL (Bipolar x) = simpleUnaryFunction x $ \s -> "(" <> s <> "*2.-1.)"
 
-signalToGLSL fxys (Unipolar x) = simpleUnaryFunction fxys x $ \s -> "(" <> s <> "*0.5+0.5)"
+signalToGLSL (Unipolar x) = simpleUnaryFunction x $ \s -> "(" <> s <> "*0.5+0.5)"
 
 
 
@@ -187,10 +196,10 @@ signalToGLSL fxys (Unipolar x) = simpleUnaryFunction fxys x $ \s -> "(" <> s <> 
   Delay Number Signal Signal
 -}
 
-signalToGLSL _ _ = pure $ singleton $ zero
+signalToGLSL _ = pure $ singleton $ zero
 
 
-simpleUnaryFunction :: NonEmptyList GLSLExpr -> Signal -> (String -> String) -> GLSL (NonEmptyList GLSLExpr)
-simpleUnaryFunction fxys x f = do
-  xs <- signalToGLSL fxys x
+simpleUnaryFunction :: Signal -> (String -> String) -> GLSL (NonEmptyList GLSLExpr)
+simpleUnaryFunction x f = do
+  xs <- signalToGLSL x
   pure $ map (\e -> { string: f e.string, glslType: e.glslType, isSimple: e.isSimple, deps: e.deps }) xs
