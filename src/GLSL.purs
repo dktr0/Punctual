@@ -19,7 +19,9 @@ import GLSLExpr
 type GLSLState = {
   nextIndex :: Int,
   exprs :: Map Int GLSLExpr,
-  fxys :: NonEmptyList GLSLExpr
+  fxys :: NonEmptyList GLSLExpr,
+  imgMap :: Map String Int,
+  vidMap :: Map String Int
   }
 
 type GLSL = State GLSLState
@@ -29,7 +31,7 @@ assign x
   | x.isSimple = pure x -- don't assign/reassign expressions that are marked simple
   | otherwise = do
       s <- get
-      put { nextIndex: s.nextIndex+1, exprs: insert s.nextIndex x s.exprs, fxys: s.fxys }
+      put { nextIndex: s.nextIndex+1, exprs: insert s.nextIndex x s.exprs, fxys: s.fxys, imgMap: s.imgMap, vidMap: s.vidMap }
       pure $ { string: "_" <> show s.nextIndex, glslType: x.glslType, isSimple: true, deps: Set.insert s.nextIndex x.deps }
 
 

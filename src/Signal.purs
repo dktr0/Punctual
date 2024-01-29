@@ -20,6 +20,8 @@ data Signal =
   SignalList (List Signal) |
   Append Signal Signal |
   Zip Signal Signal |
+  Mono Signal |
+  Rep Int Signal |
   Pi |
   Px | Py | Pxy | Aspect |
   Fx | Fy | Fxy | -- cartesian coordinates of current fragment
@@ -30,14 +32,12 @@ data Signal =
   AudioIn |
   FFT Signal |
   IFFT Signal |
-  Mono Signal |
-  Rep Int Signal |
-  Bipolar Signal |
-  Unipolar Signal |
   Fb Signal |
+  Cam |
   Img String |
   Vid String |
-  Cam |
+  Bipolar Signal |
+  Unipolar Signal |
   Blend Signal |
   RgbHsv Signal | HsvRgb Signal |
   HsvH Signal | HsvS Signal | HsvV Signal | HsvR Signal | HsvG Signal | HsvB Signal |

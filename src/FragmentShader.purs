@@ -9,6 +9,7 @@ import Data.Foldable (fold,intercalate)
 import Data.Set as Set
 import Data.Unfoldable1 (replicate1)
 import Control.Monad.State (get)
+import Data.Map (lookup)
 
 import NonEmptyList
 import Signal (Signal(..))
@@ -35,6 +36,15 @@ signalToGLSL (Zip x y) = do
   ys <- signalToGLSL y >>= alignFloat
   let (Tuple xs' ys') = extendToEqualLength xs ys
   pure $ concat $ zipWith (\anX anY -> anX `cons` singleton anY ) xs' ys'
+
+signalToGLSL (Mono x) = do
+  xs <- signalToGLSL x
+  let xs' = dotSum <$> xs
+  let s = "(" <> intercalate " + " (_.string <$> xs') <> ")"
+  pure $ singleton $ { string: s, glslType: Float, isSimple: false, deps: fold (_.deps <$> xs) }
+
+signalToGLSL (Rep 0 _) = pure $ singleton $ zero
+signalToGLSL (Rep n x) = (concat <<< replicate1 n) <$> signalToGLSL x
 
 signalToGLSL Pi = pure $ singleton $ simpleFromString Float "PI"
 
@@ -95,20 +105,18 @@ signalToGLSL (Fb xy) = signalToGLSL xy >>= traverse assign >>= alignVec2 >>= tra
 signalToGLSL Cam = do
   s <- get
   traverse (texture2D "_fb") s.fxys
+  
+signalToGLSL (Img url) = do
+  s <- get
+  case lookup url s.imgMap of
+    Just n -> traverse (texture2D $ "tex" <> show n) s.fxys
+    Nothing -> pure $ singleton $ zero
 
-{-
-  Img String
-  Vid String |
--}
-
-signalToGLSL (Mono x) = do
-  xs <- signalToGLSL x
-  let xs' = dotSum <$> xs
-  let s = "(" <> intercalate " + " (_.string <$> xs') <> ")"
-  pure $ singleton $ { string: s, glslType: Float, isSimple: false, deps: fold (_.deps <$> xs) }
-
-signalToGLSL (Rep 0 _) = pure $ singleton $ zero
-signalToGLSL (Rep n x) = (concat <<< replicate1 n) <$> signalToGLSL x
+signalToGLSL (Vid url) = do
+  s <- get
+  case lookup url s.vidMap of
+    Just n -> traverse (texture2D $ "tex" <> show n) s.fxys
+    Nothing -> pure $ singleton $ zero
 
 signalToGLSL (Bipolar x) = simpleUnaryFunction x $ \s -> "(" <> s <> "*2.-1.)"
 
