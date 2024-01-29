@@ -12,7 +12,7 @@ import Control.Monad.State (get)
 import Data.Map (lookup)
 
 import NonEmptyList
-import Signal (Signal(..))
+import Signal (Signal(..),MultiMode(..))
 import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction)
 import GLSL (GLSL,assign,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignRGBA)
 
@@ -118,9 +118,6 @@ signalToGLSL (Vid url) = do
     Just n -> traverse (texture2D $ "tex" <> show n) s.fxys
     Nothing -> pure $ singleton $ zero
 
-signalToGLSL (Bipolar x) = signalToGLSL x >>= simpleUnaryExpression (\e -> "(" <> e <> "*2.-1.)")
-
-signalToGLSL (Unipolar x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(" <> s <> "*0.5+0.5)")
 
 signalToGLSL (Blend x) = do
   xs <- signalToGLSL x >>= alignRGBA
@@ -151,42 +148,41 @@ signalToGLSL (LFTri x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "
 signalToGLSL (LFSaw x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "saw"
 signalToGLSL (LFSqr x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "sqr"
 
-
+signalToGLSL (Abs x) = signalToGLSL x >>= simpleUnaryFunction "abs"
+signalToGLSL (Acos x) = signalToGLSL x >>= simpleUnaryFunction "acos"
+signalToGLSL (Acosh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "log(" <> s <> "+sqrt(" <> s <> "*" <> s <> "-1.))") -- later: use built-in on WebGL2 
+signalToGLSL (Asin x) = signalToGLSL x >>= simpleUnaryFunction "asin"
+signalToGLSL (Asinh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "log(" <> s <> "+sqrt(" <> s <> "*" <> s <> "+1.))") -- later: use built-in on WebGL2 
+signalToGLSL (Atan x) = signalToGLSL x >>= simpleUnaryFunction "atan"
+signalToGLSL (Atanh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "(log((1.+" <> s <> ")/(" <> "1.-" <> s <> "))/2.)") -- later: use built-in on WebGL2
+signalToGLSL (Bipolar x) = signalToGLSL x >>= simpleUnaryExpression (\e -> "(" <> e <> "*2.-1.)")
+signalToGLSL (Cbrt x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "pow(" <> s <> ",0.3333333333)")
+signalToGLSL (Ceil x) = signalToGLSL x >>= simpleUnaryFunction "ceil"
+signalToGLSL (Cos x) = signalToGLSL x >>= simpleUnaryFunction "cos"
+signalToGLSL (Cosh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "((exp(" <> s <> ")+exp(" <> s <> "*-1.))/2.)") -- later: use built-in on WebGL2
+signalToGLSL (Exp x) = signalToGLSL x >>= simpleUnaryFunction "exp"
+signalToGLSL (Floor x) = signalToGLSL x >>= simpleUnaryFunction "floor"
+signalToGLSL (Log x) = signalToGLSL x >>= simpleUnaryFunction "log"
+signalToGLSL (Log2 x) = signalToGLSL x >>= simpleUnaryFunction "log2"
+signalToGLSL (Log10 x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(log(" <> s <> ")/log(10.))")
+signalToGLSL (Round x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(floor(" <> s <> ")+0.5)")
+signalToGLSL (Sign x) = signalToGLSL x >>= simpleUnaryFunction "sign"
+signalToGLSL (Sin x) = signalToGLSL x >>= simpleUnaryFunction "sin"
+signalToGLSL (Sinh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "((exp(" <> s <> ")-exp(" <> s <> "*-1.))/2.)") -- later: use built-in on WebGL2
+signalToGLSL (Sqrt x) = signalToGLSL x >>= simpleUnaryFunction "sqrt"
+signalToGLSL (Tan x) = signalToGLSL x >>= simpleUnaryFunction "tan"
+signalToGLSL (Tanh x) = signalToGLSL $ Division Pairwise (Sinh x) (Cosh x) -- later: use built-in on WebGL2 and rework WebGL1 to reuse xs
+signalToGLSL (Trunc x) = signalToGLSL $ Product Pairwise (Floor (Abs x)) (Sign x) -- later: use built-in on WebGL2 and rework WebGL1 to reuse xs
+signalToGLSL (Unipolar x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(" <> s <> "*0.5+0.5)")
 
 {-
-  -- unary Math functions based on (or emulating) JavaScript Math unary functions
-  Abs Signal |
-  Acos Signal |
-  Acosh Signal |
-  Asin Signal |
-  Asinh Signal |
-  Atan Signal |
-  Atanh Signal |
-  Cbrt Signal |
-  Ceil Signal |
-  Cos Signal |
-  Cosh Signal |
-  Exp Signal |
-  Floor Signal |
-  Log Signal |
-  Log2 Signal |
-  Log10 Signal |
-  Round Signal |
-  Sign Signal |
-  Sin Signal |
-  Sinh Signal |
-  Sqrt Signal |
-  Tan Signal |
-  Tanh Signal |
-  Trunc Signal |
-  -- other unary functions
+  -- more unary functions
   RtXy Signal | -- polar to cartesian conversion
   RtX Signal | -- x = r * cos theta
   RtY Signal | -- y = r * sin theta
   XyRt Signal | -- cartesian to polar conversion
   XyR Signal | -- r = sqrt (x^2 + y ^2)
   XyT Signal | -- theta = atan2(y,x)
-  Point Signal |
   Distance Signal |
   Prox Signal |
   MidiCps Signal |
@@ -194,6 +190,7 @@ signalToGLSL (LFSqr x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "
   DbAmp Signal |
   AmpDb Signal |
   Fract Signal |
+  
   SetFx Signal Signal | SetFy Signal Signal | SetFxy Signal Signal |
   Zoom Signal Signal | Move Signal Signal | Tile Signal Signal | Spin Signal Signal |
 
@@ -225,6 +222,9 @@ signalToGLSL (LFSqr x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "
   LinLin Signal Signal Signal |
   LPF Signal Signal Signal | HPF Signal Signal Signal | BPF Signal Signal Signal |
   Delay Number Signal Signal
+  
+    Point Signal |
+
 -}
 
 signalToGLSL _ = pure $ singleton $ zero
