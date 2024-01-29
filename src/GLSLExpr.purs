@@ -4,10 +4,9 @@ module GLSLExpr where
 -- while keeping track of whether an expression is simple (and thus might avoid assignment),
 -- it's type (and thus number of channels), and its dependency on any previously declared variables
 
-import Prelude (class Eq, class Show,(<>),(==),otherwise)
+import Prelude (class Eq, class Show,(<>),(==),otherwise,(&&))
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
-import Data.List (List(..))
 import Data.Set (Set,empty)
 
 data GLSLType = Float | Vec2 | Vec3 | Vec4
@@ -30,17 +29,17 @@ simpleFromString t x = { string: x, glslType: t, isSimple: true, deps: empty }
 zero :: GLSLExpr
 zero = { string: "0.", glslType: Float, isSimple: true, deps: empty }
 
-vec2unary :: GLSLExpr -> GLSLExpr -> GLSLExpr
-vec2unary = simpleUnaryFunction "vec2" Vec2 
-   
+vec2unary :: GLSLExpr -> GLSLExpr
+vec2unary = simpleUnaryFunction "vec2" Vec2
+
 vec2binary :: GLSLExpr -> GLSLExpr -> GLSLExpr
-vec2binary = simpleBinaryFunction "vec2" Vec2 
+vec2binary = simpleBinaryFunction "vec2" Vec2
 
 vec3 :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-vec3 = ternaryFunction "vec3" Vec3 
+vec3 = ternaryFunction "vec3" Vec3
 
 vec4 :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-vec4 = quaternaryFunction "vec4" Vec4 
+vec4 = quaternaryFunction "vec4" Vec4
 
 simpleUnaryFunction :: String -> GLSLType -> GLSLExpr -> GLSLExpr
 simpleUnaryFunction funcName rType x = { string: funcName <> "(" <> x.string <> ")", glslType: rType, isSimple: x.isSimple, deps: x.deps }
@@ -68,5 +67,3 @@ dotSum x
   | x.glslType == Vec2 = { string: "dot(" <> x.string <> ",vec2(1.))", glslType: Float, isSimple: x.isSimple, deps: x.deps }
   | x.glslType == Vec3 = { string: "dot(" <> x.string <> ",vec3(1.))", glslType: Float, isSimple: x.isSimple, deps: x.deps }
   | otherwise = { string: "dot(" <> x.string <> ",vec4(1.))", glslType: Float, isSimple: x.isSimple, deps: x.deps }
-  
-

@@ -12,7 +12,7 @@ import Data.Unfoldable1 (replicate1)
 import NonEmptyList
 import Signal (Signal(..))
 import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum)
-import GLSL (GLSL,assign,swizzleX,swizzleY,alignFloat,textureFFT)
+import GLSL (GLSL,assign,swizzleX,swizzleY,alignFloat,texture2D,textureFFT,alignVec2)
 
 
 signalToGLSL :: NonEmptyList GLSLExpr -> Signal -> GLSL (NonEmptyList GLSLExpr)
@@ -23,12 +23,12 @@ signalToGLSL fxys (SignalList xs) = do
   case fromList xs of
     Nothing -> pure $ singleton $ zero
     Just xs' -> concat <$> traverse (signalToGLSL fxys) xs'
-      
+
 signalToGLSL fxys (Append x y) = do -- note: we will redo this soon with more of an "in advance" concept of alignment
   xs <- signalToGLSL fxys x
   ys <- signalToGLSL fxys y
   pure $ xs <> ys
-  
+
 signalToGLSL fxys (Zip x y) = do
   xs <- signalToGLSL fxys x >>= alignFloat
   ys <- signalToGLSL fxys y >>= alignFloat
@@ -86,9 +86,9 @@ signalToGLSL fxys (IFFT x) = signalToGLSL fxys x >>= traverse assign >>= alignFl
 signalToGLSL fxys (Fb xy) = signalToGLSL fxys xy >>= traverse assign >>= alignVec2 >>= traverse (texture2D "_fb")
 
 signalToGLSL fxys Cam = traverse (texture2D "_fb") fxys
-  
+
 {-
-  Img String 
+  Img String
   Vid String |
 -}
 
@@ -104,7 +104,7 @@ signalToGLSL fxys (Rep n x) = (concat <<< replicate1 n) <$> signalToGLSL fxys x
 signalToGLSL fxys (Bipolar x) = simpleUnaryFunction fxys x $ \s -> "(" <> s <> "*2.-1.)"
 
 signalToGLSL fxys (Unipolar x) = simpleUnaryFunction fxys x $ \s -> "(" <> s <> "*0.5+0.5)"
-   
+
 
 
 {-
@@ -138,7 +138,7 @@ signalToGLSL fxys (Unipolar x) = simpleUnaryFunction fxys x $ \s -> "(" <> s <> 
   Sqrt Signal |
   Tan Signal |
   Tanh Signal |
-  Trunc Signal |  
+  Trunc Signal |
   -- other unary functions
   RtXy Signal | -- polar to cartesian conversion
   RtX Signal | -- x = r * cos theta
@@ -156,7 +156,7 @@ signalToGLSL fxys (Unipolar x) = simpleUnaryFunction fxys x $ \s -> "(" <> s <> 
   Fract Signal |
   SetFx Signal Signal | SetFy Signal Signal | SetFxy Signal Signal |
   Zoom Signal Signal | Move Signal Signal | Tile Signal Signal | Spin Signal Signal |
-  
+
   Sum MultiMode Signal Signal |
   Difference MultiMode Signal Signal |
   Product MultiMode Signal Signal |
@@ -193,5 +193,4 @@ signalToGLSL _ _ = pure $ singleton $ zero
 simpleUnaryFunction :: NonEmptyList GLSLExpr -> Signal -> (String -> String) -> GLSL (NonEmptyList GLSLExpr)
 simpleUnaryFunction fxys x f = do
   xs <- signalToGLSL fxys x
-  pure $ map (\e -> { string: f e.string, glslType: e.glslType, isSimple: e.isSimple, deps: e.deps }) xs 
-
+  pure $ map (\e -> { string: f e.string, glslType: e.glslType, isSimple: e.isSimple, deps: e.deps }) xs

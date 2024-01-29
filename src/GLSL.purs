@@ -7,7 +7,9 @@ module GLSL where
 
 import Prelude (pure,(<>),otherwise,bind,discard,show,(+),($),(==),(<<<),(>>=))
 import Data.Map (Map,insert)
-import Data.List.NonEmpty (NonEmptyList,singleton,concat,cons)
+import Data.Maybe (Maybe(..))
+import Data.List (List,(:))
+import Data.List.NonEmpty (NonEmptyList,singleton,concat,cons,head,tail,fromList)
 import Control.Monad.State (State,get,put)
 import Data.Traversable (traverse)
 import Data.Set as Set
@@ -18,16 +20,16 @@ type GLSLState = {
   nextIndex :: Int,
   exprs :: Map Int GLSLExpr
   }
-  
+
 type GLSL = State GLSLState
 
 assign :: GLSLExpr -> GLSL GLSLExpr
-assign x 
+assign x
   | x.isSimple = pure x -- don't assign/reassign expressions that are marked simple
   | otherwise = do
       s <- get
       put { nextIndex: s.nextIndex+1, exprs: insert s.nextIndex x s.exprs }
-      pure $ { string: "_" <> show s.nextIndex, glslType: x.glslType, isSimple: true, deps: Set.insert s.nextIndex x.deps } 
+      pure $ { string: "_" <> show s.nextIndex, glslType: x.glslType, isSimple: true, deps: Set.insert s.nextIndex x.deps }
 
 
 _swizzle :: String -> GLSLType -> GLSLExpr -> GLSL GLSLExpr
@@ -36,7 +38,7 @@ _swizzle spec rType x = do
   pure { string: x'.string <> "." <> spec, glslType: rType, isSimple: true, deps: x'.deps }
 
 swizzleX :: GLSLExpr -> GLSL GLSLExpr
-swizzleX = _swizzle "x" Float 
+swizzleX = _swizzle "x" Float
 
 swizzleY :: GLSLExpr -> GLSL GLSLExpr
 swizzleY = _swizzle "y" Float
@@ -67,7 +69,7 @@ swizzleXYY = _swizzle "xyy" Vec3
 
 swizzleXYYY :: GLSLExpr -> GLSL GLSLExpr
 swizzleXYYY = _swizzle "xyyy" Vec4
- 
+
 swizzleXYZZ :: GLSLExpr -> GLSL GLSLExpr
 swizzleXYZZ = _swizzle "xyzz" Vec4
 
@@ -109,59 +111,52 @@ splitIntoFloats e
 
 alignVec2 :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
 alignVec2 xs = do
-  h <- headVec2 xs
-  t <- tailVec2 xs
-  case t of
-    Nothing -> pure $ singleton h
-    Just t' -> do
-      t'' <- alignVec2 t'
-      pure $ h `cons` t''
+  x <- unconsVec2 xs
+  case fromList x.tail of
+    Nothing -> pure $ singleton $ x.head
+    Just xs' -> do
+      t'' <- alignVec2 xs'
+      pure $ x.head `cons` t''
 
-headVec2 :: NonEmptyList GLSLExpr -> GLSL GLSLExpr
-headVec2 xs
+unconsVec2 :: NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
+unconsVec2 xs
+  | _.glslType (head xs) == Vec2 = pure { head: head xs, tail: tail xs}
   | _.glslType (head xs) == Float = do
-      case List.head (tail xs) of
-        Nothing -> pure $ vec2unary $ head xs
-        Just y -> do
-          y' <- swizzleX y
-          pure $ vec2binary (head xs) y'
-  | _.glslType (head xs) == Vec2 = pure $ head xs
-  | otherwise = swizzleXY (head xs)
-  
-tailVec2 :: NonEmptyList GLSLExpr -> GLSL (List GLSLExpr)
-tailVec2 xs 
-  | _.glslType (head xs) == Float = do
-     case List.tail xs of
-       Just t -> 
-  && length xs == 1 = pure Nothing
-  | _.glslType (head xs) == Float = ...basically tailFloat of tail xs?
-  | _.glslType (head xs) == Vec2 = pure $ tail xs
-  | _.glslType (head xs) == Vec3 = ...swizzleZ of head xs `cons` the tail of xs
-  | otherwise = ...swizzle ZW of head `cons` the tail of xs
+      case fromList (tail xs) of
+        Nothing -> pure { head: vec2unary (head xs), tail: tail xs}
+        Just xs' -> do
+          y <- unconsFloat xs'
+          pure { head: vec2binary (head xs) y.head, tail: y.tail}
+  | _.glslType (head xs) == Vec3 = do
+      x <- assign $ head xs
+      a <- swizzleXY x
+      b <- swizzleZ x
+      pure { head: a, tail: b : tail xs}
+  | otherwise = do
+      x <- assign $ head xs
+      a <- swizzleXY x
+      b <- swizzleZW x
+      pure { head: a, tail: b : tail xs}
 
-tailFloat :: NonEmptyList GLSLExpr -> GLSL (Maybe (NonEmptyList GLSLExpr))
-tailFloat xs
-  | _.glslType (head xs) == Float = pure $ tail xs
+unconsFloat :: NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
+unconsFloat xs
+  | _.glslType (head xs) == Float = pure { head: head xs, tail: tail xs}
   | _.glslType (head xs) == Vec2 = do
-        
+      x <- assign $ head xs
+      a <- swizzleX x
+      b <- swizzleY x
+      pure { head: a, tail: b : tail xs}
+  | _.glslType (head xs) == Vec3 = do
+      x <- assign $ head xs
+      a <- swizzleX x
+      b <- swizzleYZ x
+      pure { head: a, tail: b : tail xs}
+  | otherwise = do
+      x <- assign $ head xs
+      a <- swizzleX x
+      b <- swizzleYZW x
+      pure { head: a, tail: b : tail xs}
 
-vec2 a =
-vec3 b = 
-vec4 c = 
-...now we want to vec2 align a b and c...
-vec2(a.x,a.y) -> this is a (has to be a no-op)
-vec2(b.x,b.y) -> this is b.xy (just a swizzle)
-vec2(b.z,c.x) -> this is vec2(b.z,c.x) (combines two values)
-vec2(c.y,c.z) -> this is c.yz (just a swizzle)
-vec2(c.w)     -> this is vec2(c.w) (a cast/function)
-
-
-
-
-
-
-getVec2 :: GLSLExpr -> Tuple GLSLExpr
-getVec2 x | _.glslType x == Vec2 = 
 
 {-
 -- write code to the accumulated Builder without adding a new variable assignment
@@ -215,7 +210,7 @@ align t xs = do
   (x,xs') <- splitAligned t xs
   xs'' <- align t xs'
   return (x:xs'')
-  
+
 
 -- | alignRGBA aligns to groups of 4 channels (vec4) as follows:
 -- 1 channel: repeat as channel 2 and 3, set channel 4 (alpha) to 1
@@ -353,8 +348,8 @@ splitAligned Vec4 (x@(GLSLExpr Vec2 _ _):xs) = do
 splitAligned Vec4 (x@(GLSLExpr Vec3 _ _):xs) = do
   (y,xs') <- splitAligned GLFloat xs
   return (exprExprToVec4 x y,xs')
-  
-  
+
+
 -- | mix takes two [GLSLExpr] which might represent different numbers of channels
 -- it mixes them together to produce a result which has as many channels as the input
 -- with the most channels, effectively treating the shorter input as 0 when channels "run out"
@@ -366,16 +361,16 @@ mix xs ys = do
   let nChnls = max xChnls yChnls
   let xs' = extendWithZeros nChnls xs
   let ys' = extendWithZeros nChnls ys
-  let xIsModel = nChnls == xChnls 
+  let xIsModel = nChnls == xChnls
   (xs'',ys'') <- case xIsModel of
     True -> do
       ys'' <- alignToModel xs' ys'
       pure (xs',ys'')
     False -> do
       xs'' <- alignToModel ys' xs'
-      pure (xs'',ys') 
+      pure (xs'',ys')
   pure $ zipWith (+) xs'' ys''
-  
+
 
 extendWithZeros :: Int -> [GLSLExpr] -> [GLSLExpr]
 extendWithZeros nChnls xs = xs'
@@ -383,7 +378,7 @@ extendWithZeros nChnls xs = xs'
     xChnls = exprsChannels xs
     xs' = xs ++ Prelude.replicate (nChnls - xChnls) 0
 
-    
+
 -- this could use a better name...
 alignExprs :: [GLSLExpr] -> [GLSLExpr] -> GLSL ([GLSLExpr],[GLSLExpr])
 alignExprs x y = do
