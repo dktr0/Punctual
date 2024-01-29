@@ -2,10 +2,10 @@ module FragmentShader where
 
 import Prelude(($),pure,show,bind,(<>),(>>=),(<$>),(<<<),map)
 import Data.Maybe (Maybe(..))
-import Data.List.NonEmpty (NonEmptyList,singleton,concat,fromList,zipWith,cons)
+import Data.List.NonEmpty (NonEmptyList,singleton,concat,fromList,zipWith,cons,head,tail)
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
-import Data.Foldable (fold,intercalate)
+import Data.Foldable (fold,intercalate,foldM)
 import Data.Set as Set
 import Data.Unfoldable1 (replicate1)
 import Control.Monad.State (get)
@@ -13,8 +13,8 @@ import Data.Map (lookup)
 
 import NonEmptyList
 import Signal (Signal(..))
-import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum)
-import GLSL (GLSL,assign,swizzleX,swizzleY,alignFloat,texture2D,textureFFT,alignVec2)
+import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction)
+import GLSL (GLSL,assign,swizzleX,swizzleY,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignRGBA)
 
 
 signalToGLSL :: Signal -> GLSL (NonEmptyList GLSLExpr)
@@ -122,20 +122,12 @@ signalToGLSL (Bipolar x) = simpleUnaryFunction x $ \s -> "(" <> s <> "*2.-1.)"
 
 signalToGLSL (Unipolar x) = simpleUnaryFunction x $ \s -> "(" <> s <> "*0.5+0.5)"
 
--- signalToGLSL (Blend x) = 
+signalToGLSL (Blend x) = do
+  xs <- signalToGLSL x >>= alignRGBA
+  case fromList (tail xs) of
+    Nothing -> pure $ singleton $ head xs
+    Just t -> singleton <$> foldM blend (head xs) t
 
-{-
-graphToGLSL _ env (Blend x) = do
-  xs <- graphToGLSL (Just Vec4) env x >>= alignRGBA
-  case length xs of
-    1 -> return xs
-    _ -> foldM blend (head xs) (tail xs) >>= (return . pure)
-
-blend :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec4
-blend a b = do
-  b' <- assign b
-  return $ GLSLExpr Vec4 False $ "mix(" <> builder a <> "," <> builder b' <> "," <> builder b' <> ".a)"
--}
 
 {-
   Blend Signal |
@@ -224,3 +216,10 @@ simpleUnaryFunction :: Signal -> (String -> String) -> GLSL (NonEmptyList GLSLEx
 simpleUnaryFunction x f = do
   xs <- signalToGLSL x
   pure $ map (\e -> { string: f e.string, glslType: e.glslType, isSimple: e.isSimple, deps: e.deps }) xs
+  
+blend :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec4
+blend a b = do
+  b' <- assign b
+  alpha <- swizzleW b'
+  pure $ ternaryFunction "mix" Vec4 a b' alpha
+
