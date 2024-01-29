@@ -1,6 +1,6 @@
 module FragmentShader where
 
-import Prelude(($),pure,show,bind,(<>),(>>=),(<$>),(<<<),map)
+import Prelude(($),pure,show,bind,(<>),(>>=),(<$>),(<<<))
 import Data.Maybe (Maybe(..))
 import Data.List.NonEmpty (NonEmptyList,singleton,concat,fromList,zipWith,cons,head,tail)
 import Data.Traversable (traverse)
@@ -14,7 +14,7 @@ import Data.Map (lookup)
 import NonEmptyList
 import Signal (Signal(..))
 import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction)
-import GLSL (GLSL,assign,swizzleX,swizzleY,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignRGBA)
+import GLSL (GLSL,assign,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignRGBA)
 
 
 signalToGLSL :: Signal -> GLSL (NonEmptyList GLSLExpr)
@@ -118,9 +118,9 @@ signalToGLSL (Vid url) = do
     Just n -> traverse (texture2D $ "tex" <> show n) s.fxys
     Nothing -> pure $ singleton $ zero
 
-signalToGLSL (Bipolar x) = simpleUnaryFunction x $ \s -> "(" <> s <> "*2.-1.)"
+signalToGLSL (Bipolar x) = signalToGLSL x >>= simpleUnaryExpression (\e -> "(" <> e <> "*2.-1.)")
 
-signalToGLSL (Unipolar x) = simpleUnaryFunction x $ \s -> "(" <> s <> "*0.5+0.5)"
+signalToGLSL (Unipolar x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(" <> s <> "*0.5+0.5)")
 
 signalToGLSL (Blend x) = do
   xs <- signalToGLSL x >>= alignRGBA
@@ -128,13 +128,22 @@ signalToGLSL (Blend x) = do
     Nothing -> pure $ singleton $ head xs
     Just t -> singleton <$> foldM blend (head xs) t
 
+signalToGLSL (RgbHsv x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "rgbhsv"
+signalToGLSL (HsvRgb x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "hsvrgb"
+signalToGLSL (HsvH x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleX
+signalToGLSL (HsvS x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleY
+signalToGLSL (HsvV x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleZ
+signalToGLSL (HsvR x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "hsvrgb" >>= traverse swizzleX
+signalToGLSL (HsvG x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "hsvrgb" >>= traverse swizzleY
+signalToGLSL (HsvB x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "hsvrgb" >>= traverse swizzleZ
+signalToGLSL (RgbR x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleX
+signalToGLSL (RgbG x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleY
+signalToGLSL (RgbB x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleZ
+signalToGLSL (RgbH x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "rgbhsv" >>= traverse swizzleX
+signalToGLSL (RgbS x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "rgbhsv" >>= traverse swizzleY
+signalToGLSL (RgbV x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "rgbhsv" >>= traverse swizzleZ
 
 {-
-  Blend Signal |
-  RgbHsv Signal | HsvRgb Signal |
-  HsvH Signal | HsvS Signal | HsvV Signal | HsvR Signal | HsvG Signal | HsvB Signal |
-  RgbH Signal | RgbS Signal | RgbV Signal | RgbR Signal | RgbG Signal | RgbB Signal |
-  -- oscillators
   Osc Signal | Tri Signal | Saw Signal | Sqr Signal | LFTri Signal | LFSaw Signal | LFSqr Signal |
   -- unary Math functions based on (or emulating) JavaScript Math unary functions
   Abs Signal |
@@ -212,11 +221,12 @@ signalToGLSL (Blend x) = do
 signalToGLSL _ = pure $ singleton $ zero
 
 
-simpleUnaryFunction :: Signal -> (String -> String) -> GLSL (NonEmptyList GLSLExpr)
-simpleUnaryFunction x f = do
-  xs <- signalToGLSL x
-  pure $ map (\e -> { string: f e.string, glslType: e.glslType, isSimple: e.isSimple, deps: e.deps }) xs
-  
+simpleUnaryFunction :: String -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+simpleUnaryFunction funcName = simpleUnaryExpression $ \x -> funcName <> "(" <> x <> ")"
+
+simpleUnaryExpression :: (String -> String) -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+simpleUnaryExpression f = traverse $ \x -> pure { string: f x.string, glslType: x.glslType, isSimple: x.isSimple, deps: x.deps }
+
 blend :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec4
 blend a b = do
   b' <- assign b

@@ -137,6 +137,9 @@ alignVec2 = unfoldWith unconsVec2
 alignVec2NoExtend :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
 alignVec2NoExtend = unfoldWith unconsVec2NoExtend
 
+alignVec3 :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+alignVec3 = unfoldWith unconsVec3
+
 alignVec3NoExtend :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
 alignVec3NoExtend = unfoldWith unconsVec3NoExtend
 
@@ -151,7 +154,6 @@ unfoldWith f xs = do
     Just xs' -> do
       t'' <- unfoldWith f xs'
       pure $ x.head `cons` t''
-
 
 unconsVec2 :: NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
 unconsVec2 xs
@@ -173,9 +175,6 @@ unconsVec2 xs
       b <- swizzleZW x
       pure { head: a, tail: b : tail xs}
 
-
-
-
 unconsVec2NoExtend :: NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
 unconsVec2NoExtend xs
   | _.glslType (head xs) == Vec2 = pure { head: head xs, tail: tail xs}
@@ -195,7 +194,28 @@ unconsVec2NoExtend xs
       a <- swizzleXY x
       b <- swizzleZW x
       pure { head: a, tail: b : tail xs }
-        
+
+unconsVec3 :: NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
+unconsVec3 xs
+  | _.glslType (head xs) == Vec3 = pure { head: head xs, tail: tail xs}
+  | _.glslType (head xs) == Float = do
+      case fromList (tail xs) of
+        Nothing -> pure { head: vec3unary (head xs), tail: tail xs}
+        Just xs' -> do
+          y <- unconsVec2 xs'
+          pure { head: vec3binary (head xs) y.head, tail: y.tail}
+  | _.glslType (head xs) == Vec2 = do
+      case fromList (tail xs) of
+        Nothing -> pure { head: vec3unary (head xs), tail: tail xs}
+        Just xs' -> do
+          y <- unconsFloat xs'
+          pure { head: vec3binary (head xs) y.head, tail: y.tail}  
+  | otherwise {- Vec4 -} = do
+      x <- assign $ head xs
+      a <- swizzleXYZ x
+      b <- swizzleW x
+      pure { head: a, tail: b : tail xs}      
+      
 unconsVec3NoExtend :: NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
 unconsVec3NoExtend xs
   | _.glslType (head xs) == Vec3 = pure { head: head xs, tail: tail xs}
