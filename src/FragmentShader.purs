@@ -122,7 +122,20 @@ signalToGLSL (Bipolar x) = simpleUnaryFunction x $ \s -> "(" <> s <> "*2.-1.)"
 
 signalToGLSL (Unipolar x) = simpleUnaryFunction x $ \s -> "(" <> s <> "*0.5+0.5)"
 
+-- signalToGLSL (Blend x) = 
 
+{-
+graphToGLSL _ env (Blend x) = do
+  xs <- graphToGLSL (Just Vec4) env x >>= alignRGBA
+  case length xs of
+    1 -> return xs
+    _ -> foldM blend (head xs) (tail xs) >>= (return . pure)
+
+blend :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec4
+blend a b = do
+  b' <- assign b
+  return $ GLSLExpr Vec4 False $ "mix(" <> builder a <> "," <> builder b' <> "," <> builder b' <> ".a)"
+-}
 
 {-
   Blend Signal |

@@ -29,17 +29,35 @@ simpleFromString t x = { string: x, glslType: t, isSimple: true, deps: empty }
 zero :: GLSLExpr
 zero = { string: "0.", glslType: Float, isSimple: true, deps: empty }
 
+one :: GLSLExpr
+one = { string: "1.", glslType: Float, isSimple: true, deps: empty }
+
 vec2unary :: GLSLExpr -> GLSLExpr
 vec2unary = simpleUnaryFunction "vec2" Vec2
 
 vec2binary :: GLSLExpr -> GLSLExpr -> GLSLExpr
 vec2binary = simpleBinaryFunction "vec2" Vec2
 
-vec3 :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-vec3 = ternaryFunction "vec3" Vec3
+vec3unary :: GLSLExpr -> GLSLExpr
+vec3unary = simpleUnaryFunction "vec3" Vec3
 
-vec4 :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-vec4 = quaternaryFunction "vec4" Vec4
+vec3binary :: GLSLExpr -> GLSLExpr -> GLSLExpr
+vec3binary = simpleBinaryFunction "vec3" Vec3
+
+vec3ternary :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
+vec3ternary = ternaryFunction "vec3" Vec3
+
+vec4unary :: GLSLExpr -> GLSLExpr
+vec4unary = simpleUnaryFunction "vec4" Vec4
+
+vec4binary :: GLSLExpr -> GLSLExpr -> GLSLExpr
+vec4binary = simpleBinaryFunction "vec4" Vec4
+
+vec4ternary :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
+vec4ternary = ternaryFunction "vec4" Vec4
+
+vec4quaternary :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
+vec4quaternary = quaternaryFunction "vec4" Vec4
 
 simpleUnaryFunction :: String -> GLSLType -> GLSLExpr -> GLSLExpr
 simpleUnaryFunction funcName rType x = { string: funcName <> "(" <> x.string <> ")", glslType: rType, isSimple: x.isSimple, deps: x.deps }

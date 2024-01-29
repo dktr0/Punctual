@@ -111,15 +111,47 @@ splitIntoFloats e
       w <- swizzleW e'
       pure (x `cons` (y `cons` (z `cons` singleton w)))
 
+unconsFloat :: NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
+unconsFloat xs
+  | _.glslType (head xs) == Float = pure { head: head xs, tail: tail xs}
+  | _.glslType (head xs) == Vec2 = do
+      x <- assign $ head xs
+      a <- swizzleX x
+      b <- swizzleY x
+      pure { head: a, tail: b : tail xs}
+  | _.glslType (head xs) == Vec3 = do
+      x <- assign $ head xs
+      a <- swizzleX x
+      b <- swizzleYZ x
+      pure { head: a, tail: b : tail xs}
+  | otherwise = do
+      x <- assign $ head xs
+      a <- swizzleX x
+      b <- swizzleYZW x
+      pure { head: a, tail: b : tail xs}
+
 
 alignVec2 :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
-alignVec2 xs = do
-  x <- unconsVec2 xs
+alignVec2 = unfoldWith unconsVec2
+
+alignVec2NoExtend :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+alignVec2NoExtend = unfoldWith unconsVec2NoExtend
+
+alignVec3NoExtend :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+alignVec3NoExtend = unfoldWith unconsVec3NoExtend
+
+alignVec4NoExtend :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+alignVec4NoExtend = unfoldWith unconsVec4NoExtend
+
+unfoldWith :: (NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }) -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+unfoldWith f xs = do
+  x <- f xs
   case fromList x.tail of
     Nothing -> pure $ singleton $ x.head
     Just xs' -> do
-      t'' <- alignVec2 xs'
+      t'' <- unfoldWith f xs'
       pure $ x.head `cons` t''
+
 
 unconsVec2 :: NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
 unconsVec2 xs
@@ -141,25 +173,113 @@ unconsVec2 xs
       b <- swizzleZW x
       pure { head: a, tail: b : tail xs}
 
-unconsFloat :: NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
-unconsFloat xs
-  | _.glslType (head xs) == Float = pure { head: head xs, tail: tail xs}
-  | _.glslType (head xs) == Vec2 = do
-      x <- assign $ head xs
-      a <- swizzleX x
-      b <- swizzleY x
-      pure { head: a, tail: b : tail xs}
+
+
+
+unconsVec2NoExtend :: NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
+unconsVec2NoExtend xs
+  | _.glslType (head xs) == Vec2 = pure { head: head xs, tail: tail xs}
+  | _.glslType (head xs) == Float = do
+      case fromList (tail xs) of
+        Nothing -> pure { head: head xs, tail: tail xs }
+        Just xs' -> do
+          y <- unconsFloat xs'
+          pure { head: vec2binary (head xs) y.head, tail: y.tail }
   | _.glslType (head xs) == Vec3 = do
       x <- assign $ head xs
-      a <- swizzleX x
-      b <- swizzleYZ x
-      pure { head: a, tail: b : tail xs}
-  | otherwise = do
+      a <- swizzleXY x
+      b <- swizzleZ x
+      pure { head: a, tail: b : tail xs }
+  | otherwise {- Vec4 -} = do
       x <- assign $ head xs
-      a <- swizzleX x
-      b <- swizzleYZW x
-      pure { head: a, tail: b : tail xs}
+      a <- swizzleXY x
+      b <- swizzleZW x
+      pure { head: a, tail: b : tail xs }
+        
+unconsVec3NoExtend :: NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
+unconsVec3NoExtend xs
+  | _.glslType (head xs) == Vec3 = pure { head: head xs, tail: tail xs}
+  | _.glslType (head xs) == Float = do
+      case fromList (tail xs) of
+        Nothing -> pure { head: head xs, tail: tail xs }
+        Just xs' -> do
+          y <- unconsVec2NoExtend xs' -- might be Float, Vec2
+          case _.glslType y.head of
+            Float -> pure { head: vec2binary (head xs) y.head, tail: y.tail }
+            _ {- Vec2 -} -> pure { head: vec3binary (head xs) y.head, tail: y.tail }
+  | _.glslType (head xs) == Vec2 = do
+      case fromList (tail xs) of
+        Nothing -> pure { head: head xs, tail: tail xs }
+        Just xs' -> do
+          y <- unconsFloat xs'
+          pure { head: vec3binary (head xs) y.head, tail: y.tail }
+  | otherwise {- Vec4 -} = do
+      x <- assign (head xs)
+      a <- swizzleXYZ x
+      b <- swizzleW x
+      pure { head: a, tail: b : tail xs }        
+      
+unconsVec4NoExtend :: NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
+unconsVec4NoExtend xs
+  | _.glslType (head xs) == Vec4 = pure { head: head xs, tail: tail xs}
+  | _.glslType (head xs) == Vec3 = do
+      case fromList (tail xs) of
+        Nothing -> pure { head: head xs, tail: tail xs }
+        Just xs' -> do
+          y <- unconsFloat xs'
+          pure { head: vec4binary (head xs) y.head, tail: y.tail }
+  | _.glslType (head xs) == Vec2 = do
+      case fromList (tail xs) of
+        Nothing -> pure { head: head xs, tail: tail xs }
+        Just xs' -> do
+          y <- unconsVec2NoExtend xs' -- might be Float or Vec2...
+          case _.glslType y.head of
+            Float -> pure { head: vec3binary (head xs) y.head, tail: y.tail }
+            _ {- Vec2 -} -> pure { head: vec4binary (head xs) y.head, tail: y.tail }
+  | otherwise {- Float -} = do
+      case fromList (tail xs) of
+        Nothing -> pure { head: head xs, tail: tail xs }
+        Just xs' -> do
+          y <- unconsVec3NoExtend xs' -- might be Float, Vec2, or Vec3...
+          case _.glslType y.head of
+            Float -> pure { head: vec2binary (head xs) y.head, tail: y.tail }
+            Vec2 -> pure { head: vec3binary (head xs) y.head, tail: y.tail }
+            _ {- Vec3 -} -> pure { head: vec4binary (head xs) y.head, tail: y.tail }
+            
 
+
+-- | alignRGBA aligns to groups of 4 channels (vec4) as follows:
+-- 1 channel: repeat as channel 2 and 3, set channel 4 (alpha) to 1
+-- 2 channels: repeat channel 2 as 3, set channel 4 (alpha) to 1
+-- 3 channels: set channel 4 (alpha) to 1
+-- 4 channels: identity
+
+alignRGBA :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+alignRGBA xs = alignVec4NoExtend xs >>= traverse exprRGBA
+
+exprRGBA :: GLSLExpr -> GLSL GLSLExpr
+exprRGBA x
+  | x.glslType == Vec4 = pure x
+  | x.glslType == Float = pure $ vec4binary (vec3unary x) one
+  | x.glslType == Vec2 = do
+      x' <- assign x
+      y <- swizzleY x'
+      pure $ vec4ternary x y one
+  | otherwise {- Vec3 -} = pure $ vec4binary x one
+
+
+{-
+delete if alignRGBA works
+  | exprsChannels xs == 1 = return [ exprExprToVec4 (exprToVec3 (Prelude.head xs)) $ constantFloat 1.0 ]
+  | exprsChannels xs == 2 = do
+      x' <- align Vec2 xs >>= (assign . Prelude.head)
+      return [ exprExprToVec4 (exprExprToVec3 x' $ swizzleY x') $ constantFloat 1.0 ]
+  | exprsChannels xs == 3 = return [ exprExprToVec4 (Prelude.head xs) $ constantFloat 1.0]
+  | exprsChannels xs >= 4 = do
+      (y,ys) <- splitAligned Vec4 xs
+      ys' <- alignRGBA ys
+      return (y:ys')
+-}
 
 {-
 -- write code to the accumulated Builder without adding a new variable assignment
@@ -181,39 +301,9 @@ assignConditional condition x = mdo -- ?? will this work ?? if not, I guess we d
   return r
 -}
 
+
+
 {-
--- on the basis of assign, we can define a series of different "alignment" functions
--- that manipulate the underlying representation of a list of GLSLExpr-s...
-
--- align: given a GLSLType and a list of GLSLExpr-s, produce a new list of
--- GLSLExpr-s where every expression is of the provided type, potentially
--- repeating "channels" at the end in order to fill out the last item.
-
-align :: GLSLType -> [GLSLExpr] -> GLSL [GLSLExpr]
-align _ [] = return []
-align t (x:xs) | glslType x == t = do
-  xs' <- align t xs
-  return (x:xs')
-align GLFloat (x@(GLSLExpr Vec2 _ _):xs) = do
-  x' <- assign x
-  xs' <- align GLFloat xs
-  return (swizzleX x' : swizzleY x' : xs')
-align GLFloat (x@(GLSLExpr Vec3 _ _):xs) = do
-  x' <- assign x
-  xs' <- align GLFloat xs
-  return (swizzleX x' : swizzleY x' : swizzleZ x' : xs')
-align GLFloat (x@(GLSLExpr Vec4 _ _):xs) = do
-  x' <- assign x
-  xs' <- align GLFloat xs
-  return (swizzleX x' : swizzleY x' : swizzleZ x' : swizzleW x' : xs')
--- there are more optimized cases to match above
--- but for now they can all be covered with the catch-all definition below
--- which leads to unnecessary extra layers of swizzling and/or assignment:
-align t xs = do
-  (x,xs') <- splitAligned t xs
-  xs'' <- align t xs'
-  return (x:xs'')
-
 
 -- | alignRGBA aligns to groups of 4 channels (vec4) as follows:
 -- 1 channel: repeat as channel 2 and 3, set channel 4 (alpha) to 1
