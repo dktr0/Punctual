@@ -151,6 +151,7 @@ signalToGLSL (LFSqr x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "
 signalToGLSL (Abs x) = signalToGLSL x >>= simpleUnaryFunction "abs"
 signalToGLSL (Acos x) = signalToGLSL x >>= simpleUnaryFunction "acos"
 signalToGLSL (Acosh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "log(" <> s <> "+sqrt(" <> s <> "*" <> s <> "-1.))") -- TODO: use built-in on WebGL2 
+signalToGLSL (AmpDb x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(20.*log(" <> s <> ")/log(10.))")  
 signalToGLSL (Asin x) = signalToGLSL x >>= simpleUnaryFunction "asin"
 signalToGLSL (Asinh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "log(" <> s <> "+sqrt(" <> s <> "*" <> s <> "+1.))") -- TODO: use built-in on WebGL2 
 signalToGLSL (Atan x) = signalToGLSL x >>= simpleUnaryFunction "atan"
@@ -160,11 +161,15 @@ signalToGLSL (Cbrt x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "pow(" <
 signalToGLSL (Ceil x) = signalToGLSL x >>= simpleUnaryFunction "ceil"
 signalToGLSL (Cos x) = signalToGLSL x >>= simpleUnaryFunction "cos"
 signalToGLSL (Cosh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "((exp(" <> s <> ")+exp(" <> s <> "*-1.))/2.)") -- TODO: use built-in on WebGL2
+signalToGLSL (CpsMidi x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(69.+(12.*log2(" <> s <> "/440.)))")
+signalToGLSL (DbAmp x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "pow(10.," <> s <> "/20.)")
 signalToGLSL (Exp x) = signalToGLSL x >>= simpleUnaryFunction "exp"
 signalToGLSL (Floor x) = signalToGLSL x >>= simpleUnaryFunction "floor"
+signalToGLSL (Fract x) = signalToGLSL x >>= simpleUnaryFunction "fract"
 signalToGLSL (Log x) = signalToGLSL x >>= simpleUnaryFunction "log"
 signalToGLSL (Log2 x) = signalToGLSL x >>= simpleUnaryFunction "log2"
 signalToGLSL (Log10 x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(log(" <> s <> ")/log(10.))")
+signalToGLSL (MidiCps x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(440.*pow((" <> s <> "-69.)/12.,2.))")
 signalToGLSL (Round x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(floor(" <> s <> ")+0.5)")
 signalToGLSL (Sign x) = signalToGLSL x >>= simpleUnaryFunction "sign"
 signalToGLSL (Sin x) = signalToGLSL x >>= simpleUnaryFunction "sin"
@@ -218,11 +223,6 @@ signalToGLSL (XyT xy) = do
 {-
   Distance Signal |
   Prox Signal |
-  MidiCps Signal |
-  CpsMidi Signal |
-  DbAmp Signal |
-  AmpDb Signal |
-  Fract Signal |
   
   SetFx Signal Signal | SetFy Signal Signal | SetFxy Signal Signal |
   Zoom Signal Signal | Move Signal Signal | Tile Signal Signal | Spin Signal Signal |
