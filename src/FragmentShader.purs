@@ -231,10 +231,17 @@ signalToGLSL (XyT xy) = do
   ys <- traverse swizzleY xys
   zipBinaryExpression (\x y -> "atan(" <> x <> "," <> y <> ")") xs ys
   
+signalToGLSL (Distance xy) = do
+  fxys <- _.fxys <$> get
+  xys <- signalToGLSL xy >>= alignVec2
+  abFloatCombinatorial (\a b -> "distance(" <> a <> "," <> b <> ")") fxys xys
+
+signalToGLSL (Prox xy) = do
+  fxys <- _.fxys <$> get
+  xys <- signalToGLSL xy >>= alignVec2
+  abFloatCombinatorial (\a b -> "prox(" <> a <> "," <> b <> ")") fxys xys
+
 {-
-  Distance Signal |
-  Prox Signal |
-  
   SetFx Signal Signal | SetFy Signal Signal | SetFxy Signal Signal |
   Zoom Signal Signal | Move Signal Signal | Tile Signal Signal | Spin Signal Signal |
 
@@ -264,10 +271,8 @@ signalToGLSL (XyT xy) = do
   ILine Signal Signal Signal |
   Line Signal Signal Signal |
   LinLin Signal Signal Signal |
-  LPF Signal Signal Signal | HPF Signal Signal Signal | BPF Signal Signal Signal |
-  Delay Number Signal Signal
   
-    Point Signal |
+  Point Signal |
 
 -}
 
@@ -286,6 +291,12 @@ unaryExpression f = traverse $ \x -> pure { string: f x.string, glslType: x.glsl
 -- deduces type from type of first of each pair (which is assumed to match second of each pair)
 zipBinaryExpression :: (String -> String -> String) -> NonEmptyList GLSLExpr -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
 zipBinaryExpression f xs ys = pure $ zipWith (\x y -> { string: f x.string y.string, glslType:x.glslType, isSimple: false, deps: x.deps <> y.deps }) xs ys
+
+abFloatCombinatorial :: (String -> String -> String) -> NonEmptyList GLSLExpr -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+abFloatCombinatorial f xs ys = pure $ do -- in NonEmptyList monad
+  x <- xs
+  y <- ys
+  pure { string: f x.string y.string, glslType:Float, isSimple:false, deps: x.deps <> y.deps }
 
 unipolar :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
 unipolar = simpleUnaryExpression (\s -> "(" <> s <> "*0.5+0.5)")
