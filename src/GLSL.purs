@@ -127,6 +127,12 @@ splitIntoFloats e
       z <- swizzleZ e'
       w <- swizzleW e'
       pure (x `cons` (y `cons` (z `cons` singleton w)))
+      
+unconsGLSL :: GLSLType -> NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
+unconsGLSL Float = unconsFloat
+unconsGLSL Vec2 = unconsVec2
+unconsGLSL Vec3 = unconsVec3
+unconsGLSL Vec4 = unconsVec4
 
 unconsFloat :: NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
 unconsFloat xs

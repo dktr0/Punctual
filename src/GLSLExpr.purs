@@ -4,7 +4,7 @@ module GLSLExpr where
 -- while keeping track of whether an expression is simple (and thus might avoid assignment),
 -- it's type (and thus number of channels), and its dependency on any previously declared variables
 
-import Prelude (class Eq, class Show,(<>),(==),otherwise,(&&))
+import Prelude (class Eq, class Ord, class Show,(<>),(==),otherwise,(&&))
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.Set (Set,empty)
@@ -12,6 +12,7 @@ import Data.Set (Set,empty)
 data GLSLType = Float | Vec2 | Vec3 | Vec4
 
 derive instance Eq GLSLType
+derive instance Ord GLSLType
 derive instance Generic GLSLType _
 instance Show GLSLType where
   show = genericShow

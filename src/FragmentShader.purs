@@ -17,6 +17,8 @@ import Signal (Signal(..),MultiMode(..))
 import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString)
 import GLSL (GLSL,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignRGBA,runGLSL,withFxys)
 
+type Exprs = NonEmptyList GLSLExpr
+
 testCodeGen :: Boolean -> Signal -> String
 testCodeGen webGl2 x = assignments <> lastExprs
   where
@@ -28,7 +30,7 @@ testCodeGen webGl2 x = assignments <> lastExprs
 indexedGLSLExprToString :: Int -> GLSLExpr -> String
 indexedGLSLExprToString n x = glslTypeToString x.glslType <> " _" <> show n <> " = " <> x.string <> ";\n"
 
-signalToGLSL :: Signal -> GLSL (NonEmptyList GLSLExpr)
+signalToGLSL :: Signal -> GLSL Exprs
 
 signalToGLSL (Constant x) = pure $ singleton { string: show x, glslType: Float, isSimple: true, deps: Set.empty } -- !! TODO: make sure value is shown in GLSL compatible way, ie always ending with a period
 
@@ -281,8 +283,10 @@ signalToGLSL (Spin x z) = do
   fxys <- abVec2Combinatorial (\fxy x' -> "spin(" <> x' <> "," <> fxy <> ")") prevFxys xs
   withFxys fxys $ signalToGLSL z
   
+signalToGLSL (Sum mm x y) = binaryArithmetic mm (\a b -> "(" <> a <> "+" <> b <> ")") x y
+
+
 {-
-  Sum MultiMode Signal Signal |
   Difference MultiMode Signal Signal |
   Product MultiMode Signal Signal |
   Division MultiMode Signal Signal |
@@ -308,40 +312,86 @@ signalToGLSL (Spin x z) = do
   ILine Signal Signal Signal |
   Line Signal Signal Signal |
   LinLin Signal Signal Signal |
-  
   Point Signal |
-
 -}
 
 signalToGLSL _ = pure $ singleton $ zero
 
 
-simpleUnaryFunction :: String -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+simpleUnaryFunction :: String -> Exprs -> GLSL Exprs
 simpleUnaryFunction funcName = simpleUnaryExpression $ \x -> funcName <> "(" <> x <> ")"
 
-simpleUnaryExpression :: (String -> String) -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+simpleUnaryExpression :: (String -> String) -> Exprs -> GLSL Exprs
 simpleUnaryExpression f = traverse $ \x -> pure { string: f x.string, glslType: x.glslType, isSimple: x.isSimple, deps: x.deps }
 
-unaryExpression :: (String -> String) -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+unaryExpression :: (String -> String) -> Exprs -> GLSL Exprs
 unaryExpression f = traverse $ \x -> pure { string: f x.string, glslType: x.glslType, isSimple: false, deps: x.deps }
 
 -- deduces type from type of first of each pair (which is assumed to match second of each pair)
-zipBinaryExpression :: (String -> String -> String) -> NonEmptyList GLSLExpr -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+zipBinaryExpression :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
 zipBinaryExpression f xs ys = pure $ zipWith (\x y -> { string: f x.string y.string, glslType:x.glslType, isSimple: false, deps: x.deps <> y.deps }) xs ys
 
-abFloatCombinatorial :: (String -> String -> String) -> NonEmptyList GLSLExpr -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+binaryArithmetic :: MultiMode -> (String -> String -> String) -> Signal -> Signal -> GLSL Exprs
+binaryArithmetic mm f x y = do
+  xs <- signalToGLSL x
+  ys <- signalToGLSL y
+  case mm of
+    Combinatorial -> binaryArithmeticCombinatorial f xs ys
+    Pairwise -> binaryArithmeticCombinatorial f xs ys -- temporarily broken for compile test
+    
+{-
+binaryArithmeticPairwise :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
+binaryArithmeticPairWise f xs ys
+  | length xs == 1 && (head xs).glslType == Float = abbCombinatorial f xs ys
+  | length ys == 1 && (head ys).glslType == Float = abaCombinatorial f xs ys
+  | otherwise = do
+      ...extend xs and ys to equal length in channels...
+      ...then align and combine with alignWith (likely defined in terms of unconsAligned below)
+      
+   working here: move unconsAligned to GLSL.purs, provide unconsVec4, and finish binaryArithmeticPairwise
+-}
+ 
+-- should be moved to GLSL.purs
+unconsAligned :: Exprs -> Exprs -> GLSL { headX :: GLSLExpr, headY: GLSLExpr, tailX :: Exprs, tailY :: Exprs }
+unconsAligned xs ys =
+  | (head xs).glslType == (head ys).glslType = pure { headX: head xs, headY: head ys, tailX: tail xs, tailY: tail ys }
+  | (head xs).glslType > (head ys).glslType = do -- fracture larger head xs by smaller head ys type
+      xs' <- unconsGLSL (head ys).glslType xs
+      pure { headX: xs'.head, headY: head ys, tailX: xs'.tail, tailY: tail ys }
+  | (head ys).glslType > (head xs).glslType = do -- fracture larger head ys by smaller head xs type
+      ys' <- unconsGLSL (head xs).glslType
+      pure { headX: head xs, headY: ys'.head, tailX: tail xs, tailY: ys'.tail }
+
+binaryArithmeticCombinatorial :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
+binaryArithmeticCombinatorial f xs ys = do
+  xs' <- alignFloat xs
+  abbCombinatorial f xs' ys
+
+abFloatCombinatorial :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
 abFloatCombinatorial f xs ys = pure $ do -- in NonEmptyList monad
   x <- xs
   y <- ys
   pure { string: f x.string y.string, glslType:Float, isSimple:false, deps: x.deps <> y.deps }
 
-abVec2Combinatorial :: (String -> String -> String) -> NonEmptyList GLSLExpr -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+abVec2Combinatorial :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
 abVec2Combinatorial f xs ys = pure $ do -- in NonEmptyList monad
   x <- xs
   y <- ys
   pure { string: f x.string y.string, glslType:Vec2, isSimple:false, deps: x.deps <> y.deps }
 
-unipolar :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+abbCombinatorial :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
+abbCombinatorial f xs ys = pure $ do -- in NonEmptyList monad
+  x <- xs
+  y <- ys
+  pure { string: f x.string y.string, glslType:y.glslType, isSimple:false, deps: x.deps <> y.deps }
+
+abaCombinatorial :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
+abaCombinatorial f xs ys = pure $ do -- in NonEmptyList monad
+  x <- xs
+  y <- ys
+  pure { string: f x.string y.string, glslType:x.glslType, isSimple:false, deps: x.deps <> y.deps }
+  
+unipolar :: Exprs -> GLSL Exprs
 unipolar = simpleUnaryExpression (\s -> "(" <> s <> "*0.5+0.5)")
 
 blend :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec4
@@ -350,42 +400,42 @@ blend a b = do
   alpha <- swizzleW b'
   pure $ ternaryFunction "mix" Vec4 a b' alpha
 
-acosh :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+acosh :: Exprs -> GLSL Exprs
 acosh xs = do
   s <- get
   case s.webGl2 of
     true -> simpleUnaryFunction "acosh" xs
     false -> traverse assign xs >>= simpleUnaryExpression (\x -> "log(" <> x <> "+sqrt(" <> x <> "*" <> x <> "-1.))")
 
-asinh :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+asinh :: Exprs -> GLSL Exprs
 asinh xs = do
   s <- get
   case s.webGl2 of
     true -> simpleUnaryFunction "asinh" xs
     false -> traverse assign xs >>= simpleUnaryExpression (\x -> "log(" <> x <> "+sqrt(" <> x <> "*" <> x <> "+1.))")
 
-atanh :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+atanh :: Exprs -> GLSL Exprs
 atanh xs = do
   s <- get
   case s.webGl2 of
     true -> simpleUnaryFunction "atanh" xs
     false -> traverse assign xs >>= simpleUnaryExpression (\x -> "(log((1.+" <> x <> ")/(" <> "1.-" <> x <> "))/2.)") 
 
-cosh :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+cosh :: Exprs -> GLSL Exprs
 cosh xs = do
   s <- get
   case s.webGl2 of
     true -> simpleUnaryFunction "cosh" xs
     false -> traverse assign xs >>= simpleUnaryExpression (\x -> "((exp(" <> x <> ")+exp(" <> x <> "*-1.))/2.)") 
 
-sinh :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+sinh :: Exprs -> GLSL Exprs
 sinh xs = do
   s <- get
   case s.webGl2 of
     true -> simpleUnaryFunction "sinh" xs
     false -> traverse assign xs >>= simpleUnaryExpression (\x -> "((exp(" <> x <> ")-exp(" <> x <> "*-1.))/2.)") 
 
-tanh :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+tanh :: Exprs -> GLSL Exprs
 tanh xs = do
   s <- get
   case s.webGl2 of
@@ -396,7 +446,7 @@ tanh xs = do
       coshs <- cosh xs'
       zipBinaryExpression (\x y -> "(" <> x <> "/" <> y <> ")") sinhs coshs
        
-trunc :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+trunc :: Exprs -> GLSL Exprs
 trunc xs = do
   s <- get
   case s.webGl2 of
