@@ -15,7 +15,7 @@ import Data.FunctorWithIndex (mapWithIndex)
 import NonEmptyList
 import Signal (Signal(..),MultiMode(..))
 import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString)
-import GLSL (GLSL,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignRGBA,runGLSL)
+import GLSL (GLSL,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignRGBA,runGLSL,withFxys)
 
 testCodeGen :: Boolean -> Signal -> String
 testCodeGen webGl2 x = assignments <> lastExprs
@@ -241,10 +241,47 @@ signalToGLSL (Prox xy) = do
   xys <- signalToGLSL xy >>= alignVec2
   abFloatCombinatorial (\a b -> "prox(" <> a <> "," <> b <> ")") fxys xys
 
-{-
-  SetFx Signal Signal | SetFy Signal Signal | SetFxy Signal Signal |
-  Zoom Signal Signal | Move Signal Signal | Tile Signal Signal | Spin Signal Signal |
+signalToGLSL (SetFxy xy z) = do
+  fxys <- signalToGLSL xy >>= alignVec2
+  withFxys fxys $ signalToGLSL z
 
+signalToGLSL (SetFx x z) = do
+  prevFxys <- _.fxys <$> get
+  xs <- signalToGLSL x >>= alignFloat
+  fxys <- abVec2Combinatorial (\fxy x' -> "vec2(" <> x' <> "," <> fxy <> ".y)") prevFxys xs
+  withFxys fxys $ signalToGLSL z
+
+signalToGLSL (SetFy y z) = do
+  prevFxys <- _.fxys <$> get
+  ys <- signalToGLSL y >>= alignFloat
+  fxys <- abVec2Combinatorial (\fxy y' -> "vec2(" <> fxy <> ".x," <> y' <> ")") prevFxys ys
+  withFxys fxys $ signalToGLSL z
+  
+signalToGLSL (Zoom xy z) = do
+  prevFxys <- _.fxys <$> get
+  xys <- signalToGLSL xy >>= alignVec2
+  fxys <- abVec2Combinatorial (\fxy xy' -> "(" <> fxy <> "/" <> xy' <> ")") prevFxys xys
+  withFxys fxys $ signalToGLSL z
+  
+signalToGLSL (Move xy z) = do
+  prevFxys <- _.fxys <$> get
+  xys <- signalToGLSL xy >>= alignFloat
+  fxys <- abVec2Combinatorial (\fxy xy' -> "(" <> fxy <> "-" <> xy' <> ")") prevFxys xys
+  withFxys fxys $ signalToGLSL z
+  
+signalToGLSL (Tile xy z) = do
+  prevFxys <- _.fxys <$> get
+  xys <- signalToGLSL xy >>= alignFloat
+  fxys <- abVec2Combinatorial (\fxy xy' -> "tile(" <> xy' <> "," <> fxy <> ")") prevFxys xys
+  withFxys fxys $ signalToGLSL z
+  
+signalToGLSL (Spin x z) = do
+  prevFxys <- _.fxys <$> get
+  xs <- signalToGLSL x >>= alignFloat
+  fxys <- abVec2Combinatorial (\fxy x' -> "spin(" <> x' <> "," <> fxy <> ")") prevFxys xs
+  withFxys fxys $ signalToGLSL z
+  
+{-
   Sum MultiMode Signal Signal |
   Difference MultiMode Signal Signal |
   Product MultiMode Signal Signal |
@@ -297,6 +334,12 @@ abFloatCombinatorial f xs ys = pure $ do -- in NonEmptyList monad
   x <- xs
   y <- ys
   pure { string: f x.string y.string, glslType:Float, isSimple:false, deps: x.deps <> y.deps }
+
+abVec2Combinatorial :: (String -> String -> String) -> NonEmptyList GLSLExpr -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+abVec2Combinatorial f xs ys = pure $ do -- in NonEmptyList monad
+  x <- xs
+  y <- ys
+  pure { string: f x.string y.string, glslType:Vec2, isSimple:false, deps: x.deps <> y.deps }
 
 unipolar :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
 unipolar = simpleUnaryExpression (\s -> "(" <> s <> "*0.5+0.5)")

@@ -5,12 +5,12 @@ module GLSL where
 -- A fundamental goal is elegantly bridging the gap between GLSL's 4 basic float types
 -- and the multi-channel expressions of Punctual (which are not limited to 1-4 channels).
 
-import Prelude (pure,(<>),otherwise,bind,discard,show,(+),($),(==),(<<<),(>>=))
+import Prelude (pure,(<>),otherwise,bind,discard,show,(+),($),(==),(<<<),(>>=),(<$>))
 import Data.Map (Map,insert,empty)
 import Data.Maybe (Maybe(..))
 import Data.List (List,(:))
 import Data.List.NonEmpty (NonEmptyList,singleton,concat,cons,head,tail,fromList)
-import Control.Monad.State (State,get,put,runState)
+import Control.Monad.State (State,get,put,runState,modify_)
 import Data.Traversable (traverse)
 import Data.Set as Set
 import Data.Tuple (Tuple)
@@ -39,9 +39,17 @@ assign x
 assignForced :: GLSLExpr -> GLSL GLSLExpr
 assignForced x = do
   s <- get
-  put { nextIndex: s.nextIndex+1, exprs: insert s.nextIndex x s.exprs, fxys: s.fxys, imgMap: s.imgMap, vidMap: s.vidMap, webGl2: s.webGl2 }
+  put $ s { nextIndex = s.nextIndex+1, exprs = insert s.nextIndex x s.exprs }
   pure $ { string: "_" <> show s.nextIndex, glslType: x.glslType, isSimple: true, deps: Set.insert s.nextIndex x.deps }
 
+
+withFxys :: forall a. NonEmptyList GLSLExpr -> GLSL a -> GLSL a
+withFxys fxys a = do
+  cachedFxys <- _.fxys <$> get
+  modify_ $ \s -> s { fxys = fxys }
+  r <- a
+  modify_ $ \s -> s { fxys = cachedFxys }
+  pure r
 
 _swizzle :: String -> GLSLType -> GLSLExpr -> GLSL GLSLExpr
 _swizzle spec rType x = do
