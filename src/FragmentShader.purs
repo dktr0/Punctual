@@ -17,12 +17,12 @@ import Signal (Signal(..),MultiMode(..))
 import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString)
 import GLSL (GLSL,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignRGBA,runGLSL)
 
-testCodeGen :: Signal -> String
-testCodeGen x = assignments <> lastExprs
+testCodeGen :: Boolean -> Signal -> String
+testCodeGen webGl2 x = assignments <> lastExprs
   where
-    (Tuple a st) = runGLSL (signalToGLSL x)
+    (Tuple a st) = runGLSL webGl2 (signalToGLSL x)
     assignments = fold $ mapWithIndex indexedGLSLExprToString st.exprs
-    lastExprs = fold $ map (\x -> x.string <> "\n") a
+    lastExprs = fold $ map (\y -> y.string <> "\n") a
     
 
 indexedGLSLExprToString :: Int -> GLSLExpr -> String
@@ -151,7 +151,7 @@ signalToGLSL (RgbH x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "rg
 signalToGLSL (RgbS x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "rgbhsv" >>= traverse swizzleY
 signalToGLSL (RgbV x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "rgbhsv" >>= traverse swizzleZ
 
-signalToGLSL (Osc x) = signalToGLSL x >>= (simpleUnaryExpression $ \e -> e <> "*PI*2.0*_time") >>= simpleUnaryFunction "sin"
+signalToGLSL (Osc x) = signalToGLSL x >>= (unaryExpression $ \e -> e <> "*PI*2.0*_time") >>= simpleUnaryFunction "sin"
 signalToGLSL (Tri x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "tri"
 signalToGLSL (Saw x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "saw"
 signalToGLSL (Sqr x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "sqr"
@@ -161,17 +161,17 @@ signalToGLSL (LFSqr x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "
 
 signalToGLSL (Abs x) = signalToGLSL x >>= simpleUnaryFunction "abs"
 signalToGLSL (Acos x) = signalToGLSL x >>= simpleUnaryFunction "acos"
-signalToGLSL (Acosh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "log(" <> s <> "+sqrt(" <> s <> "*" <> s <> "-1.))") -- TODO: use built-in on WebGL2 
+signalToGLSL (Acosh x) = signalToGLSL x >>= acosh 
 signalToGLSL (AmpDb x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(20.*log(" <> s <> ")/log(10.))")  
 signalToGLSL (Asin x) = signalToGLSL x >>= simpleUnaryFunction "asin"
-signalToGLSL (Asinh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "log(" <> s <> "+sqrt(" <> s <> "*" <> s <> "+1.))") -- TODO: use built-in on WebGL2 
+signalToGLSL (Asinh x) = signalToGLSL x >>= asinh 
 signalToGLSL (Atan x) = signalToGLSL x >>= simpleUnaryFunction "atan"
-signalToGLSL (Atanh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "(log((1.+" <> s <> ")/(" <> "1.-" <> s <> "))/2.)") -- TODO: use built-in on WebGL2
+signalToGLSL (Atanh x) = signalToGLSL x >>= atanh
 signalToGLSL (Bipolar x) = signalToGLSL x >>= simpleUnaryExpression (\e -> "(" <> e <> "*2.-1.)")
 signalToGLSL (Cbrt x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "pow(" <> s <> ",0.3333333333)")
 signalToGLSL (Ceil x) = signalToGLSL x >>= simpleUnaryFunction "ceil"
 signalToGLSL (Cos x) = signalToGLSL x >>= simpleUnaryFunction "cos"
-signalToGLSL (Cosh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "((exp(" <> s <> ")+exp(" <> s <> "*-1.))/2.)") -- TODO: use built-in on WebGL2
+signalToGLSL (Cosh x) = signalToGLSL x >>= cosh
 signalToGLSL (CpsMidi x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(69.+(12.*log2(" <> s <> "/440.)))")
 signalToGLSL (DbAmp x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "pow(10.," <> s <> "/20.)")
 signalToGLSL (Exp x) = signalToGLSL x >>= simpleUnaryFunction "exp"
@@ -184,11 +184,11 @@ signalToGLSL (MidiCps x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(440
 signalToGLSL (Round x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(floor(" <> s <> ")+0.5)")
 signalToGLSL (Sign x) = signalToGLSL x >>= simpleUnaryFunction "sign"
 signalToGLSL (Sin x) = signalToGLSL x >>= simpleUnaryFunction "sin"
-signalToGLSL (Sinh x) = signalToGLSL x >>= traverse assign >>= simpleUnaryExpression (\s -> "((exp(" <> s <> ")-exp(" <> s <> "*-1.))/2.)") -- TODO: use built-in on WebGL2
+signalToGLSL (Sinh x) = signalToGLSL x >>= sinh
 signalToGLSL (Sqrt x) = signalToGLSL x >>= simpleUnaryFunction "sqrt"
 signalToGLSL (Tan x) = signalToGLSL x >>= simpleUnaryFunction "tan"
-signalToGLSL (Tanh x) = signalToGLSL $ Division Pairwise (Sinh x) (Cosh x) -- TODO: use built-in on WebGL2 and rework WebGL1 to reuse xs
-signalToGLSL (Trunc x) = signalToGLSL $ Product Pairwise (Floor (Abs x)) (Sign x) -- TODO: use built-in on WebGL2 and rework WebGL1 to reuse xs
+signalToGLSL (Tanh x) = signalToGLSL x >>= tanh 
+signalToGLSL (Trunc x) = signalToGLSL x >>= trunc
 signalToGLSL (Unipolar x) = signalToGLSL x >>= unipolar 
 
 signalToGLSL (RtXy rt) = do
@@ -280,6 +280,9 @@ simpleUnaryFunction funcName = simpleUnaryExpression $ \x -> funcName <> "(" <> 
 simpleUnaryExpression :: (String -> String) -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
 simpleUnaryExpression f = traverse $ \x -> pure { string: f x.string, glslType: x.glslType, isSimple: x.isSimple, deps: x.deps }
 
+unaryExpression :: (String -> String) -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+unaryExpression f = traverse $ \x -> pure { string: f x.string, glslType: x.glslType, isSimple: false, deps: x.deps }
+
 zipBinaryExpression :: GLSLType -> (String -> String -> String) -> NonEmptyList GLSLExpr -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
 zipBinaryExpression t f xs ys = pure $ zipWith (\x y -> { string: f x.string y.string, glslType: t, isSimple: false, deps: x.deps <> y.deps }) xs ys
 
@@ -291,4 +294,61 @@ blend a b = do
   b' <- assign b
   alpha <- swizzleW b'
   pure $ ternaryFunction "mix" Vec4 a b' alpha
+
+acosh :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+acosh xs = do
+  s <- get
+  case s.webGl2 of
+    true -> simpleUnaryFunction "acosh" xs
+    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "log(" <> x <> "+sqrt(" <> x <> "*" <> x <> "-1.))")
+
+asinh :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+asinh xs = do
+  s <- get
+  case s.webGl2 of
+    true -> simpleUnaryFunction "asinh" xs
+    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "log(" <> x <> "+sqrt(" <> x <> "*" <> x <> "+1.))")
+
+atanh :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+atanh xs = do
+  s <- get
+  case s.webGl2 of
+    true -> simpleUnaryFunction "atanh" xs
+    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "(log((1.+" <> x <> ")/(" <> "1.-" <> x <> "))/2.)") 
+
+cosh :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+cosh xs = do
+  s <- get
+  case s.webGl2 of
+    true -> simpleUnaryFunction "cosh" xs
+    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "((exp(" <> x <> ")+exp(" <> x <> "*-1.))/2.)") 
+
+sinh :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+sinh xs = do
+  s <- get
+  case s.webGl2 of
+    true -> simpleUnaryFunction "sinh" xs
+    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "((exp(" <> x <> ")-exp(" <> x <> "*-1.))/2.)") 
+
+tanh :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+tanh xs = do
+  s <- get
+  case s.webGl2 of
+    true -> simpleUnaryFunction "tanh" xs
+    false -> do
+      xs' <- traverse assign xs
+      sinhs <- sinh xs'
+      coshs <- cosh xs'
+       
+trunc :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+trunc xs = do
+  s <- get
+  case s.webGl2 of
+    true -> simpleUnaryFunction "trunc" xs
+    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "(floor(abs(" <> x <> "))*sign(" <> x <> "))")
+    
+
+{-
+signalToGLSL (Tanh x) = signalToGLSL $ Division Pairwise (Sinh x) (Cosh x) -- TODO: use built-in on WebGL2 and rework WebGL1 to reuse xs
+-}
 

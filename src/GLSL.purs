@@ -22,13 +22,14 @@ type GLSLState = {
   exprs :: Map Int GLSLExpr,
   fxys :: NonEmptyList GLSLExpr,
   imgMap :: Map String Int,
-  vidMap :: Map String Int
+  vidMap :: Map String Int,
+  webGl2 :: Boolean
   }
 
 type GLSL = State GLSLState
 
-runGLSL :: forall a. GLSL a -> Tuple a GLSLState
-runGLSL x = runState x { nextIndex: 0, exprs: empty, fxys: singleton { string:"_fxy()", glslType:Vec2, isSimple:true, deps:Set.empty}, imgMap: empty, vidMap: empty } 
+runGLSL :: forall a. Boolean -> GLSL a -> Tuple a GLSLState
+runGLSL webGl2 x = runState x { nextIndex: 0, exprs: empty, fxys: singleton { string:"_fxy()", glslType:Vec2, isSimple:true, deps:Set.empty}, imgMap: empty, vidMap: empty, webGl2 } 
 
 assign :: GLSLExpr -> GLSL GLSLExpr
 assign x
@@ -38,7 +39,7 @@ assign x
 assignForced :: GLSLExpr -> GLSL GLSLExpr
 assignForced x = do
   s <- get
-  put { nextIndex: s.nextIndex+1, exprs: insert s.nextIndex x s.exprs, fxys: s.fxys, imgMap: s.imgMap, vidMap: s.vidMap }
+  put { nextIndex: s.nextIndex+1, exprs: insert s.nextIndex x s.exprs, fxys: s.fxys, imgMap: s.imgMap, vidMap: s.vidMap, webGl2: s.webGl2 }
   pure $ { string: "_" <> show s.nextIndex, glslType: x.glslType, isSimple: true, deps: Set.insert s.nextIndex x.deps }
 
 
