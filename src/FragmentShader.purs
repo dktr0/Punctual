@@ -195,41 +195,41 @@ signalToGLSL (RtXy rt) = do
   rts <- signalToGLSL rt >>= alignVec2 
   rs <- traverse swizzleX rts
   ts <- traverse swizzleY rts
-  xs <- zipBinaryExpression Float (\r t -> "(" <> r <> "*cos(" <> t <> "))") rs ts
-  ys <- zipBinaryExpression Float (\r t -> "(" <> r <> "*sin(" <> t <> "))") rs ts
+  xs <- zipBinaryExpression (\r t -> "(" <> r <> "*cos(" <> t <> "))") rs ts
+  ys <- zipBinaryExpression (\r t -> "(" <> r <> "*sin(" <> t <> "))") rs ts
   pure $ concat $ zipWith (\x y -> x `cons` singleton y) xs ys
   
 signalToGLSL (RtX rt) = do
   rts <- signalToGLSL rt >>= alignVec2 
   rs <- traverse swizzleX rts
   ts <- traverse swizzleY rts
-  zipBinaryExpression Float (\r t -> "(" <> r <> "*cos(" <> t <> "))") rs ts
+  zipBinaryExpression (\r t -> "(" <> r <> "*cos(" <> t <> "))") rs ts
 
 signalToGLSL (RtY rt) = do
   rts <- signalToGLSL rt >>= alignVec2 
   rs <- traverse swizzleX rts
   ts <- traverse swizzleY rts
-  zipBinaryExpression Float (\r t -> "(" <> r <> "*sin(" <> t <> "))") rs ts
+  zipBinaryExpression (\r t -> "(" <> r <> "*sin(" <> t <> "))") rs ts
   
 signalToGLSL (XyRt xy) = do
   xys <- signalToGLSL xy >>= alignVec2
   xs <- traverse swizzleX xys
   ys <- traverse swizzleY xys
-  rs <- zipBinaryExpression Float (\x y -> "sqrt((" <> x <> "*" <> x <> ")+(" <> y <> "*" <> y <> "))") xs ys
-  ts <- zipBinaryExpression Float (\x y -> "atan(" <> x <> "," <> y <> ")") xs ys
+  rs <- zipBinaryExpression (\x y -> "sqrt((" <> x <> "*" <> x <> ")+(" <> y <> "*" <> y <> "))") xs ys
+  ts <- zipBinaryExpression (\x y -> "atan(" <> x <> "," <> y <> ")") xs ys
   pure $ concat $ zipWith (\x y -> x `cons` singleton y) rs ts
 
 signalToGLSL (XyR xy) = do
   xys <- signalToGLSL xy >>= alignVec2
   xs <- traverse swizzleX xys
   ys <- traverse swizzleY xys
-  zipBinaryExpression Float (\x y -> "sqrt((" <> x <> "*" <> x <> ")+(" <> y <> "*" <> y <> "))") xs ys
+  zipBinaryExpression (\x y -> "sqrt((" <> x <> "*" <> x <> ")+(" <> y <> "*" <> y <> "))") xs ys
   
 signalToGLSL (XyT xy) = do
   xys <- signalToGLSL xy >>= alignVec2
   xs <- traverse swizzleX xys
   ys <- traverse swizzleY xys
-  zipBinaryExpression Float (\x y -> "atan(" <> x <> "," <> y <> ")") xs ys
+  zipBinaryExpression (\x y -> "atan(" <> x <> "," <> y <> ")") xs ys
   
 {-
   Distance Signal |
@@ -283,8 +283,9 @@ simpleUnaryExpression f = traverse $ \x -> pure { string: f x.string, glslType: 
 unaryExpression :: (String -> String) -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
 unaryExpression f = traverse $ \x -> pure { string: f x.string, glslType: x.glslType, isSimple: false, deps: x.deps }
 
-zipBinaryExpression :: GLSLType -> (String -> String -> String) -> NonEmptyList GLSLExpr -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
-zipBinaryExpression t f xs ys = pure $ zipWith (\x y -> { string: f x.string y.string, glslType: t, isSimple: false, deps: x.deps <> y.deps }) xs ys
+-- deduces type from type of first of each pair (which is assumed to match second of each pair)
+zipBinaryExpression :: (String -> String -> String) -> NonEmptyList GLSLExpr -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+zipBinaryExpression f xs ys = pure $ zipWith (\x y -> { string: f x.string y.string, glslType:x.glslType, isSimple: false, deps: x.deps <> y.deps }) xs ys
 
 unipolar :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
 unipolar = simpleUnaryExpression (\s -> "(" <> s <> "*0.5+0.5)")
@@ -339,6 +340,7 @@ tanh xs = do
       xs' <- traverse assign xs
       sinhs <- sinh xs'
       coshs <- cosh xs'
+      zipBinaryExpression (\x y -> "(" <> x <> "/" <> y <> ")") sinhs coshs
        
 trunc :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
 trunc xs = do
@@ -346,9 +348,4 @@ trunc xs = do
   case s.webGl2 of
     true -> simpleUnaryFunction "trunc" xs
     false -> traverse assign xs >>= simpleUnaryExpression (\x -> "(floor(abs(" <> x <> "))*sign(" <> x <> "))")
-    
-
-{-
-signalToGLSL (Tanh x) = signalToGLSL $ Division Pairwise (Sinh x) (Cosh x) -- TODO: use built-in on WebGL2 and rework WebGL1 to reuse xs
--}
 
