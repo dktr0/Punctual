@@ -4,10 +4,12 @@ module GLSLExpr where
 -- while keeping track of whether an expression is simple (and thus might avoid assignment),
 -- it's type (and thus number of channels), and its dependency on any previously declared variables
 
-import Prelude (class Eq, class Ord, class Show,(<>),(==),otherwise,(&&))
+import Prelude (class Eq, class Ord, class Show,(<>),(==),otherwise,(&&),($),map,(+))
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.Set (Set,empty)
+import Data.List.NonEmpty (NonEmptyList)
+import Data.Foldable (foldl)
 
 data GLSLType = Float | Vec2 | Vec3 | Vec4
 
@@ -16,20 +18,27 @@ derive instance Ord GLSLType
 derive instance Generic GLSLType _
 instance Show GLSLType where
   show = genericShow
-  
+
 glslTypeToString :: GLSLType -> String
 glslTypeToString Float = "float"
 glslTypeToString Vec2 = "vec2"
 glslTypeToString Vec3 = "vec3"
 glslTypeToString Vec4 = "vec4"
 
-  
+
 type GLSLExpr = {
   string :: String,
   glslType :: GLSLType,
   isSimple :: Boolean,
   deps :: Set Int
   }
+
+exprChannels :: GLSLExpr -> Int
+exprChannels x
+  | x.glslType == Float = 1
+  | x.glslType == Vec2 = 2
+  | x.glslType == Vec3 = 3
+  | otherwise {- Vec4 -} = 4
 
 simpleFromString :: GLSLType -> String -> GLSLExpr
 simpleFromString t x = { string: x, glslType: t, isSimple: true, deps: empty }
@@ -67,6 +76,36 @@ vec4ternary = ternaryFunction "vec4" Vec4
 vec4quaternary :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
 vec4quaternary = quaternaryFunction "vec4" Vec4
 
+-- create a Float by extending or cutting smaller/bigger types
+coerceFloat :: GLSLExpr -> GLSLExpr
+coerceFloat x
+  | x.glslType == Float = x
+  | otherwise = { string: x.string <> ".x", glslType: Float, isSimple: x.isSimple, deps: x.deps }
+
+-- create a Vec2 by extending or cutting smaller/bigger types
+coerceVec2 :: GLSLExpr -> GLSLExpr
+coerceVec2 x
+  | x.glslType == Float = vec2unary x
+  | x.glslType == Vec2 = x
+  | otherwise = { string: x.string <> ".xy", glslType: Vec2, isSimple: x.isSimple, deps: x.deps }
+
+-- create a Vec3 by extending or cutting smaller/bigger types
+coerceVec3 :: GLSLExpr -> GLSLExpr
+coerceVec3 x
+  | x.glslType == Float = vec3unary x
+  | x.glslType == Vec2 = { string: x.string <> ".xyy", glslType: Vec3, isSimple: x.isSimple, deps: x.deps }
+  | x.glslType == Vec3 = x
+  | otherwise {- Vec4 -} = { string: x.string <> ".xyz", glslType: Vec3, isSimple: x.isSimple, deps: x.deps }
+
+-- create a Vec4 by extending smaller types
+coerceVec4 :: GLSLExpr -> GLSLExpr
+coerceVec4 x
+  | x.glslType == Float = vec4unary x
+  | x.glslType == Vec2 = { string: x.string <> ".xyyy", glslType: Vec4, isSimple: x.isSimple, deps: x.deps }
+  | x.glslType == Vec3 = { string: x.string <> ".xyzz", glslType: Vec4, isSimple: x.isSimple, deps: x.deps }
+  | otherwise {- Vec4 -} = x
+
+
 simpleUnaryFunctionPure :: String -> GLSLType -> GLSLExpr -> GLSLExpr
 simpleUnaryFunctionPure funcName rType x = { string: funcName <> "(" <> x.string <> ")", glslType: rType, isSimple: x.isSimple, deps: x.deps }
 
@@ -96,3 +135,9 @@ dotSum x
   | x.glslType == Vec2 = { string: "dot(" <> x.string <> ",vec2(1.))", glslType: Float, isSimple: x.isSimple, deps: x.deps }
   | x.glslType == Vec3 = { string: "dot(" <> x.string <> ",vec3(1.))", glslType: Float, isSimple: x.isSimple, deps: x.deps }
   | otherwise = { string: "dot(" <> x.string <> ",vec4(1.))", glslType: Float, isSimple: x.isSimple, deps: x.deps }
+
+
+type Exprs = NonEmptyList GLSLExpr
+
+exprsChannels :: Exprs -> Int
+exprsChannels xs = foldl (+) 0 $ map exprChannels xs

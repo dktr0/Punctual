@@ -5,7 +5,7 @@ module GLSL where
 -- A fundamental goal is elegantly bridging the gap between GLSL's 4 basic float types
 -- and the multi-channel expressions of Punctual (which are not limited to 1-4 channels).
 
-import Prelude (pure,(<>),otherwise,bind,discard,show,(+),($),(==),(<<<),(>>=),(<$>))
+import Prelude (pure,(<>),otherwise,bind,discard,show,(+),($),(==),(<<<),(>>=),(<$>),(>))
 import Data.Map (Map,insert,empty)
 import Data.Maybe (Maybe(..))
 import Data.List (List,(:))
@@ -29,13 +29,13 @@ type GLSLState = {
 type GLSL = State GLSLState
 
 runGLSL :: forall a. Boolean -> GLSL a -> Tuple a GLSLState
-runGLSL webGl2 x = runState x { nextIndex: 0, exprs: empty, fxys: singleton { string:"_fxy()", glslType:Vec2, isSimple:true, deps:Set.empty}, imgMap: empty, vidMap: empty, webGl2 } 
+runGLSL webGl2 x = runState x { nextIndex: 0, exprs: empty, fxys: singleton { string:"_fxy()", glslType:Vec2, isSimple:true, deps:Set.empty}, imgMap: empty, vidMap: empty, webGl2 }
 
 assign :: GLSLExpr -> GLSL GLSLExpr
 assign x
   | x.isSimple = pure x -- don't assign/reassign expressions that are marked simple
   | otherwise = assignForced x
-  
+
 assignForced :: GLSLExpr -> GLSL GLSLExpr
 assignForced x = do
   s <- get
@@ -127,7 +127,7 @@ splitIntoFloats e
       z <- swizzleZ e'
       w <- swizzleW e'
       pure (x `cons` (y `cons` (z `cons` singleton w)))
-      
+
 unconsGLSL :: GLSLType -> NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
 unconsGLSL Float = unconsFloat
 unconsGLSL Vec2 = unconsVec2
@@ -183,7 +183,7 @@ unconsVec2 xs
   | _.glslType (head xs) == Vec2 = pure { head: head xs, tail: tail xs}
   | _.glslType (head xs) == Float = do
       case fromList (tail xs) of
-        Nothing -> pure { head: vec2unary (head xs), tail: tail xs}
+        Nothing -> pure { head: coerceVec2 (head xs), tail: tail xs}
         Just xs' -> do
           y <- unconsFloat xs'
           pure { head: vec2binary (head xs) y.head, tail: y.tail}
@@ -223,22 +223,22 @@ unconsVec3 xs
   | _.glslType (head xs) == Vec3 = pure { head: head xs, tail: tail xs}
   | _.glslType (head xs) == Float = do
       case fromList (tail xs) of
-        Nothing -> pure { head: vec3unary (head xs), tail: tail xs}
+        Nothing -> pure { head: coerceVec3 (head xs), tail: tail xs}
         Just xs' -> do
           y <- unconsVec2 xs'
           pure { head: vec3binary (head xs) y.head, tail: y.tail}
   | _.glslType (head xs) == Vec2 = do
       case fromList (tail xs) of
-        Nothing -> pure { head: vec3unary (head xs), tail: tail xs}
+        Nothing -> pure { head: coerceVec3 (head xs), tail: tail xs}
         Just xs' -> do
           y <- unconsFloat xs'
-          pure { head: vec3binary (head xs) y.head, tail: y.tail}  
+          pure { head: vec3binary (head xs) y.head, tail: y.tail}
   | otherwise {- Vec4 -} = do
       x <- assign $ head xs
       a <- swizzleXYZ x
       b <- swizzleW x
-      pure { head: a, tail: b : tail xs}      
-      
+      pure { head: a, tail: b : tail xs}
+
 unconsVec3NoExtend :: NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
 unconsVec3NoExtend xs
   | _.glslType (head xs) == Vec3 = pure { head: head xs, tail: tail xs}
@@ -260,8 +260,30 @@ unconsVec3NoExtend xs
       x <- assign (head xs)
       a <- swizzleXYZ x
       b <- swizzleW x
-      pure { head: a, tail: b : tail xs }        
-      
+      pure { head: a, tail: b : tail xs }
+
+unconsVec4 :: NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
+unconsVec4 xs
+  | _.glslType (head xs) == Vec4 = pure { head: head xs, tail: tail xs}
+  | _.glslType (head xs) == Float = do
+      case fromList (tail xs) of
+        Nothing -> pure { head: coerceVec4 (head xs), tail: tail xs}
+        Just xs' -> do
+          y <- unconsVec3 xs'
+          pure { head: vec4binary (head xs) y.head, tail: y.tail}
+  | _.glslType (head xs) == Vec2 = do
+      case fromList (tail xs) of
+        Nothing -> pure { head: coerceVec4 (head xs), tail: tail xs}
+        Just xs' -> do
+          y <- unconsVec2 xs'
+          pure { head: vec4binary (head xs) y.head, tail: y.tail}
+  | otherwise {- Vec3 -} = do
+      case fromList (tail xs) of
+        Nothing -> pure { head: coerceVec4 (head xs), tail: tail xs}
+        Just xs' -> do
+          y <- unconsFloat xs'
+          pure { head: vec4binary (head xs) y.head, tail: y.tail}
+
 unconsVec4NoExtend :: NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
 unconsVec4NoExtend xs
   | _.glslType (head xs) == Vec4 = pure { head: head xs, tail: tail xs}
@@ -288,7 +310,7 @@ unconsVec4NoExtend xs
             Float -> pure { head: vec2binary (head xs) y.head, tail: y.tail }
             Vec2 -> pure { head: vec3binary (head xs) y.head, tail: y.tail }
             _ {- Vec3 -} -> pure { head: vec4binary (head xs) y.head, tail: y.tail }
-            
+
 
 
 -- | alignRGBA aligns to groups of 4 channels (vec4) as follows:
@@ -311,18 +333,18 @@ exprRGBA x
   | otherwise {- Vec3 -} = pure $ vec4binary x one
 
 
-{-
-delete if alignRGBA works
-  | exprsChannels xs == 1 = return [ exprExprToVec4 (exprToVec3 (Prelude.head xs)) $ constantFloat 1.0 ]
-  | exprsChannels xs == 2 = do
-      x' <- align Vec2 xs >>= (assign . Prelude.head)
-      return [ exprExprToVec4 (exprExprToVec3 x' $ swizzleY x') $ constantFloat 1.0 ]
-  | exprsChannels xs == 3 = return [ exprExprToVec4 (Prelude.head xs) $ constantFloat 1.0]
-  | exprsChannels xs >= 4 = do
-      (y,ys) <- splitAligned Vec4 xs
-      ys' <- alignRGBA ys
-      return (y:ys')
--}
+-- given the head of two Exprs, find which one is the smaller type, and use that type to uncons both inputs
+unconsAligned :: Exprs -> Exprs -> GLSL { headX :: GLSLExpr, headY :: GLSLExpr, tailX :: List GLSLExpr, tailY :: List GLSLExpr }
+unconsAligned xs ys
+  | (head xs).glslType == (head ys).glslType = pure { headX: head xs, headY: head ys, tailX: tail xs, tailY: tail ys }
+  | (head xs).glslType > (head ys).glslType = do -- fracture larger head xs by smaller head ys type
+      xs' <- unconsGLSL (head ys).glslType xs
+      pure { headX: xs'.head, headY: head ys, tailX: xs'.tail, tailY: tail ys }
+  | otherwise = do -- fracture larger head ys by smaller head xs type
+      ys' <- unconsGLSL (head xs).glslType ys
+      pure { headX: head xs, headY: ys'.head, tailX: tail xs, tailY: ys'.tail }
+
+
 
 {-
 -- write code to the accumulated Builder without adding a new variable assignment
@@ -555,20 +577,4 @@ alignToModel (m:ms) xs = do
   xs'' <- alignToModel ms xs'
   return $ x' : xs''
 
-
--- texture access is always assigned to variable, since it is an expensive operation
--- note: position arguments are bipolar (an implicit/internal conversion to unipolar is baked in)
-texture2D :: Builder -> [GLSLExpr] -> GLSL [GLSLExpr]
-texture2D n xy = do
-  xy' <- align Vec2 xy
-  let f x = GLSLExpr Vec3 False $ "tex(" <> n <> "," <> builder x <> ")"
-  mapM assign $ fmap f xy'
-
-
--- used by Punctual's 'zip' operation
-zipGLSLExpr :: [GLSLExpr] -> [GLSLExpr] -> GLSL [GLSLExpr]
-zipGLSLExpr xs ys = do
-  xs' <- align GLFloat xs
-  ys' <- align GLFloat ys
-  pure $ Foldable.concat $ zipWith (\a b -> [a,b]) xs' ys' -- Haskell-style zip, excess elements in longer list discarded
-  -}
+-}

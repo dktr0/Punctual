@@ -14,10 +14,8 @@ import Data.FunctorWithIndex (mapWithIndex)
 
 import NonEmptyList
 import Signal (Signal(..),MultiMode(..))
-import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString)
+import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString,Exprs)
 import GLSL (GLSL,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignRGBA,runGLSL,withFxys)
-
-type Exprs = NonEmptyList GLSLExpr
 
 testCodeGen :: Boolean -> Signal -> String
 testCodeGen webGl2 x = assignments <> lastExprs
@@ -25,7 +23,7 @@ testCodeGen webGl2 x = assignments <> lastExprs
     (Tuple a st) = runGLSL webGl2 (signalToGLSL x)
     assignments = fold $ mapWithIndex indexedGLSLExprToString st.exprs
     lastExprs = fold $ map (\y -> y.string <> "\n") a
-    
+
 
 indexedGLSLExprToString :: Int -> GLSLExpr -> String
 indexedGLSLExprToString n x = glslTypeToString x.glslType <> " _" <> show n <> " = " <> x.string <> ";\n"
@@ -118,7 +116,7 @@ signalToGLSL (Fb xy) = signalToGLSL xy >>= unipolar >>= traverse assignForced >>
 signalToGLSL Cam = do
   s <- get
   traverse (texture2D "_fb") s.fxys
-  
+
 signalToGLSL (Img url) = do
   s <- get
   case lookup url s.imgMap of
@@ -163,10 +161,10 @@ signalToGLSL (LFSqr x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "
 
 signalToGLSL (Abs x) = signalToGLSL x >>= simpleUnaryFunction "abs"
 signalToGLSL (Acos x) = signalToGLSL x >>= simpleUnaryFunction "acos"
-signalToGLSL (Acosh x) = signalToGLSL x >>= acosh 
-signalToGLSL (AmpDb x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(20.*log(" <> s <> ")/log(10.))")  
+signalToGLSL (Acosh x) = signalToGLSL x >>= acosh
+signalToGLSL (AmpDb x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(20.*log(" <> s <> ")/log(10.))")
 signalToGLSL (Asin x) = signalToGLSL x >>= simpleUnaryFunction "asin"
-signalToGLSL (Asinh x) = signalToGLSL x >>= asinh 
+signalToGLSL (Asinh x) = signalToGLSL x >>= asinh
 signalToGLSL (Atan x) = signalToGLSL x >>= simpleUnaryFunction "atan"
 signalToGLSL (Atanh x) = signalToGLSL x >>= atanh
 signalToGLSL (Bipolar x) = signalToGLSL x >>= simpleUnaryExpression (\e -> "(" <> e <> "*2.-1.)")
@@ -189,30 +187,30 @@ signalToGLSL (Sin x) = signalToGLSL x >>= simpleUnaryFunction "sin"
 signalToGLSL (Sinh x) = signalToGLSL x >>= sinh
 signalToGLSL (Sqrt x) = signalToGLSL x >>= simpleUnaryFunction "sqrt"
 signalToGLSL (Tan x) = signalToGLSL x >>= simpleUnaryFunction "tan"
-signalToGLSL (Tanh x) = signalToGLSL x >>= tanh 
+signalToGLSL (Tanh x) = signalToGLSL x >>= tanh
 signalToGLSL (Trunc x) = signalToGLSL x >>= trunc
-signalToGLSL (Unipolar x) = signalToGLSL x >>= unipolar 
+signalToGLSL (Unipolar x) = signalToGLSL x >>= unipolar
 
 signalToGLSL (RtXy rt) = do
-  rts <- signalToGLSL rt >>= alignVec2 
+  rts <- signalToGLSL rt >>= alignVec2
   rs <- traverse swizzleX rts
   ts <- traverse swizzleY rts
   xs <- zipBinaryExpression (\r t -> "(" <> r <> "*cos(" <> t <> "))") rs ts
   ys <- zipBinaryExpression (\r t -> "(" <> r <> "*sin(" <> t <> "))") rs ts
   pure $ concat $ zipWith (\x y -> x `cons` singleton y) xs ys
-  
+
 signalToGLSL (RtX rt) = do
-  rts <- signalToGLSL rt >>= alignVec2 
+  rts <- signalToGLSL rt >>= alignVec2
   rs <- traverse swizzleX rts
   ts <- traverse swizzleY rts
   zipBinaryExpression (\r t -> "(" <> r <> "*cos(" <> t <> "))") rs ts
 
 signalToGLSL (RtY rt) = do
-  rts <- signalToGLSL rt >>= alignVec2 
+  rts <- signalToGLSL rt >>= alignVec2
   rs <- traverse swizzleX rts
   ts <- traverse swizzleY rts
   zipBinaryExpression (\r t -> "(" <> r <> "*sin(" <> t <> "))") rs ts
-  
+
 signalToGLSL (XyRt xy) = do
   xys <- signalToGLSL xy >>= alignVec2
   xs <- traverse swizzleX xys
@@ -226,13 +224,13 @@ signalToGLSL (XyR xy) = do
   xs <- traverse swizzleX xys
   ys <- traverse swizzleY xys
   zipBinaryExpression (\x y -> "sqrt((" <> x <> "*" <> x <> ")+(" <> y <> "*" <> y <> "))") xs ys
-  
+
 signalToGLSL (XyT xy) = do
   xys <- signalToGLSL xy >>= alignVec2
   xs <- traverse swizzleX xys
   ys <- traverse swizzleY xys
   zipBinaryExpression (\x y -> "atan(" <> x <> "," <> y <> ")") xs ys
-  
+
 signalToGLSL (Distance xy) = do
   fxys <- _.fxys <$> get
   xys <- signalToGLSL xy >>= alignVec2
@@ -258,31 +256,31 @@ signalToGLSL (SetFy y z) = do
   ys <- signalToGLSL y >>= alignFloat
   fxys <- abVec2Combinatorial (\fxy y' -> "vec2(" <> fxy <> ".x," <> y' <> ")") prevFxys ys
   withFxys fxys $ signalToGLSL z
-  
+
 signalToGLSL (Zoom xy z) = do
   prevFxys <- _.fxys <$> get
   xys <- signalToGLSL xy >>= alignVec2
   fxys <- abVec2Combinatorial (\fxy xy' -> "(" <> fxy <> "/" <> xy' <> ")") prevFxys xys
   withFxys fxys $ signalToGLSL z
-  
+
 signalToGLSL (Move xy z) = do
   prevFxys <- _.fxys <$> get
   xys <- signalToGLSL xy >>= alignFloat
   fxys <- abVec2Combinatorial (\fxy xy' -> "(" <> fxy <> "-" <> xy' <> ")") prevFxys xys
   withFxys fxys $ signalToGLSL z
-  
+
 signalToGLSL (Tile xy z) = do
   prevFxys <- _.fxys <$> get
   xys <- signalToGLSL xy >>= alignFloat
   fxys <- abVec2Combinatorial (\fxy xy' -> "tile(" <> xy' <> "," <> fxy <> ")") prevFxys xys
   withFxys fxys $ signalToGLSL z
-  
+
 signalToGLSL (Spin x z) = do
   prevFxys <- _.fxys <$> get
   xs <- signalToGLSL x >>= alignFloat
   fxys <- abVec2Combinatorial (\fxy x' -> "spin(" <> x' <> "," <> fxy <> ")") prevFxys xs
   withFxys fxys $ signalToGLSL z
-  
+
 signalToGLSL (Sum mm x y) = binaryArithmetic mm (\a b -> "(" <> a <> "+" <> b <> ")") x y
 
 
@@ -338,29 +336,22 @@ binaryArithmetic mm f x y = do
   case mm of
     Combinatorial -> binaryArithmeticCombinatorial f xs ys
     Pairwise -> binaryArithmeticCombinatorial f xs ys -- temporarily broken for compile test
-    
+
 {-
 binaryArithmeticPairwise :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
 binaryArithmeticPairWise f xs ys
+  -- no need to extend if either of the inputs is a single Float...
   | length xs == 1 && (head xs).glslType == Float = abbCombinatorial f xs ys
   | length ys == 1 && (head ys).glslType == Float = abaCombinatorial f xs ys
   | otherwise = do
-      ...extend xs and ys to equal length in channels...
+      -- extend xs and ys to equal length in channels
+      let n = max (exprsChannels xs) (exprsChannels ys)
+      xs' <- extend n xs
+      ys' <- extend n ys
       ...then align and combine with alignWith (likely defined in terms of unconsAligned below)
-      
-   working here: move unconsAligned to GLSL.purs, provide unconsVec4, and finish binaryArithmeticPairwise
+
+   working here: finish binaryArithmeticPairwise
 -}
- 
--- should be moved to GLSL.purs
-unconsAligned :: Exprs -> Exprs -> GLSL { headX :: GLSLExpr, headY: GLSLExpr, tailX :: Exprs, tailY :: Exprs }
-unconsAligned xs ys =
-  | (head xs).glslType == (head ys).glslType = pure { headX: head xs, headY: head ys, tailX: tail xs, tailY: tail ys }
-  | (head xs).glslType > (head ys).glslType = do -- fracture larger head xs by smaller head ys type
-      xs' <- unconsGLSL (head ys).glslType xs
-      pure { headX: xs'.head, headY: head ys, tailX: xs'.tail, tailY: tail ys }
-  | (head ys).glslType > (head xs).glslType = do -- fracture larger head ys by smaller head xs type
-      ys' <- unconsGLSL (head xs).glslType
-      pure { headX: head xs, headY: ys'.head, tailX: tail xs, tailY: ys'.tail }
 
 binaryArithmeticCombinatorial :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
 binaryArithmeticCombinatorial f xs ys = do
@@ -390,7 +381,7 @@ abaCombinatorial f xs ys = pure $ do -- in NonEmptyList monad
   x <- xs
   y <- ys
   pure { string: f x.string y.string, glslType:x.glslType, isSimple:false, deps: x.deps <> y.deps }
-  
+
 unipolar :: Exprs -> GLSL Exprs
 unipolar = simpleUnaryExpression (\s -> "(" <> s <> "*0.5+0.5)")
 
@@ -419,21 +410,21 @@ atanh xs = do
   s <- get
   case s.webGl2 of
     true -> simpleUnaryFunction "atanh" xs
-    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "(log((1.+" <> x <> ")/(" <> "1.-" <> x <> "))/2.)") 
+    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "(log((1.+" <> x <> ")/(" <> "1.-" <> x <> "))/2.)")
 
 cosh :: Exprs -> GLSL Exprs
 cosh xs = do
   s <- get
   case s.webGl2 of
     true -> simpleUnaryFunction "cosh" xs
-    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "((exp(" <> x <> ")+exp(" <> x <> "*-1.))/2.)") 
+    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "((exp(" <> x <> ")+exp(" <> x <> "*-1.))/2.)")
 
 sinh :: Exprs -> GLSL Exprs
 sinh xs = do
   s <- get
   case s.webGl2 of
     true -> simpleUnaryFunction "sinh" xs
-    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "((exp(" <> x <> ")-exp(" <> x <> "*-1.))/2.)") 
+    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "((exp(" <> x <> ")-exp(" <> x <> "*-1.))/2.)")
 
 tanh :: Exprs -> GLSL Exprs
 tanh xs = do
@@ -445,11 +436,10 @@ tanh xs = do
       sinhs <- sinh xs'
       coshs <- cosh xs'
       zipBinaryExpression (\x y -> "(" <> x <> "/" <> y <> ")") sinhs coshs
-       
+
 trunc :: Exprs -> GLSL Exprs
 trunc xs = do
   s <- get
   case s.webGl2 of
     true -> simpleUnaryFunction "trunc" xs
     false -> traverse assign xs >>= simpleUnaryExpression (\x -> "(floor(abs(" <> x <> "))*sign(" <> x <> "))")
-
