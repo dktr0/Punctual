@@ -350,7 +350,7 @@ binaryArithmeticPairWise f xs ys
       ys' <- extend n ys
       ...then align and combine with alignWith (likely defined in terms of unconsAligned below)
 
-   working here: finish binaryArithmeticPairwise
+   working here: finish binaryArithmeticPairwise by implementing alignWith
 -}
 
 binaryArithmeticCombinatorial :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
