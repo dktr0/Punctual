@@ -15,6 +15,7 @@ import Data.FunctorWithIndex (mapWithIndex)
 import NonEmptyList
 import Signal (Signal(..),MultiMode(..))
 import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels)
+import GLSLExpr as GLSLExpr
 import GLSL (GLSL,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignRGBA,runGLSL,withFxys,extend,zipWithAAA)
 
 testCodeGen :: Boolean -> Signal -> String
@@ -281,40 +282,45 @@ signalToGLSL (Spin x z) = do
   fxys <- abVec2Combinatorial (\fxy x' -> "spin(" <> x' <> "," <> fxy <> ")") prevFxys xs
   withFxys fxys $ signalToGLSL z
 
-signalToGLSL (Sum mm x y) = binaryArithmetic mm (\a b -> "(" <> a <> "+" <> b <> ")") x y
-
+signalToGLSL (Sum mm x y) = binaryFunction mm GLSLExpr.sum x y
+signalToGLSL (Difference mm x y) = binaryFunction mm GLSLExpr.difference x y
+signalToGLSL (Product mm x y) = binaryFunction mm GLSLExpr.product x y
+signalToGLSL (Division mm x y) = binaryFunction mm GLSLExpr.division x y
+signalToGLSL (Mod mm x y) = binaryFunction mm GLSLExpr.mod x y
+signalToGLSL (Pow mm x y) = binaryFunction mm GLSLExpr.pow x y
 
 {-
-  Difference MultiMode Signal Signal |
-  Product MultiMode Signal Signal |
-  Division MultiMode Signal Signal |
-  Mod MultiMode Signal Signal |
-  Pow MultiMode Signal Signal |
   Equal MultiMode Signal Signal |
   NotEqual MultiMode Signal Signal |
   GreaterThan MultiMode Signal Signal |
   GreaterThanOrEqual MultiMode Signal Signal |
   LessThan MultiMode Signal Signal |
   LessThanOrEqual MultiMode Signal Signal |
-  Max MultiMode Signal Signal |
-  Min MultiMode Signal Signal |
-  Gate MultiMode Signal Signal |
-  Circle Signal Signal |
-  Rect Signal Signal |
-  Clip Signal Signal |
-  Between Signal Signal |
-  VLine Signal Signal |
-  HLine Signal Signal |
-  Step Signal Signal |
-  IfThenElse Signal Signal Signal | -- no pathways for this exist yet in PureScript port, from the AST level up
-  ILine Signal Signal Signal |
-  Line Signal Signal Signal |
-  LinLin Signal Signal Signal |
-  Point Signal |
 -}
 
-signalToGLSL _ = pure $ singleton $ zero
+signalToGLSL (Max mm x y) = binaryFunction mm GLSLExpr.max x y
+signalToGLSL (Min mm x y) = binaryFunction mm GLSLExpr.min x y
 
+{-
+  Gate MultiMode Signal Signal |
+  Clip MultiMode Signal Signal |
+  Between MultiMode Signal Signal |
+  SmoothStep MultiMode Signal Signal |
+
+  Circle MultiMode Signal Signal |
+  Rect MultiMode Signal Signal |
+  VLine MultiMode Signal Signal |
+  HLine MultiMode Signal Signal |
+  ILine MultiMode Signal Signal Signal |
+  Line MultiMode Signal Signal Signal |
+  Point Signal |
+
+  Step Signal Signal |
+  IfThenElse Signal Signal Signal | -- no pathways for this exist yet in PureScript port, from the AST level up
+  LinLin Signal Signal Signal |
+-}  
+
+signalToGLSL _ = pure $ singleton $ zero
 
 simpleUnaryFunction :: String -> Exprs -> GLSL Exprs
 simpleUnaryFunction funcName = simpleUnaryExpression $ \x -> funcName <> "(" <> x <> ")"
@@ -329,19 +335,19 @@ unaryExpression f = traverse $ \x -> pure { string: f x.string, glslType: x.glsl
 zipBinaryExpression :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
 zipBinaryExpression f xs ys = pure $ zipWith (\x y -> { string: f x.string y.string, glslType:x.glslType, isSimple: false, deps: x.deps <> y.deps }) xs ys
 
-binaryArithmetic :: MultiMode -> (String -> String -> String) -> Signal -> Signal -> GLSL Exprs
-binaryArithmetic mm f x y = do
+binaryFunction :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Signal -> Signal -> GLSL Exprs
+binaryFunction mm f x y = do
   xs <- signalToGLSL x
   ys <- signalToGLSL y
   case mm of
-    Combinatorial -> binaryArithmeticCombinatorial f xs ys
-    Pairwise -> binaryArithmeticPairwise f xs ys -- temporarily broken for compile test
+    Combinatorial -> binaryFunctionCombinatorial f xs ys
+    Pairwise -> binaryFunctionPairwise f xs ys
 
-binaryArithmeticPairwise :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
-binaryArithmeticPairwise f xs ys
+binaryFunctionPairwise :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
+binaryFunctionPairwise f xs ys
   -- no need to extend if either of the inputs is a single Float...
-  | length xs == 1 && (head xs).glslType == Float = abbCombinatorial f xs ys
-  | length ys == 1 && (head ys).glslType == Float = abaCombinatorial f xs ys
+  | length xs == 1 && (head xs).glslType == Float = binaryFunctionCombinatorial f xs ys
+  | length ys == 1 && (head ys).glslType == Float = binaryFunctionCombinatorial f xs ys
   | otherwise = do
       -- extend xs and ys to equal length in channels
       let n = max (exprsChannels xs) (exprsChannels ys)
@@ -349,10 +355,13 @@ binaryArithmeticPairwise f xs ys
       ys' <- extend n ys
       zipWithAAA f xs' ys'
 
-binaryArithmeticCombinatorial :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
-binaryArithmeticCombinatorial f xs ys = do
+binaryFunctionCombinatorial :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
+binaryFunctionCombinatorial f xs ys = do
   xs' <- alignFloat xs
-  abbCombinatorial f xs' ys
+  pure $ do -- in NonEmptyList monad
+    x <- xs'
+    y <- ys
+    pure $ f x y
 
 abFloatCombinatorial :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
 abFloatCombinatorial f xs ys = pure $ do -- in NonEmptyList monad
@@ -365,18 +374,6 @@ abVec2Combinatorial f xs ys = pure $ do -- in NonEmptyList monad
   x <- xs
   y <- ys
   pure { string: f x.string y.string, glslType:Vec2, isSimple:false, deps: x.deps <> y.deps }
-
-abbCombinatorial :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
-abbCombinatorial f xs ys = pure $ do -- in NonEmptyList monad
-  x <- xs
-  y <- ys
-  pure { string: f x.string y.string, glslType:y.glslType, isSimple:false, deps: x.deps <> y.deps }
-
-abaCombinatorial :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
-abaCombinatorial f xs ys = pure $ do -- in NonEmptyList monad
-  x <- xs
-  y <- ys
-  pure { string: f x.string y.string, glslType:x.glslType, isSimple:false, deps: x.deps <> y.deps }
 
 unipolar :: Exprs -> GLSL Exprs
 unipolar = simpleUnaryExpression (\s -> "(" <> s <> "*0.5+0.5)")

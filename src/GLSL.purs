@@ -335,10 +335,10 @@ exprRGBA x
 
 -- given two Exprs, align them (without extending) using unconsAligned (larger types fractured to match smaller boundaries)
 -- then zip them with a binary function a -> a -> a
-zipWithAAA :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
+zipWithAAA :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
 zipWithAAA f xs ys = do
   r <- unconsAligned xs ys
-  let z = { string: f r.headX.string r.headY.string, glslType: r.headX.glslType, isSimple: false, deps: r.headX.deps <> r.headY.deps }
+  let z =  f r.headX r.headY
   case fromList r.tailX of
     Nothing -> pure $ singleton z
     Just tx -> do

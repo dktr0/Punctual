@@ -105,6 +105,11 @@ coerceVec4 x
   | x.glslType == Vec3 = { string: x.string <> ".xyzz", glslType: Vec4, isSimple: x.isSimple, deps: x.deps }
   | otherwise {- Vec4 -} = x
 
+coerce :: GLSLType -> GLSLExpr -> GLSLExpr
+coerce Float = coerceFloat
+coerce Vec2 = coerceVec2
+coerce Vec3 = coerceVec3
+coerce Vec4 = coerceVec4
 
 simpleUnaryFunctionPure :: String -> GLSLType -> GLSLExpr -> GLSLExpr
 simpleUnaryFunctionPure funcName rType x = { string: funcName <> "(" <> x.string <> ")", glslType: rType, isSimple: x.isSimple, deps: x.deps }
@@ -141,3 +146,77 @@ type Exprs = NonEmptyList GLSLExpr
 
 exprsChannels :: Exprs -> Int
 exprsChannels xs = foldl (+) 0 $ map exprChannels xs
+
+{-
+
+The functions below wrap binary GLSL functions and operators, polyfilling where necessary to provide 
+a standard model such that each function can be used with arguments of matching type, or with either argument as a float
+
+min, max - order irrelevant, arguments must be same type plus a variant in which second argument can be float (with any first argument)
+
+pow - arguments must be same type
+mod - order relevant, arguments must be same type plus a variant in which second argument can be float (with any first argument)
+comparisons - arguments must be same type, operator used for floats, function used for bigger types, need to cast back to float/vector
+-}
+
+
+-- for +-*/ the arguments (in GLSL) are the same type or either argument can be a float (regardless of the other argument)
+-- this is already the standard model
+glslArithmeticOperator :: String -> GLSLExpr -> GLSLExpr -> GLSLExpr
+glslArithmeticOperator o x y
+  | x.glslType == y.glslType = { string: "(" <> x.string <> o <> y.string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps  }
+  | x.glslType == Float = { string: "(" <> x.string <> o <> y.string <> ")", glslType: y.glslType, isSimple: false, deps: x.deps <> y.deps  }
+  | y.glslType == Float = { string: "(" <> x.string <> o <> y.string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps  }
+  | otherwise = { string: "!! Internal Punctual GLSL generation error in " <> o, glslType: Float, isSimple: false, deps: x.deps <> y.deps }
+
+sum :: GLSLExpr -> GLSLExpr -> GLSLExpr
+sum = glslArithmeticOperator "+"
+
+difference :: GLSLExpr -> GLSLExpr -> GLSLExpr
+difference = glslArithmeticOperator "-"
+
+product :: GLSLExpr -> GLSLExpr -> GLSLExpr
+product = glslArithmeticOperator "*"
+
+division :: GLSLExpr -> GLSLExpr -> GLSLExpr
+division = glslArithmeticOperator "/"
+
+-- arguments are same type or either can be a float, order is irrelevant
+minOrMax :: String -> GLSLExpr -> GLSLExpr -> GLSLExpr
+minOrMax f x y
+  | x.glslType == y.glslType = { string: f <> "(" <> x.string <> "," <> y.string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps  }
+  | y.glslType == Float = { string: f <> "(" <> x.string <> "," <> y.string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps  }
+  | x.glslType == Float = { string: f <> "(" <> y.string <> "," <> x.string <> ")", glslType: y.glslType, isSimple: false, deps: x.deps <> y.deps  }
+  | otherwise = { string: "!! Internal Punctual GLSL generation error in " <> f, glslType: Float, isSimple: false, deps: x.deps <> y.deps }
+
+min :: GLSLExpr -> GLSLExpr -> GLSLExpr
+min = minOrMax "min"
+  
+-- arguments are same type or either can be a float (this is a small polyfill beyond GLSL standard, puts min and max with arithmetic operators)
+max :: GLSLExpr -> GLSLExpr -> GLSLExpr
+max = minOrMax "max"
+  
+-- to polyfill pow and mod to the standard model, coerce unmatched float arguments to the other type (will simply be a cast)
+powOrMod :: String -> GLSLExpr -> GLSLExpr -> GLSLExpr
+powOrMod f x y
+  | x.glslType == y.glslType = { string: f <> "(" <> x.string <> "," <> y.string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps  }
+  | x.glslType == Float = { string: f <> "(" <> (coerce y.glslType x).string <> "," <> y.string <> ")", glslType: y.glslType, isSimple: false, deps: x.deps <> y.deps  }
+  | y.glslType == Float = { string: f <> "(" <> x.string <> "," <> (coerce x.glslType y).string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps  }
+  | otherwise = { string: "!! Internal Punctual GLSL generation error in " <> f, glslType: Float, isSimple: false, deps: x.deps <> y.deps }
+
+pow :: GLSLExpr -> GLSLExpr -> GLSLExpr
+pow = powOrMod "pow"
+  
+mod :: GLSLExpr -> GLSLExpr -> GLSLExpr
+mod = powOrMod "mod"
+
+{-
+equal :: GLSLExpr -> GLSLExpr -> GLSLExpr
+equal x y
+  | x.glslType == Float && y.glslType == Float = ...use the operator...
+  | x.glslType == y.glslType = ... use the function ...
+  | x.glslType == Float = ... cast x up to type of y and use the function ...
+  | y.glslType == Float = ... cast y up to type of x and use the function ...
+  | otherwise = ... error ...
+-}
+
