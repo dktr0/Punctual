@@ -333,6 +333,18 @@ exprRGBA x
       pure $ vec4ternary x y one
   | otherwise {- Vec3 -} = pure $ vec4binary x one
 
+-- given two Exprs, align them (without extending) using unconsAligned (larger types fractured to match smaller boundaries)
+-- then zip them with a binary function a -> a -> a
+zipWithAAA :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
+zipWithAAA f xs ys = do
+  r <- unconsAligned xs ys
+  let z = { string: f r.headX.string r.headY.string, glslType: r.headX.glslType, isSimple: false, deps: r.headX.deps <> r.headY.deps }
+  case fromList r.tailX of
+    Nothing -> pure $ singleton z
+    Just tx -> do
+      case fromList r.tailY of
+        Nothing -> pure $ singleton z
+        Just ty -> zipWithAAA f tx ty
 
 -- given the head of two Exprs, find which one is the smaller type, and use that type to uncons both inputs
 unconsAligned :: Exprs -> Exprs -> GLSL { headX :: GLSLExpr, headY :: GLSLExpr, tailX :: List GLSLExpr, tailY :: List GLSLExpr }
@@ -349,17 +361,17 @@ unconsAligned xs ys
 -- extend provided Exprs so that it has the specified number of channels, by repeating from the beginning
 -- (or cut off channels if the provided Exprs has more channels than requested)
 extend :: Int -> Exprs -> GLSL Exprs
-extend n xs 
+extend n xs
   | n == exprsChannels xs = pure xs
   | otherwise = do
       let m = ((n-1) / exprsChannels xs) + 1
       takeChannels n $ concat $ replicate1 m $ xs
-   
+
 -- take n channels from the provided Exprs, or just all of the provided Exprs if they have less channels than
 takeChannels :: Int -> Exprs -> GLSL Exprs
 takeChannels n xs
   | exprChannels (head xs) >= n = do -- pass-through or truncate if head of list is equal or larger than requested channels
-      case n of 
+      case n of
         1 -> pure $ singleton $ coerceFloat $ head xs
         2 -> pure $ singleton $ coerceVec2 $ head xs
         3 -> pure $ singleton $ coerceVec3 $ head xs
@@ -371,7 +383,7 @@ takeChannels n xs
         Just txs -> do
           txs' <- takeChannels (n - exprChannels x) txs
           pure $ x `cons` txs'
-        
+
 {-
 -- write code to the accumulated Builder without adding a new variable assignment
 write :: Builder -> GLSL ()

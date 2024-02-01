@@ -1,8 +1,8 @@
 module FragmentShader where
 
-import Prelude(($),pure,show,bind,(<>),(>>=),(<$>),(<<<),map)
+import Prelude(($),pure,show,bind,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max)
 import Data.Maybe (Maybe(..))
-import Data.List.NonEmpty (NonEmptyList,singleton,concat,fromList,zipWith,cons,head,tail)
+import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length)
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
 import Data.Foldable (fold,intercalate,foldM)
@@ -14,8 +14,8 @@ import Data.FunctorWithIndex (mapWithIndex)
 
 import NonEmptyList
 import Signal (Signal(..),MultiMode(..))
-import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString,Exprs)
-import GLSL (GLSL,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignRGBA,runGLSL,withFxys)
+import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels)
+import GLSL (GLSL,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignRGBA,runGLSL,withFxys,extend,zipWithAAA)
 
 testCodeGen :: Boolean -> Signal -> String
 testCodeGen webGl2 x = assignments <> lastExprs
@@ -335,11 +335,10 @@ binaryArithmetic mm f x y = do
   ys <- signalToGLSL y
   case mm of
     Combinatorial -> binaryArithmeticCombinatorial f xs ys
-    Pairwise -> binaryArithmeticCombinatorial f xs ys -- temporarily broken for compile test
+    Pairwise -> binaryArithmeticPairwise f xs ys -- temporarily broken for compile test
 
-{-
 binaryArithmeticPairwise :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
-binaryArithmeticPairWise f xs ys
+binaryArithmeticPairwise f xs ys
   -- no need to extend if either of the inputs is a single Float...
   | length xs == 1 && (head xs).glslType == Float = abbCombinatorial f xs ys
   | length ys == 1 && (head ys).glslType == Float = abaCombinatorial f xs ys
@@ -348,10 +347,7 @@ binaryArithmeticPairWise f xs ys
       let n = max (exprsChannels xs) (exprsChannels ys)
       xs' <- extend n xs
       ys' <- extend n ys
-      ...then align and combine with alignWith (likely defined in terms of unconsAligned below)
-
-   working here: finish binaryArithmeticPairwise by implementing alignWith
--}
+      zipWithAAA f xs' ys'
 
 binaryArithmeticCombinatorial :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
 binaryArithmeticCombinatorial f xs ys = do
