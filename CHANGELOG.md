@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.7.1:
+
+-bugfix affecting combinatorial geometrical transformations of arbitrary multichannel signals (ie. [x,y,z])
+
 0.4.7:
 
 -added smoothstep/smoothstepp

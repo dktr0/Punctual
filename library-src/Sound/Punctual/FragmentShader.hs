@@ -359,10 +359,12 @@ graphToGLSL _ _ _ = return [constantFloat 0]
 
 multiToGLSL :: AlignHint -> GraphEnv -> [Graph] -> GLSL [GLSLExpr]
 multiToGLSL _ _ [] = return [constantFloat 0.0]
-multiToGLSL ah env xs = do
-  xs' <- mapM (graphToGLSL ah env) xs
+multiToGLSL ah env@(m,fxys) xs = do
+  xs' <- forM fxys $ \fxy -> concat <$> mapM (graphToGLSL ah (m,[fxy])) xs
+--  xs' <- mapM (graphToGLSL ah env) xs -- [ [spin 0 fx,spin 1 fx], [spin 0 fy, spin 1 fy]]
   xs'' <- mapM (align GLFloat) xs' -- ?? is this intermediate alignment to float necessary?
-  alignHint ah $ concat $ multi xs''
+  alignHint ah $ concat xs''
+--  alignHint ah $ concat $ multi xs''
 
 
 unaryFunctionWithPosition :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> GLSL [GLSLExpr]
