@@ -49,7 +49,7 @@ testExpression :: String -> Either ParseError (Tuple Value PState)
 testExpression txt = do
   exp <- runParser txt expression1
   runP Map.empty $ parseExpression exp
-  
+
 astToListMaybeAction :: AST -> P (List (Maybe Action))
 astToListMaybeAction = traverse parseMaybeStatement
 
@@ -269,8 +269,8 @@ parseOperator p "==" = lift $ signalSignalSignal p $ Equal Combinatorial
 parseOperator p "/=" = lift $ signalSignalSignal p $ NotEqual Combinatorial
 parseOperator p ">" = lift $ signalSignalSignal p $ GreaterThan Combinatorial
 parseOperator p "<" = lift $ signalSignalSignal p $ LessThan Combinatorial
-parseOperator p ">=" = lift $ signalSignalSignal p $ GreaterThanOrEqual Combinatorial
-parseOperator p "<=" = lift $ signalSignalSignal p $ LessThanOrEqual Combinatorial
+parseOperator p ">=" = lift $ signalSignalSignal p $ GreaterThanEqual Combinatorial
+parseOperator p "<=" = lift $ signalSignalSignal p $ LessThanEqual Combinatorial
 parseOperator p "+:" = lift $ signalSignalSignal p $ Sum Pairwise
 parseOperator p "-:" = lift $ signalSignalSignal p $ Difference Pairwise
 parseOperator p "*:" = lift $ signalSignalSignal p $ Product Pairwise
@@ -281,8 +281,8 @@ parseOperator p "==:" = lift $ signalSignalSignal p $ Equal Pairwise
 parseOperator p "/=:" = lift $ signalSignalSignal p $ NotEqual Pairwise
 parseOperator p ">:" = lift $ signalSignalSignal p $ GreaterThan Pairwise
 parseOperator p "<:" = lift $ signalSignalSignal p $ LessThan Pairwise
-parseOperator p ">=:" = lift $ signalSignalSignal p $ GreaterThanOrEqual Pairwise
-parseOperator p "<=:" = lift $ signalSignalSignal p $ LessThanOrEqual Pairwise
+parseOperator p ">=:" = lift $ signalSignalSignal p $ GreaterThanEqual Pairwise
+parseOperator p "<=:" = lift $ signalSignalSignal p $ LessThanEqual Pairwise
 parseOperator p x = throwError $ ParseError ("internal error in Punctual: parseOperator called with unsupported operator " <> x) p
 
 

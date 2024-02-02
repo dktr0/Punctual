@@ -111,6 +111,12 @@ coerce Vec2 = coerceVec2
 coerce Vec3 = coerceVec3
 coerce Vec4 = coerceVec4
 
+forceCast :: GLSLType -> GLSLExpr -> GLSLExpr
+forceCast Float x = { string: "float(" <> x.string <> ")", glslType: Float, isSimple: x.isSimple, deps: x.deps }
+forceCast Vec2 x = { string: "vec2(" <> x.string <> ")", glslType: Vec2, isSimple: x.isSimple, deps: x.deps }
+forceCast Vec3 x = { string: "vec3(" <> x.string <> ")", glslType: Vec3, isSimple: x.isSimple, deps: x.deps }
+forceCast Vec4 x = { string: "vec4(" <> x.string <> ")", glslType: Vec4, isSimple: x.isSimple, deps: x.deps }
+
 simpleUnaryFunctionPure :: String -> GLSLType -> GLSLExpr -> GLSLExpr
 simpleUnaryFunctionPure funcName rType x = { string: funcName <> "(" <> x.string <> ")", glslType: rType, isSimple: x.isSimple, deps: x.deps }
 
@@ -148,17 +154,9 @@ exprsChannels :: Exprs -> Int
 exprsChannels xs = foldl (+) 0 $ map exprChannels xs
 
 {-
-
-The functions below wrap binary GLSL functions and operators, polyfilling where necessary to provide 
+The functions below wrap binary GLSL functions and operators, polyfilling where necessary to provide
 a standard model such that each function can be used with arguments of matching type, or with either argument as a float
-
-min, max - order irrelevant, arguments must be same type plus a variant in which second argument can be float (with any first argument)
-
-pow - arguments must be same type
-mod - order relevant, arguments must be same type plus a variant in which second argument can be float (with any first argument)
-comparisons - arguments must be same type, operator used for floats, function used for bigger types, need to cast back to float/vector
 -}
-
 
 -- for +-*/ the arguments (in GLSL) are the same type or either argument can be a float (regardless of the other argument)
 -- this is already the standard model
@@ -191,11 +189,11 @@ minOrMax f x y
 
 min :: GLSLExpr -> GLSLExpr -> GLSLExpr
 min = minOrMax "min"
-  
+
 -- arguments are same type or either can be a float (this is a small polyfill beyond GLSL standard, puts min and max with arithmetic operators)
 max :: GLSLExpr -> GLSLExpr -> GLSLExpr
 max = minOrMax "max"
-  
+
 -- to polyfill pow and mod to the standard model, coerce unmatched float arguments to the other type (will simply be a cast)
 powOrMod :: String -> GLSLExpr -> GLSLExpr -> GLSLExpr
 powOrMod f x y
@@ -206,17 +204,32 @@ powOrMod f x y
 
 pow :: GLSLExpr -> GLSLExpr -> GLSLExpr
 pow = powOrMod "pow"
-  
+
 mod :: GLSLExpr -> GLSLExpr -> GLSLExpr
 mod = powOrMod "mod"
 
-{-
-equal :: GLSLExpr -> GLSLExpr -> GLSLExpr
-equal x y
-  | x.glslType == Float && y.glslType == Float = ...use the operator...
-  | x.glslType == y.glslType = ... use the function ...
-  | x.glslType == Float = ... cast x up to type of y and use the function ...
-  | y.glslType == Float = ... cast y up to type of x and use the function ...
-  | otherwise = ... error ...
--}
+comparisonOperator :: String -> String -> GLSLExpr -> GLSLExpr -> GLSLExpr
+comparisonOperator o f x y
+  | x.glslType == Float && y.glslType == Float = { string: "float(" <> x.string <> o <> y.string <> ")", glslType: Float, isSimple: false, deps: x.deps <> y.deps }
+  | x.glslType == y.glslType = forceCast x.glslType { string: f <> "(" <> x.string <> "," <> y.string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps }
+  | x.glslType == Float = forceCast y.glslType { string: "(" <> (coerce y.glslType x).string <> o <> y.string <> ")", glslType: y.glslType, isSimple: false, deps: x.deps <> y.deps }
+  | y.glslType == Float = forceCast y.glslType { string: "(" <> x.string <> o <> (coerce x.glslType y).string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps }
+  | otherwise = { string: "!! Internal Punctual GLSL generation error in " <> f, glslType: Float, isSimple: false, deps: x.deps <> y.deps }
 
+equal :: GLSLExpr -> GLSLExpr -> GLSLExpr
+equal = comparisonOperator "==" "equal"
+
+notEqual :: GLSLExpr -> GLSLExpr -> GLSLExpr
+notEqual = comparisonOperator "!=" "notEqual"
+
+greaterThan :: GLSLExpr -> GLSLExpr -> GLSLExpr
+greaterThan = comparisonOperator ">" "greaterThan"
+
+greaterThanEqual :: GLSLExpr -> GLSLExpr -> GLSLExpr
+greaterThanEqual = comparisonOperator ">=" "greaterThanEqual"
+
+lessThan :: GLSLExpr -> GLSLExpr -> GLSLExpr
+lessThan = comparisonOperator "<" "lessThan"
+
+lessThanEqual :: GLSLExpr -> GLSLExpr -> GLSLExpr
+lessThanEqual = comparisonOperator "<=" "lessThanEqual"

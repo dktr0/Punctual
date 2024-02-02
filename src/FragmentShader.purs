@@ -288,16 +288,12 @@ signalToGLSL (Product mm x y) = binaryFunction mm GLSLExpr.product x y
 signalToGLSL (Division mm x y) = binaryFunction mm GLSLExpr.division x y
 signalToGLSL (Mod mm x y) = binaryFunction mm GLSLExpr.mod x y
 signalToGLSL (Pow mm x y) = binaryFunction mm GLSLExpr.pow x y
-
-{-
-  Equal MultiMode Signal Signal |
-  NotEqual MultiMode Signal Signal |
-  GreaterThan MultiMode Signal Signal |
-  GreaterThanOrEqual MultiMode Signal Signal |
-  LessThan MultiMode Signal Signal |
-  LessThanOrEqual MultiMode Signal Signal |
--}
-
+signalToGLSL (Equal mm x y) = binaryFunction mm GLSLExpr.equal x y
+signalToGLSL (NotEqual mm x y) = binaryFunction mm GLSLExpr.notEqual x y
+signalToGLSL (GreaterThan mm x y) = binaryFunction mm GLSLExpr.greaterThan x y
+signalToGLSL (GreaterThanEqual mm x y) = binaryFunction mm GLSLExpr.greaterThanEqual x y
+signalToGLSL (LessThan mm x y) = binaryFunction mm GLSLExpr.lessThan x y
+signalToGLSL (LessThanEqual mm x y) = binaryFunction mm GLSLExpr.lessThanEqual x y
 signalToGLSL (Max mm x y) = binaryFunction mm GLSLExpr.max x y
 signalToGLSL (Min mm x y) = binaryFunction mm GLSLExpr.min x y
 
@@ -318,7 +314,7 @@ signalToGLSL (Min mm x y) = binaryFunction mm GLSLExpr.min x y
   Step Signal Signal |
   IfThenElse Signal Signal Signal | -- no pathways for this exist yet in PureScript port, from the AST level up
   LinLin Signal Signal Signal |
--}  
+-}
 
 signalToGLSL _ = pure $ singleton $ zero
 

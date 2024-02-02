@@ -68,7 +68,7 @@ data Signal =
   Sqrt Signal |
   Tan Signal |
   Tanh Signal |
-  Trunc Signal |  
+  Trunc Signal |
   -- other unary functions
   RtXy Signal | -- polar to cartesian conversion
   RtX Signal | -- x = r * cos theta
@@ -95,9 +95,9 @@ data Signal =
   Equal MultiMode Signal Signal |
   NotEqual MultiMode Signal Signal |
   GreaterThan MultiMode Signal Signal |
-  GreaterThanOrEqual MultiMode Signal Signal |
+  GreaterThanEqual MultiMode Signal Signal |
   LessThan MultiMode Signal Signal |
-  LessThanOrEqual MultiMode Signal Signal |
+  LessThanEqual MultiMode Signal Signal |
   Max MultiMode Signal Signal |
   Min MultiMode Signal Signal |
   Gate MultiMode Signal Signal |
@@ -131,15 +131,15 @@ modulatedRangeLowHigh :: Signal -> Signal -> Signal -> Signal
 modulatedRangeLowHigh low high x = LinLin (SignalList $ Constant (-1.0):Constant 1.0:Nil) (SignalList $ low:high:Nil) x
 
 modulatedRangePlusMinus :: Signal -> Signal -> Signal -> Signal
-modulatedRangePlusMinus a b = modulatedRangeLowHigh low high 
+modulatedRangePlusMinus a b = modulatedRangeLowHigh low high
   where
     low = Product Combinatorial a (Difference Pairwise (Constant 1.0) b)
     high = Product Combinatorial a (Sum Pairwise (Constant 1.0) b)
-    
+
 fit :: Signal -> Signal -> Signal
 fit ar x = IfThenElse cond ifTrue ifFalse
   where
-    cond = GreaterThanOrEqual Combinatorial Aspect ar
+    cond = GreaterThanEqual Combinatorial Aspect ar
     ifTrue = Zoom (SignalList $ Division Pairwise ar Aspect : Constant 1.0 : Nil) x
     ifFalse = Zoom (SignalList $ Constant 1.0 : Division Pairwise Aspect ar : Nil) x
 
@@ -159,15 +159,15 @@ newtype SignalInfo = SignalInfo {
   imgURLs :: Set String,
   vidURLs :: Set String
   }
-  
+
 derive instance Eq SignalInfo
 derive instance Generic SignalInfo _
 derive instance Newtype SignalInfo _
 instance Show SignalInfo where
   show = genericShow
-  
+
 instance Semigroup SignalInfo where
-  append (SignalInfo x) (SignalInfo y) = SignalInfo { 
+  append (SignalInfo x) (SignalInfo y) = SignalInfo {
     needsWebCam: x.needsWebCam || y.needsWebCam,
     needsAudioInputAnalysis: x.needsAudioInputAnalysis || y.needsAudioInputAnalysis,
     needsAudioOutputAnalysis: x.needsAudioOutputAnalysis || y.needsAudioOutputAnalysis,
@@ -197,7 +197,7 @@ signalInfo (FFT x) = SignalInfo { needsWebCam: false, needsAudioInputAnalysis: f
 signalInfo (Img x) = SignalInfo { needsWebCam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: false, imgURLs: singleton x, vidURLs: mempty }
 signalInfo (Vid x) = SignalInfo { needsWebCam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: singleton x }
 signalInfo x = foldMap signalInfo $ subSignals x
-    
+
 -- given a Signal return the list of the component Signals it is dependent on
 -- for example, Sum x y is dependent on x and y, Bipolar x is dependent on x
 subSignals :: Signal -> List Signal
@@ -280,9 +280,9 @@ subSignals (Pow _ x y) = x:y:Nil
 subSignals (Equal _ x y) = x:y:Nil
 subSignals (NotEqual _ x y) = x:y:Nil
 subSignals (GreaterThan _ x y) = x:y:Nil
-subSignals (GreaterThanOrEqual _ x y) = x:y:Nil
+subSignals (GreaterThanEqual _ x y) = x:y:Nil
 subSignals (LessThan _ x y) = x:y:Nil
-subSignals (LessThanOrEqual _ x y) = x:y:Nil
+subSignals (LessThanEqual _ x y) = x:y:Nil
 subSignals (Max _ x y) = x:y:Nil
 subSignals (Min _ x y) = x:y:Nil
 subSignals (Gate _ x y) = x:y:Nil
@@ -303,5 +303,3 @@ subSignals (HPF _ x y z) = x:y:z:Nil
 subSignals (BPF _ x y z) = x:y:z:Nil
 subSignals (Delay _ x y)  = x:y:Nil
 subSignals _ = Nil
-
-
