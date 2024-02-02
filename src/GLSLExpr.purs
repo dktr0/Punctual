@@ -233,3 +233,8 @@ lessThan = comparisonOperator "<" "lessThan"
 
 lessThanEqual :: GLSLExpr -> GLSLExpr -> GLSLExpr
 lessThanEqual = comparisonOperator "<=" "lessThanEqual"
+
+-- caller should assign y because of the reuse of y in this definition
+gate :: GLSLExpr -> GLSLExpr -> GLSLExpr
+gate x y = product (lessThan x y) y
+

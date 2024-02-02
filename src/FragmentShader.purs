@@ -297,8 +297,14 @@ signalToGLSL (LessThanEqual mm x y) = binaryFunction mm GLSLExpr.lessThanEqual x
 signalToGLSL (Max mm x y) = binaryFunction mm GLSLExpr.max x y
 signalToGLSL (Min mm x y) = binaryFunction mm GLSLExpr.min x y
 
+signalToGLSL (Gate mm x y) = do
+  xs <- signalToGLSL x
+  ys <- signalToGLSL y >>= traverse assign
+  case mm of
+    Combinatorial -> binaryFunctionCombinatorial GLSLExpr.gate xs ys     
+    Pairwise -> binaryFunctionPairwise GLSLExpr.gate xs ys
+
 {-
-  Gate MultiMode Signal Signal |
   Clip MultiMode Signal Signal |
   Between MultiMode Signal Signal |
   SmoothStep MultiMode Signal Signal |
