@@ -308,6 +308,23 @@ signalToGLSL (Clip mm r x) = clipEtcFunction mm GLSLExpr.clip r x
 signalToGLSL (Between mm r x) = clipEtcFunction mm GLSLExpr.between r x
 signalToGLSL (SmoothStep mm r x) = clipEtcFunction mm GLSLExpr.smoothstep r x
 
+signalToGLSL (Circle mm xy d) = do
+  fxys <- _.fxys <$> get
+  xy' <- signalToGLSL xy >>= alignVec2
+  d' <- signalToGLSL d >>= alignFloat
+
+-- assume fxys above is 4 x Vec2
+-- then xy' will also be 4 x whatever it would be if there was one fxy
+-- and d' will also be 4 x whatever it would be if there was one fxy
+-- in otherwords, the combinatoriality with respect to geometry transformations has already happened
+
+
+
+     GLSLExpr.circle fxy xy d
+
+
+spin [0,1] [fx,fy] => [spin 0 fx, spin 0 fy, spin 1 fx, spin 1 fy]
+zoom [0.3,0.6] $ spin [0,1] [fx,fy] => [zoom 0.3 $ spin 0 fx, zoom 0.3 $ spin 0 fy, 
 
 {-
   Circle MultiMode Signal Signal |
