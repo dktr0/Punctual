@@ -304,43 +304,12 @@ signalToGLSL (Gate mm x y) = do
     Combinatorial -> binaryFunctionCombinatorial GLSLExpr.gate xs ys     
     Pairwise -> binaryFunctionPairwise GLSLExpr.gate xs ys
 
-signalToGLSL (Clip mm r x) = do
-  rs <- signalToGLSL r >>= alignVec2 >>= traverse assign
-  xs <- signalToGLSL x
-  case mm of
-    Combinatorial -> pure $ do -- in NonEmptyList monad
-      r' <- rs
-      x' <- xs
-      pure $ GLSLExpr.clip r' x'
-    Pairwise -> do
-      case length rs == 1 of
-        true -> pure $ map (GLSLExpr.clip (head rs)) xs
-        false -> do
-          let n = max (length rs) (exprsChannels xs)
-          let rs' = extendByRepetition n rs -- extend rs so that it has n *elements*
-          xs' <- extend n xs -- extend xs so that it has n *channels*
-          zipWithAAA GLSLExpr.clip rs' xs'
-        
-signalToGLSL (Between mm r x) = do
-  rs <- signalToGLSL r >>= alignVec2 >>= traverse assign
-  xs <- signalToGLSL x
-  case mm of
-    Combinatorial -> pure $ do -- in NonEmptyList monad
-      r' <- rs
-      x' <- xs
-      pure $ GLSLExpr.between r' x'
-    Pairwise -> do
-      case length rs == 1 of
-        true -> pure $ map (GLSLExpr.between (head rs)) xs
-        false -> do
-          let n = max (length rs) (exprsChannels xs)
-          let rs' = extendByRepetition n rs -- extend rs so that it has n *elements*
-          xs' <- extend n xs -- extend xs so that it has n *channels*
-          zipWithAAA GLSLExpr.between rs' xs'
-    
-{-
-  SmoothStep MultiMode Signal Signal |
+signalToGLSL (Clip mm r x) = clipEtcFunction mm GLSLExpr.clip r x
+signalToGLSL (Between mm r x) = clipEtcFunction mm GLSLExpr.between r x
+signalToGLSL (SmoothStep mm r x) = clipEtcFunction mm GLSLExpr.smoothstep r x
 
+
+{-
   Circle MultiMode Signal Signal |
   Rect MultiMode Signal Signal |
   VLine MultiMode Signal Signal |
@@ -397,6 +366,24 @@ binaryFunctionCombinatorial f xs ys = do
     y <- ys
     pure $ f x y
 
+clipEtcFunction :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Signal -> Signal -> GLSL Exprs
+clipEtcFunction mm f r x = do
+  rs <- signalToGLSL r >>= alignVec2 >>= traverse assign
+  xs <- signalToGLSL x
+  case mm of
+    Combinatorial -> pure $ do -- in NonEmptyList monad
+      r' <- rs
+      x' <- xs
+      pure $ f r' x'
+    Pairwise -> do
+      case length rs == 1 of
+        true -> pure $ map (f (head rs)) xs
+        false -> do
+          let n = max (length rs) (exprsChannels xs)
+          let rs' = extendByRepetition n rs -- extend rs so that it has n *elements*
+          xs' <- extend n xs -- extend xs so that it has n *channels*
+          zipWithAAA f rs' xs'
+            
 abFloatCombinatorial :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
 abFloatCombinatorial f xs ys = pure $ do -- in NonEmptyList monad
   x <- xs

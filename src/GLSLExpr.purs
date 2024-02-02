@@ -260,4 +260,13 @@ between r x
         guaranteedMin = "min(" <> r1 <> "," <> r2 <> ")"
         guaranteedMax = "max(" <> r1 <> "," <> r2 <> ")"
         s = "(step(" <> guaranteedMin <> "," <> x.string <> ")*(1.-step(" <> guaranteedMax <> "," <> x.string <> ")))"
-      
+
+-- first argument must be Vec2 and should be pre-assigned because of multiple use within this definition
+smoothstep :: GLSLExpr -> GLSLExpr -> GLSLExpr
+smoothstep r x
+  | r.glslType /= Vec2 = { string: "!! Internal Punctual GLSL generation error in smoothstep", glslType: Float, isSimple: false, deps: r.deps <> x.deps }
+  | otherwise = { string: "smoothstep(" <> r1 <> "," <> r2 <> "," <> x.string <> ")", glslType: x.glslType, isSimple: false, deps: r.deps <> x.deps }
+      where 
+        r1 = r.string <> ".x"
+        r2 = r.string <> ".y"
+
