@@ -3,7 +3,7 @@ module FragmentShader where
 import Prelude(($),pure,show,bind,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max)
 import Data.Maybe (Maybe(..))
 import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length)
-import Data.Traversable (traverse)
+import Data.Traversable (traverse,for)
 import Data.Tuple (Tuple(..))
 import Data.Foldable (fold,intercalate,foldM)
 import Data.Set as Set
@@ -23,7 +23,7 @@ testCodeGen webGl2 x = assignments <> lastExprs
   where
     (Tuple a st) = runGLSL webGl2 (signalToGLSL x)
     assignments = fold $ mapWithIndex indexedGLSLExprToString st.exprs
-    lastExprs = fold $ map (\y -> y.string <> "\n") a
+    lastExprs = fold $ map (\y -> y.string <> " :: " <> show y.glslType <> "\n") a
 
 
 indexedGLSLExprToString :: Int -> GLSLExpr -> String
@@ -310,31 +310,28 @@ signalToGLSL (SmoothStep mm r x) = clipEtcFunction mm GLSLExpr.smoothstep r x
 
 signalToGLSL (Circle mm xy d) = do
   fxys <- _.fxys <$> get
-  xy' <- signalToGLSL xy >>= alignVec2
-  d' <- signalToGLSL d >>= alignFloat
+  exprss <- for fxys $ \fxy -> do
+    xys <- signalToGLSL xy >>= alignVec2
+    ds <- case mm of
+            Combinatorial -> signalToGLSL d
+            Pairwise -> signalToGLSL d >>= alignFloat
+    combineExprs mm (GLSLExpr.circle fxy) xys ds
+  traverse assign $ concat exprss
 
--- assume fxys above is 4 x Vec2
--- then xy' will also be 4 x whatever it would be if there was one fxy
--- and d' will also be 4 x whatever it would be if there was one fxy
--- in otherwords, the combinatoriality with respect to geometry transformations has already happened
-
-
-
-     GLSLExpr.circle fxy xy d
-
-
-spin [0,1] [fx,fy] => [spin 0 fx, spin 0 fy, spin 1 fx, spin 1 fy]
-zoom [0.3,0.6] $ spin [0,1] [fx,fy] => [zoom 0.3 $ spin 0 fx, zoom 0.3 $ spin 0 fy, 
-
+signalToGLSL (Rect mm xy wh) = do
+  fxys <- _.fxys <$> get
+  exprss <- for fxys $ \fxy -> do
+    xys <- signalToGLSL xy >>= alignVec2
+    whs <- signalToGLSL wh >>= alignVec2
+    combineExprs mm (GLSLExpr.rect fxy) xys whs
+  traverse assign $ concat exprss
+  
 {-
-  Circle MultiMode Signal Signal |
-  Rect MultiMode Signal Signal |
   VLine MultiMode Signal Signal |
   HLine MultiMode Signal Signal |
   ILine MultiMode Signal Signal Signal |
   Line MultiMode Signal Signal Signal |
   Point Signal |
-
   Step Signal Signal |
   IfThenElse Signal Signal Signal | -- no pathways for this exist yet in PureScript port, from the AST level up
   LinLin Signal Signal Signal |
@@ -382,6 +379,18 @@ binaryFunctionCombinatorial f xs ys = do
     x <- xs'
     y <- ys
     pure $ f x y
+
+combineExprs :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
+combineExprs Combinatorial f xs ys = pure $ do -- in NonEmptyList monad
+  x <- xs
+  y <- ys
+  pure $ f x y
+combineExprs Pairwise f xs ys = do
+  let n = max (length xs) (length ys)
+  let xs' = extendByRepetition n xs
+  let ys' = extendByRepetition n ys
+  pure $ zipWith f xs' ys'
+ 
 
 clipEtcFunction :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Signal -> Signal -> GLSL Exprs
 clipEtcFunction mm f r x = do

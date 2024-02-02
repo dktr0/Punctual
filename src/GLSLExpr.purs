@@ -270,10 +270,15 @@ smoothstep r x
         r1 = r.string <> ".x"
         r2 = r.string <> ".y"
 
-circle :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 AnyType (no reuse of any arguments, so no inherent need to pre-assign them)
+circle :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 Any -> Any (no reuse of any arguments, so no inherent need to pre-assign them)
 circle fxy xy d 
   | fxy.glslType /= Vec2 || xy.glslType /= Vec2 = { string: "!! Internal Punctual GLSL generation error in circle", glslType: Float, isSimple: false, deps: fxy.deps <> xy.deps <> d.deps }
   | otherwise = { string: s, glslType: d.glslType, isSimple: false, deps: fxy.deps <> xy.deps <> d.deps }
       where s = "smoothstep(1.5/(width+height),0.0,distance(" <> fxy.string <> "," <> xy.string <> ")-(" <> d.string <> "*0.5))"
       
+-- TODO: will need to add rect function to fragment shader header
+rect :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 Vec2 -> Float (no reuse of any arguments, so no inherent need to pre-assign them)
+rect fxy xy wh 
+  | fxy.glslType /= Vec2 || xy.glslType /= Vec2 = { string: "!! Internal Punctual GLSL generation error in rect", glslType: Float, isSimple: false, deps: fxy.deps <> xy.deps <> wh.deps }
+  | otherwise = { string: "rect(" <> fxy.string <> "," <> xy.string <> "," <> wh.string <> ")", glslType: Float, isSimple: false, deps: fxy.deps <> xy.deps <> wh.deps }
 
