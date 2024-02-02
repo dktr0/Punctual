@@ -4,7 +4,7 @@ module GLSLExpr where
 -- while keeping track of whether an expression is simple (and thus might avoid assignment),
 -- it's type (and thus number of channels), and its dependency on any previously declared variables
 
-import Prelude (class Eq, class Ord, class Show,(<>),(==),otherwise,(&&),($),map,(+))
+import Prelude (class Eq, class Ord, class Show,(<>),(==),(/=),otherwise,(&&),($),map,(+))
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.Set (Set,empty)
@@ -238,3 +238,26 @@ lessThanEqual = comparisonOperator "<=" "lessThanEqual"
 gate :: GLSLExpr -> GLSLExpr -> GLSLExpr
 gate x y = product (lessThan x y) y
 
+-- first argument must be Vec2 and should be pre-assigned because of multiple use within this definition
+clip :: GLSLExpr -> GLSLExpr -> GLSLExpr
+clip r x
+  | r.glslType /= Vec2 = { string: "!! Internal Punctual GLSL generation error in clip", glslType: Float, isSimple: false, deps: r.deps <> x.deps }
+  | otherwise = { string: "clamp(" <> x.string <> "," <> guaranteedMin <> "," <> guaranteedMax <> ")", glslType: x.glslType, isSimple: false, deps: r.deps <> x.deps }
+      where 
+        r1 = r.string <> ".x"
+        r2 = r.string <> ".y"
+        guaranteedMin = "min(" <> r1 <> "," <> r2 <> ")"
+        guaranteedMax = "max(" <> r1 <> "," <> r2 <> ")"
+
+-- first argument must be Vec2 and should be pre-assigned because of multiple use within this definition
+between :: GLSLExpr -> GLSLExpr -> GLSLExpr
+between r x
+  | r.glslType /= Vec2 = { string: "!! Internal Punctual GLSL generation error in between", glslType: Float, isSimple: false, deps: r.deps <> x.deps }
+  | otherwise = { string: s, glslType: x.glslType, isSimple: false, deps: r.deps <> x.deps }
+      where 
+        r1 = r.string <> ".x"
+        r2 = r.string <> ".y"
+        guaranteedMin = "min(" <> r1 <> "," <> r2 <> ")"
+        guaranteedMax = "max(" <> r1 <> "," <> r2 <> ")"
+        s = "(step(" <> guaranteedMin <> "," <> x.string <> ")*(1.-step(" <> guaranteedMax <> "," <> x.string <> ")))"
+      

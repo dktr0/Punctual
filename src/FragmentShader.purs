@@ -304,9 +304,41 @@ signalToGLSL (Gate mm x y) = do
     Combinatorial -> binaryFunctionCombinatorial GLSLExpr.gate xs ys     
     Pairwise -> binaryFunctionPairwise GLSLExpr.gate xs ys
 
+signalToGLSL (Clip mm r x) = do
+  rs <- signalToGLSL r >>= alignVec2 >>= traverse assign
+  xs <- signalToGLSL x
+  case mm of
+    Combinatorial -> pure $ do -- in NonEmptyList monad
+      r' <- rs
+      x' <- xs
+      pure $ GLSLExpr.clip r' x'
+    Pairwise -> do
+      case length rs == 1 of
+        true -> pure $ map (GLSLExpr.clip (head rs)) xs
+        false -> do
+          let n = max (length rs) (exprsChannels xs)
+          let rs' = extendByRepetition n rs -- extend rs so that it has n *elements*
+          xs' <- extend n xs -- extend xs so that it has n *channels*
+          zipWithAAA GLSLExpr.clip rs' xs'
+        
+signalToGLSL (Between mm r x) = do
+  rs <- signalToGLSL r >>= alignVec2 >>= traverse assign
+  xs <- signalToGLSL x
+  case mm of
+    Combinatorial -> pure $ do -- in NonEmptyList monad
+      r' <- rs
+      x' <- xs
+      pure $ GLSLExpr.between r' x'
+    Pairwise -> do
+      case length rs == 1 of
+        true -> pure $ map (GLSLExpr.between (head rs)) xs
+        false -> do
+          let n = max (length rs) (exprsChannels xs)
+          let rs' = extendByRepetition n rs -- extend rs so that it has n *elements*
+          xs' <- extend n xs -- extend xs so that it has n *channels*
+          zipWithAAA GLSLExpr.between rs' xs'
+    
 {-
-  Clip MultiMode Signal Signal |
-  Between MultiMode Signal Signal |
   SmoothStep MultiMode Signal Signal |
 
   Circle MultiMode Signal Signal |
