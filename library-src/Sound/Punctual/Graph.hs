@@ -20,8 +20,6 @@ data Graph =
   Px | Py | Aspect |
   Fx | Fy | Fxy | -- cartesian coordinates of current fragment
   FRt | FR | FT | -- polar coordinates of current fragment
-  SetFx Graph Graph | SetFy Graph Graph | SetFxy Graph Graph |
-  Zoom Graph Graph | Move Graph Graph | Tile Graph Graph | Spin Graph Graph |
   Lo | Mid | Hi | ILo | IMid | IHi |
   Cps | Time | Beat | EBeat | ETime |
   Rnd |
@@ -97,19 +95,29 @@ data Graph =
   Max MultiMode Graph Graph |
   Min MultiMode Graph Graph |
   Gate MultiMode Graph Graph |
-  Circle Graph Graph |
-  Rect Graph Graph |
-  Clip Graph Graph |
-  Between Graph Graph |
-  VLine Graph Graph |
-  HLine Graph Graph |
-  Step [Graph] Graph |
+  Circle MultiMode Graph Graph |
+  Rect MultiMode Graph Graph |
+  VLine MultiMode Graph Graph |
+  HLine MultiMode Graph Graph |
+  ILine MultiMode Graph Graph Graph |
+  Line MultiMode Graph Graph Graph |
+  Clip MultiMode Graph Graph |
+  SmoothStep MultiMode Graph Graph |
+  Between MultiMode Graph Graph |
+  SetFx Graph Graph |
+  SetFy Graph Graph |
+  SetFxy Graph Graph |
+  Zoom Graph Graph |
+  Move Graph Graph |
+  Tile Graph Graph |
+  Spin Graph Graph |
+  Delay MultiMode Double Graph Graph |
+  LinLin MultiMode Graph Graph Graph |
+  LPF MultiMode Graph Graph Graph |
+  HPF MultiMode Graph Graph Graph |
+  BPF MultiMode Graph Graph Graph |
   IfThenElse Graph Graph Graph |
-  ILine Graph Graph Graph |
-  Line Graph Graph Graph |
-  LinLin Graph Graph Graph |
-  LPF Graph Graph Graph | HPF Graph Graph Graph | BPF Graph Graph Graph |
-  Delay Double Graph Graph
+  Step [Graph] Graph
   deriving (Show,Eq,Generic,NFData)
 
 instance Num Graph where
@@ -129,11 +137,11 @@ instance Fractional Graph where
 when :: Graph -> Graph -> Graph
 when x y = IfThenElse x y 0
 
-modulatedRangeGraph :: Graph -> Graph -> Graph -> Graph
-modulatedRangeGraph low high m = LinLin (Multi [-1,1]) (Multi [low,high]) m
+modulatedRangeLowHigh :: MultiMode -> Graph -> Graph -> Graph -> Graph
+modulatedRangeLowHigh mm low high x = LinLin mm (Multi [-1,1]) (Multi [low,high]) x
 
-(+-) :: Graph -> Graph -> Graph -> Graph
-a +- b = modulatedRangeGraph (a - (a*b)) (a + (a*b))
+modulatedRangePlusMinus :: MultiMode -> Graph -> Graph -> Graph -> Graph
+modulatedRangePlusMinus mm a b = modulatedRangeLowHigh mm (a - (a*b)) (a + (a*b))
 
 fit :: Graph -> Graph -> Graph
 fit ar x = IfThenElse ((GreaterThanOrEqual Combinatorial) Aspect ar) (Zoom (Multi [ar/Aspect,1]) $ x) (Zoom (Multi [1,Aspect/ar]) $ x)

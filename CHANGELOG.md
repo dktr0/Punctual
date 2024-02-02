@@ -1,5 +1,21 @@
 # ChangeLog
 
+0.4.7.1:
+
+-bugfix affecting combinatorial geometrical transformations of arbitrary multichannel signals (ie. [x,y,z])
+
+0.4.7:
+
+-added smoothstep/smoothstepp
+
+0.4.4.9:
+
+-fixed bugs affecting between, betweenp, clip, and clipp
+
+0.4.4.8:
+
+-added pairwise variants: circlep, rectp, vlinep, hlinep, linep, ilinep, clipp, betweenp, lpfp, hpfp, bpfp, ~~:, +=:, linlinp
+
 0.4.4.7:
 
 -added pairwise variants of max, min, and gate (maxp, minp, gatep)

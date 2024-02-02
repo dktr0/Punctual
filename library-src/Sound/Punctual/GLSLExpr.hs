@@ -245,6 +245,10 @@ distance x y = binaryFunction "distance" GLFloat x y
 smoothstep :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
 smoothstep edge0 edge1 x = ternaryFunction "smoothstep" (glslType x) edge0 edge1 x
 
+-- a variant in which the edges come in as one vec2 only (x can be any type)
+smoothstep' :: GLSLExpr -> GLSLExpr -> GLSLExpr
+smoothstep' edges x = GLSLExpr (glslType x) False $ "smoothstep(" <> builder (swizzleX edges) <> "," <> builder (swizzleY edges) <> "," <> builder x <> ")" 
+
 glslMin :: GLSLExpr -> GLSLExpr -> GLSLExpr
 glslMin = binaryFunctionMatched "min"
 

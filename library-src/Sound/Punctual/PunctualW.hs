@@ -229,15 +229,16 @@ optimize (LessThanOrEqual mm x y) = optimize' $ LessThanOrEqual mm (optimize x) 
 optimize (Max mm x y) = optimize' $ Max mm (optimize x) (optimize y)
 optimize (Min mm x y) = optimize' $ Min mm (optimize x) (optimize y)
 optimize (Gate mm x y) = optimize' $ Gate mm (optimize x) (optimize y)
-optimize (Clip x y) = optimize' $ Clip (optimize x) (optimize y)
-optimize (Between x y) = optimize' $ Between (optimize x) (optimize y)
+optimize (Clip mm x y) = optimize' $ Clip mm (optimize x) (optimize y)
+optimize (Between mm x y) = optimize' $ Between mm (optimize x) (optimize y)
+optimize (SmoothStep mm x y) = optimize' $ SmoothStep mm (optimize x) (optimize y)
 optimize (Step xs y) = optimize' $ Step xs $ optimize y
 optimize (IfThenElse x y z) = optimize' $ IfThenElse (optimize x) (optimize y) (optimize z)
-optimize (LinLin x y z) = optimize' $ LinLin (optimize x) (optimize y) (optimize z)
-optimize (LPF f q i) = optimize' $ LPF (optimize f) (optimize q) (optimize i)
-optimize (HPF f q i) = optimize' $ HPF (optimize f) (optimize q) (optimize i)
-optimize (BPF f q i) = optimize' $ BPF (optimize f) (optimize q) (optimize i)
-optimize (Delay maxT t i) = optimize' $ Delay maxT (optimize t) (optimize i)
+optimize (LinLin mm x y z) = optimize' $ LinLin mm (optimize x) (optimize y) (optimize z)
+optimize (LPF mm f q i) = optimize' $ LPF mm (optimize f) (optimize q) (optimize i)
+optimize (HPF mm f q i) = optimize' $ HPF mm (optimize f) (optimize q) (optimize i)
+optimize (BPF mm f q i) = optimize' $ BPF mm (optimize f) (optimize q) (optimize i)
+optimize (Delay mm maxT t i) = optimize' $ Delay mm maxT (optimize t) (optimize i)
 optimize x = optimize' x
 
 graphToSynthDef' :: AudioIO m => W.Node -> Graph -> SynthDef m NodeRef
@@ -308,46 +309,46 @@ graphToSynthDef i (Sqr x) = do
   graphToSynthDef i x >>= W.param W.Frequency s
   return s
 
-graphToSynthDef i (LPF (Constant f) (Constant q) filterIn) = graphToSynthDef i filterIn >>= W.biquadFilter (W.LowPass f q)
-graphToSynthDef i (LPF (Constant f) q filterIn)  = do
+graphToSynthDef i (LPF _ (Constant f) (Constant q) filterIn) = graphToSynthDef i filterIn >>= W.biquadFilter (W.LowPass f q)
+graphToSynthDef i (LPF _ (Constant f) q filterIn)  = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.LowPass f 0)
   graphToSynthDef i q >>= W.param W.Q x
   return x
-graphToSynthDef i (LPF f (Constant q) filterIn) = do
+graphToSynthDef i (LPF _ f (Constant q) filterIn) = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.LowPass 0 q)
   graphToSynthDef i f >>= W.param W.Frequency x
   return x
-graphToSynthDef i (LPF f q filterIn) = do
+graphToSynthDef i (LPF _ f q filterIn) = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.LowPass 0 0)
   graphToSynthDef i f >>= W.param W.Frequency x
   graphToSynthDef i q >>= W.param W.Q x
   return x
 
-graphToSynthDef i (HPF (Constant f) (Constant q) filterIn) = graphToSynthDef i filterIn >>= W.biquadFilter (W.HighPass f q)
-graphToSynthDef i (HPF (Constant f) q filterIn) = do
+graphToSynthDef i (HPF _ (Constant f) (Constant q) filterIn) = graphToSynthDef i filterIn >>= W.biquadFilter (W.HighPass f q)
+graphToSynthDef i (HPF _ (Constant f) q filterIn) = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.HighPass f 0)
   graphToSynthDef i q >>= W.param W.Q x
   return x
-graphToSynthDef i (HPF f (Constant q) filterIn) = do
+graphToSynthDef i (HPF _ f (Constant q) filterIn) = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.HighPass 0 q)
   graphToSynthDef i f >>= W.param W.Frequency x
   return x
-graphToSynthDef i (HPF f q filterIn) = do
+graphToSynthDef i (HPF _ f q filterIn) = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.HighPass 0 0)
   graphToSynthDef i f >>= W.param W.Frequency x
   graphToSynthDef i q >>= W.param W.Q x
   return x
 
-graphToSynthDef i (BPF (Constant f) (Constant q) filterIn) = graphToSynthDef i filterIn >>= W.biquadFilter (W.BandPass f q)
-graphToSynthDef i (BPF (Constant f) q filterIn) = do
+graphToSynthDef i (BPF _ (Constant f) (Constant q) filterIn) = graphToSynthDef i filterIn >>= W.biquadFilter (W.BandPass f q)
+graphToSynthDef i (BPF _ (Constant f) q filterIn) = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.BandPass f 0)
   graphToSynthDef i q >>= W.param W.Q x
   return x
-graphToSynthDef i (BPF f (Constant q) filterIn) = do
+graphToSynthDef i (BPF _ f (Constant q) filterIn) = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.BandPass 0 q)
   graphToSynthDef i f >>= W.param W.Frequency x
   return x
-graphToSynthDef i (BPF f q filterIn) = do
+graphToSynthDef i (BPF _ f q filterIn) = do
   x <- graphToSynthDef i filterIn >>= W.biquadFilter (W.BandPass 0 0)
   graphToSynthDef i f >>= W.param W.Frequency x
   graphToSynthDef i q >>= W.param W.Q x
@@ -419,10 +420,10 @@ graphToSynthDef i (Pow _ x y) = do
 
 graphToSynthDef i (Gate _ x y) = graphToSynthDef i $ optimize $ (GreaterThan PairWise (Abs y) (Abs x)) * y
 
-graphToSynthDef i (Delay maxT (Constant t) x) = do
+graphToSynthDef i (Delay _ maxT (Constant t) x) = do
   x' <- graphToSynthDef i x
   W.delay maxT x' >>= W.setParam W.DelayTime t 0
-graphToSynthDef i (Delay maxT t x) = do
+graphToSynthDef i (Delay _ maxT t x) = do
   t' <- graphToSynthDef i t
   x' <- graphToSynthDef i x
   theDelay <- W.delay maxT x'
@@ -462,15 +463,20 @@ graphToSynthDef i (DbAmp x) = graphToSynthDef i x >>= W.dbAmpWorklet
 graphToSynthDef i (AmpDb x) = graphToSynthDef i x >>= W.ampDbWorklet
 graphToSynthDef i (Fract x) = graphToSynthDef i x >>= W.fractWorklet
 
-graphToSynthDef i (Clip (Multi [r1,r2]) x) = do -- *** THIS IS PRETTY HACKY
+graphToSynthDef i (Clip _ (Multi [r1,r2]) x) = do -- *** THIS IS PRETTY HACKY
   r1' <- graphToSynthDef i r1
   r2' <- graphToSynthDef i r2
   x' <- graphToSynthDef i x
   W.clipWorklet r1' r2' x'
 
-graphToSynthDef i (Between (Multi [r1,r2]) x) = graphToSynthDef i g -- ***** THIS IS ALSO PRETTY HACKY
+graphToSynthDef i (Between _ (Multi [r1,r2]) x) = graphToSynthDef i g -- ***** THIS IS ALSO PRETTY HACKY
   where g = (GreaterThan Combinatorial r2 r1) * (GreaterThan Combinatorial x r1) * (LessThan Combinatorial x r2) +
             (GreaterThan Combinatorial r1 r2) * (GreaterThan Combinatorial x r2) * (LessThan Combinatorial x r1)
+
+graphToSynthDef i (SmoothStep mm edges x) = graphToSynthDef i ((Pow mm t 2) * t')
+  where 
+    t  = Clip mm (Multi [Constant 0, Constant 1]) $ LinLin mm edges (Multi [Constant 0,Constant 1]) x
+    t' = 3 - (t * 2)
 
 graphToSynthDef _ (Step [] _) = W.constantSource 0
 graphToSynthDef i (Step (x:[]) _) = graphToSynthDef i x
@@ -483,13 +489,13 @@ graphToSynthDef i (Step xs y) = do
   y' <- graphToSynthDef i y
   W.stepWorklet xs' y'
 
-graphToSynthDef i (LinLin (Multi [Constant min1,Constant max1]) (Multi [Constant min2,Constant max2]) x) = graphToSynthDef i $ optimize $ (x - Constant min1) * c + Constant min2
+graphToSynthDef i (LinLin _ (Multi [Constant min1,Constant max1]) (Multi [Constant min2,Constant max2]) x) = graphToSynthDef i $ optimize $ (x - Constant min1) * c + Constant min2
   where c | (max1 - min1) /= 0 = Constant $ (max2 - min2) / (max1 - min1)
           | otherwise = Constant 0
-graphToSynthDef i (LinLin (Multi [Constant min1,Constant max1]) (Multi [min2,max2]) x) = graphToSynthDef i $ optimize $ (x - Constant min1) * (max2 - min2) * c + min2
+graphToSynthDef i (LinLin _ (Multi [Constant min1,Constant max1]) (Multi [min2,max2]) x) = graphToSynthDef i $ optimize $ (x - Constant min1) * (max2 - min2) * c + min2
   where c | (max1 - min1) /= 0 = Constant $ 1 / (max1 - min1)
           | otherwise = Constant 0
-graphToSynthDef i (LinLin (Multi [min1,max1]) (Multi [min2,max2]) x) = graphToSynthDef i $ optimize $ min2 + outputRange * proportion -- *** THIS IS ALSO VERY HACKY
+graphToSynthDef i (LinLin _ (Multi [min1,max1]) (Multi [min2,max2]) x) = graphToSynthDef i $ optimize $ min2 + outputRange * proportion -- *** THIS IS ALSO VERY HACKY
   where
     inputRange = max1 - min1
     outputRange = max2 - min2
@@ -575,28 +581,58 @@ expandMultis (LessThanOrEqual mm x y) = expandWith mm (LessThanOrEqual mm) x y
 expandMultis (Max mm x y) = expandWith mm (Max mm) x y
 expandMultis (Min mm x y) = expandWith mm (Min mm) x y
 expandMultis (Gate mm x y) = expandWith mm (Gate mm) x y
-expandMultis (Delay maxT t i) = expandWith Combinatorial (Delay maxT) t i
-expandMultis (Clip r x) = [ Clip r'' x' | r'' <- r', x' <- expandMultis x]
-  where r' = fmap (\(a,b) -> Multi [a,b]) $ listIntoTuples $ expandMultis r -- *** VERY HACKY
-expandMultis (Between r x) = [ Between r'' x' | r'' <- r', x' <- expandMultis x]
-  where r' = fmap (\(a,b) -> Multi [a,b]) $ listIntoTuples $ expandMultis r -- *** VERY HACKY
+expandMultis (Delay mm maxT t i) = expandWith mm (Delay mm maxT) t i
+expandMultis (Clip mm r x) = expandTuplesSingles mm (Clip mm) r x
+expandMultis (Between mm r x) = expandTuplesSingles mm (Between mm) r x
+expandMultis (SmoothStep mm e x) = expandTuplesSingles mm (SmoothStep mm) e x
 expandMultis (Step xs y) = fmap (Step xs) $ expandMultis y
 
 -- ternary functions
-expandMultis (LinLin r1 r2 x) = [ LinLin r1' r2' x' | r1' <- r1s, r2' <- r2s, x' <- expandMultis x]
-  where
-    r1s = fmap (\(a,b) -> Multi [a,b]) $ listIntoTuples $ expandMultis r1 -- *** VERY HACKY
-    r2s = fmap (\(a,b) -> Multi [a,b]) $ listIntoTuples $ expandMultis r2 -- *** VERY HACKY
-expandMultis (LPF i f q) = expandWith3 LPF i f q
-expandMultis (HPF i f q) = expandWith3 HPF i f q
-expandMultis (BPF i f q) = expandWith3 BPF i f q
-expandMultis (IfThenElse x y z) = expandWith3 IfThenElse x y z
+expandMultis (LinLin mm r1 r2 x) = expandTuplesTuplesSingles mm (LinLin mm) r1 r2 x
+expandMultis (LPF mm i f q) = expandWith3 mm (LPF mm) i f q
+expandMultis (HPF mm i f q) = expandWith3 mm (HPF mm) i f q
+expandMultis (BPF mm i f q) = expandWith3 mm (BPF mm) i f q
+expandMultis (IfThenElse x y z) = expandWith3 PairWise IfThenElse x y z
 expandMultis _ = []
+
+-- for binary functions over Graph where the first argument is interpreted as n tuples
+expandTuplesSingles :: MultiMode -> (Graph -> Graph -> Graph) -> Graph -> Graph -> [Graph]
+expandTuplesSingles Combinatorial f x y = [ f x'' y'' | x'' <- x', y'' <- y']
+  where
+    x' = fmap (\(a,b) -> Multi [a,b]) $ listIntoTuples $ expandMultis x
+    y' = expandMultis y
+expandTuplesSingles PairWise f x y = zipWith f x'' y''
+  where
+    x' = fmap (\(a,b) -> Multi [a,b]) $ listIntoTuples $ expandMultis x
+    y' = expandMultis y
+    n = maximum [length x',length y']
+    x'' = take n (cycle x')
+    y'' = take n (cycle y')
+
+-- for binary functions over Graph where the first argument is interpreted as n tuples
+expandTuplesTuplesSingles :: MultiMode -> (Graph -> Graph -> Graph -> Graph) -> Graph -> Graph -> Graph -> [Graph]
+expandTuplesTuplesSingles Combinatorial f x y z = [ f x'' y'' z'' | x'' <- x', y'' <- y', z'' <- z']
+  where
+    x' = fmap (\(a,b) -> Multi [a,b]) $ listIntoTuples $ expandMultis x
+    y' = fmap (\(a,b) -> Multi [a,b]) $ listIntoTuples $ expandMultis y
+    z' = expandMultis z
+expandTuplesTuplesSingles PairWise f x y z = zipWith3 f x'' y'' z''
+  where
+    x' = fmap (\(a,b) -> Multi [a,b]) $ listIntoTuples $ expandMultis x
+    y' = fmap (\(a,b) -> Multi [a,b]) $ listIntoTuples $ expandMultis y
+    z' = expandMultis z
+    n = maximum [length x',length y',length z']
+    x'' = take n (cycle x')
+    y'' = take n (cycle y')
+    z'' = take n (cycle z')
+    
+    
 
 listIntoTuples :: [a] -> [(a,a)]
 listIntoTuples (x:y:xs) = (x,y):listIntoTuples xs
 listIntoTuples (x:[]) = [(x,x)]
 listIntoTuples [] = []
+
 
 graphsToMono :: [Graph] -> Graph
 graphsToMono [] = Constant 0
@@ -618,5 +654,21 @@ expandWithPairWise f x y = zipWith f x'' y''
 expandWithCombinatorial :: (Graph -> Graph -> Graph) -> Graph -> Graph -> [Graph]
 expandWithCombinatorial f x y = [ f x' y' | x' <- expandMultis x, y' <- expandMultis y ]
 
-expandWith3 :: (Graph -> Graph -> Graph -> Graph) -> Graph -> Graph -> Graph -> [Graph]
-expandWith3 f x y z = [ f x' y' z' | x' <- expandMultis x, y' <- expandMultis y, z' <- expandMultis z ]
+expandWith3 :: MultiMode -> (Graph -> Graph -> Graph -> Graph) -> Graph -> Graph -> Graph -> [Graph]
+expandWith3 Combinatorial = expandWith3Combinatorial
+expandWith3 PairWise = expandWith3PairWise
+
+expandWith3Combinatorial :: (Graph -> Graph -> Graph -> Graph) -> Graph -> Graph -> Graph -> [Graph]
+expandWith3Combinatorial f x y z = [ f x' y' z' | x' <- expandMultis x, y' <- expandMultis y, z' <- expandMultis z ]
+
+expandWith3PairWise :: (Graph -> Graph -> Graph -> Graph) -> Graph -> Graph -> Graph -> [Graph]
+expandWith3PairWise f x y z = zipWith3 f x'' y'' z''
+  where
+    x' = expandMultis x
+    y' = expandMultis y
+    z' = expandMultis z
+    n = maximum [length x',length y',length z']
+    x'' = take n (cycle x')
+    y'' = take n (cycle y')
+    z'' = take n (cycle z')
+
