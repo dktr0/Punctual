@@ -231,6 +231,14 @@ iline [x1,y1,...] [x2,y2,...] [w] -- returns 1 when current fragment is within w
 
 line [x1,y1,...] [x2,y2,...] [w] -- returns 1 when current fragment is within w of a line that goes from x1,y1 and x2,y2; otherwise 0 (combinatorial, for pairwise use linep)
 
+lines [x1,y1,x2,y2,...] [w] -- returns 1 when current fragment is within w of a line that goes from x1,y1 to x2,y2; otherwise 0 (combinatorial, for pairwise use linesp)
+
+ilines [x1,y1,x2,y2,...] [w] -- returns 1 when current fragment is within w of an infinite line that goes from x1,y1 to x2,y2; otherwise 0 (combinatorial, for pairwise use ilinesp)
+
+chain [x1,y1,x2,y2,x3,y3,...] [w] -- returns 1 when current fragment is within w of a line that goes from x1,y1 to x2,y2, then from x2,y2 to x3,y3, etc; otherwise 0 (combinatorial, for pairwise use chainp)
+
+mesh [x1,y1,x2,y2,...] [w] -- returns 1 when current fragment is within w of a mesh of lines that go between every pair of x1,y1 x2,y2 etc; otherwise 0 (combinatorial, for pairwise use meshp)
+
 img "https://url-to-image-file" -- accesses a texture built from the image file in question as red-green-blue (3-channel signal).
 
 vid "https://url-to-video-file" -- accesses a texture built from the video file in question as red-green-blue (3-channel signal).
