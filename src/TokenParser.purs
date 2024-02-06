@@ -48,6 +48,7 @@ reservedNamesDef = [
   "rgbhsv","rgbh","rgbs","rgbv","rgbr","rgbg","rgbb",
   "dist","prox",
   "point","hline","hlinep","vline","vlinep","circle","circlep","rect","rectp","iline","ilinep","line","linep",
+  "chain","chainp","lines","linesp","ilines","ilinesp","mesh","meshp",
   "fb",
   "zip",
   "fit","min","max","minp","maxp",

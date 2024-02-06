@@ -167,6 +167,9 @@ alignVec3 = unfoldWith unconsVec3
 alignVec3NoExtend :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
 alignVec3NoExtend = unfoldWith unconsVec3NoExtend
 
+alignVec4 :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+alignVec4 = unfoldWith unconsVec4
+
 alignVec4NoExtend :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
 alignVec4NoExtend = unfoldWith unconsVec4NoExtend
 

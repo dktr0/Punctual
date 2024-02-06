@@ -16,7 +16,8 @@ import Data.DateTime (DateTime)
 
 import AST (AST,Expression(..),Statement,expression1,statement,parseAST)
 import Program (Program)
-import Signal (MultiMode(..), Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus)
+import MultiMode (MultiMode(..))
+import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus)
 import Value (Value(..),valuePosition,listValueToValueSignal)
 import Action (Action,signalToAction,setOutput,setCrossFade)
 import Output (Output(..))
@@ -230,6 +231,14 @@ parseReserved p "vline" = lift $ signalSignalSignal p $ VLine Combinatorial
 parseReserved p "vlinep" = lift $ signalSignalSignal p $ VLine Pairwise
 parseReserved p "hline" = lift $ signalSignalSignal p $ HLine Combinatorial
 parseReserved p "hlinep" = lift $ signalSignalSignal p $ HLine Pairwise
+parseReserved p "chain" = lift $ signalSignalSignal p $ Chain Combinatorial
+parseReserved p "chainp" = lift $ signalSignalSignal p $ Chain Pairwise
+parseReserved p "lines" = lift $ signalSignalSignal p $ Lines Combinatorial
+parseReserved p "linesp" = lift $ signalSignalSignal p $ Lines Pairwise
+parseReserved p "ilines" = lift $ signalSignalSignal p $ ILines Combinatorial
+parseReserved p "ilinesp" = lift $ signalSignalSignal p $ ILines Pairwise
+parseReserved p "mesh" = lift $ signalSignalSignal p $ Mesh Combinatorial
+parseReserved p "meshp" = lift $ signalSignalSignal p $ Mesh Pairwise
 parseReserved p "step" = lift $ signalSignalSignal p Step
 parseReserved p "iline" = lift $ signalSignalSignalSignal p $ ILine Combinatorial
 parseReserved p "ilinep" = lift $ signalSignalSignalSignal p $ ILine Pairwise

@@ -4,7 +4,7 @@ import Prelude(($),pure,show,bind,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise
 import Data.Maybe (Maybe(..))
 import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length)
 import Data.Traversable (traverse,for)
-import Data.Tuple (Tuple(..))
+import Data.Tuple (Tuple(..),fst,snd)
 import Data.Foldable (fold,intercalate,foldM)
 import Data.Set as Set
 import Data.Unfoldable1 (replicate1)
@@ -13,10 +13,11 @@ import Data.Map (lookup)
 import Data.FunctorWithIndex (mapWithIndex)
 
 import NonEmptyList
-import Signal (Signal(..),MultiMode(..))
+import MultiMode (MultiMode(..))
+import Signal (Signal(..))
 import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels)
 import GLSLExpr as GLSLExpr
-import GLSL (GLSL,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignRGBA,runGLSL,withFxys,extend,zipWithAAA)
+import GLSL (GLSL,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignVec4,alignRGBA,runGLSL,withFxys,extend,zipWithAAA)
 
 testCodeGen :: Boolean -> Signal -> String
 testCodeGen webGl2 x = assignments <> lastExprs
@@ -300,9 +301,7 @@ signalToGLSL (Min mm x y) = binaryFunction mm GLSLExpr.min x y
 signalToGLSL (Gate mm x y) = do
   xs <- signalToGLSL x
   ys <- signalToGLSL y >>= traverse assign
-  case mm of
-    Combinatorial -> binaryFunctionCombinatorial GLSLExpr.gate xs ys     
-    Pairwise -> binaryFunctionPairwise GLSLExpr.gate xs ys
+  combineChannels mm GLSLExpr.gate xs ys
 
 signalToGLSL (Clip mm r x) = clipEtcFunction mm GLSLExpr.clip r x
 signalToGLSL (Between mm r x) = clipEtcFunction mm GLSLExpr.between r x
@@ -315,7 +314,7 @@ signalToGLSL (Circle mm xy d) = do
     ds <- case mm of
             Combinatorial -> signalToGLSL d
             Pairwise -> signalToGLSL d >>= alignFloat
-    combineExprs mm (GLSLExpr.circle fxy) xys ds
+    pure $ combine mm (GLSLExpr.circle fxy) xys ds
   traverse assign $ concat exprss
 
 signalToGLSL (Rect mm xy wh) = do
@@ -323,12 +322,64 @@ signalToGLSL (Rect mm xy wh) = do
   exprss <- for fxys $ \fxy -> do
     xys <- signalToGLSL xy >>= alignVec2
     whs <- signalToGLSL wh >>= alignVec2
-    combineExprs mm (GLSLExpr.rect fxy) xys whs
+    pure $ combine mm (GLSLExpr.rect fxy) xys whs
   traverse assign $ concat exprss
-  
+
+signalToGLSL (VLine mm x w) = do
+  fxys <- _.fxys <$> get
+  exprss <- for fxys $ \fxy -> do
+    xs <- signalToGLSL x
+    ws <- signalToGLSL w
+    combineChannels mm (GLSLExpr.vline fxy) xs ws
+  traverse assign $ concat exprss
+
+signalToGLSL (HLine mm x w) = do
+  fxys <- _.fxys <$> get
+  exprss <- for fxys $ \fxy -> do
+    xs <- signalToGLSL x
+    ws <- signalToGLSL w
+    combineChannels mm (GLSLExpr.hline fxy) xs ws
+  traverse assign $ concat exprss
+
+signalToGLSL (Chain mm xy w) = do
+  fxys <- _.fxys <$> get
+  exprss <- for fxys $ \fxy -> do
+    xys <- signalToGLSL xy >>= alignVec2
+    ws <- signalToGLSL w >>= alignFloat -- for now, have to align float because of monomorphic line function in shader, later maybe optimize
+    let xys' = everyAdjacentPair xys -- NonEmptyList (Tuple GLSLExpr GLSLExpr) where GLSLExprs are all Vec2
+    let f xyTuple theW = GLSLExpr.line fxy (fst xyTuple) (snd xyTuple) theW
+    pure $ combine mm f xys' ws
+  traverse assign $ concat exprss
+
+signalToGLSL (Lines mm xy w) = do
+  fxys <- _.fxys <$> get
+  exprss <- for fxys $ \fxy -> do
+    xysVec4 <- signalToGLSL xy >>= alignVec4
+    ws <- signalToGLSL w >>= alignFloat
+    let f v4 theW = GLSLExpr.line fxy (GLSLExpr.unsafeSwizzleXY v4) (GLSLExpr.unsafeSwizzleZW v4) theW
+    pure $ combine mm f xysVec4 ws
+  traverse assign $ concat exprss
+
+signalToGLSL (ILines mm xy w) = do
+  fxys <- _.fxys <$> get
+  exprss <- for fxys $ \fxy -> do
+    xysVec4 <- signalToGLSL xy >>= alignVec4
+    ws <- signalToGLSL w >>= alignFloat
+    let f v4 theW = GLSLExpr.iline fxy (GLSLExpr.unsafeSwizzleXY v4) (GLSLExpr.unsafeSwizzleZW v4) theW
+    pure $ combine mm f xysVec4 ws
+  traverse assign $ concat exprss 
+
+signalToGLSL (Mesh mm xy w) = do
+  fxys <- _.fxys <$> get
+  exprss <- for fxys $ \fxy -> do
+    xys <- signalToGLSL xy >>= alignVec2
+    ws <- signalToGLSL w >>= alignFloat
+    let xys' = everyPair xys -- NonEmptyList (Tuple GLSLExpr GLSLExpr) where GLSLExprs are all Vec2
+    let f xyTuple theW = GLSLExpr.line fxy (fst xyTuple) (snd xyTuple) theW
+    pure $ combine mm f xys' ws
+  traverse assign $ concat exprss 
+
 {-
-  VLine MultiMode Signal Signal |
-  HLine MultiMode Signal Signal |
   ILine MultiMode Signal Signal Signal |
   Line MultiMode Signal Signal Signal |
   Point Signal |
@@ -356,15 +407,17 @@ binaryFunction :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Signal -> S
 binaryFunction mm f x y = do
   xs <- signalToGLSL x
   ys <- signalToGLSL y
-  case mm of
-    Combinatorial -> binaryFunctionCombinatorial f xs ys
-    Pairwise -> binaryFunctionPairwise f xs ys
+  combineChannels mm f xs ys
+    
+combineChannels :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
+combineChannels Combinatorial = combineChannelsCombinatorial
+combineChannels Pairwise = combineChannelsPairwise
 
-binaryFunctionPairwise :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
-binaryFunctionPairwise f xs ys
+combineChannelsPairwise :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
+combineChannelsPairwise f xs ys
   -- no need to extend if either of the inputs is a single Float...
-  | length xs == 1 && (head xs).glslType == Float = binaryFunctionCombinatorial f xs ys
-  | length ys == 1 && (head ys).glslType == Float = binaryFunctionCombinatorial f xs ys
+  | length xs == 1 && (head xs).glslType == Float = combineChannelsCombinatorial f xs ys
+  | length ys == 1 && (head ys).glslType == Float = combineChannelsCombinatorial f xs ys
   | otherwise = do
       -- extend xs and ys to equal length in channels
       let n = max (exprsChannels xs) (exprsChannels ys)
@@ -372,25 +425,13 @@ binaryFunctionPairwise f xs ys
       ys' <- extend n ys
       zipWithAAA f xs' ys'
 
-binaryFunctionCombinatorial :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
-binaryFunctionCombinatorial f xs ys = do
+combineChannelsCombinatorial :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
+combineChannelsCombinatorial f xs ys = do
   xs' <- alignFloat xs
   pure $ do -- in NonEmptyList monad
     x <- xs'
     y <- ys
     pure $ f x y
-
-combineExprs :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
-combineExprs Combinatorial f xs ys = pure $ do -- in NonEmptyList monad
-  x <- xs
-  y <- ys
-  pure $ f x y
-combineExprs Pairwise f xs ys = do
-  let n = max (length xs) (length ys)
-  let xs' = extendByRepetition n xs
-  let ys' = extendByRepetition n ys
-  pure $ zipWith f xs' ys'
- 
 
 clipEtcFunction :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Signal -> Signal -> GLSL Exprs
 clipEtcFunction mm f r x = do

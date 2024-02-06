@@ -8,12 +8,7 @@ import Data.List (List(..),(:))
 import Data.Foldable (foldMap)
 import Data.Set (Set,singleton)
 
-data MultiMode = Combinatorial | Pairwise
-
-derive instance Eq MultiMode
-derive instance Generic MultiMode _
-instance Show MultiMode where
-  show = genericShow
+import MultiMode
 
 data Signal =
   Constant Number |
@@ -108,6 +103,10 @@ data Signal =
   SmoothStep MultiMode Signal Signal |
   VLine MultiMode Signal Signal |
   HLine MultiMode Signal Signal |
+  Chain MultiMode Signal Signal |
+  Lines MultiMode Signal Signal |
+  ILines MultiMode Signal Signal |
+  Mesh MultiMode Signal Signal |
   Step Signal Signal |
   IfThenElse Signal Signal Signal | -- no pathways for this exist yet in PureScript port, from the AST level up
   ILine MultiMode Signal Signal Signal |

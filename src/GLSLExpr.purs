@@ -5,6 +5,7 @@ module GLSLExpr where
 -- it's type (and thus number of channels), and its dependency on any previously declared variables
 
 import Prelude (class Eq, class Ord, class Show,(<>),(==),(/=),otherwise,(&&),($),map,(+),(||))
+import Prelude as Prelude
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.Set (Set,empty)
@@ -44,7 +45,13 @@ simpleFromString :: GLSLType -> String -> GLSLExpr
 simpleFromString t x = { string: x, glslType: t, isSimple: true, deps: empty }
 
 zero :: GLSLExpr
-zero = { string: "0.", glslType: Float, isSimple: true, deps: empty }
+zero = explicitlyTypedZero Float 
+
+explicitlyTypedZero :: GLSLType -> GLSLExpr
+explicitlyTypedZero Float = { string: "0.", glslType: Float, isSimple: true, deps: empty }
+explicitlyTypedZero Vec2 = { string: "vec2(0.)", glslType: Vec2, isSimple: true, deps: empty }
+explicitlyTypedZero Vec3 = { string: "vec3(0.)", glslType: Vec3, isSimple: true, deps: empty }
+explicitlyTypedZero Vec4 = { string: "vec4(0.)", glslType: Vec4, isSimple: true, deps: empty }
 
 one :: GLSLExpr
 one = { string: "1.", glslType: Float, isSimple: true, deps: empty }
@@ -146,6 +153,13 @@ dotSum x
   | x.glslType == Vec2 = { string: "dot(" <> x.string <> ",vec2(1.))", glslType: Float, isSimple: x.isSimple, deps: x.deps }
   | x.glslType == Vec3 = { string: "dot(" <> x.string <> ",vec3(1.))", glslType: Float, isSimple: x.isSimple, deps: x.deps }
   | otherwise = { string: "dot(" <> x.string <> ",vec4(1.))", glslType: Float, isSimple: x.isSimple, deps: x.deps }
+
+
+unsafeSwizzleXY :: GLSLExpr -> GLSLExpr
+unsafeSwizzleXY a = { string: a.string <> ".xy", glslType: Vec2, isSimple: a.isSimple, deps: a.deps }
+
+unsafeSwizzleZW :: GLSLExpr -> GLSLExpr
+unsafeSwizzleZW a = { string: a.string <> ".zw", glslType: Vec2, isSimple: a.isSimple, deps: a.deps }
 
 
 type Exprs = NonEmptyList GLSLExpr
@@ -281,4 +295,34 @@ rect :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 Vec2 -> Float 
 rect fxy xy wh 
   | fxy.glslType /= Vec2 || xy.glslType /= Vec2 = { string: "!! Internal Punctual GLSL generation error in rect", glslType: Float, isSimple: false, deps: fxy.deps <> xy.deps <> wh.deps }
   | otherwise = { string: "rect(" <> fxy.string <> "," <> xy.string <> "," <> wh.string <> ")", glslType: Float, isSimple: false, deps: fxy.deps <> xy.deps <> wh.deps }
+
+vline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Float/Any Float/Any -> Float/Any (Float/Any arguments follow standard pattern, either matched or one is float)
+vline fxy x w 
+  | x.glslType /= Float && w.glslType /= Float && x.glslType /= w.glslType = { string: "!! Internal Punctual GLSL generation error in vline", glslType: Float, isSimple: false, deps: fxy.deps <> x.deps <> w.deps }
+  | otherwise = { string: s, glslType: Prelude.max x.glslType w.glslType, isSimple: false, deps: fxy.deps <> x.deps <> w.deps }
+      where
+        a = "abs(" <> fxy.string <> ".x-" <> x.string <> ")-" <> w.string
+        edge0 = explicitlyTypedZero w.glslType
+        edge1 = "min(" <> w.string <> ",3./width)"
+        s = "(1.-smoothstep(" <> edge0.string <> "," <> edge1 <> "," <> a <> "))"
+
+hline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Float/Any Float/Any -> Float/Any (Float/Any arguments follow standard pattern, either matched or one is float)
+hline fxy y w 
+  | y.glslType /= Float && w.glslType /= Float && y.glslType /= w.glslType = { string: "!! Internal Punctual GLSL generation error in hline", glslType: Float, isSimple: false, deps: fxy.deps <> y.deps <> w.deps }
+  | otherwise = { string: s, glslType: Prelude.max y.glslType w.glslType, isSimple: false, deps: fxy.deps <> y.deps <> w.deps }
+      where
+        a = "abs(" <> fxy.string <> ".y-" <> y.string <> ")-" <> w.string
+        edge0 = explicitlyTypedZero w.glslType
+        edge1 = "min(" <> w.string <> ",3./height)"
+        s = "(1.-smoothstep(" <> edge0.string <> "," <> edge1 <> "," <> a <> "))"
+
+line :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 Vec2 Float -> Float (no reuse of any arguments)
+line fxy xy1 xy2 w
+  | fxy.glslType /= Vec2 || xy1.glslType /= Vec2 || xy2.glslType /= Vec2 || w.glslType /= Float = { string: "!! Internal Punctual GLSL generation error in line", glslType: Float, isSimple: false, deps: fxy.deps <> xy1.deps <> xy2.deps <> w.deps }
+  | otherwise = { string: "line(" <> xy1.string <> "," <> xy2.string <> "," <> w.string <> "," <> fxy.string <> ")", glslType: Float, isSimple: false, deps: fxy.deps <> xy1.deps <> xy2.deps <> w.deps }
+
+iline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 Vec2 Float -> Float (no reuse of any arguments)
+iline fxy xy1 xy2 w
+  | fxy.glslType /= Vec2 || xy1.glslType /= Vec2 || xy2.glslType /= Vec2 || w.glslType /= Float = { string: "!! Internal Punctual GLSL generation error in line", glslType: Float, isSimple: false, deps: fxy.deps <> xy1.deps <> xy2.deps <> w.deps }
+  | otherwise = { string: "iline(" <> xy1.string <> "," <> xy2.string <> "," <> w.string <> "," <> fxy.string <> ")", glslType: Float, isSimple: false, deps: fxy.deps <> xy1.deps <> xy2.deps <> w.deps }
 
