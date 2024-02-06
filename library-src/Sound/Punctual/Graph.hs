@@ -99,6 +99,10 @@ data Graph =
   Rect MultiMode Graph Graph |
   VLine MultiMode Graph Graph |
   HLine MultiMode Graph Graph |
+  Chain MultiMode Graph Graph |
+  Lines MultiMode Graph Graph |
+  ILines MultiMode Graph Graph |
+  Mesh MultiMode Graph Graph |
   ILine MultiMode Graph Graph Graph |
   Line MultiMode Graph Graph Graph |
   Clip MultiMode Graph Graph |

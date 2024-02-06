@@ -10,7 +10,7 @@ import Data.Map as Map
 import Data.Foldable as Foldable
 import Data.Maybe
 import Data.List.Split
-import Data.List (zipWith4)
+import Data.List (zipWith4,tails)
 import Data.Time
 import Data.Tempo
 import Control.Monad
@@ -305,25 +305,37 @@ graphToGLSL _ env (Step xs y) = do
 
 -- binary functions, with position
 
-graphToGLSL ah env (Rect mm xy wh) = do
-  xy' <- graphToGLSL (Just Vec2) env xy >>= align Vec2
-  wh' <- graphToGLSL (Just Vec2) env wh >>= align Vec2
-  binaryFunctionWithPositionGraphM rect env mm xy' wh' >>= alignHint ah
+graphToGLSL ah (m,fxys) (Rect mm xy wh) = do
+  zss <- forM fxys $ \fxy -> do
+    let env = (m,[fxy])
+    xy' <- graphToGLSL (Just Vec2) env xy >>= align Vec2
+    wh' <- graphToGLSL (Just Vec2) env wh >>= align Vec2
+    binaryFunctionWithPositionGraphM rect env mm xy' wh'
+  alignHint ah $ concat zss
 
-graphToGLSL ah env (Circle mm xy r) = do
-  xy' <- graphToGLSL (Just Vec2) env xy >>= align Vec2
-  r' <- graphToGLSL (Just GLFloat) env r >>= align GLFloat
-  binaryFunctionWithPositionGraph circle env mm xy' r' >>= alignHint ah
+graphToGLSL ah (m,fxys) (Circle mm xy r) = do
+  zss <- forM fxys $ \fxy -> do
+    let env = (m,[fxy])
+    xy' <- graphToGLSL (Just Vec2) env xy >>= align Vec2
+    r' <- graphToGLSL (Just GLFloat) env r >>= align GLFloat
+    binaryFunctionWithPositionGraph circle env mm xy' r'
+  alignHint ah $ concat zss
 
-graphToGLSL ah env (VLine mm x w) = do
-  x' <- graphToGLSL (Just GLFloat) env x >>= align GLFloat
-  w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
-  binaryFunctionWithPositionGraph vline env mm x' w' >>= alignHint ah
+graphToGLSL ah (m,fxys) (VLine mm x w) = do
+  zss <- forM fxys $ \fxy -> do
+    let env = (m,[fxy])
+    x' <- graphToGLSL (Just GLFloat) env x >>= align GLFloat
+    w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
+    binaryFunctionWithPositionGraph vline env mm x' w'
+  alignHint ah $ concat zss
 
-graphToGLSL ah env (HLine mm y w) = do
-  y' <- graphToGLSL (Just GLFloat) env y >>= align GLFloat
-  w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
-  binaryFunctionWithPositionGraph hline env mm y' w' >>= alignHint ah
+graphToGLSL ah (m,fxys) (HLine mm y w) = do
+  zss <- forM fxys $ \fxy -> do
+    let env = (m,[fxy])
+    y' <- graphToGLSL (Just GLFloat) env y >>= align GLFloat
+    w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
+    binaryFunctionWithPositionGraph hline env mm y' w'
+  alignHint ah $ concat zss
 
 -- (simple) ternary functions
 graphToGLSL ah env (LinLin mm r1 r2 w) = do
@@ -343,18 +355,67 @@ graphToGLSL ah env (IfThenElse x y z) = do
 
 -- ternary functions with position
 
-graphToGLSL ah env@(_,fxy) (ILine mm xy1 xy2 w) = do
-  xy1' <- graphToGLSL (Just Vec2) env xy1 >>= align Vec2
-  xy2' <- graphToGLSL (Just Vec2) env xy2 >>= align Vec2
-  w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
-  alignHint ah $ combineQuaternary mm iline xy1' xy2' w' fxy
+graphToGLSL ah env@(m,fxys) (ILine mm xy1 xy2 w) = do
+  zss <- forM fxys $ \fxy -> do
+    let env = (m,[fxy])
+    xy1' <- graphToGLSL (Just Vec2) env xy1 >>= align Vec2
+    xy2' <- graphToGLSL (Just Vec2) env xy2 >>= align Vec2
+    w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
+    pure $ combineQuaternary mm iline xy1' xy2' w' [fxy]
+  alignHint ah $ concat zss
 
-graphToGLSL ah env@(_,fxy) (Line mm xy1 xy2 w) = do
-  xy1' <- graphToGLSL (Just Vec2) env xy1 >>= align Vec2
-  xy2' <- graphToGLSL (Just Vec2) env xy2 >>= align Vec2
-  w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
-  alignHint ah $ combineQuaternary mm line xy1' xy2' w' fxy
+graphToGLSL ah env@(m,fxys) (Line mm xy1 xy2 w) = do
+  zss <- forM fxys $ \fxy -> do
+    let env = (m,[fxy])
+    xy1' <- graphToGLSL (Just Vec2) env xy1 >>= align Vec2
+    xy2' <- graphToGLSL (Just Vec2) env xy2 >>= align Vec2
+    w' <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
+    pure $ combineQuaternary mm line xy1' xy2' w' [fxy]
+  alignHint ah $ concat zss
 
+graphToGLSL ah (m,fxys) (Chain mm xy w) = do
+  zss <- forM fxys $ \fxy -> do
+    let env = (m,[fxy])
+    xys <- graphToGLSL (Just Vec2) env xy >>= align Vec2
+    ws <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
+    let xys' = case xys of
+                 (v2:[]) -> [[v2,v2]]
+                 _ -> Prelude.filter ((==) 2. length) $ fmap (Prelude.take 2) $ tails xys -- each pair of xys [[Vec2]]
+    let xyTuples = fmap (\(a:b:_) -> (a,b)) xys'
+    let lines xyTuple theW theFxy = line (fst xyTuple) (snd xyTuple) theW theFxy 
+    pure $ combineTernary mm lines xyTuples ws [fxy]
+  alignHint ah $ concat zss
+    
+graphToGLSL ah (m,fxys) (Lines mm xy w) = do
+  zss <- forM fxys $ \fxy -> do
+    let env = (m,[fxy])
+    xysVec4 <- graphToGLSL (Just Vec4) env xy >>= align Vec4
+    ws <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
+    let lines v4 theW theFxy = line (swizzleXY v4) (swizzleZW v4) theW theFxy 
+    pure $ combineTernary mm lines xysVec4 ws [fxy]
+  alignHint ah $ concat zss
+  
+graphToGLSL ah (m,fxys) (ILines mm xy w) = do
+  zss <- forM fxys $ \fxy -> do
+    let env = (m,[fxy])
+    xysVec4 <- graphToGLSL (Just Vec4) env xy >>= align Vec4
+    ws <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
+    let ilines v4 theW theFxy = iline (swizzleXY v4) (swizzleZW v4) theW theFxy 
+    pure $ combineTernary mm ilines xysVec4 ws [fxy]
+  alignHint ah $ concat zss
+
+graphToGLSL ah (m,fxys) (Mesh mm xy w) = do
+  zss <- forM fxys $ \fxy -> do
+    let env = (m,[fxy])
+    xys <- graphToGLSL (Just Vec2) env xy >>= align Vec2
+    ws <- graphToGLSL (Just GLFloat) env w >>= align GLFloat
+    let xyTuples = case xys of
+                     (v2:[]) -> [(v2,v2)]
+                     _ -> [(a,b)|(a:bs) <- tails xys, b <- bs]
+    let lines xyTuple theW theFxy = line (fst xyTuple) (snd xyTuple) theW theFxy 
+    pure $ combineTernary mm lines xyTuples ws [fxy]
+  alignHint ah $ concat zss
+   
 graphToGLSL _ _ _ = return [constantFloat 0]
 
 multiToGLSL :: AlignHint -> GraphEnv -> [Graph] -> GLSL [GLSLExpr]
@@ -368,9 +429,12 @@ multiToGLSL ah env@(m,fxys) xs = do
 
 
 unaryFunctionWithPosition :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> GLSL [GLSLExpr]
-unaryFunctionWithPosition f ah env@(_,fxy) x = do
-  xs <- graphToGLSL (Just Vec2) env x >>= align Vec2
-  alignHint ah [ f a b | a <- fxy, b <- xs ]
+unaryFunctionWithPosition f ah (m,fxys) x = do
+  zss <- forM fxys $ \fxy -> do
+    let env = (m,[fxy])
+    xs <- graphToGLSL (Just Vec2) env x >>= align Vec2
+    pure [ f a b | a <- [fxy], b <- xs ]
+  alignHint ah $ concat zss
 
 unaryPositionTransform :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> GLSLType -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
 unaryPositionTransform f t ah env@(texMap,fxy) a b = do

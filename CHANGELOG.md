@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.8:
+
+-added lines, linesp, ilines, ilinesp, chain, chainp, mesh and meshp. fixed further bugs affecting combinatorial geometrical transformations of shape functions
+
 0.4.7.1:
 
 -bugfix affecting combinatorial geometrical transformations of arbitrary multichannel signals (ie. [x,y,z])
