@@ -34,7 +34,8 @@ data Expression =
   Operation Position String Expression Expression |
   FromTo Position Int Int |
   FromThenTo Position Number Number Number |
-  Lambda Position (List String) Expression
+  Lambda Position (List String) Expression |
+  IfThenElse Position Expression Expression Expression
 
 derive instance Eq Expression
 derive instance Generic Expression _
@@ -127,6 +128,7 @@ argument = do
     try fromThenTo,
     try list,
     try lambda,
+    try ifThenElse,
     Identifier p <$> identifier
     ]
 
@@ -185,3 +187,15 @@ lambda = do
   reservedOp "->"
   e <- expression1
   pure $ Lambda p (toList xs) e
+  
+ifThenElse :: P Expression
+ifThenElse = do
+  p <- position
+  reserved "if"
+  i <- argument
+  reserved "then"
+  t <- argument
+  reserved "else"
+  e <- argument
+  pure $ IfThenElse p i t e
+

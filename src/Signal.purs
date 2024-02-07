@@ -108,7 +108,7 @@ data Signal =
   ILines MultiMode Signal Signal |
   Mesh MultiMode Signal Signal |
   Step Signal Signal |
-  IfThenElse Signal Signal Signal | -- no pathways for this exist yet in PureScript port, from the AST level up
+  Mix MultiMode Signal Signal Signal |
   ILine MultiMode Signal Signal Signal |
   Line MultiMode Signal Signal Signal |
   LinLin MultiMode Signal Signal Signal |
@@ -123,8 +123,10 @@ instance Show Signal where
 
 -- Miscellaneous functions over Signals:
 
+{-
 when :: Signal -> Signal -> Signal
-when x y = IfThenElse x y (Constant 0.0)
+when x y = Mix (Constant 0.0) y x
+-}
 
 modulatedRangeLowHigh :: Signal -> Signal -> Signal -> Signal
 modulatedRangeLowHigh low high x = LinLin Combinatorial (SignalList $ Constant (-1.0):Constant 1.0:Nil) (SignalList $ low:high:Nil) x
@@ -136,20 +138,12 @@ modulatedRangePlusMinus a b = modulatedRangeLowHigh low high
     high = Product Combinatorial a (Sum Pairwise (Constant 1.0) b)
 
 fit :: Signal -> Signal -> Signal
-fit ar x = IfThenElse cond ifTrue ifFalse
+fit ar x = Mix Pairwise ifFalse ifTrue cond
   where
     cond = GreaterThanEqual Combinatorial Aspect ar
     ifTrue = Zoom (SignalList $ Division Pairwise ar Aspect : Constant 1.0 : Nil) x
     ifFalse = Zoom (SignalList $ Constant 1.0 : Division Pairwise Aspect ar : Nil) x
 
-{-
--- was used in multiToGLSL in FragmentShader.hs, and expandMultis (for Multi) in PunctualW.hs
--- but it's not at all a function over Signal so perhaps it should be defined locally instead?
-multi :: [[a]] -> [[a]]
-multi [] = []
-multi (xs:[]) = fmap pure xs
-multi (xs:ys) = [ x:y | x <- xs, y <- multi ys ]
--}
 
 newtype SignalInfo = SignalInfo {
   needsWebCam :: Boolean,
@@ -293,10 +287,10 @@ subSignals (SmoothStep _ x y) = x:y:Nil
 subSignals (VLine _ x y) = x:y:Nil
 subSignals (HLine _ x y) = x:y:Nil
 subSignals (Step x y) = x:y:Nil
-subSignals (IfThenElse x y z) = x:y:z:Nil
 subSignals (ILine _ x y z) = x:y:z:Nil
 subSignals (Line _ x y z) = x:y:z:Nil
 subSignals (LinLin _ x y z) = x:y:z:Nil
+subSignals (Mix _ x y z) = x:y:z:Nil
 subSignals (LPF _ x y z) = x:y:z:Nil
 subSignals (HPF _ x y z) = x:y:z:Nil
 subSignals (BPF _ x y z) = x:y:z:Nil

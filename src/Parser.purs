@@ -18,7 +18,7 @@ import AST (AST,Expression(..),Statement,expression1,statement,parseAST)
 import Program (Program)
 import MultiMode (MultiMode(..))
 import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus)
-import Value (Value(..),valuePosition,listValueToValueSignal)
+import Value (Value(..),valuePosition,listValueToValueSignal,valueToSignal)
 import Action (Action,signalToAction,setOutput,setCrossFade)
 import Output (Output(..))
 
@@ -95,8 +95,13 @@ parseExpression (FromTo p x y) = pure $ ValueSignal p $ SignalList $ (Constant <
 parseExpression (FromThenTo p _ _ _) = throwError $ ParseError "FromThenTo not supported yet" p
 -- TODO: implement FromThenTo and fix implementation of FromTo to match Haskell behaviour
 parseExpression (Lambda p xs e) = embedLambdas p xs e
-
-
+parseExpression (IfThenElse p i t e) = do
+  i' <- parseExpression i >>= valueToSignal
+  t' <- parseExpression t >>= valueToSignal
+  e' <- parseExpression e >>= valueToSignal
+  pure $ ValueSignal p $ Mix Combinatorial i' e' t'
+  
+  
 application :: forall m. Applicative m => MonadThrow ParseError m => Value -> Value -> m Value
 application f x = do
   case f of
@@ -246,6 +251,8 @@ parseReserved p "line" = lift $ signalSignalSignalSignal p $ Line Combinatorial
 parseReserved p "linep" = lift $ signalSignalSignalSignal p $ Line Pairwise
 parseReserved p "linlin" = lift $ signalSignalSignalSignal p $ LinLin Combinatorial
 parseReserved p "linlinp" = lift $ signalSignalSignalSignal p $ LinLin Pairwise
+parseReserved p "mix" = lift $ signalSignalSignalSignal p $ Mix Combinatorial
+parseReserved p "mixp" = lift $ signalSignalSignalSignal p $ Mix Pairwise
 parseReserved p "lpf" = lift $ signalSignalSignalSignal p $ LPF Combinatorial
 parseReserved p "lpfp" = lift $ signalSignalSignalSignal p $ LPF Pairwise
 parseReserved p "hpf" = lift $ signalSignalSignalSignal p $ HPF Combinatorial

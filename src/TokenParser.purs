@@ -33,6 +33,7 @@ boolean = choice [
 
 reservedNamesDef :: Array String
 reservedNamesDef = [
+  "if","then","else",
   "audio","video","rgba","rgb","alpha",
   "pi","audioin","cps","time","beat","etime","ebeat","rnd",
   "fx","fy","fxy","px","py","pxy","frt","fr","ft","aspect",
@@ -57,7 +58,8 @@ reservedNamesDef = [
   "lpf","lpfp","hpf","hpfp","bpf","bpfp","delay",
   "linlin","linlinp",
   "rep",
-  "img","vid","cam"
+  "img","vid","cam",
+  "mix","mixp"
   ]
 
 -- operators0 are used at the top-level of parsing (statements) but not in recursive expressions

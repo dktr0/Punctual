@@ -343,6 +343,12 @@ linlin r1 r2 x
         r2size = "(" <> r2.string <> ".y-" <> r2.string <> ".x)"
         s = "(" <> r2.string <> ".x+(" <> r2size <> "*" <> x' <> "/" <> r1size <> "))"
 
-
-
+mix :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
+mix x y a
+  | x.glslType /= y.glslType = { string: "!! Internal Punctual GLSL generation error in mix", glslType: Float, isSimple: false, deps: x.deps <> y.deps <> a.deps }
+  | x.glslType /= a.glslType && a.glslType /= Float = { string: "!! Internal Punctual GLSL generation error in mix", glslType: Float, isSimple: false, deps: x.deps <> y.deps <> a.deps }
+  | otherwise = { string: s, glslType: t, isSimple: false, deps: x.deps <> y.deps <> a.deps }
+      where
+        s = "mix(" <> x.string <> "," <> y.string <> "," <> a.string <> ")"
+        t = Prelude.max x.glslType a.glslType
 

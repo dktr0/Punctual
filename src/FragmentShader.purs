@@ -17,7 +17,7 @@ import MultiMode (MultiMode(..))
 import Signal (Signal(..))
 import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels)
 import GLSLExpr as GLSLExpr
-import GLSL (GLSL,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignVec4,alignRGBA,runGLSL,withFxys,extend,zipWithAAA)
+import GLSL (GLSL,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignVec4,alignRGBA,runGLSL,withFxys,extend,zipWithAAA,zipWithAAAA)
 
 testCodeGen :: Boolean -> Signal -> String
 testCodeGen webGl2 x = assignments <> lastExprs
@@ -420,9 +420,14 @@ signalToGLSL (LinLin mm r1 r2 x) = do
         false -> do
           xs' <- alignFloat xs
           pure $ combine3Pairwise GLSLExpr.linlin r1s r2s xs'
-          
+  
+signalToGLSL (Mix mm c t e) = do
+  cs <- signalToGLSL c
+  ts <- signalToGLSL t
+  es <- signalToGLSL e
+  combineChannels3 mm GLSLExpr.mix cs ts es
+            
 {-
-  IfThenElse Signal Signal Signal | -- no pathways for this exist yet in PureScript port, from the AST level up
   Step Signal Signal |
 -}
 
@@ -470,6 +475,35 @@ combineChannelsCombinatorial f xs ys = do
     x <- xs'
     y <- ys
     pure $ f x y
+
+combineChannels3 :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> Exprs -> GLSL Exprs
+combineChannels3 Combinatorial = combineChannelsCombinatorial3
+combineChannels3 Pairwise = combineChannelsPairwise3
+
+combineChannelsPairwise3 :: (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> Exprs -> GLSL Exprs
+combineChannelsPairwise3 f xs ys zs
+  | length xs == 1 && (head xs).glslType == Float && length ys == 1 && (head ys).glslType == Float = pure $ map (f (head xs) (head ys)) zs
+  | length xs == 1 && (head xs).glslType == Float && length zs == 1 && (head zs).glslType == Float = pure $ map (\y -> f (head xs) y (head zs)) ys
+  | length ys == 1 && (head ys).glslType == Float && length zs == 1 && (head zs).glslType == Float = pure $ map (\x -> f x (head ys) (head zs)) xs
+  | length xs == 1 && (head xs).glslType == Float = combineChannelsPairwise (f (head xs)) ys zs
+  | length ys == 1 && (head ys).glslType == Float = combineChannelsPairwise (\x z -> f x (head ys) z) xs zs
+  | length zs == 1 && (head zs).glslType == Float = combineChannelsPairwise (\x y -> f x y (head zs)) xs ys
+  | otherwise = do
+      let n = max (max (exprsChannels xs) (exprsChannels ys)) (exprsChannels zs)
+      xs' <- extend n xs
+      ys' <- extend n ys
+      zs' <- extend n zs
+      zipWithAAAA f xs' ys' zs'
+
+combineChannelsCombinatorial3 :: (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> Exprs -> GLSL Exprs
+combineChannelsCombinatorial3 f xs ys zs = do
+  xs' <- alignFloat xs
+  ys' <- alignFloat ys
+  pure $ do -- in NonEmptyList monad
+    x <- xs'
+    y <- ys'
+    z <- zs
+    pure $ f x y z
     
 clipEtcFunction :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Signal -> Signal -> GLSL Exprs
 clipEtcFunction mm f r x = do

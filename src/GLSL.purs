@@ -5,7 +5,8 @@ module GLSL where
 -- A fundamental goal is elegantly bridging the gap between GLSL's 4 basic float types
 -- and the multi-channel expressions of Punctual (which are not limited to 1-4 channels).
 
-import Prelude (pure,(<>),otherwise,bind,discard,show,(+),($),(==),(<<<),(>>=),(<$>),(>),(>=),(/),(-))
+import Prelude (pure,(<>),otherwise,bind,discard,show,(+),($),(==),(<<<),(>>=),(<$>),(>=),(/),(-))
+import Prelude as Prelude
 import Data.Map (Map,insert,empty)
 import Data.Maybe (Maybe(..))
 import Data.List (List,(:))
@@ -348,19 +349,40 @@ zipWithAAA f xs ys = do
       case fromList r.tailY of
         Nothing -> pure $ singleton z
         Just ty -> zipWithAAA f tx ty
+  
+-- given three Exprs, align them (without extending) using unconsAligned3 (larger types fractured to match smaller boundaries)
+-- then zip them with a function a -> a -> a -> a
+zipWithAAAA :: (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> Exprs -> GLSL Exprs
+zipWithAAAA f xs ys zs = do
+  r <- unconsAligned3 xs ys zs
+  let a = f r.headX r.headY r.headZ
+  case fromList r.tailX of
+    Nothing -> pure $ singleton a
+    Just tx -> do
+      case fromList r.tailY of
+        Nothing -> pure $ singleton a
+        Just ty -> do
+          case fromList r.tailZ of
+            Nothing -> pure $ singleton a
+            Just tz -> zipWithAAAA f tx ty tz
 
 -- given the head of two Exprs, find which one is the smaller type, and use that type to uncons both inputs
 unconsAligned :: Exprs -> Exprs -> GLSL { headX :: GLSLExpr, headY :: GLSLExpr, tailX :: List GLSLExpr, tailY :: List GLSLExpr }
-unconsAligned xs ys
-  | (head xs).glslType == (head ys).glslType = pure { headX: head xs, headY: head ys, tailX: tail xs, tailY: tail ys }
-  | (head xs).glslType > (head ys).glslType = do -- fracture larger head xs by smaller head ys type
-      xs' <- unconsGLSL (head ys).glslType xs
-      pure { headX: xs'.head, headY: head ys, tailX: xs'.tail, tailY: tail ys }
-  | otherwise = do -- fracture larger head ys by smaller head xs type
-      ys' <- unconsGLSL (head xs).glslType ys
-      pure { headX: head xs, headY: ys'.head, tailX: tail xs, tailY: ys'.tail }
+unconsAligned xs ys = do
+  let t = Prelude.min (head xs).glslType (head ys).glslType
+  xs' <- unconsGLSL t xs
+  ys' <- unconsGLSL t ys
+  pure { headX: xs'.head, headY: ys'.head, tailX: xs'.tail, tailY: ys'.tail }
 
-
+-- given the head of three Exprs, find which one is the smaller type, and use that type to uncons all three inputs
+unconsAligned3 :: Exprs -> Exprs -> Exprs -> GLSL { headX :: GLSLExpr, headY :: GLSLExpr, headZ :: GLSLExpr, tailX :: List GLSLExpr, tailY :: List GLSLExpr, tailZ :: List GLSLExpr }
+unconsAligned3 xs ys zs = do
+  let t = Prelude.min (Prelude.min (head xs).glslType (head ys).glslType) (head zs).glslType
+  xs' <- unconsGLSL t xs
+  ys' <- unconsGLSL t ys
+  zs' <- unconsGLSL t zs
+  pure { headX: xs'.head, headY: ys'.head, headZ: zs'.head, tailX: xs'.tail, tailY: ys'.tail, tailZ: zs'.tail }
+      
 -- extend provided Exprs so that it has the specified number of channels, by repeating from the beginning
 -- (or cut off channels if the provided Exprs has more channels than requested)
 extend :: Int -> Exprs -> GLSL Exprs
