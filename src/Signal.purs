@@ -111,7 +111,7 @@ data Signal =
   IfThenElse Signal Signal Signal | -- no pathways for this exist yet in PureScript port, from the AST level up
   ILine MultiMode Signal Signal Signal |
   Line MultiMode Signal Signal Signal |
-  LinLin Signal Signal Signal |
+  LinLin MultiMode Signal Signal Signal |
   LPF MultiMode Signal Signal Signal | HPF MultiMode Signal Signal Signal | BPF MultiMode Signal Signal Signal |
   Delay Number Signal Signal
 
@@ -127,7 +127,7 @@ when :: Signal -> Signal -> Signal
 when x y = IfThenElse x y (Constant 0.0)
 
 modulatedRangeLowHigh :: Signal -> Signal -> Signal -> Signal
-modulatedRangeLowHigh low high x = LinLin (SignalList $ Constant (-1.0):Constant 1.0:Nil) (SignalList $ low:high:Nil) x
+modulatedRangeLowHigh low high x = LinLin Combinatorial (SignalList $ Constant (-1.0):Constant 1.0:Nil) (SignalList $ low:high:Nil) x
 
 modulatedRangePlusMinus :: Signal -> Signal -> Signal -> Signal
 modulatedRangePlusMinus a b = modulatedRangeLowHigh low high
@@ -296,7 +296,7 @@ subSignals (Step x y) = x:y:Nil
 subSignals (IfThenElse x y z) = x:y:z:Nil
 subSignals (ILine _ x y z) = x:y:z:Nil
 subSignals (Line _ x y z) = x:y:z:Nil
-subSignals (LinLin x y z) = x:y:z:Nil
+subSignals (LinLin _ x y z) = x:y:z:Nil
 subSignals (LPF _ x y z) = x:y:z:Nil
 subSignals (HPF _ x y z) = x:y:z:Nil
 subSignals (BPF _ x y z) = x:y:z:Nil

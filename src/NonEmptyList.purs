@@ -50,6 +50,9 @@ everyPairUnfolder xs = Tuple a mb
            Nothing -> Nothing
            Just t -> if length t >= 2 then Just t else Nothing 
     
+combine :: forall a b c. MultiMode -> (a -> b -> c) -> NonEmptyList a -> NonEmptyList b -> NonEmptyList c
+combine Combinatorial = combineCombinatorial
+combine Pairwise = combinePairwise
         
 combineCombinatorial :: forall a b c. (a -> b -> c) -> NonEmptyList a -> NonEmptyList b -> NonEmptyList c
 combineCombinatorial f xs ys = do -- in NonEmptyList monad
@@ -64,7 +67,32 @@ combinePairwise f xs ys = zipWith f xs' ys'
     xs' = extendByRepetition n xs
     ys' = extendByRepetition n ys
     
-combine :: forall a b c. MultiMode -> (a -> b -> c) -> NonEmptyList a -> NonEmptyList b -> NonEmptyList c
-combine Combinatorial = combineCombinatorial
-combine Pairwise = combinePairwise
+combine3 :: forall a b c d. MultiMode -> (a -> b -> c -> d) -> NonEmptyList a -> NonEmptyList b -> NonEmptyList c -> NonEmptyList d
+combine3 Combinatorial = combine3Combinatorial
+combine3 Pairwise = combine3Pairwise
+
+combine3Combinatorial :: forall a b c d. (a -> b -> c -> d) -> NonEmptyList a -> NonEmptyList b -> NonEmptyList c -> NonEmptyList d
+combine3Combinatorial f xs ys zs = do -- in NonEmptyList monad
+  x <- xs
+  y <- ys
+  z <- zs
+  pure $ f x y z
+  
+combine3Pairwise :: forall a b c d. (a -> b -> c -> d) -> NonEmptyList a -> NonEmptyList b -> NonEmptyList c -> NonEmptyList d
+combine3Pairwise f xs ys zs = zipWith ($) (zipWith f xs' ys') zs'
+  where
+    n = max (max (length xs) (length ys)) (length zs)
+    xs' = extendByRepetition n xs
+    ys' = extendByRepetition n ys
+    zs' = extendByRepetition n zs
+
+
+
+
+
+
+
+
+
+
 

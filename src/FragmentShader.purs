@@ -379,13 +379,51 @@ signalToGLSL (Mesh mm xy w) = do
     pure $ combine mm f xys' ws
   traverse assign $ concat exprss 
 
+signalToGLSL (ILine mm xy1 xy2 w) = do
+  fxys <- _.fxys <$> get
+  exprss <- for fxys $ \fxy -> do
+    xy1s <- signalToGLSL xy1 >>= alignVec2
+    xy2s <- signalToGLSL xy2 >>= alignVec2
+    ws <- signalToGLSL w >>= alignFloat
+    pure $ combine3 mm (GLSLExpr.iline fxy) xy1s xy2s ws
+  traverse assign $ concat exprss
+
+signalToGLSL (Line mm xy1 xy2 w) = do
+  fxys <- _.fxys <$> get
+  exprss <- for fxys $ \fxy -> do
+    xy1s <- signalToGLSL xy1 >>= alignVec2
+    xy2s <- signalToGLSL xy2 >>= alignVec2
+    ws <- signalToGLSL w >>= alignFloat
+    pure $ combine3 mm (GLSLExpr.line fxy) xy1s xy2s ws
+  traverse assign $ concat exprss
+
+signalToGLSL (Point xy) = do
+  fxys <- _.fxys <$> get
+  exprss <- for fxys $ \fxy -> do
+    xys <- signalToGLSL xy >>= alignVec2
+    pure $ map (GLSLExpr.point fxy) xys
+  traverse assign $ concat exprss
+
+signalToGLSL (LinLin mm r1 r2 x) = do
+  r1s <- signalToGLSL r1 >>= alignVec2
+  r2s <- signalToGLSL r2 >>= alignVec2
+  xs <- signalToGLSL x
+  case mm of 
+    Combinatorial -> pure $ do -- in NonEmptyList monad
+      r1' <- r1s
+      r2' <- r2s
+      x' <- xs
+      pure $ GLSLExpr.linlin r1' r2' x'
+    Pairwise -> do
+      case (length r1s == 1 && length r2s == 1) of
+        true -> pure $ map (GLSLExpr.linlin (head r1s) (head r2s)) xs -- only one set of ranges so map onto xs as they are
+        false -> do
+          xs' <- alignFloat xs
+          pure $ combine3Pairwise GLSLExpr.linlin r1s r2s xs'
+          
 {-
-  ILine MultiMode Signal Signal Signal |
-  Line MultiMode Signal Signal Signal |
-  Point Signal |
-  Step Signal Signal |
   IfThenElse Signal Signal Signal | -- no pathways for this exist yet in PureScript port, from the AST level up
-  LinLin Signal Signal Signal |
+  Step Signal Signal |
 -}
 
 signalToGLSL _ = pure $ singleton $ zero
@@ -432,7 +470,7 @@ combineChannelsCombinatorial f xs ys = do
     x <- xs'
     y <- ys
     pure $ f x y
-
+    
 clipEtcFunction :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Signal -> Signal -> GLSL Exprs
 clipEtcFunction mm f r x = do
   rs <- signalToGLSL r >>= alignVec2 >>= traverse assign

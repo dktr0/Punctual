@@ -55,7 +55,7 @@ reservedNamesDef = [
   "clip","clipp","between","betweenp","smoothstep","smoothstepp","gate","gatep","when",
   "setfx","setfy","setfxy","zoom","move","tile","spin",
   "lpf","lpfp","hpf","hpfp","bpf","bpfp","delay",
-  "linlin",
+  "linlin","linlinp",
   "rep",
   "img","vid","cam"
   ]

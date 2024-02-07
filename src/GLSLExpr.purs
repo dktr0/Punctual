@@ -289,6 +289,11 @@ circle fxy xy d
   | fxy.glslType /= Vec2 || xy.glslType /= Vec2 = { string: "!! Internal Punctual GLSL generation error in circle", glslType: Float, isSimple: false, deps: fxy.deps <> xy.deps <> d.deps }
   | otherwise = { string: s, glslType: d.glslType, isSimple: false, deps: fxy.deps <> xy.deps <> d.deps }
       where s = "smoothstep(1.5/(width+height),0.0,distance(" <> fxy.string <> "," <> xy.string <> ")-(" <> d.string <> "*0.5))"
+
+point :: GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2
+point fxy xy = circle fxy xy d
+  where d = { string: "((1./width)+(1./height))", glslType: Float, isSimple: false, deps: empty }
+ 
       
 -- TODO: will need to add rect function to fragment shader header
 rect :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 Vec2 -> Float (no reuse of any arguments, so no inherent need to pre-assign them)
@@ -325,4 +330,19 @@ iline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 V
 iline fxy xy1 xy2 w
   | fxy.glslType /= Vec2 || xy1.glslType /= Vec2 || xy2.glslType /= Vec2 || w.glslType /= Float = { string: "!! Internal Punctual GLSL generation error in line", glslType: Float, isSimple: false, deps: fxy.deps <> xy1.deps <> xy2.deps <> w.deps }
   | otherwise = { string: "iline(" <> xy1.string <> "," <> xy2.string <> "," <> w.string <> "," <> fxy.string <> ")", glslType: Float, isSimple: false, deps: fxy.deps <> xy1.deps <> xy2.deps <> w.deps }
+
+-- \float linlin(vec2 r1, vec2 r2, float x) { return r2.x+((r2.y-r2.x)*(x-r1.x)/(r1.y-r1.x));}\
+
+linlin :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 Any -> Any, vec2 range arguments are re-used and should be pre-assigned
+linlin r1 r2 x 
+  | r1.glslType /= Vec2 || r2.glslType /= Vec2 = { string: "!! Internal Punctual GLSL generation error in linlin", glslType: Float, isSimple: false, deps: r1.deps <> r2.deps <> x.deps }
+  | otherwise = { string: s, glslType: x.glslType, isSimple: false, deps: r1.deps <> r2.deps <> x.deps }
+      where
+        x' = "(" <> x.string <> "-" <> r1.string <> ".x)"
+        r1size = "(" <> r1.string <> ".y-" <> r1.string <> ".x)"
+        r2size = "(" <> r2.string <> ".y-" <> r2.string <> ".x)"
+        s = "(" <> r2.string <> ".x+(" <> r2size <> "*" <> x' <> "/" <> r1size <> "))"
+
+
+
 
