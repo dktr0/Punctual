@@ -2,11 +2,10 @@ module NonEmptyList where
 
 -- utility functions over PureScript's NonEmptyList
 
-import Prelude (max,($),(+),(/),bind,pure,(==),otherwise,map)
+import Prelude (max,($),(+),(/),bind,pure,map,(>=))
 import Data.List.NonEmpty (NonEmptyList,length,concat,zipWith,singleton,fromList,init,tail,head)
 import Data.Tuple (Tuple(..))
-import Data.Semigroup.Foldable (fold1)
-import Data.Unfoldable1 (replicate1)
+import Data.Unfoldable1 (replicate1,unfoldr1)
 import Data.List as List
 import Data.Maybe (Maybe(..))
 
@@ -32,8 +31,25 @@ everyAdjacentPair xs
 
 -- if there's only one item in the list, returns a tuple containing that twice
 everyPair :: forall a. NonEmptyList a -> NonEmptyList (Tuple a a)
-everyPair = ???
+everyPair xs = concat $ unfoldr1 everyPairUnfolder xs
 
+{-
+unfoldr1 :: forall t a b. Unfoldable1 t => (b -> Tuple a (Maybe b)) -> b -> t a
+a :: NonEmptyList (Tuple c c)
+b :: NonEmptyList c
+-}
+
+everyPairUnfolder :: forall a. NonEmptyList a -> Tuple (NonEmptyList (Tuple a a)) (Maybe (NonEmptyList a))
+everyPairUnfolder xs = Tuple a mb
+  where
+    mys = fromList $ map (Tuple (head xs)) (tail xs) -- Maybe (NonEmptyList a)
+    a = case mys of
+          Nothing -> singleton $ Tuple (head xs) (head xs)
+          Just ys -> ys
+    mb = case (fromList $ tail xs) of
+           Nothing -> Nothing
+           Just t -> if length t >= 2 then Just t else Nothing 
+    
         
 combineCombinatorial :: forall a b c. (a -> b -> c) -> NonEmptyList a -> NonEmptyList b -> NonEmptyList c
 combineCombinatorial f xs ys = do -- in NonEmptyList monad
