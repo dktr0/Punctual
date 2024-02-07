@@ -107,7 +107,7 @@ data Signal =
   Lines MultiMode Signal Signal |
   ILines MultiMode Signal Signal |
   Mesh MultiMode Signal Signal |
-  Step Signal Signal |
+  Seq Signal Signal |
   Mix MultiMode Signal Signal Signal |
   ILine MultiMode Signal Signal Signal |
   Line MultiMode Signal Signal Signal |
@@ -286,7 +286,7 @@ subSignals (Between _ x y) = x:y:Nil
 subSignals (SmoothStep _ x y) = x:y:Nil
 subSignals (VLine _ x y) = x:y:Nil
 subSignals (HLine _ x y) = x:y:Nil
-subSignals (Step x y) = x:y:Nil
+subSignals (Seq x y) = x:y:Nil
 subSignals (ILine _ x y z) = x:y:z:Nil
 subSignals (Line _ x y z) = x:y:z:Nil
 subSignals (LinLin _ x y z) = x:y:z:Nil

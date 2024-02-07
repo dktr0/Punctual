@@ -4,13 +4,18 @@ module GLSLExpr where
 -- while keeping track of whether an expression is simple (and thus might avoid assignment),
 -- it's type (and thus number of channels), and its dependency on any previously declared variables
 
-import Prelude (class Eq, class Ord, class Show,(<>),(==),(/=),otherwise,(&&),($),map,(+),(||))
+import Prelude (class Eq, class Ord, class Show,(<>),(==),(/=),otherwise,(&&),($),map,(+),(||),(/),show,(-),(*))
 import Prelude as Prelude
+import Data.Int (toNumber)
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.Set (Set,empty)
-import Data.List.NonEmpty (NonEmptyList)
-import Data.Foldable (foldl)
+import Data.List ((:))
+import Data.List as List
+import Data.List.NonEmpty (NonEmptyList,singleton,cons,length,head,last,tail,toList)
+import Data.Foldable (foldl,fold,intercalate)
+import Data.Unfoldable1 (range)
+import Data.Maybe (Maybe(..))
 
 data GLSLType = Float | Vec2 | Vec3 | Vec4
 
@@ -124,6 +129,14 @@ forceCast Vec2 x = { string: "vec2(" <> x.string <> ")", glslType: Vec2, isSimpl
 forceCast Vec3 x = { string: "vec3(" <> x.string <> ")", glslType: Vec3, isSimple: x.isSimple, deps: x.deps }
 forceCast Vec4 x = { string: "vec4(" <> x.string <> ")", glslType: Vec4, isSimple: x.isSimple, deps: x.deps }
 
+split :: GLSLExpr -> NonEmptyList GLSLExpr
+split x
+  | x.glslType == Float = singleton x
+  | x.glslType == Vec2 = unsafeSwizzleX x `cons` singleton (unsafeSwizzleY x)
+  | x.glslType == Vec3 = unsafeSwizzleX x `cons` (unsafeSwizzleY x `cons` singleton (unsafeSwizzleZ x))
+  | otherwise = unsafeSwizzleX x `cons` (unsafeSwizzleY x `cons` (unsafeSwizzleZ x `cons` singleton (unsafeSwizzleW x)))
+  
+
 simpleUnaryFunctionPure :: String -> GLSLType -> GLSLExpr -> GLSLExpr
 simpleUnaryFunctionPure funcName rType x = { string: funcName <> "(" <> x.string <> ")", glslType: rType, isSimple: x.isSimple, deps: x.deps }
 
@@ -154,6 +167,17 @@ dotSum x
   | x.glslType == Vec3 = { string: "dot(" <> x.string <> ",vec3(1.))", glslType: Float, isSimple: x.isSimple, deps: x.deps }
   | otherwise = { string: "dot(" <> x.string <> ",vec4(1.))", glslType: Float, isSimple: x.isSimple, deps: x.deps }
 
+unsafeSwizzleX :: GLSLExpr -> GLSLExpr
+unsafeSwizzleX a = { string: a.string <> ".x", glslType: Float, isSimple: a.isSimple, deps: a.deps }
+
+unsafeSwizzleY :: GLSLExpr -> GLSLExpr
+unsafeSwizzleY a = { string: a.string <> ".y", glslType: Float, isSimple: a.isSimple, deps: a.deps }
+
+unsafeSwizzleZ :: GLSLExpr -> GLSLExpr
+unsafeSwizzleZ a = { string: a.string <> ".z", glslType: Float, isSimple: a.isSimple, deps: a.deps }
+
+unsafeSwizzleW :: GLSLExpr -> GLSLExpr
+unsafeSwizzleW a = { string: a.string <> ".w", glslType: Float, isSimple: a.isSimple, deps: a.deps }
 
 unsafeSwizzleXY :: GLSLExpr -> GLSLExpr
 unsafeSwizzleXY a = { string: a.string <> ".xy", glslType: Vec2, isSimple: a.isSimple, deps: a.deps }
@@ -351,4 +375,20 @@ mix x y a
       where
         s = "mix(" <> x.string <> "," <> y.string <> "," <> a.string <> ")"
         t = Prelude.max x.glslType a.glslType
+
+seq :: NonEmptyList GLSLExpr -> GLSLExpr -> GLSLExpr -- all arguments are Float and return value is Float
+seq steps y = { string: s, glslType: Float, isSimple: false, deps: fold (map _.deps steps) <> y.deps }
+  where
+    nSteps = length steps
+    stepSize = 1.0 / toNumber nSteps
+    firstStep = "(step(" <> y.string <> "," <> show stepSize <> ")*" <> (head steps).string <> ")"
+    lastStep = "(step(" <> show (1.0-stepSize) <> "," <> y.string <> ")*" <> (last steps).string <> ")"
+    middleStep n r = "((step(" <> show (stepSize*toNumber n) <> "," <> y.string <> ")-step(" <> y.string <> "," <> show (stepSize*toNumber n + stepSize) <> "))*" <> r <> ")"
+    middleStepExprs = case List.init (tail steps) of
+                        Just xs -> xs
+                        _ -> List.Nil
+    middleStepNumbers = toList $ range 1 (nSteps - 2)
+    middleStepValues = map _.string middleStepExprs
+    middleSteps = List.zipWith middleStep middleStepNumbers middleStepValues
+    s = intercalate "+" ((firstStep : middleSteps) `List.snoc` lastStep)
 

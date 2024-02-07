@@ -15,7 +15,7 @@ import Data.FunctorWithIndex (mapWithIndex)
 import NonEmptyList
 import MultiMode (MultiMode(..))
 import Signal (Signal(..))
-import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels)
+import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels,split)
 import GLSLExpr as GLSLExpr
 import GLSL (GLSL,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignVec4,alignRGBA,runGLSL,withFxys,extend,zipWithAAA,zipWithAAAA)
 
@@ -427,10 +427,15 @@ signalToGLSL (Mix mm c t e) = do
   es <- signalToGLSL e
   combineChannels3 mm GLSLExpr.mix cs ts es
             
-{-
-  Step Signal Signal |
--}
-
+signalToGLSL (Seq steps y) = do
+  steps' <- signalToGLSL steps
+  case exprsChannels steps' of
+    1 -> pure steps'
+    _ -> do
+      let steps'' = concat $ map split steps' -- ? there is also splitIntoFloats in GLSL.purs which assigns, do we want to use that?
+      ys <- signalToGLSL y >>= alignFloat
+      pure $ map (GLSLExpr.seq steps'') ys
+ 
 signalToGLSL _ = pure $ singleton $ zero
 
 simpleUnaryFunction :: String -> Exprs -> GLSL Exprs
