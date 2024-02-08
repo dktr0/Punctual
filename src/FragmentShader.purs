@@ -61,13 +61,13 @@ signalToGLSL (Rep n x) = (concat <<< replicate1 n) <$> signalToGLSL x
 
 signalToGLSL Pi = pure $ singleton $ simpleFromString Float "PI"
 
-signalToGLSL Px = pure $ singleton $ simpleFromString Float "(2./width)"
+signalToGLSL Px = pure $ singleton $ simpleFromString Float "(2./res.x)"
 
-signalToGLSL Py = pure $ singleton $ simpleFromString Float "(2./height)"
+signalToGLSL Py = pure $ singleton $ simpleFromString Float "(2./res.y)"
 
-signalToGLSL Pxy = pure $ singleton $ simpleFromString Vec2 "(2./vec2(width,height))"
+signalToGLSL Pxy = pure $ singleton $ simpleFromString Vec2 "(2./res)"
 
-signalToGLSL Aspect = pure $ singleton $ simpleFromString Float "(width/height)"
+signalToGLSL Aspect = pure $ singleton $ simpleFromString Float "(res.x/res.y)"
 
 signalToGLSL Fx = do
   s <- get
@@ -601,3 +601,51 @@ trunc xs = do
   case s.webGl2 of
     true -> simpleUnaryFunction "trunc" xs
     false -> traverse assign xs >>= simpleUnaryExpression (\x -> "(floor(abs(" <> x <> "))*sign(" <> x <> "))")
+    
+{-
+-- TODO: reimplement as inline expressions 
+vec2 _fxy() { return (gl_FragCoord.xy/res) * 2. - 1.; }
+float xfNew(float t1,float t2){return clamp((_etime-t1)/(t2-t1),0.,1.);}
+float xfOld(float t1,float t2){return 1.-xFadeNew(t1,t2);}
+float prox(vec2 x,vec2 y){return clamp((2.828427-distance(x,y))/2.828427,0.,1.);}
+float phasor(float f) { return (_time*f - floor(_time*f));}
+float tri(float f) { float p = phasor(f); return p < 0.5 ? p*4.-1. : 1.-((p-0.5)*4.) ;}
+float saw(float f) { return phasor(f)*2.-1.;}
+float sqr(float f) { float p = phasor(f); return p < 0.5 ? -1. : 1.;}
+vec2 tile(vec2 ab,vec2 fxy) { return fract(((fxy*0.5)+0.5)*ab)*2.-1.;}
+vec2 spin(float a,vec2 fxy) {
+ float ct = cos(a*3.1415926538); float st = sin(a*3.1415926538);
+ return vec2(fxy.x*ct-fxy.y*st,fxy.y*ct+fxy.x*st);}
+-}
+
+header :: String    
+header = """precision mediump float;
+#define PI 3.1415926535897932384626433832795
+uniform lowp vec2 res;
+uniform sampler2D _fb,_cam,_fft,_ifft;
+uniform sampler2D tex0,tex1,tex2,tex3,tex4,tex5,tex6,tex7,tex8,tex9,tex10,tex11,tex12;
+uniform float lo,mid,hi,ilo,imid,ihi;
+uniform float _defaultAlpha,_cps,_time,_etime,_beat,_ebeat;
+vec3 hsvrgb(vec3 c) {
+  vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+  return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);}
+vec3 rgbhsv(vec3 c){
+  vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+  vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+  vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+  float d = q.x - min(q.w, q.y);
+  float e = 1.0e-10;
+  return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);}
+float iline(vec2 xy1,vec2 xy2,float w,vec2 fxy) {
+  fxy -= xy1, xy2 -= xy1;
+  float h = dot(fxy,xy2)/dot(xy2,xy2);
+  float aa = min(((1.5/res.x)+(1.5/res.y))*0.5,w);
+  return smoothstep(aa,0.,length(fxy - xy2 * h)-(w*0.5));}
+float line(vec2 xy1,vec2 xy2,float w,vec2 fxy) {
+  fxy -= xy1, xy2 -= xy1;
+  float h = clamp(dot(fxy,xy2)/dot(xy2,xy2),0.,1.);
+  float aa = min(((1.5/res.x)+(1.5/res.y))*0.5,w);
+  return smoothstep(aa,0.,length(fxy - xy2 * h)-(w*0.5));}"""
+-- thanks to http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl for the HSV-RGB conversion algorithms above!
+

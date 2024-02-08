@@ -312,11 +312,11 @@ circle :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 Any -> Any (
 circle fxy xy d 
   | fxy.glslType /= Vec2 || xy.glslType /= Vec2 = { string: "!! Internal Punctual GLSL generation error in circle", glslType: Float, isSimple: false, deps: fxy.deps <> xy.deps <> d.deps }
   | otherwise = { string: s, glslType: d.glslType, isSimple: false, deps: fxy.deps <> xy.deps <> d.deps }
-      where s = "smoothstep(1.5/(width+height),0.0,distance(" <> fxy.string <> "," <> xy.string <> ")-(" <> d.string <> "*0.5))"
+      where s = "smoothstep(1.5/(res.x+res.y),0.0,distance(" <> fxy.string <> "," <> xy.string <> ")-(" <> d.string <> "*0.5))"
 
 point :: GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2
 point fxy xy = circle fxy xy d
-  where d = { string: "((1./width)+(1./height))", glslType: Float, isSimple: false, deps: empty }
+  where d = { string: "((1./res.x)+(1./res.y))", glslType: Float, isSimple: false, deps: empty }
  
       
 -- TODO: will need to add rect function to fragment shader header
@@ -332,7 +332,7 @@ vline fxy x w
       where
         a = "abs(" <> fxy.string <> ".x-" <> x.string <> ")-" <> w.string
         edge0 = explicitlyTypedZero w.glslType
-        edge1 = "min(" <> w.string <> ",3./width)"
+        edge1 = "min(" <> w.string <> ",3./res.x)"
         s = "(1.-smoothstep(" <> edge0.string <> "," <> edge1 <> "," <> a <> "))"
 
 hline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Float/Any Float/Any -> Float/Any (Float/Any arguments follow standard pattern, either matched or one is float)
@@ -342,7 +342,7 @@ hline fxy y w
       where
         a = "abs(" <> fxy.string <> ".y-" <> y.string <> ")-" <> w.string
         edge0 = explicitlyTypedZero w.glslType
-        edge1 = "min(" <> w.string <> ",3./height)"
+        edge1 = "min(" <> w.string <> ",3./res.y)"
         s = "(1.-smoothstep(" <> edge0.string <> "," <> edge1 <> "," <> a <> "))"
 
 line :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 Vec2 Float -> Float (no reuse of any arguments)
