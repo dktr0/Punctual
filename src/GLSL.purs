@@ -330,7 +330,7 @@ alignRGBA xs = alignVec4NoExtend xs >>= traverse exprRGBA
 exprRGBA :: GLSLExpr -> GLSL GLSLExpr
 exprRGBA x
   | x.glslType == Vec4 = pure x
-  | x.glslType == Float = pure $ vec4binary (vec3unary x) one
+  | x.glslType == Float = pure $ vec4binary (forceCast Vec3 x) one
   | x.glslType == Vec2 = do
       x' <- assign x
       y <- swizzleY x'

@@ -3,7 +3,7 @@ module FragmentShader where
 import Prelude(($),pure,show,bind,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max)
 import Data.Maybe (Maybe(..))
 import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length)
-import Data.Traversable (traverse,for)
+import Data.Traversable (traverse,for,sequence)
 import Data.Tuple (Tuple(..),fst,snd)
 import Data.Foldable (fold,intercalate,foldM)
 import Data.Set as Set
@@ -15,7 +15,7 @@ import Data.FunctorWithIndex (mapWithIndex)
 import NonEmptyList
 import MultiMode (MultiMode(..))
 import Signal (Signal(..))
-import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels,split)
+import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels,split,unsafeSwizzleX,unsafeSwizzleY)
 import GLSLExpr as GLSLExpr
 import GLSL (GLSL,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignVec4,alignRGBA,runGLSL,withFxys,extend,zipWithAAA,zipWithAAAA)
 
@@ -59,15 +59,15 @@ signalToGLSL (Mono x) = do
 signalToGLSL (Rep 0 _) = pure $ singleton $ zero
 signalToGLSL (Rep n x) = (concat <<< replicate1 n) <$> signalToGLSL x
 
-signalToGLSL Pi = pure $ singleton $ simpleFromString Float "PI"
+signalToGLSL Pi = pure $ singleton $ GLSLExpr.pi
 
-signalToGLSL Px = pure $ singleton $ simpleFromString Float "(2./res.x)"
+signalToGLSL Px = pure $ singleton $ GLSLExpr.px
 
-signalToGLSL Py = pure $ singleton $ simpleFromString Float "(2./res.y)"
+signalToGLSL Py = pure $ singleton $ GLSLExpr.py
 
-signalToGLSL Pxy = pure $ singleton $ simpleFromString Vec2 "(2./res)"
+signalToGLSL Pxy = pure $ singleton $ GLSLExpr.pxy
 
-signalToGLSL Aspect = pure $ singleton $ simpleFromString Float "(res.x/res.y)"
+signalToGLSL Aspect = pure $ singleton $ GLSLExpr.aspect
 
 signalToGLSL Fx = do
   s <- get
@@ -101,7 +101,7 @@ signalToGLSL IHi = pure $ singleton $ simpleFromString Float "ihi"
 
 signalToGLSL Cps = pure $ singleton $ simpleFromString Float "_cps"
 
-signalToGLSL Time = pure $ singleton $ simpleFromString Float "_time"
+signalToGLSL Time = pure $ singleton $ GLSLExpr.time
 
 signalToGLSL Beat = pure $ singleton $ simpleFromString Float "_beat"
 
@@ -109,11 +109,11 @@ signalToGLSL ETime = pure $ singleton $ simpleFromString Float "_etime"
 
 signalToGLSL EBeat = pure $ singleton $ simpleFromString Float "_ebeat"
 
-signalToGLSL (FFT x) = signalToGLSL x >>= unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "_fft")
+signalToGLSL (FFT x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "_fft")
 
-signalToGLSL (IFFT x) = signalToGLSL x >>= unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "_ifft")
+signalToGLSL (IFFT x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "_ifft")
 
-signalToGLSL (Fb xy) = signalToGLSL xy >>= unipolar >>= traverse assignForced >>= alignVec2 >>= traverse (texture2D "_fb")
+signalToGLSL (Fb xy) = signalToGLSL xy >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignVec2 >>= traverse (texture2D "_fb")
 
 signalToGLSL Cam = do
   s <- get
@@ -138,60 +138,60 @@ signalToGLSL (Blend x) = do
     Nothing -> pure $ singleton $ head xs
     Just t -> singleton <$> foldM blend (head xs) t
 
-signalToGLSL (RgbHsv x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "rgbhsv"
-signalToGLSL (HsvRgb x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "hsvrgb"
+signalToGLSL (RgbHsv x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv
+signalToGLSL (HsvRgb x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb
 signalToGLSL (HsvH x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleX
 signalToGLSL (HsvS x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleY
 signalToGLSL (HsvV x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleZ
-signalToGLSL (HsvR x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "hsvrgb" >>= traverse swizzleX
-signalToGLSL (HsvG x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "hsvrgb" >>= traverse swizzleY
-signalToGLSL (HsvB x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "hsvrgb" >>= traverse swizzleZ
+signalToGLSL (HsvR x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb >>= traverse swizzleX
+signalToGLSL (HsvG x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb >>= traverse swizzleY
+signalToGLSL (HsvB x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb >>= traverse swizzleZ
 signalToGLSL (RgbR x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleX
 signalToGLSL (RgbG x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleY
 signalToGLSL (RgbB x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleZ
-signalToGLSL (RgbH x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "rgbhsv" >>= traverse swizzleX
-signalToGLSL (RgbS x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "rgbhsv" >>= traverse swizzleY
-signalToGLSL (RgbV x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction "rgbhsv" >>= traverse swizzleZ
+signalToGLSL (RgbH x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv >>= traverse swizzleX
+signalToGLSL (RgbS x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv >>= traverse swizzleY
+signalToGLSL (RgbV x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv >>= traverse swizzleZ
 
-signalToGLSL (Osc x) = signalToGLSL x >>= (unaryExpression $ \e -> e <> "*PI*2.0*_time") >>= simpleUnaryFunction "sin"
-signalToGLSL (Tri x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "tri"
-signalToGLSL (Saw x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "saw"
-signalToGLSL (Sqr x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "sqr"
-signalToGLSL (LFTri x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "tri"
-signalToGLSL (LFSaw x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "saw"
-signalToGLSL (LFSqr x) = signalToGLSL x >>= alignFloat >>= simpleUnaryFunction "sqr"
+signalToGLSL (Osc x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.osc
+signalToGLSL (Tri x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.tri
+signalToGLSL (Saw x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.saw
+signalToGLSL (Sqr x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.sqr
+signalToGLSL (LFTri x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.tri
+signalToGLSL (LFSaw x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.saw
+signalToGLSL (LFSqr x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.sqr
 
-signalToGLSL (Abs x) = signalToGLSL x >>= simpleUnaryFunction "abs"
-signalToGLSL (Acos x) = signalToGLSL x >>= simpleUnaryFunction "acos"
+signalToGLSL (Abs x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.abs
+signalToGLSL (Acos x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.acos
 signalToGLSL (Acosh x) = signalToGLSL x >>= acosh
-signalToGLSL (AmpDb x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(20.*log(" <> s <> ")/log(10.))")
-signalToGLSL (Asin x) = signalToGLSL x >>= simpleUnaryFunction "asin"
+signalToGLSL (AmpDb x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.ampdb
+signalToGLSL (Asin x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.asin
 signalToGLSL (Asinh x) = signalToGLSL x >>= asinh
-signalToGLSL (Atan x) = signalToGLSL x >>= simpleUnaryFunction "atan"
+signalToGLSL (Atan x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.atan
 signalToGLSL (Atanh x) = signalToGLSL x >>= atanh
-signalToGLSL (Bipolar x) = signalToGLSL x >>= simpleUnaryExpression (\e -> "(" <> e <> "*2.-1.)")
-signalToGLSL (Cbrt x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "pow(" <> s <> ",0.3333333333)")
-signalToGLSL (Ceil x) = signalToGLSL x >>= simpleUnaryFunction "ceil"
-signalToGLSL (Cos x) = signalToGLSL x >>= simpleUnaryFunction "cos"
+signalToGLSL (Bipolar x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.bipolar
+signalToGLSL (Cbrt x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.cbrt
+signalToGLSL (Ceil x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.ceil
+signalToGLSL (Cos x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.cos
 signalToGLSL (Cosh x) = signalToGLSL x >>= cosh
-signalToGLSL (CpsMidi x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(69.+(12.*log2(" <> s <> "/440.)))")
-signalToGLSL (DbAmp x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "pow(10.," <> s <> "/20.)")
-signalToGLSL (Exp x) = signalToGLSL x >>= simpleUnaryFunction "exp"
-signalToGLSL (Floor x) = signalToGLSL x >>= simpleUnaryFunction "floor"
-signalToGLSL (Fract x) = signalToGLSL x >>= simpleUnaryFunction "fract"
-signalToGLSL (Log x) = signalToGLSL x >>= simpleUnaryFunction "log"
-signalToGLSL (Log2 x) = signalToGLSL x >>= simpleUnaryFunction "log2"
-signalToGLSL (Log10 x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(log(" <> s <> ")/log(10.))")
-signalToGLSL (MidiCps x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(440.*pow((" <> s <> "-69.)/12.,2.))")
-signalToGLSL (Round x) = signalToGLSL x >>= simpleUnaryExpression (\s -> "(floor(" <> s <> ")+0.5)")
-signalToGLSL (Sign x) = signalToGLSL x >>= simpleUnaryFunction "sign"
-signalToGLSL (Sin x) = signalToGLSL x >>= simpleUnaryFunction "sin"
+signalToGLSL (CpsMidi x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.cpsmidi
+signalToGLSL (DbAmp x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.dbamp
+signalToGLSL (Exp x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.exp
+signalToGLSL (Floor x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.floor
+signalToGLSL (Fract x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.fract
+signalToGLSL (Log x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.log
+signalToGLSL (Log2 x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.log2
+signalToGLSL (Log10 x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.log10 
+signalToGLSL (MidiCps x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.midicps
+signalToGLSL (Round x) = signalToGLSL x >>= round
+signalToGLSL (Sign x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.sign
+signalToGLSL (Sin x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.sin
 signalToGLSL (Sinh x) = signalToGLSL x >>= sinh
-signalToGLSL (Sqrt x) = signalToGLSL x >>= simpleUnaryFunction "sqrt"
-signalToGLSL (Tan x) = signalToGLSL x >>= simpleUnaryFunction "tan"
+signalToGLSL (Sqrt x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.sqrt
+signalToGLSL (Tan x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.tan
 signalToGLSL (Tanh x) = signalToGLSL x >>= tanh
 signalToGLSL (Trunc x) = signalToGLSL x >>= trunc
-signalToGLSL (Unipolar x) = signalToGLSL x >>= unipolar
+signalToGLSL (Unipolar x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.unipolar
 
 signalToGLSL (RtXy rt) = do
   rts <- signalToGLSL rt >>= alignVec2
@@ -236,51 +236,53 @@ signalToGLSL (XyT xy) = do
 signalToGLSL (Distance xy) = do
   fxys <- _.fxys <$> get
   xys <- signalToGLSL xy >>= alignVec2
-  abFloatCombinatorial (\a b -> "distance(" <> a <> "," <> b <> ")") fxys xys
+  abmCombinatorial (\a b -> pure $ GLSLExpr.distance a b) fxys xys
 
 signalToGLSL (Prox xy) = do
   fxys <- _.fxys <$> get
   xys <- signalToGLSL xy >>= alignVec2
-  abFloatCombinatorial (\a b -> "prox(" <> a <> "," <> b <> ")") fxys xys
+  abmCombinatorial (\a b -> pure $ GLSLExpr.prox a b) fxys xys
 
 signalToGLSL (SetFxy xy z) = do
-  fxys <- signalToGLSL xy >>= alignVec2
+  fxys <- signalToGLSL xy >>= alignVec2 >>= traverse assignForced
   withFxys fxys $ signalToGLSL z
 
 signalToGLSL (SetFx x z) = do
   prevFxys <- _.fxys <$> get
   xs <- signalToGLSL x >>= alignFloat
-  fxys <- abVec2Combinatorial (\fxy x' -> "vec2(" <> x' <> "," <> fxy <> ".y)") prevFxys xs
+  let f fxy x' = pure $ GLSLExpr.vec2binary x' (unsafeSwizzleY fxy)
+  fxys <- abmCombinatorial f prevFxys xs >>= traverse assignForced
   withFxys fxys $ signalToGLSL z
 
 signalToGLSL (SetFy y z) = do
   prevFxys <- _.fxys <$> get
   ys <- signalToGLSL y >>= alignFloat
-  fxys <- abVec2Combinatorial (\fxy y' -> "vec2(" <> fxy <> ".x," <> y' <> ")") prevFxys ys
+  let f fxy y' = pure $ GLSLExpr.vec2binary (unsafeSwizzleX fxy) y'
+  fxys <- abmCombinatorial f prevFxys ys >>= traverse assignForced
   withFxys fxys $ signalToGLSL z
 
 signalToGLSL (Zoom xy z) = do
   prevFxys <- _.fxys <$> get
   xys <- signalToGLSL xy >>= alignVec2
-  fxys <- abVec2Combinatorial (\fxy xy' -> "(" <> fxy <> "/" <> xy' <> ")") prevFxys xys
+  fxys <- abmCombinatorial (\fxy xy' -> pure $ GLSLExpr.division fxy xy') prevFxys xys >>= traverse assignForced
   withFxys fxys $ signalToGLSL z
 
 signalToGLSL (Move xy z) = do
   prevFxys <- _.fxys <$> get
   xys <- signalToGLSL xy >>= alignFloat
-  fxys <- abVec2Combinatorial (\fxy xy' -> "(" <> fxy <> "-" <> xy' <> ")") prevFxys xys
+  fxys <- abmCombinatorial (\fxy xy' -> pure $ GLSLExpr.difference fxy xy') prevFxys xys >>= traverse assignForced
   withFxys fxys $ signalToGLSL z
 
 signalToGLSL (Tile xy z) = do
   prevFxys <- _.fxys <$> get
   xys <- signalToGLSL xy >>= alignFloat
-  fxys <- abVec2Combinatorial (\fxy xy' -> "tile(" <> xy' <> "," <> fxy <> ")") prevFxys xys
+  fxys <- abmCombinatorial (\fxy xy' -> pure $ GLSLExpr.tile fxy xy') prevFxys xys >>= traverse assignForced
   withFxys fxys $ signalToGLSL z
 
 signalToGLSL (Spin x z) = do
   prevFxys <- _.fxys <$> get
   xs <- signalToGLSL x >>= alignFloat
-  fxys <- abVec2Combinatorial (\fxy x' -> "spin(" <> x' <> "," <> fxy <> ")") prevFxys xs
+  fxys <- abmCombinatorial spin prevFxys xs >>= traverse assignForced
   withFxys fxys $ signalToGLSL z
 
 signalToGLSL (Sum mm x y) = binaryFunction mm GLSLExpr.sum x y
@@ -438,8 +440,8 @@ signalToGLSL (Seq steps y) = do
  
 signalToGLSL _ = pure $ singleton $ zero
 
-simpleUnaryFunction :: String -> Exprs -> GLSL Exprs
-simpleUnaryFunction funcName = simpleUnaryExpression $ \x -> funcName <> "(" <> x <> ")"
+simpleUnaryFunction :: (GLSLExpr -> GLSLExpr) -> Exprs -> GLSL Exprs
+simpleUnaryFunction f = traverse $ \x -> pure $ f x
 
 simpleUnaryExpression :: (String -> String) -> Exprs -> GLSL Exprs
 simpleUnaryExpression f = traverse $ \x -> pure { string: f x.string, glslType: x.glslType, isSimple: x.isSimple, deps: x.deps }
@@ -528,20 +530,13 @@ clipEtcFunction mm f r x = do
           xs' <- extend n xs -- extend xs so that it has n *channels*
           zipWithAAA f rs' xs'
             
-abFloatCombinatorial :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
-abFloatCombinatorial f xs ys = pure $ do -- in NonEmptyList monad
-  x <- xs
-  y <- ys
-  pure { string: f x.string y.string, glslType:Float, isSimple:false, deps: x.deps <> y.deps }
 
-abVec2Combinatorial :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
-abVec2Combinatorial f xs ys = pure $ do -- in NonEmptyList monad
-  x <- xs
-  y <- ys
-  pure { string: f x.string y.string, glslType:Vec2, isSimple:false, deps: x.deps <> y.deps }
+abmCombinatorial :: (GLSLExpr -> GLSLExpr -> GLSL GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
+abmCombinatorial f xs ys = sequence $ do -- in NonEmptyList monad
+    x <- xs
+    y <- ys
+    pure $ f x y
 
-unipolar :: Exprs -> GLSL Exprs
-unipolar = simpleUnaryExpression (\s -> "(" <> s <> "*0.5+0.5)")
 
 blend :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec4
 blend a b = do
@@ -553,42 +548,42 @@ acosh :: Exprs -> GLSL Exprs
 acosh xs = do
   s <- get
   case s.webGl2 of
-    true -> simpleUnaryFunction "acosh" xs
+    true -> pure $ map (GLSLExpr.simpleUnaryFunctionPure "acosh") xs
     false -> traverse assign xs >>= simpleUnaryExpression (\x -> "log(" <> x <> "+sqrt(" <> x <> "*" <> x <> "-1.))")
 
 asinh :: Exprs -> GLSL Exprs
 asinh xs = do
   s <- get
   case s.webGl2 of
-    true -> simpleUnaryFunction "asinh" xs
+    true -> pure $ map (GLSLExpr.simpleUnaryFunctionPure "asinh") xs
     false -> traverse assign xs >>= simpleUnaryExpression (\x -> "log(" <> x <> "+sqrt(" <> x <> "*" <> x <> "+1.))")
 
 atanh :: Exprs -> GLSL Exprs
 atanh xs = do
   s <- get
   case s.webGl2 of
-    true -> simpleUnaryFunction "atanh" xs
+    true -> pure $ map (GLSLExpr.simpleUnaryFunctionPure "atanh") xs
     false -> traverse assign xs >>= simpleUnaryExpression (\x -> "(log((1.+" <> x <> ")/(" <> "1.-" <> x <> "))/2.)")
 
 cosh :: Exprs -> GLSL Exprs
 cosh xs = do
   s <- get
   case s.webGl2 of
-    true -> simpleUnaryFunction "cosh" xs
+    true -> pure $ map (GLSLExpr.simpleUnaryFunctionPure "cosh") xs
     false -> traverse assign xs >>= simpleUnaryExpression (\x -> "((exp(" <> x <> ")+exp(" <> x <> "*-1.))/2.)")
 
 sinh :: Exprs -> GLSL Exprs
 sinh xs = do
   s <- get
   case s.webGl2 of
-    true -> simpleUnaryFunction "sinh" xs
+    true -> pure $ map (GLSLExpr.simpleUnaryFunctionPure "sinh") xs
     false -> traverse assign xs >>= simpleUnaryExpression (\x -> "((exp(" <> x <> ")-exp(" <> x <> "*-1.))/2.)")
 
 tanh :: Exprs -> GLSL Exprs
 tanh xs = do
   s <- get
   case s.webGl2 of
-    true -> simpleUnaryFunction "tanh" xs
+    true -> pure $ map (GLSLExpr.simpleUnaryFunctionPure "tanh") xs
     false -> do
       xs' <- traverse assign xs
       sinhs <- sinh xs'
@@ -599,25 +594,41 @@ trunc :: Exprs -> GLSL Exprs
 trunc xs = do
   s <- get
   case s.webGl2 of
-    true -> simpleUnaryFunction "trunc" xs
+    true -> pure $ map (GLSLExpr.simpleUnaryFunctionPure "trunc") xs
     false -> traverse assign xs >>= simpleUnaryExpression (\x -> "(floor(abs(" <> x <> "))*sign(" <> x <> "))")
-    
-{-
--- TODO: reimplement as inline expressions 
-vec2 _fxy() { return (gl_FragCoord.xy/res) * 2. - 1.; }
-float xfNew(float t1,float t2){return clamp((_etime-t1)/(t2-t1),0.,1.);}
-float xfOld(float t1,float t2){return 1.-xFadeNew(t1,t2);}
-float prox(vec2 x,vec2 y){return clamp((2.828427-distance(x,y))/2.828427,0.,1.);}
-float phasor(float f) { return (_time*f - floor(_time*f));}
-float tri(float f) { float p = phasor(f); return p < 0.5 ? p*4.-1. : 1.-((p-0.5)*4.) ;}
-float saw(float f) { return phasor(f)*2.-1.;}
-float sqr(float f) { float p = phasor(f); return p < 0.5 ? -1. : 1.;}
-vec2 tile(vec2 ab,vec2 fxy) { return fract(((fxy*0.5)+0.5)*ab)*2.-1.;}
-vec2 spin(float a,vec2 fxy) {
- float ct = cos(a*3.1415926538); float st = sin(a*3.1415926538);
- return vec2(fxy.x*ct-fxy.y*st,fxy.y*ct+fxy.x*st);}
--}
 
+round :: Exprs -> GLSL Exprs
+round xs = do
+  s <- get
+  case s.webGl2 of
+    true -> pure $ map (GLSLExpr.simpleUnaryFunctionPure "round") xs
+    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "(floor(" <> x <> ")+0.5)")
+
+spin :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr
+spin fxy a = do
+  aPi <- assignForced $ GLSLExpr.product a GLSLExpr.pi
+  ct <- assignForced $ GLSLExpr.cos aPi
+  st <- assignForced $ GLSLExpr.sin aPi
+  let x = GLSLExpr.difference (GLSLExpr.product (unsafeSwizzleX fxy) ct) (GLSLExpr.product (unsafeSwizzleY fxy) st)
+  let y = GLSLExpr.sum (GLSLExpr.product (unsafeSwizzleY fxy) ct) (GLSLExpr.product (unsafeSwizzleX fxy) st)
+  assignForced $ GLSLExpr.vec2binary x y
+  
+  
+rect :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- Vec2 Vec2 Vec2 -> Float
+rect fxy xy wh = do
+  let a = GLSLExpr.product GLSLExpr.pxy (GLSLExpr.float 1.5)
+  let b = GLSLExpr.abs $ GLSLExpr.difference fxy xy 
+  let c = GLSLExpr.abs $ GLSLExpr.product wh (GLSLExpr.float 0.5)
+  let d = GLSLExpr.difference b c
+  WORKING HERE
+  let e = { string: "smoothstep(vec2(0.)," <> a.str
+  GLSLExpr.smoothstep (GLSLExpr.float 0.0) a d 
+  f <- assign $ GLSLExpr.difference (GLSLExpr.float 1.0) e
+  g <- swizzleX f
+  h <- swizzleY f
+  pure $ GLSLExpr.product g h
+ 
+ 
 header :: String    
 header = """precision mediump float;
 #define PI 3.1415926535897932384626433832795

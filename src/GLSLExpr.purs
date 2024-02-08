@@ -4,7 +4,7 @@ module GLSLExpr where
 -- while keeping track of whether an expression is simple (and thus might avoid assignment),
 -- it's type (and thus number of channels), and its dependency on any previously declared variables
 
-import Prelude (class Eq, class Ord, class Show,(<>),(==),(/=),otherwise,(&&),($),map,(+),(||),(/),show,(-),(*))
+import Prelude (class Eq, class Ord, class Show,(<>),(==),(/=),otherwise,(&&),($),map,(+),(||),(/),show,(-),(*),(<<<),flip)
 import Prelude as Prelude
 import Data.Int (toNumber)
 import Data.Generic.Rep (class Generic)
@@ -58,17 +58,17 @@ explicitlyTypedZero Vec2 = { string: "vec2(0.)", glslType: Vec2, isSimple: true,
 explicitlyTypedZero Vec3 = { string: "vec3(0.)", glslType: Vec3, isSimple: true, deps: empty }
 explicitlyTypedZero Vec4 = { string: "vec4(0.)", glslType: Vec4, isSimple: true, deps: empty }
 
-one :: GLSLExpr
-one = { string: "1.", glslType: Float, isSimple: true, deps: empty }
+float :: Number -> GLSLExpr
+float x = simpleFromString Float (show x)
 
-vec2unary :: GLSLExpr -> GLSLExpr
-vec2unary = simpleUnaryFunctionPure "vec2" Vec2
+one :: GLSLExpr
+one = float 1.0
 
 vec2binary :: GLSLExpr -> GLSLExpr -> GLSLExpr
 vec2binary = simpleBinaryFunction "vec2" Vec2
 
-vec3unary :: GLSLExpr -> GLSLExpr
-vec3unary = simpleUnaryFunctionPure "vec3" Vec3
+-- vec3unary :: GLSLExpr -> GLSLExpr
+-- vec3unary = simpleUnaryFunctionPure "vec3" Vec3
 
 vec3binary :: GLSLExpr -> GLSLExpr -> GLSLExpr
 vec3binary = simpleBinaryFunction "vec3" Vec3
@@ -76,8 +76,8 @@ vec3binary = simpleBinaryFunction "vec3" Vec3
 vec3ternary :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
 vec3ternary = ternaryFunction "vec3" Vec3
 
-vec4unary :: GLSLExpr -> GLSLExpr
-vec4unary = simpleUnaryFunctionPure "vec4" Vec4
+-- vec4unary :: GLSLExpr -> GLSLExpr
+-- vec4unary = simpleUnaryFunctionPure "vec4" Vec4
 
 vec4binary :: GLSLExpr -> GLSLExpr -> GLSLExpr
 vec4binary = simpleBinaryFunction "vec4" Vec4
@@ -97,14 +97,14 @@ coerceFloat x
 -- create a Vec2 by extending or cutting smaller/bigger types
 coerceVec2 :: GLSLExpr -> GLSLExpr
 coerceVec2 x
-  | x.glslType == Float = vec2unary x
+  | x.glslType == Float = forceCast Vec2 x
   | x.glslType == Vec2 = x
   | otherwise = { string: x.string <> ".xy", glslType: Vec2, isSimple: x.isSimple, deps: x.deps }
 
 -- create a Vec3 by extending or cutting smaller/bigger types
 coerceVec3 :: GLSLExpr -> GLSLExpr
 coerceVec3 x
-  | x.glslType == Float = vec3unary x
+  | x.glslType == Float = forceCast Vec3 x
   | x.glslType == Vec2 = { string: x.string <> ".xyy", glslType: Vec3, isSimple: x.isSimple, deps: x.deps }
   | x.glslType == Vec3 = x
   | otherwise {- Vec4 -} = { string: x.string <> ".xyz", glslType: Vec3, isSimple: x.isSimple, deps: x.deps }
@@ -112,7 +112,7 @@ coerceVec3 x
 -- create a Vec4 by extending smaller types
 coerceVec4 :: GLSLExpr -> GLSLExpr
 coerceVec4 x
-  | x.glslType == Float = vec4unary x
+  | x.glslType == Float = forceCast Vec4 x
   | x.glslType == Vec2 = { string: x.string <> ".xyyy", glslType: Vec4, isSimple: x.isSimple, deps: x.deps }
   | x.glslType == Vec3 = { string: x.string <> ".xyzz", glslType: Vec4, isSimple: x.isSimple, deps: x.deps }
   | otherwise {- Vec4 -} = x
@@ -137,8 +137,8 @@ split x
   | otherwise = unsafeSwizzleX x `cons` (unsafeSwizzleY x `cons` (unsafeSwizzleZ x `cons` singleton (unsafeSwizzleW x)))
   
 
-simpleUnaryFunctionPure :: String -> GLSLType -> GLSLExpr -> GLSLExpr
-simpleUnaryFunctionPure funcName rType x = { string: funcName <> "(" <> x.string <> ")", glslType: rType, isSimple: x.isSimple, deps: x.deps }
+simpleUnaryFunctionPure :: String -> GLSLExpr -> GLSLExpr
+simpleUnaryFunctionPure funcName x = { string: funcName <> "(" <> x.string <> ")", glslType: x.glslType, isSimple: x.isSimple, deps: x.deps }
 
 -- simpleUnaryExpressionPure :: (String -> String) -> GLSLType -> GLSLExpr -> GLSLExpr
 -- simpleUnaryExpressionPure f rType x = { string: funcName <> "(" <> x.string <> ")", glslType: rType, isSimple: x.isSimple, deps: x.deps }
@@ -251,7 +251,7 @@ comparisonOperator o f x y
   | x.glslType == Float && y.glslType == Float = { string: "float(" <> x.string <> o <> y.string <> ")", glslType: Float, isSimple: false, deps: x.deps <> y.deps }
   | x.glslType == y.glslType = forceCast x.glslType { string: f <> "(" <> x.string <> "," <> y.string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps }
   | x.glslType == Float = forceCast y.glslType { string: "(" <> (coerce y.glslType x).string <> o <> y.string <> ")", glslType: y.glslType, isSimple: false, deps: x.deps <> y.deps }
-  | y.glslType == Float = forceCast y.glslType { string: "(" <> x.string <> o <> (coerce x.glslType y).string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps }
+  | y.glslType == Float = forceCast x.glslType { string: "(" <> x.string <> o <> (coerce x.glslType y).string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps }
   | otherwise = { string: "!! Internal Punctual GLSL generation error in " <> f, glslType: Float, isSimple: false, deps: x.deps <> y.deps }
 
 equal :: GLSLExpr -> GLSLExpr -> GLSLExpr
@@ -307,7 +307,7 @@ smoothstep r x
       where 
         r1 = r.string <> ".x"
         r2 = r.string <> ".y"
-
+        
 circle :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 Any -> Any (no reuse of any arguments, so no inherent need to pre-assign them)
 circle fxy xy d 
   | fxy.glslType /= Vec2 || xy.glslType /= Vec2 = { string: "!! Internal Punctual GLSL generation error in circle", glslType: Float, isSimple: false, deps: fxy.deps <> xy.deps <> d.deps }
@@ -391,4 +391,152 @@ seq steps y = { string: s, glslType: Float, isSimple: false, deps: fold (map _.d
     middleStepValues = map _.string middleStepExprs
     middleSteps = List.zipWith middleStep middleStepNumbers middleStepValues
     s = intercalate "+" ((firstStep : middleSteps) `List.snoc` lastStep)
+
+
+defaultFxy :: GLSLExpr
+defaultFxy = { string: "((gl_FragCoord.xy/res)*2.-1.)", glslType: Vec2, isSimple: false, deps: empty }
+
+fadeIn :: Number -> Number -> GLSLExpr 
+fadeIn t1 t2 = { string: "clamp((_etime-" <> t1s <> ")/(" <> t2s <> "-" <> t1s <> "),0.,1.)", glslType: Float, isSimple: false, deps: empty }
+  where
+    t1s = show t1
+    t2s = show t2
+
+fadeOut :: Number -> Number -> GLSLExpr
+fadeOut t1 t2 = { string: "clamp((" <> t1s <> "-_etime)/(" <> t2s <> "-" <> t1s <> "),0.,1.)", glslType: Float, isSimple: false, deps: empty }
+  where
+    t1s = show t1
+    t2s = show t2
+    
+prox :: GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 -> Float
+prox a b
+  | a.glslType /= Vec2 || b.glslType /= Vec2 = { string: "!! Internal Punctual GLSL generation error in prox", glslType: Float, isSimple: false, deps: a.deps <> b.deps }
+  | otherwise = { string: "clamp((2.828427-distance(" <> a.string <> "," <> b.string <> "))/2.828427,0.,1.)", glslType: Float, isSimple: false, deps: a.deps <> b.deps }
+
+osc :: GLSLExpr -> GLSLExpr
+osc = sin <<< product (product (product pi (float 2.0)) time)
+  
+phasor :: GLSLExpr -> GLSLExpr -- Any -> Any
+phasor = fract <<< product (simpleFromString Float "_time") 
+
+tri :: GLSLExpr -> GLSLExpr -- Any -> Any
+tri f = { string: "(1.-(4.*abs(" <> (phasor f).string <> "-0.5)))", glslType: f.glslType, isSimple: f.isSimple, deps: f.deps }
+
+saw :: GLSLExpr -> GLSLExpr -- Any -> Any
+saw = bipolar <<< phasor
+
+sqr :: GLSLExpr -> GLSLExpr -- Any -> Any
+sqr = bipolar <<< greaterThanEqual (float 0.5) <<< phasor
+
+bipolar :: GLSLExpr -> GLSLExpr -- Any -> Any
+bipolar x = { string: "(" <> x.string <> "*2.-1.)", glslType: x.glslType, isSimple: x.isSimple, deps: x.deps }
+
+unipolar :: GLSLExpr -> GLSLExpr -- Any -> Any
+unipolar x = { string: "(" <> x.string <> "*0.5+0.5)", glslType: x.glslType, isSimple: x.isSimple, deps: x.deps }
+
+tile :: GLSLExpr -> GLSLExpr -> GLSLExpr -- technically Any -> Any, even if Vec2 -> Vec2 is imagined use 
+tile fxy ab = bipolar $ fract $ product (unipolar fxy) ab
+  
+fract :: GLSLExpr -> GLSLExpr
+fract x = { string: "fract(" <> x.string <> ")", glslType: x.glslType, isSimple: x.isSimple, deps: x.deps }
+
+pi :: GLSLExpr
+pi = simpleFromString Float "PI"
+
+px :: GLSLExpr
+px = simpleFromString Float "(2./res.x)"
+
+py :: GLSLExpr
+py = simpleFromString Float "(2./res.y)"
+
+pxy :: GLSLExpr
+pxy = simpleFromString Vec2 "(2./res)"
+
+aspect :: GLSLExpr
+aspect = simpleFromString Float "(res.x/res.y)"
+
+cos :: GLSLExpr -> GLSLExpr
+cos = simpleUnaryFunctionPure "cos"
+
+sin :: GLSLExpr -> GLSLExpr
+sin = simpleUnaryFunctionPure "sin"
+
+abs :: GLSLExpr -> GLSLExpr
+abs = simpleUnaryFunctionPure "abs"
+
+acos :: GLSLExpr -> GLSLExpr
+acos = simpleUnaryFunctionPure "acos"
+
+ampdb :: GLSLExpr -> GLSLExpr
+ampdb =  (flip division) (float 10.0) <<< product (float 20.0) <<< log
+
+log :: GLSLExpr -> GLSLExpr
+log = simpleUnaryFunctionPure "log"
+
+log2 :: GLSLExpr -> GLSLExpr
+log2 = simpleUnaryFunctionPure "log2"
+
+log10 :: GLSLExpr -> GLSLExpr
+log10 = simpleUnaryFunctionPure "log10"
+
+asin :: GLSLExpr -> GLSLExpr
+asin = simpleUnaryFunctionPure "asin"
+
+atan :: GLSLExpr -> GLSLExpr
+atan = simpleUnaryFunctionPure "atan"
+
+cbrt :: GLSLExpr -> GLSLExpr
+cbrt = flip pow (float 0.33333333)
+
+ceil :: GLSLExpr -> GLSLExpr
+ceil = simpleUnaryFunctionPure "ceil"
+
+cpsmidi :: GLSLExpr -> GLSLExpr
+cpsmidi = sum (float 69.0) <<< product (float 12.0) <<< log2 <<< flip division (float 440.0)
+
+dbamp :: GLSLExpr -> GLSLExpr
+dbamp = pow (float 10.0) <<< flip division (float 20.0)
+
+exp :: GLSLExpr -> GLSLExpr
+exp = simpleUnaryFunctionPure "exp"
+
+floor :: GLSLExpr -> GLSLExpr
+floor = simpleUnaryFunctionPure "floor"
+
+time :: GLSLExpr
+time = simpleFromString Float "_time"
+
+midicps :: GLSLExpr -> GLSLExpr
+midicps m = product (pow (division (difference m (float 69.0)) (float 12.0)) (float 2.0)) (float 440.0)
+
+sign :: GLSLExpr -> GLSLExpr
+sign = simpleUnaryFunctionPure "sign"
+
+sqrt :: GLSLExpr -> GLSLExpr
+sqrt = simpleUnaryFunctionPure "sqrt"
+
+tan :: GLSLExpr -> GLSLExpr
+tan = simpleUnaryFunctionPure "tan"
+
+rgbhsv :: GLSLExpr -> GLSLExpr
+rgbhsv x
+  | x.glslType /= Vec3 = { string: "!! Internal Punctual GLSL generation error in rgbhsv", glslType: Float, isSimple: false, deps: x.deps }
+  | otherwise = { string: "rgbhsv(" <> x.string <> ")", glslType: Vec3, isSimple: false, deps: x.deps }
+  
+hsvrgb :: GLSLExpr -> GLSLExpr
+hsvrgb x
+  | x.glslType /= Vec3 = { string: "!! Internal Punctual GLSL generation error in hsvrgb", glslType: Float, isSimple: false, deps: x.deps }
+  | otherwise = { string: "hsvrgb(" <> x.string <> ")", glslType: Vec3, isSimple: false, deps: x.deps }
+  
+distance :: GLSLExpr -> GLSLExpr -> GLSLExpr
+distance x y
+  | x.glslType /= y.glslType = { string: "!! Internal Punctual GLSL generation error in distance", glslType: Float, isSimple: false, deps: x.deps <> y.deps }
+  | otherwise = { string: "distance(" <> x.string <> "," <> y.string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps }
+
+
+
+
+
+
+
 
