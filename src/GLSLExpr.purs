@@ -319,12 +319,6 @@ point fxy xy = circle fxy xy d
   where d = { string: "((1./res.x)+(1./res.y))", glslType: Float, isSimple: false, deps: empty }
  
       
--- TODO: will need to add rect function to fragment shader header
-rect :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 Vec2 -> Float (no reuse of any arguments, so no inherent need to pre-assign them)
-rect fxy xy wh 
-  | fxy.glslType /= Vec2 || xy.glslType /= Vec2 = { string: "!! Internal Punctual GLSL generation error in rect", glslType: Float, isSimple: false, deps: fxy.deps <> xy.deps <> wh.deps }
-  | otherwise = { string: "rect(" <> fxy.string <> "," <> xy.string <> "," <> wh.string <> ")", glslType: Float, isSimple: false, deps: fxy.deps <> xy.deps <> wh.deps }
-
 vline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Float/Any Float/Any -> Float/Any (Float/Any arguments follow standard pattern, either matched or one is float)
 vline fxy x w 
   | x.glslType /= Float && w.glslType /= Float && x.glslType /= w.glslType = { string: "!! Internal Punctual GLSL generation error in vline", glslType: Float, isSimple: false, deps: fxy.deps <> x.deps <> w.deps }

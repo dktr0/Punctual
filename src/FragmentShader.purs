@@ -324,7 +324,7 @@ signalToGLSL (Rect mm xy wh) = do
   exprss <- for fxys $ \fxy -> do
     xys <- signalToGLSL xy >>= alignVec2
     whs <- signalToGLSL wh >>= alignVec2
-    pure $ combine mm (GLSLExpr.rect fxy) xys whs
+    sequence $ combine mm (rect fxy) xys whs
   traverse assign $ concat exprss
 
 signalToGLSL (VLine mm x w) = do
@@ -620,9 +620,7 @@ rect fxy xy wh = do
   let b = GLSLExpr.abs $ GLSLExpr.difference fxy xy 
   let c = GLSLExpr.abs $ GLSLExpr.product wh (GLSLExpr.float 0.5)
   let d = GLSLExpr.difference b c
-  WORKING HERE
-  let e = { string: "smoothstep(vec2(0.)," <> a.str
-  GLSLExpr.smoothstep (GLSLExpr.float 0.0) a d 
+  let e = { string: "smoothstep(vec2(0.)," <> a.string <> "," <> d.string <> ")", glslType: Vec2, isSimple: false, deps: fxy.deps <> xy.deps <> wh.deps }
   f <- assign $ GLSLExpr.difference (GLSLExpr.float 1.0) e
   g <- swizzleX f
   h <- swizzleY f
