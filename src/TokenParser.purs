@@ -34,7 +34,7 @@ boolean = choice [
 reservedNamesDef :: Array String
 reservedNamesDef = [
   "if","then","else",
-  "audio","video","rgba","rgb","alpha",
+  "audio","rgba","rgb",
   "pi","audioin","cps","time","beat","etime","ebeat","rnd",
   "fx","fy","fxy","px","py","pxy","frt","fr","ft","aspect",
   "lo","mid","hi","ilo","imid","ihi","fft","ifft",

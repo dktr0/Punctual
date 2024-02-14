@@ -1,34 +1,31 @@
 module FragmentShader where
 
-import Prelude(($),pure,show,bind,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max)
+import Prelude(($),pure,show,bind,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max,(||))
 import Data.Maybe (Maybe(..))
 import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length)
+import Data.List (List(..),(:))
+import Data.List as List
 import Data.Traversable (traverse,for,sequence)
 import Data.Tuple (Tuple(..),fst,snd)
-import Data.Foldable (fold,intercalate,foldM)
+import Data.Foldable (fold,intercalate,foldM,elem)
 import Data.Set as Set
 import Data.Unfoldable1 (replicate1)
 import Control.Monad.State (get)
 import Data.Map (lookup)
 import Data.FunctorWithIndex (mapWithIndex)
+import Data.Tempo (Tempo)
+import Data.DateTime (DateTime)
 
 import NonEmptyList
 import MultiMode (MultiMode(..))
 import Signal (Signal(..))
-import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels,split,unsafeSwizzleX,unsafeSwizzleY)
+import Action (Action,actionToTimes)
+import Output (Output(..))
+import Program (Program)
+import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels,split,unsafeSwizzleX,unsafeSwizzleY,coerce)
 import GLSLExpr as GLSLExpr
 import GLSL (GLSL,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignVec4,alignRGBA,runGLSL,withFxys,extend,zipWithAAA,zipWithAAAA)
 
-testCodeGen :: Boolean -> Signal -> String
-testCodeGen webGl2 x = assignments <> lastExprs
-  where
-    (Tuple a st) = runGLSL webGl2 (signalToGLSL x)
-    assignments = fold $ mapWithIndex indexedGLSLExprToString st.exprs
-    lastExprs = fold $ map (\y -> y.string <> " :: " <> show y.glslType <> "\n") a
-
-
-indexedGLSLExprToString :: Int -> GLSLExpr -> String
-indexedGLSLExprToString n x = glslTypeToString x.glslType <> " _" <> show n <> " = " <> x.string <> ";\n"
 
 signalToGLSL :: Signal -> GLSL Exprs
 
@@ -655,6 +652,105 @@ float line(vec2 xy1,vec2 xy2,float w,vec2 fxy) {
   fxy -= xy1, xy2 -= xy1;
   float h = clamp(dot(fxy,xy2)/dot(xy2,xy2),0.,1.);
   float aa = min(((1.5/res.x)+(1.5/res.y))*0.5,w);
-  return smoothstep(aa,0.,length(fxy - xy2 * h)-(w*0.5));}"""
+  return smoothstep(aa,0.,length(fxy - xy2 * h)-(w*0.5));}
+void main() {
+"""
 -- thanks to http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl for the HSV-RGB conversion algorithms above!
+
+
+programsToGLSL :: Tempo -> {- Map TextureRef Int -> -} Program -> Program -> GLSL GLSLExpr
+programsToGLSL tempo oldProgram newProgram = do
+  let oldActions = map onlyVideoOutputs oldProgram.actions
+  let newActions = map onlyVideoOutputs newProgram.actions
+  rgbas <- traverseActions tempo newProgram.evalTime oldActions newActions -- List GLSLExpr
+  case List.head rgbas of
+    Nothing -> pure $ coerce Vec4 zero
+    Just h -> do
+      case List.tail rgbas of
+        Nothing -> pure h
+        Just t -> foldM blend h t
+
+onlyVideoOutputs :: Maybe Action -> Maybe Action
+onlyVideoOutputs Nothing = Nothing
+onlyVideoOutputs (Just x) = if elem RGB x.output || elem RGBA x.output then Just x else Nothing
+
+traverseActions :: Tempo -> DateTime -> List (Maybe Action) -> List (Maybe Action) -> GLSL (List GLSLExpr)
+traverseActions _ _ Nil Nil = pure List.Nil
+traverseActions tempo eTime (x:xs) Nil = do
+  mh <- actionsToGLSL tempo eTime x Nothing 
+  t <- traverseActions tempo eTime xs Nil
+  case mh of
+    Just h -> pure (h : t)
+    Nothing -> pure t
+traverseActions tempo eTime Nil (y:ys) = do
+  mh <- actionsToGLSL tempo eTime Nothing y 
+  t <- traverseActions tempo eTime Nil ys
+  case mh of
+    Just h -> pure (h : t)
+    Nothing -> pure t
+traverseActions tempo eTime (x:xs) (y:ys) = do
+  mh <- actionsToGLSL tempo eTime x y
+  t <- traverseActions tempo eTime xs ys
+  case mh of
+    Just h -> pure (h : t)
+    Nothing -> pure t
+     
+actionsToGLSL _ _ Nothing Nothing = pure $ Just (GLSLExpr.float 3.4)
+actionsToGLSL tempo eTime Nothing (Just new) = do
+  rgba <- actionToGLSL new
+  let Tuple t0 t1 = actionToTimes tempo eTime new
+  Just <$> assignForced (GLSLExpr.product rgba $ GLSLExpr.fadeIn t0 t1)
+actionsToGLSL tempo eTime (Just old) Nothing = do
+  rgba <- actionToGLSL old
+  let Tuple t0 t1 = actionToTimes tempo eTime old
+  Just <$> assignForced (GLSLExpr.product rgba $ GLSLExpr.fadeOut t0 t1)
+actionsToGLSL tempo eTime (Just old) (Just new) = do
+  case old == new of
+    true -> Just <$> (actionToGLSL new >>= assignForced)
+    false -> do
+      rgbaOld <- actionToGLSL old
+      rgbaNew <- actionToGLSL new
+      let Tuple t0 t1 = actionToTimes tempo eTime new
+      rgbaOld' <- assignForced (GLSLExpr.product rgbaOld $ GLSLExpr.fadeOut t0 t1)
+      rgbaNew' <- assignForced (GLSLExpr.product rgbaNew $ GLSLExpr.fadeIn t0 t1)
+      Just <$> assignForced (GLSLExpr.sum rgbaOld' rgbaNew')
+    
+actionToGLSL :: Action -> GLSL GLSLExpr
+actionToGLSL x = do
+  xs <- signalToGLSL x.signal
+  case elem RGBA x.output of
+    true -> exprsRGBAToRGBA xs
+    false -> exprsRGBToRGBA xs
+    
+exprsRGBToRGBA :: Exprs -> GLSL GLSLExpr
+exprsRGBToRGBA xs = do
+  xs' <- alignVec3 xs
+  rgb <- foldM (\b a -> assignForced $ GLSLExpr.sum b a) (head xs') (tail xs')
+  assignForced $ GLSLExpr.vec4binary rgb (GLSLExpr.float 1.0)
+  
+exprsRGBAToRGBA :: Exprs -> GLSL GLSLExpr
+exprsRGBAToRGBA xs = do
+  xs' <- alignRGBA xs
+  case fromList (tail xs') of
+    Nothing -> pure $ head xs'
+    Just t -> foldM blend (head xs') t
+
+fragmentShader :: Boolean -> Tempo -> {- Map TextureRef Int -> -} Program -> Program -> String
+fragmentShader webGl2 tempo oldProgram newProgram = header <> assignments <> gl_FragColor <> "}"
+  where
+    (Tuple a st) = runGLSL webGl2 $ programsToGLSL tempo oldProgram newProgram
+    assignments = fold $ mapWithIndex indexedGLSLExprToString st.exprs
+    gl_FragColor = "gl_FragColor = " <> a.string <> ";\n"
+
+indexedGLSLExprToString :: Int -> GLSLExpr -> String
+indexedGLSLExprToString n x = glslTypeToString x.glslType <> " _" <> show n <> " = " <> x.string <> ";\n"
+
+{-
+testCodeGen :: Boolean -> Signal -> String
+testCodeGen webGl2 x = assignments <> lastExprs
+  where
+    (Tuple a st) = runGLSL webGl2 (signalToGLSL x)
+    assignments = fold $ mapWithIndex indexedGLSLExprToString st.exprs
+    lastExprs = fold $ map (\y -> y.string <> " :: " <> show y.glslType <> "\n") a
+-}
 

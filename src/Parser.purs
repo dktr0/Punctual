@@ -262,10 +262,8 @@ parseReserved p "bpfp" = lift $ signalSignalSignalSignal p $ BPF Pairwise
 
 parseReserved p "delay" = lift $ numberSignalSignalSignal p Delay
 parseReserved p "audio" = pure $ ValueOutput p Audio
-parseReserved p "video" = pure $ ValueOutput p Video
 parseReserved p "rgba" = pure $ ValueOutput p RGBA
-parseReserved p "rgb" = pure $ ValueOutput p Video
-parseReserved p "alpha" = pure $ ValueOutput p Alpha
+parseReserved p "rgb" = pure $ ValueOutput p RGB
 parseReserved p x = throwError $ ParseError ("internal error in Punctual: parseReserved called with unknown reserved word " <> x) p
 
 parseOperator :: Position -> String -> P Value

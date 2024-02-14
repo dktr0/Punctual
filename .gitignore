@@ -29,7 +29,6 @@ cabal.project.local~
 .HTF/
 .ghc.environment.*
 .psci_modules/
-.purs-repl
 .spago/
 output/
 
