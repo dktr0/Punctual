@@ -3,7 +3,7 @@ module NonEmptyList where
 -- utility functions over PureScript's NonEmptyList
 
 import Prelude (max,($),(+),(/),bind,pure,map,(>=))
-import Data.List.NonEmpty (NonEmptyList,length,concat,zipWith,singleton,fromList,init,tail,head)
+import Data.List.NonEmpty (NonEmptyList,length,concat,zipWith,singleton,fromList,init,tail,head,cons)
 import Data.Tuple (Tuple(..))
 import Data.Unfoldable1 (replicate1,unfoldr1)
 import Data.List as List
@@ -86,13 +86,12 @@ combine3Pairwise f xs ys zs = zipWith ($) (zipWith f xs' ys') zs'
     ys' = extendByRepetition n ys
     zs' = extendByRepetition n zs
 
-
-
-
-
-
-
-
-
-
+multi :: forall a. NonEmptyList (NonEmptyList a) -> NonEmptyList (NonEmptyList a)
+multi xs = do 
+  case fromList (tail xs) of 
+    Nothing -> pure $ head xs
+    Just t -> do -- in NonEmptyList monad
+      x <- head xs -- :: a
+      y <- multi t
+      pure $ x `cons` y
 

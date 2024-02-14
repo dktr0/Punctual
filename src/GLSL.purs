@@ -12,7 +12,7 @@ import Data.Maybe (Maybe(..))
 import Data.List (List,(:))
 import Data.List.NonEmpty (NonEmptyList,singleton,concat,cons,head,tail,fromList)
 import Control.Monad.State (State,get,put,runState,modify_)
-import Data.Traversable (traverse)
+import Data.Traversable (traverse,for)
 import Data.Set as Set
 import Data.Tuple (Tuple)
 import Data.Unfoldable1 (replicate1)
@@ -22,7 +22,7 @@ import GLSLExpr
 type GLSLState = {
   nextIndex :: Int,
   exprs :: Map Int GLSLExpr,
-  fxys :: NonEmptyList GLSLExpr,
+  fxy :: GLSLExpr,
   imgMap :: Map String Int,
   vidMap :: Map String Int,
   webGl2 :: Boolean
@@ -31,7 +31,7 @@ type GLSLState = {
 type GLSL = State GLSLState
 
 runGLSL :: forall a. Boolean -> GLSL a -> Tuple a GLSLState
-runGLSL webGl2 x = runState x { nextIndex: 0, exprs: empty, fxys: singleton { string:"_fxy()", glslType:Vec2, isSimple:true, deps:Set.empty}, imgMap: empty, vidMap: empty, webGl2 }
+runGLSL webGl2 x = runState x { nextIndex: 0, exprs: empty, fxy: defaultFxy, imgMap: empty, vidMap: empty, webGl2 }
 
 assign :: GLSLExpr -> GLSL GLSLExpr
 assign x
@@ -45,13 +45,15 @@ assignForced x = do
   pure $ { string: "_" <> show s.nextIndex, glslType: x.glslType, isSimple: true, deps: Set.insert s.nextIndex x.deps }
 
 
-withFxys :: forall a. NonEmptyList GLSLExpr -> GLSL a -> GLSL a
+withFxys :: forall a. NonEmptyList GLSLExpr -> GLSL Exprs -> GLSL Exprs
 withFxys fxys a = do
-  cachedFxys <- _.fxys <$> get
-  modify_ $ \s -> s { fxys = fxys }
-  r <- a
-  modify_ $ \s -> s { fxys = cachedFxys }
-  pure r
+  cachedFxy <- _.fxy <$> get
+  rs <- for fxys $ \fxy -> do
+    modify_ $ \s -> s { fxy = fxy }
+    a
+  modify_ $ \s -> s { fxy = cachedFxy }
+  pure $ concat rs
+    
 
 _swizzle :: String -> GLSLType -> GLSLExpr -> GLSL GLSLExpr
 _swizzle spec rType x = do
@@ -154,7 +156,18 @@ unconsFloat xs
       a <- swizzleX x
       b <- swizzleYZW x
       pure { head: a, tail: b : tail xs}
+      
+align :: GLSLType -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+align Float = alignFloat
+align Vec2 = alignVec2
+align Vec3 = alignVec3
+align Vec4 = alignVec4
 
+alignNoExtend :: GLSLType -> NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
+alignNoExtend Float = alignFloat
+alignNoExtend Vec2 = alignVec2NoExtend
+alignNoExtend Vec3 = alignVec3NoExtend
+alignNoExtend Vec4 = alignVec4NoExtend
 
 alignVec2 :: NonEmptyList GLSLExpr -> GLSL (NonEmptyList GLSLExpr)
 alignVec2 = unfoldWith unconsVec2
@@ -289,6 +302,8 @@ unconsVec4 xs
           y <- unconsFloat xs'
           pure { head: vec4binary (head xs) y.head, tail: y.tail}
 
+
+-- TODO: this needs to be extended to optimize cases such as 4 floats in a row which can be directly combined into a vec4 instead of being assembled into vec3 and vec2 first... ditto for unconsVec3NoExtend
 unconsVec4NoExtend :: NonEmptyList GLSLExpr -> GLSL { head :: GLSLExpr, tail :: List GLSLExpr }
 unconsVec4NoExtend xs
   | _.glslType (head xs) == Vec4 = pure { head: head xs, tail: tail xs}

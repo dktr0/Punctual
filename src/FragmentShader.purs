@@ -1,6 +1,6 @@
 module FragmentShader where
 
-import Prelude(($),pure,show,bind,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max,(||))
+import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max,(||))
 import Data.Maybe (Maybe(..))
 import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length)
 import Data.List (List(..),(:))
@@ -10,7 +10,7 @@ import Data.Tuple (Tuple(..),fst,snd)
 import Data.Foldable (fold,intercalate,foldM,elem)
 import Data.Set as Set
 import Data.Unfoldable1 (replicate1)
-import Control.Monad.State (get)
+import Control.Monad.State (get,modify_)
 import Data.Map (lookup)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Tempo (Tempo)
@@ -24,389 +24,373 @@ import Output (Output(..))
 import Program (Program)
 import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels,split,unsafeSwizzleX,unsafeSwizzleY,coerce)
 import GLSLExpr as GLSLExpr
-import GLSL (GLSL,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignVec4,alignRGBA,runGLSL,withFxys,extend,zipWithAAA,zipWithAAAA)
+import GLSL (GLSL,align,alignNoExtend,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignVec4,alignRGBA,runGLSL,withFxys,extend,zipWithAAA,zipWithAAAA)
 
 
-signalToGLSL :: Signal -> GLSL Exprs
+signalToGLSL :: GLSLType -> Signal -> GLSL Exprs
 
-signalToGLSL (Constant x) = pure $ singleton { string: show x, glslType: Float, isSimple: true, deps: Set.empty } -- !! TODO: make sure value is shown in GLSL compatible way, ie always ending with a period
+signalToGLSL _ (Constant x) = pure $ singleton $ GLSLExpr.float x
 
-signalToGLSL (SignalList xs) = do
+signalToGLSL ah (SignalList xs) = 
   case fromList xs of
     Nothing -> pure $ singleton $ zero
-    Just xs' -> concat <$> traverse signalToGLSL xs'
+    Just xs' -> do
+      case length xs' of
+        1 -> signalToGLSL ah (head xs')
+        _ -> do
+          xs'' <- traverse (\x -> signalToGLSL Vec4 x >>= align Float) xs'
+          alignNoExtend ah $ concat $ multi xs''
 
-signalToGLSL (Append x y) = do -- note: we will redo this soon with more of an "in advance" concept of alignment
-  xs <- signalToGLSL x
-  ys <- signalToGLSL y
+signalToGLSL ah (Append x y) = do
+  xs <- signalToGLSL ah x
+  ys <- signalToGLSL ah y
   pure $ xs <> ys
 
-signalToGLSL (Zip x y) = do
-  xs <- signalToGLSL x >>= alignFloat
-  ys <- signalToGLSL y >>= alignFloat
+signalToGLSL ah (Zip x y) = do
+  xs <- signalToGLSL ah x >>= alignFloat
+  ys <- signalToGLSL ah y >>= alignFloat
   let (Tuple xs' ys') = extendToEqualLength xs ys
   pure $ concat $ zipWith (\anX anY -> anX `cons` singleton anY ) xs' ys'
 
-signalToGLSL (Mono x) = do
-  xs <- signalToGLSL x
+signalToGLSL _ (Mono x) = do
+  xs <- signalToGLSL Vec4 x
   let xs' = dotSum <$> xs
   let s = "(" <> intercalate " + " (_.string <$> xs') <> ")"
   pure $ singleton $ { string: s, glslType: Float, isSimple: false, deps: fold (_.deps <$> xs) }
 
-signalToGLSL (Rep 0 _) = pure $ singleton $ zero
-signalToGLSL (Rep n x) = (concat <<< replicate1 n) <$> signalToGLSL x
+signalToGLSL _ (Rep 0 _) = pure $ singleton $ zero
+signalToGLSL ah (Rep n x) = (concat <<< replicate1 n) <$> signalToGLSL ah x
 
-signalToGLSL Pi = pure $ singleton $ GLSLExpr.pi
+signalToGLSL _ Pi = pure $ singleton $ GLSLExpr.pi
 
-signalToGLSL Px = pure $ singleton $ GLSLExpr.px
+signalToGLSL _ Px = pure $ singleton $ GLSLExpr.px
 
-signalToGLSL Py = pure $ singleton $ GLSLExpr.py
+signalToGLSL _ Py = pure $ singleton $ GLSLExpr.py
 
-signalToGLSL Pxy = pure $ singleton $ GLSLExpr.pxy
+signalToGLSL _ Pxy = pure $ singleton $ GLSLExpr.pxy
 
-signalToGLSL Aspect = pure $ singleton $ GLSLExpr.aspect
+signalToGLSL _ Aspect = pure $ singleton $ GLSLExpr.aspect
 
-signalToGLSL Fx = do
+signalToGLSL _ Fx = do
   s <- get
-  traverse swizzleX s.fxys
+  pure $ singleton $ unsafeSwizzleX s.fxy
 
-signalToGLSL Fy = do
+signalToGLSL _ Fy = do
   s <- get
-  traverse swizzleY s.fxys
+  pure $ singleton $ unsafeSwizzleY s.fxy
 
-signalToGLSL Fxy = do
+signalToGLSL _ Fxy = do
   s <- get
-  pure s.fxys
+  pure $ singleton s.fxy
 
-signalToGLSL FRt = signalToGLSL $ XyRt Fxy
+signalToGLSL _ FRt = signalToGLSL Vec2 $ XyRt Fxy
 
-signalToGLSL FR = signalToGLSL $ XyR Fxy
+signalToGLSL _ FR = signalToGLSL Float $ XyR Fxy
 
-signalToGLSL FT = signalToGLSL $ XyT Fxy
+signalToGLSL _ FT = signalToGLSL Float $ XyT Fxy
 
-signalToGLSL Lo = pure $ singleton $ simpleFromString Float "lo"
+signalToGLSL _ Lo = pure $ singleton $ simpleFromString Float "lo"
 
-signalToGLSL Mid = pure $ singleton $ simpleFromString Float "mid"
+signalToGLSL _ Mid = pure $ singleton $ simpleFromString Float "mid"
 
-signalToGLSL Hi = pure $ singleton $ simpleFromString Float "hi"
+signalToGLSL _ Hi = pure $ singleton $ simpleFromString Float "hi"
 
-signalToGLSL ILo = pure $ singleton $ simpleFromString Float "ilo"
+signalToGLSL _ ILo = pure $ singleton $ simpleFromString Float "ilo"
 
-signalToGLSL IMid = pure $ singleton $ simpleFromString Float "imid"
+signalToGLSL _ IMid = pure $ singleton $ simpleFromString Float "imid"
 
-signalToGLSL IHi = pure $ singleton $ simpleFromString Float "ihi"
+signalToGLSL _ IHi = pure $ singleton $ simpleFromString Float "ihi"
 
-signalToGLSL Cps = pure $ singleton $ simpleFromString Float "_cps"
+signalToGLSL _ Cps = pure $ singleton $ simpleFromString Float "_cps"
 
-signalToGLSL Time = pure $ singleton $ GLSLExpr.time
+signalToGLSL _ Time = pure $ singleton $ GLSLExpr.time
 
-signalToGLSL Beat = pure $ singleton $ simpleFromString Float "_beat"
+signalToGLSL _ Beat = pure $ singleton $ simpleFromString Float "_beat"
 
-signalToGLSL ETime = pure $ singleton $ simpleFromString Float "_etime"
+signalToGLSL _ ETime = pure $ singleton $ simpleFromString Float "_etime"
 
-signalToGLSL EBeat = pure $ singleton $ simpleFromString Float "_ebeat"
+signalToGLSL _ EBeat = pure $ singleton $ simpleFromString Float "_ebeat"
 
-signalToGLSL (FFT x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "_fft")
+signalToGLSL _ (FFT x) = signalToGLSL Float x >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "_fft")
 
-signalToGLSL (IFFT x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "_ifft")
+signalToGLSL _ (IFFT x) = signalToGLSL Float x >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "_ifft")
 
-signalToGLSL (Fb xy) = signalToGLSL xy >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignVec2 >>= traverse (texture2D "_fb")
+signalToGLSL _ (Fb xy) = signalToGLSL Vec2 xy >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignVec2 >>= traverse (texture2D "_fb")
 
-signalToGLSL Cam = do
+signalToGLSL _ Cam = do
   s <- get
-  traverse (texture2D "_fb") s.fxys
+  singleton <$> texture2D "_fb" s.fxy
 
-signalToGLSL (Img url) = do
+signalToGLSL _ (Img url) = do
   s <- get
   case lookup url s.imgMap of
-    Just n -> traverse (texture2D $ "tex" <> show n) s.fxys
+    Just n -> singleton <$> texture2D ("tex" <> show n) s.fxy
     Nothing -> pure $ singleton $ zero
 
-signalToGLSL (Vid url) = do
+signalToGLSL _ (Vid url) = do
   s <- get
   case lookup url s.vidMap of
-    Just n -> traverse (texture2D $ "tex" <> show n) s.fxys
+    Just n -> singleton <$> texture2D ("tex" <> show n) s.fxy
     Nothing -> pure $ singleton $ zero
 
 
-signalToGLSL (Blend x) = do
-  xs <- signalToGLSL x >>= alignRGBA
+signalToGLSL _ (Blend x) = do
+  xs <- signalToGLSL Vec4 x >>= alignRGBA
   case fromList (tail xs) of
     Nothing -> pure $ singleton $ head xs
     Just t -> singleton <$> foldM blend (head xs) t
 
-signalToGLSL (RgbHsv x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv
-signalToGLSL (HsvRgb x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb
-signalToGLSL (HsvH x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleX
-signalToGLSL (HsvS x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleY
-signalToGLSL (HsvV x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleZ
-signalToGLSL (HsvR x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb >>= traverse swizzleX
-signalToGLSL (HsvG x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb >>= traverse swizzleY
-signalToGLSL (HsvB x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb >>= traverse swizzleZ
-signalToGLSL (RgbR x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleX
-signalToGLSL (RgbG x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleY
-signalToGLSL (RgbB x) = signalToGLSL x >>= alignVec3 >>= traverse swizzleZ
-signalToGLSL (RgbH x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv >>= traverse swizzleX
-signalToGLSL (RgbS x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv >>= traverse swizzleY
-signalToGLSL (RgbV x) = signalToGLSL x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv >>= traverse swizzleZ
+signalToGLSL _ (RgbHsv x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv
+signalToGLSL _ (HsvRgb x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb
+signalToGLSL _ (HsvH x) = signalToGLSL Vec3 x >>= alignVec3 >>= traverse swizzleX
+signalToGLSL _ (HsvS x) = signalToGLSL Vec3 x >>= alignVec3 >>= traverse swizzleY
+signalToGLSL _ (HsvV x) = signalToGLSL Vec3 x >>= alignVec3 >>= traverse swizzleZ
+signalToGLSL _ (HsvR x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb >>= traverse swizzleX
+signalToGLSL _ (HsvG x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb >>= traverse swizzleY
+signalToGLSL _ (HsvB x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb >>= traverse swizzleZ
+signalToGLSL _ (RgbR x) = signalToGLSL Vec3 x >>= alignVec3 >>= traverse swizzleX
+signalToGLSL _ (RgbG x) = signalToGLSL Vec3 x >>= alignVec3 >>= traverse swizzleY
+signalToGLSL _ (RgbB x) = signalToGLSL Vec3 x >>= alignVec3 >>= traverse swizzleZ
+signalToGLSL _ (RgbH x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv >>= traverse swizzleX
+signalToGLSL _ (RgbS x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv >>= traverse swizzleY
+signalToGLSL _ (RgbV x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv >>= traverse swizzleZ
 
-signalToGLSL (Osc x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.osc
-signalToGLSL (Tri x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.tri
-signalToGLSL (Saw x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.saw
-signalToGLSL (Sqr x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.sqr
-signalToGLSL (LFTri x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.tri
-signalToGLSL (LFSaw x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.saw
-signalToGLSL (LFSqr x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.sqr
+signalToGLSL ah (Osc x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.osc
+signalToGLSL ah (Tri x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.tri
+signalToGLSL ah (Saw x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.saw
+signalToGLSL ah (Sqr x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.sqr
+signalToGLSL ah (LFTri x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.tri
+signalToGLSL ah (LFSaw x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.saw
+signalToGLSL ah (LFSqr x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.sqr
 
-signalToGLSL (Abs x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.abs
-signalToGLSL (Acos x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.acos
-signalToGLSL (Acosh x) = signalToGLSL x >>= acosh
-signalToGLSL (AmpDb x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.ampdb
-signalToGLSL (Asin x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.asin
-signalToGLSL (Asinh x) = signalToGLSL x >>= asinh
-signalToGLSL (Atan x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.atan
-signalToGLSL (Atanh x) = signalToGLSL x >>= atanh
-signalToGLSL (Bipolar x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.bipolar
-signalToGLSL (Cbrt x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.cbrt
-signalToGLSL (Ceil x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.ceil
-signalToGLSL (Cos x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.cos
-signalToGLSL (Cosh x) = signalToGLSL x >>= cosh
-signalToGLSL (CpsMidi x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.cpsmidi
-signalToGLSL (DbAmp x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.dbamp
-signalToGLSL (Exp x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.exp
-signalToGLSL (Floor x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.floor
-signalToGLSL (Fract x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.fract
-signalToGLSL (Log x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.log
-signalToGLSL (Log2 x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.log2
-signalToGLSL (Log10 x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.log10 
-signalToGLSL (MidiCps x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.midicps
-signalToGLSL (Round x) = signalToGLSL x >>= round
-signalToGLSL (Sign x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.sign
-signalToGLSL (Sin x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.sin
-signalToGLSL (Sinh x) = signalToGLSL x >>= sinh
-signalToGLSL (Sqrt x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.sqrt
-signalToGLSL (Tan x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.tan
-signalToGLSL (Tanh x) = signalToGLSL x >>= tanh
-signalToGLSL (Trunc x) = signalToGLSL x >>= trunc
-signalToGLSL (Unipolar x) = signalToGLSL x >>= simpleUnaryFunction GLSLExpr.unipolar
+signalToGLSL ah (Abs x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.abs
+signalToGLSL ah (Acos x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.acos
+signalToGLSL ah (Acosh x) = signalToGLSL ah x >>= acosh
+signalToGLSL ah (AmpDb x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.ampdb
+signalToGLSL ah (Asin x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.asin
+signalToGLSL ah (Asinh x) = signalToGLSL ah x >>= asinh
+signalToGLSL ah (Atan x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.atan
+signalToGLSL ah (Atanh x) = signalToGLSL ah x >>= atanh
+signalToGLSL ah (Bipolar x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.bipolar
+signalToGLSL ah (Cbrt x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.cbrt
+signalToGLSL ah (Ceil x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.ceil
+signalToGLSL ah (Cos x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.cos
+signalToGLSL ah (Cosh x) = signalToGLSL ah x >>= cosh
+signalToGLSL ah (CpsMidi x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.cpsmidi
+signalToGLSL ah (DbAmp x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.dbamp
+signalToGLSL ah (Exp x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.exp
+signalToGLSL ah (Floor x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.floor
+signalToGLSL ah (Fract x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.fract
+signalToGLSL ah (Log x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.log
+signalToGLSL ah (Log2 x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.log2
+signalToGLSL ah (Log10 x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.log10 
+signalToGLSL ah (MidiCps x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.midicps
+signalToGLSL ah (Round x) = signalToGLSL ah x >>= round
+signalToGLSL ah (Sign x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.sign
+signalToGLSL ah (Sin x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.sin
+signalToGLSL ah (Sinh x) = signalToGLSL ah x >>= sinh
+signalToGLSL ah (Sqrt x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.sqrt
+signalToGLSL ah (Tan x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.tan
+signalToGLSL ah (Tanh x) = signalToGLSL ah x >>= tanh
+signalToGLSL ah (Trunc x) = signalToGLSL ah x >>= trunc
+signalToGLSL ah (Unipolar x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.unipolar
 
-signalToGLSL (RtXy rt) = do
-  rts <- signalToGLSL rt >>= alignVec2
+signalToGLSL _ (RtXy rt) = do
+  rts <- signalToGLSL Vec2 rt >>= alignVec2
   rs <- traverse swizzleX rts
   ts <- traverse swizzleY rts
   xs <- zipBinaryExpression (\r t -> "(" <> r <> "*cos(" <> t <> "))") rs ts
   ys <- zipBinaryExpression (\r t -> "(" <> r <> "*sin(" <> t <> "))") rs ts
   pure $ concat $ zipWith (\x y -> x `cons` singleton y) xs ys
 
-signalToGLSL (RtX rt) = do
-  rts <- signalToGLSL rt >>= alignVec2
+signalToGLSL _ (RtX rt) = do
+  rts <- signalToGLSL Vec2 rt >>= alignVec2
   rs <- traverse swizzleX rts
   ts <- traverse swizzleY rts
   zipBinaryExpression (\r t -> "(" <> r <> "*cos(" <> t <> "))") rs ts
 
-signalToGLSL (RtY rt) = do
-  rts <- signalToGLSL rt >>= alignVec2
+signalToGLSL _ (RtY rt) = do
+  rts <- signalToGLSL Vec2 rt >>= alignVec2
   rs <- traverse swizzleX rts
   ts <- traverse swizzleY rts
   zipBinaryExpression (\r t -> "(" <> r <> "*sin(" <> t <> "))") rs ts
 
-signalToGLSL (XyRt xy) = do
-  xys <- signalToGLSL xy >>= alignVec2
+signalToGLSL _ (XyRt xy) = do
+  xys <- signalToGLSL Vec2 xy >>= alignVec2
   xs <- traverse swizzleX xys
   ys <- traverse swizzleY xys
   rs <- zipBinaryExpression (\x y -> "sqrt((" <> x <> "*" <> x <> ")+(" <> y <> "*" <> y <> "))") xs ys
   ts <- zipBinaryExpression (\x y -> "atan(" <> x <> "," <> y <> ")") xs ys
   pure $ concat $ zipWith (\x y -> x `cons` singleton y) rs ts
 
-signalToGLSL (XyR xy) = do
-  xys <- signalToGLSL xy >>= alignVec2
+signalToGLSL _ (XyR xy) = do
+  xys <- signalToGLSL Vec2 xy >>= alignVec2
   xs <- traverse swizzleX xys
   ys <- traverse swizzleY xys
   zipBinaryExpression (\x y -> "sqrt((" <> x <> "*" <> x <> ")+(" <> y <> "*" <> y <> "))") xs ys
 
-signalToGLSL (XyT xy) = do
-  xys <- signalToGLSL xy >>= alignVec2
+signalToGLSL _ (XyT xy) = do
+  xys <- signalToGLSL Vec2 xy >>= alignVec2
   xs <- traverse swizzleX xys
   ys <- traverse swizzleY xys
   zipBinaryExpression (\x y -> "atan(" <> x <> "," <> y <> ")") xs ys
 
-signalToGLSL (Distance xy) = do
-  fxys <- _.fxys <$> get
-  xys <- signalToGLSL xy >>= alignVec2
-  abmCombinatorial (\a b -> pure $ GLSLExpr.distance a b) fxys xys
+signalToGLSL _ (Distance xy) = do
+  fxy <- _.fxy <$> get
+  xys <- signalToGLSL Vec2 xy >>= alignVec2
+  pure $ map (GLSLExpr.distance fxy) xys
 
-signalToGLSL (Prox xy) = do
-  fxys <- _.fxys <$> get
-  xys <- signalToGLSL xy >>= alignVec2
-  abmCombinatorial (\a b -> pure $ GLSLExpr.prox a b) fxys xys
+signalToGLSL _ (Prox xy) = do
+  fxy <- _.fxy <$> get
+  xys <- signalToGLSL Vec2 xy >>= alignVec2
+  pure $ map (GLSLExpr.prox fxy) xys
 
-signalToGLSL (SetFxy xy z) = do
-  fxys <- signalToGLSL xy >>= alignVec2 >>= traverse assignForced
-  withFxys fxys $ signalToGLSL z
+signalToGLSL ah (SetFxy xy z) = do
+  fxys <- signalToGLSL Vec2 xy >>= alignVec2 >>= traverse assignForced
+  withFxys fxys $ signalToGLSL ah z
 
-signalToGLSL (SetFx x z) = do
-  prevFxys <- _.fxys <$> get
-  xs <- signalToGLSL x >>= alignFloat
-  let f fxy x' = pure $ GLSLExpr.vec2binary x' (unsafeSwizzleY fxy)
-  fxys <- abmCombinatorial f prevFxys xs >>= traverse assignForced
-  withFxys fxys $ signalToGLSL z
+signalToGLSL ah (SetFx x z) = do
+  fxy <- _.fxy <$> get
+  xs <- signalToGLSL Vec4 x >>= alignFloat
+  let f x' = GLSLExpr.vec2binary x' (unsafeSwizzleY fxy)
+  fxys <- traverse assignForced $ map f xs
+  withFxys fxys $ signalToGLSL ah z
 
-signalToGLSL (SetFy y z) = do
-  prevFxys <- _.fxys <$> get
-  ys <- signalToGLSL y >>= alignFloat
-  let f fxy y' = pure $ GLSLExpr.vec2binary (unsafeSwizzleX fxy) y'
-  fxys <- abmCombinatorial f prevFxys ys >>= traverse assignForced
-  withFxys fxys $ signalToGLSL z
+signalToGLSL ah (SetFy y z) = do
+  fxy <- _.fxy <$> get
+  ys <- signalToGLSL Vec4 y >>= alignFloat
+  let f y' = GLSLExpr.vec2binary (unsafeSwizzleX fxy) y'
+  fxys <- traverse assignForced $ map f ys
+  withFxys fxys $ signalToGLSL ah z
 
-signalToGLSL (Zoom xy z) = do
-  prevFxys <- _.fxys <$> get
-  xys <- signalToGLSL xy >>= alignVec2
-  fxys <- abmCombinatorial (\fxy xy' -> pure $ GLSLExpr.division fxy xy') prevFxys xys >>= traverse assignForced
-  withFxys fxys $ signalToGLSL z
+signalToGLSL ah (Zoom xy z) = do
+  fxy <- _.fxy <$> get
+  xys <- signalToGLSL Vec2 xy >>= alignVec2
+  fxys <- traverse assignForced $ map (GLSLExpr.division fxy) xys
+  withFxys fxys $ signalToGLSL ah z
 
-signalToGLSL (Move xy z) = do
-  prevFxys <- _.fxys <$> get
-  xys <- signalToGLSL xy >>= alignFloat
-  fxys <- abmCombinatorial (\fxy xy' -> pure $ GLSLExpr.difference fxy xy') prevFxys xys >>= traverse assignForced
-  withFxys fxys $ signalToGLSL z
+signalToGLSL ah (Move xy z) = do
+  fxy <- _.fxy <$> get
+  xys <- signalToGLSL Vec2 xy >>= alignVec2
+  fxys <- traverse assignForced $ map (GLSLExpr.difference fxy) xys
+  withFxys fxys $ signalToGLSL ah z
 
-signalToGLSL (Tile xy z) = do
-  prevFxys <- _.fxys <$> get
-  xys <- signalToGLSL xy >>= alignFloat
-  fxys <- abmCombinatorial (\fxy xy' -> pure $ GLSLExpr.tile fxy xy') prevFxys xys >>= traverse assignForced
-  withFxys fxys $ signalToGLSL z
+signalToGLSL ah (Tile xy z) = do
+  fxy <- _.fxy <$> get
+  xys <- signalToGLSL Vec2 xy >>= alignVec2
+  fxys <- traverse assignForced $ map (GLSLExpr.tile fxy) xys
+  withFxys fxys $ signalToGLSL ah z
 
-signalToGLSL (Spin x z) = do
-  prevFxys <- _.fxys <$> get
-  xs <- signalToGLSL x >>= alignFloat
-  fxys <- abmCombinatorial spin prevFxys xs >>= traverse assignForced
-  withFxys fxys $ signalToGLSL z
+signalToGLSL ah (Spin x z) = do
+  fxy <- _.fxy <$> get
+  xs <- signalToGLSL Vec4 x >>= alignFloat
+  fxys <- traverse (spin fxy) xs >>= traverse assignForced
+  withFxys fxys $ signalToGLSL ah z
 
-signalToGLSL (Sum mm x y) = binaryFunction mm GLSLExpr.sum x y
-signalToGLSL (Difference mm x y) = binaryFunction mm GLSLExpr.difference x y
-signalToGLSL (Product mm x y) = binaryFunction mm GLSLExpr.product x y
-signalToGLSL (Division mm x y) = binaryFunction mm GLSLExpr.division x y
-signalToGLSL (Mod mm x y) = binaryFunction mm GLSLExpr.mod x y
-signalToGLSL (Pow mm x y) = binaryFunction mm GLSLExpr.pow x y
-signalToGLSL (Equal mm x y) = binaryFunction mm GLSLExpr.equal x y
-signalToGLSL (NotEqual mm x y) = binaryFunction mm GLSLExpr.notEqual x y
-signalToGLSL (GreaterThan mm x y) = binaryFunction mm GLSLExpr.greaterThan x y
-signalToGLSL (GreaterThanEqual mm x y) = binaryFunction mm GLSLExpr.greaterThanEqual x y
-signalToGLSL (LessThan mm x y) = binaryFunction mm GLSLExpr.lessThan x y
-signalToGLSL (LessThanEqual mm x y) = binaryFunction mm GLSLExpr.lessThanEqual x y
-signalToGLSL (Max mm x y) = binaryFunction mm GLSLExpr.max x y
-signalToGLSL (Min mm x y) = binaryFunction mm GLSLExpr.min x y
+signalToGLSL ah (Sum mm x y) = binaryFunction ah mm GLSLExpr.sum x y
+signalToGLSL ah (Difference mm x y) = binaryFunction ah mm GLSLExpr.difference x y
+signalToGLSL ah (Product mm x y) = binaryFunction ah mm GLSLExpr.product x y
+signalToGLSL ah (Division mm x y) = binaryFunction ah mm GLSLExpr.division x y
+signalToGLSL ah (Mod mm x y) = binaryFunction ah mm GLSLExpr.mod x y
+signalToGLSL ah (Pow mm x y) = binaryFunction ah mm GLSLExpr.pow x y
+signalToGLSL ah (Equal mm x y) = binaryFunction ah mm GLSLExpr.equal x y
+signalToGLSL ah (NotEqual mm x y) = binaryFunction ah mm GLSLExpr.notEqual x y
+signalToGLSL ah (GreaterThan mm x y) = binaryFunction ah mm GLSLExpr.greaterThan x y
+signalToGLSL ah (GreaterThanEqual mm x y) = binaryFunction ah mm GLSLExpr.greaterThanEqual x y
+signalToGLSL ah (LessThan mm x y) = binaryFunction ah mm GLSLExpr.lessThan x y
+signalToGLSL ah (LessThanEqual mm x y) = binaryFunction ah mm GLSLExpr.lessThanEqual x y
+signalToGLSL ah (Max mm x y) = binaryFunction ah mm GLSLExpr.max x y
+signalToGLSL ah (Min mm x y) = binaryFunction ah mm GLSLExpr.min x y
 
-signalToGLSL (Gate mm x y) = do
-  xs <- signalToGLSL x
-  ys <- signalToGLSL y >>= traverse assign
+signalToGLSL ah (Gate mm x y) = do
+  xs <- signalToGLSL ah x
+  ys <- signalToGLSL ah y >>= traverse assign
   combineChannels mm GLSLExpr.gate xs ys
 
-signalToGLSL (Clip mm r x) = clipEtcFunction mm GLSLExpr.clip r x
-signalToGLSL (Between mm r x) = clipEtcFunction mm GLSLExpr.between r x
-signalToGLSL (SmoothStep mm r x) = clipEtcFunction mm GLSLExpr.smoothstep r x
+signalToGLSL ah (Clip mm r x) = clipEtcFunction ah mm GLSLExpr.clip r x
+signalToGLSL ah (Between mm r x) = clipEtcFunction ah mm GLSLExpr.between r x
+signalToGLSL ah (SmoothStep mm r x) = clipEtcFunction ah mm GLSLExpr.smoothstep r x
 
-signalToGLSL (Circle mm xy d) = do
-  fxys <- _.fxys <$> get
-  exprss <- for fxys $ \fxy -> do
-    xys <- signalToGLSL xy >>= alignVec2
-    ds <- case mm of
-            Combinatorial -> signalToGLSL d
-            Pairwise -> signalToGLSL d >>= alignFloat
-    pure $ combine mm (GLSLExpr.circle fxy) xys ds
-  traverse assign $ concat exprss
+signalToGLSL ah (Circle mm xy d) = do
+  fxy <- _.fxy <$> get
+  xys <- signalToGLSL Vec2 xy >>= alignVec2
+  ds <- case mm of
+          Combinatorial -> signalToGLSL ah d
+          Pairwise -> signalToGLSL Float d >>= alignFloat
+  traverse assign $ combine mm (GLSLExpr.circle fxy) xys ds
 
-signalToGLSL (Rect mm xy wh) = do
-  fxys <- _.fxys <$> get
-  exprss <- for fxys $ \fxy -> do
-    xys <- signalToGLSL xy >>= alignVec2
-    whs <- signalToGLSL wh >>= alignVec2
-    sequence $ combine mm (rect fxy) xys whs
-  traverse assign $ concat exprss
+signalToGLSL _ (Rect mm xy wh) = do
+  fxy <- _.fxy <$> get
+  xys <- signalToGLSL Vec2 xy >>= alignVec2
+  whs <- signalToGLSL Vec2 wh >>= alignVec2
+  rs <- sequence $ combine mm (rect fxy) xys whs
+  traverse assign rs
 
-signalToGLSL (VLine mm x w) = do
-  fxys <- _.fxys <$> get
-  exprss <- for fxys $ \fxy -> do
-    xs <- signalToGLSL x
-    ws <- signalToGLSL w
-    combineChannels mm (GLSLExpr.vline fxy) xs ws
-  traverse assign $ concat exprss
+signalToGLSL ah (VLine mm x w) = do
+  fxy <- _.fxy <$> get
+  xs <- signalToGLSL ah x
+  ws <- signalToGLSL ah w
+  combineChannels mm (GLSLExpr.vline fxy) xs ws >>= traverse assign
 
-signalToGLSL (HLine mm x w) = do
-  fxys <- _.fxys <$> get
-  exprss <- for fxys $ \fxy -> do
-    xs <- signalToGLSL x
-    ws <- signalToGLSL w
-    combineChannels mm (GLSLExpr.hline fxy) xs ws
-  traverse assign $ concat exprss
+signalToGLSL ah (HLine mm x w) = do
+  fxy <- _.fxy <$> get
+  xs <- signalToGLSL ah x
+  ws <- signalToGLSL ah w
+  combineChannels mm (GLSLExpr.hline fxy) xs ws >>= traverse assign
 
-signalToGLSL (Chain mm xy w) = do
-  fxys <- _.fxys <$> get
-  exprss <- for fxys $ \fxy -> do
-    xys <- signalToGLSL xy >>= alignVec2
-    ws <- signalToGLSL w >>= alignFloat -- for now, have to align float because of monomorphic line function in shader, later maybe optimize
-    let xys' = everyAdjacentPair xys -- NonEmptyList (Tuple GLSLExpr GLSLExpr) where GLSLExprs are all Vec2
-    let f xyTuple theW = GLSLExpr.line fxy (fst xyTuple) (snd xyTuple) theW
-    pure $ combine mm f xys' ws
-  traverse assign $ concat exprss
+signalToGLSL _ (Chain mm xy w) = do
+  fxy <- _.fxy <$> get
+  xys <- signalToGLSL Vec2 xy >>= alignVec2
+  ws <- signalToGLSL Vec4 w >>= alignFloat -- for now, have to align float because of monomorphic line function in shader, later maybe optimize
+  let xys' = everyAdjacentPair xys -- NonEmptyList (Tuple GLSLExpr GLSLExpr) where GLSLExprs are all Vec2
+  let f xyTuple theW = GLSLExpr.line fxy (fst xyTuple) (snd xyTuple) theW
+  traverse assign $ combine mm f xys' ws
 
-signalToGLSL (Lines mm xy w) = do
-  fxys <- _.fxys <$> get
-  exprss <- for fxys $ \fxy -> do
-    xysVec4 <- signalToGLSL xy >>= alignVec4
-    ws <- signalToGLSL w >>= alignFloat
-    let f v4 theW = GLSLExpr.line fxy (GLSLExpr.unsafeSwizzleXY v4) (GLSLExpr.unsafeSwizzleZW v4) theW
-    pure $ combine mm f xysVec4 ws
-  traverse assign $ concat exprss
+signalToGLSL _ (Lines mm xy w) = do
+  fxy <- _.fxy <$> get
+  xysVec4 <- signalToGLSL Vec4 xy >>= alignVec4
+  ws <- signalToGLSL Vec4 w >>= alignFloat
+  let f v4 theW = GLSLExpr.line fxy (GLSLExpr.unsafeSwizzleXY v4) (GLSLExpr.unsafeSwizzleZW v4) theW
+  traverse assign $ combine mm f xysVec4 ws
 
-signalToGLSL (ILines mm xy w) = do
-  fxys <- _.fxys <$> get
-  exprss <- for fxys $ \fxy -> do
-    xysVec4 <- signalToGLSL xy >>= alignVec4
-    ws <- signalToGLSL w >>= alignFloat
-    let f v4 theW = GLSLExpr.iline fxy (GLSLExpr.unsafeSwizzleXY v4) (GLSLExpr.unsafeSwizzleZW v4) theW
-    pure $ combine mm f xysVec4 ws
-  traverse assign $ concat exprss 
+signalToGLSL _ (ILines mm xy w) = do
+  fxy <- _.fxy <$> get
+  xysVec4 <- signalToGLSL Vec4 xy >>= alignVec4
+  ws <- signalToGLSL Vec4 w >>= alignFloat
+  let f v4 theW = GLSLExpr.iline fxy (GLSLExpr.unsafeSwizzleXY v4) (GLSLExpr.unsafeSwizzleZW v4) theW
+  traverse assign $ combine mm f xysVec4 ws
 
-signalToGLSL (Mesh mm xy w) = do
-  fxys <- _.fxys <$> get
-  exprss <- for fxys $ \fxy -> do
-    xys <- signalToGLSL xy >>= alignVec2
-    ws <- signalToGLSL w >>= alignFloat
-    let xys' = everyPair xys -- NonEmptyList (Tuple GLSLExpr GLSLExpr) where GLSLExprs are all Vec2
-    let f xyTuple theW = GLSLExpr.line fxy (fst xyTuple) (snd xyTuple) theW
-    pure $ combine mm f xys' ws
-  traverse assign $ concat exprss 
+signalToGLSL _ (Mesh mm xy w) = do
+  fxy <- _.fxy <$> get
+  xys <- signalToGLSL Vec2 xy >>= alignVec2
+  ws <- signalToGLSL Vec4 w >>= alignFloat
+  let xys' = everyPair xys -- NonEmptyList (Tuple GLSLExpr GLSLExpr) where GLSLExprs are all Vec2
+  let f xyTuple theW = GLSLExpr.line fxy (fst xyTuple) (snd xyTuple) theW
+  traverse assign $ combine mm f xys' ws
 
-signalToGLSL (ILine mm xy1 xy2 w) = do
-  fxys <- _.fxys <$> get
-  exprss <- for fxys $ \fxy -> do
-    xy1s <- signalToGLSL xy1 >>= alignVec2
-    xy2s <- signalToGLSL xy2 >>= alignVec2
-    ws <- signalToGLSL w >>= alignFloat
-    pure $ combine3 mm (GLSLExpr.iline fxy) xy1s xy2s ws
-  traverse assign $ concat exprss
+signalToGLSL _ (ILine mm xy1 xy2 w) = do
+  fxy <- _.fxy <$> get
+  xy1s <- signalToGLSL Vec2 xy1 >>= alignVec2
+  xy2s <- signalToGLSL Vec2 xy2 >>= alignVec2
+  ws <- signalToGLSL Vec4 w >>= alignFloat
+  traverse assign $ combine3 mm (GLSLExpr.iline fxy) xy1s xy2s ws
 
-signalToGLSL (Line mm xy1 xy2 w) = do
-  fxys <- _.fxys <$> get
-  exprss <- for fxys $ \fxy -> do
-    xy1s <- signalToGLSL xy1 >>= alignVec2
-    xy2s <- signalToGLSL xy2 >>= alignVec2
-    ws <- signalToGLSL w >>= alignFloat
-    pure $ combine3 mm (GLSLExpr.line fxy) xy1s xy2s ws
-  traverse assign $ concat exprss
+signalToGLSL _ (Line mm xy1 xy2 w) = do
+  fxy <- _.fxy <$> get
+  xy1s <- signalToGLSL Vec2 xy1 >>= alignVec2
+  xy2s <- signalToGLSL Vec2 xy2 >>= alignVec2
+  ws <- signalToGLSL Vec4 w >>= alignFloat
+  traverse assign $ combine3 mm (GLSLExpr.line fxy) xy1s xy2s ws
 
-signalToGLSL (Point xy) = do
-  fxys <- _.fxys <$> get
-  exprss <- for fxys $ \fxy -> do
-    xys <- signalToGLSL xy >>= alignVec2
-    pure $ map (GLSLExpr.point fxy) xys
-  traverse assign $ concat exprss
+signalToGLSL _ (Point xy) = do
+  fxy <- _.fxy <$> get
+  xys <- signalToGLSL Vec2 xy >>= alignVec2
+  traverse assign $ map (GLSLExpr.point fxy) xys
 
-signalToGLSL (LinLin mm r1 r2 x) = do
-  r1s <- signalToGLSL r1 >>= alignVec2
-  r2s <- signalToGLSL r2 >>= alignVec2
-  xs <- signalToGLSL x
+signalToGLSL ah (LinLin mm r1 r2 x) = do
+  r1s <- signalToGLSL Vec2 r1 >>= alignVec2
+  r2s <- signalToGLSL Vec2 r2 >>= alignVec2
+  xs <- signalToGLSL ah x
   case mm of 
     Combinatorial -> pure $ do -- in NonEmptyList monad
       r1' <- r1s
@@ -420,22 +404,22 @@ signalToGLSL (LinLin mm r1 r2 x) = do
           xs' <- alignFloat xs
           pure $ combine3Pairwise GLSLExpr.linlin r1s r2s xs'
   
-signalToGLSL (Mix mm c t e) = do
-  cs <- signalToGLSL c
-  ts <- signalToGLSL t
-  es <- signalToGLSL e
+signalToGLSL ah (Mix mm c t e) = do
+  cs <- signalToGLSL ah c
+  ts <- signalToGLSL ah t
+  es <- signalToGLSL ah e
   combineChannels3 mm GLSLExpr.mix cs ts es
             
-signalToGLSL (Seq steps y) = do
-  steps' <- signalToGLSL steps
+signalToGLSL ah (Seq steps y) = do
+  steps' <- signalToGLSL Vec4 steps
   case exprsChannels steps' of
     1 -> pure steps'
     _ -> do
       let steps'' = concat $ map split steps' -- ? there is also splitIntoFloats in GLSL.purs which assigns, do we want to use that?
-      ys <- signalToGLSL y >>= alignFloat
+      ys <- signalToGLSL Float y >>= alignFloat
       pure $ map (GLSLExpr.seq steps'') ys
  
-signalToGLSL _ = pure $ singleton $ zero
+signalToGLSL _ _ = pure $ singleton $ zero
 
 simpleUnaryFunction :: (GLSLExpr -> GLSLExpr) -> Exprs -> GLSL Exprs
 simpleUnaryFunction f = traverse $ \x -> pure $ f x
@@ -450,10 +434,10 @@ unaryExpression f = traverse $ \x -> pure { string: f x.string, glslType: x.glsl
 zipBinaryExpression :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
 zipBinaryExpression f xs ys = pure $ zipWith (\x y -> { string: f x.string y.string, glslType:x.glslType, isSimple: false, deps: x.deps <> y.deps }) xs ys
 
-binaryFunction :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Signal -> Signal -> GLSL Exprs
-binaryFunction mm f x y = do
-  xs <- signalToGLSL x
-  ys <- signalToGLSL y
+binaryFunction :: GLSLType -> MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Signal -> Signal -> GLSL Exprs
+binaryFunction ah mm f x y = do
+  xs <- signalToGLSL ah x
+  ys <- signalToGLSL ah y
   combineChannels mm f xs ys
     
 combineChannels :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
@@ -509,10 +493,10 @@ combineChannelsCombinatorial3 f xs ys zs = do
     z <- zs
     pure $ f x y z
     
-clipEtcFunction :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Signal -> Signal -> GLSL Exprs
-clipEtcFunction mm f r x = do
-  rs <- signalToGLSL r >>= alignVec2 >>= traverse assign
-  xs <- signalToGLSL x
+clipEtcFunction :: GLSLType -> MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Signal -> Signal -> GLSL Exprs
+clipEtcFunction ah mm f r x = do
+  rs <- signalToGLSL Vec2 r >>= alignVec2 >>= traverse assign
+  xs <- signalToGLSL ah x
   case mm of
     Combinatorial -> pure $ do -- in NonEmptyList monad
       r' <- rs
@@ -526,13 +510,6 @@ clipEtcFunction mm f r x = do
           let rs' = extendByRepetition n rs -- extend rs so that it has n *elements*
           xs' <- extend n xs -- extend xs so that it has n *channels*
           zipWithAAA f rs' xs'
-            
-
-abmCombinatorial :: (GLSLExpr -> GLSLExpr -> GLSL GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
-abmCombinatorial f xs ys = sequence $ do -- in NonEmptyList monad
-    x <- xs
-    y <- ys
-    pure $ f x y
 
 
 blend :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec4
@@ -662,6 +639,8 @@ programsToGLSL :: Tempo -> {- Map TextureRef Int -> -} Program -> Program -> GLS
 programsToGLSL tempo oldProgram newProgram = do
   let oldActions = map onlyVideoOutputs oldProgram.actions
   let newActions = map onlyVideoOutputs newProgram.actions
+  fxy <- assignForced GLSLExpr.defaultFxy
+  modify_ $ \s -> s { fxy = fxy }
   rgbas <- traverseActions tempo newProgram.evalTime oldActions newActions -- List GLSLExpr
   case List.head rgbas of
     Nothing -> pure $ coerce Vec4 zero
@@ -717,10 +696,9 @@ actionsToGLSL tempo eTime (Just old) (Just new) = do
     
 actionToGLSL :: Action -> GLSL GLSLExpr
 actionToGLSL x = do
-  xs <- signalToGLSL x.signal
   case elem RGBA x.output of
-    true -> exprsRGBAToRGBA xs
-    false -> exprsRGBToRGBA xs
+    true -> signalToGLSL Vec4 x.signal >>= exprsRGBAToRGBA
+    false -> signalToGLSL Vec3 x.signal >>= exprsRGBToRGBA
     
 exprsRGBToRGBA :: Exprs -> GLSL GLSLExpr
 exprsRGBToRGBA xs = do
