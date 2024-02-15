@@ -8,8 +8,9 @@ import Effect.Now (nowDateTime)
 import Data.Tempo (newTempo)
 import Data.Either (Either(..))
 import Data.Rational ((%))
-import Data.Map (Map, empty)
-import Effect.Ref (Ref, new)
+import Data.Map (Map, empty, lookup, insert)
+import Effect.Ref (Ref, new, read, write)
+import Data.Maybe (Maybe(..))
 
 import FragmentShader (fragmentShader)
 import Program (Program,emptyProgram)
@@ -38,7 +39,7 @@ launch = do
   }
 
 define :: Punctual -> { zone :: Int, time :: Number, text :: String } -> Effect { success :: Boolean, info :: String, error :: String }
-define _ args = do
+define punctual args = do
   log $ "define: " <> show args
   placeholder <- nowDateTime
   case parsePunctual args.text placeholder of -- placeholder should be time from args instead of from nowDateTime, but Number doesn't match DateTime
@@ -46,7 +47,11 @@ define _ args = do
       log $ "error: " <> show err
       pure { success: false, info: "", error: show err }
     Right p1 -> do
-      p0 <- emptyProgram
+      programs <- read punctual.programs
+      p0 <- case lookup args.zone programs of
+              Just p -> pure p
+              Nothing -> emptyProgram
+      write (insert args.zone p1 programs) punctual.programs
       tempo <- newTempo (1 % 1)
       let fs = fragmentShader true tempo p0 p1
       log $ "success: " <> show fs
