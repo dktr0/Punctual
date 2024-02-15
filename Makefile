@@ -8,6 +8,10 @@ build:
 	cp -f result/bin/punctual.jsexe/out.js .
 	cp -f result/bin/punctual.jsexe/runmain.js .
 	
+newbuild:
+	spago build
+	esbuild exolang.js --bundle --minify --format=esm --outfile=punctual.js
+	
 serve:
 	python3 -m http.server 8000
 	
