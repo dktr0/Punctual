@@ -16,8 +16,8 @@ Punctual.prototype.clear = function(args) {
   return P.clear(this.punctual)(args)();
 }
 
-Punctual.prototype.setTempo = function(args) {
-  return P.setTempo(this.punctual)(args)();
+Punctual.prototype.setTempo = function(foreignTempo) {
+  return P.setTempo(this.punctual)(foreignTempo)();
 }
 
 Punctual.prototype.preRender = function(args) {
