@@ -8,9 +8,11 @@ import Effect.Now (nowDateTime)
 import Data.Tempo (newTempo)
 import Data.Either (Either(..))
 import Data.Rational ((%))
+import Data.Map (Map, empty)
+import Effect.Ref (Ref, new)
 
 import FragmentShader (fragmentShader)
-import Program (emptyProgram)
+import Program (Program,emptyProgram)
 import Parser (parsePunctual)
   
 test :: Boolean -> String -> Effect Unit
@@ -23,12 +25,17 @@ test webGl2 txt = do
       tempo <- newTempo (1 % 1)
       log $ fragmentShader webGl2 tempo p0 p1
       
-type Punctual = {}
+type Punctual = {
+  programs :: Ref (Map Int Program)
+  }
 
 launch :: Effect Punctual
 launch = do
   log "punctual 0.5 initialization complete"
-  pure {}
+  programs <- new empty
+  pure {
+    programs
+  }
 
 define :: Punctual -> { zone :: Int, time :: Number, text :: String } -> Effect { success :: Boolean, info :: String, error :: String }
 define _ args = do

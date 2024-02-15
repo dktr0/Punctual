@@ -30,6 +30,7 @@ to generate this file without the comments in this block.
   , "prelude"
   , "purescript-tempi"
   , "rationals"
+  , "refs"
   , "spec"
   , "transformers"
   , "tuples"
