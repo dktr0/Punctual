@@ -14,12 +14,12 @@ import Effect.Ref (Ref, new, read, write)
 import Data.Maybe (Maybe(..))
 import Data.Tempo (ForeignTempo, Tempo, fromForeignTempo, newTempo)
 
-import FragmentShader (fragmentShader)
 import Program (Program,emptyProgram,programHasVisualOutput)
 import Parser (parsePunctual)
-import WebGL (WebGL, newWebGL, deleteWebGL)
+import WebGL (WebGL, newWebGL, updateWebGL, deleteWebGL, drawWebGL)
 import DateTime (numberToDateTime)
-  
+import FragmentShader (fragmentShader)
+
   
 type Punctual = {
   tempo :: Ref Tempo,
@@ -48,32 +48,19 @@ define punctual args = do
     Left err -> do
       log $ "error: " <> show err
       pure { success: false, info: "", error: show err }
-    Right p1 -> do
-      programs <- read punctual.programs
-      p0 <- case lookup args.zone programs of
+    Right program -> do
+      tempo <- read punctual.tempo            
+{-      programs <- read punctual.programs
+      oldProg <- case lookup args.zone programs of
               Just p -> pure p
               Nothing -> emptyProgram        
-      write (insert args.zone p1 programs) punctual.programs
-      case programHasVisualOutput p1 of 
-        true -> do
-          mWebGL <- getWebGLForZone punctual args.zone
-          case mWebGL of
-            Just webGL -> do
-              log $ "webGL2: " <> show webGL.webGL2
-              log $ "khr_parallel_shader_compile: " <> show webGL.khr_parallel_shader_compile
-              tempo <- read punctual.tempo
-              t2 <- nowDateTime
-              let fs = fragmentShader true tempo p0 p1
-              t3 <- nowDateTime
-              log $ " GLSL transpile time = " <> show (diff t3 t2 :: Milliseconds)
-              log $ "success: " <> show fs
-              pure { success: true, info: fs, error: "" }
-            Nothing -> do
-              log $ "punctual: program has visual output but a WebGL canvas cannot be created"
-              pure { success: true, info: "", error: "" }
+      write (insert args.zone program programs) punctual.programs -}
+      info <- case programHasVisualOutput program of 
+        true -> updateWebGLForZone punctual args.zone tempo program
         false -> do
           deleteWebGLForZone punctual args.zone
-          pure { success: true, info: "", error: "" }
+          pure ""
+      pure { success: true, info, error: "" }
         
         
 clear :: Punctual -> { zone :: Int } -> Effect Unit
@@ -88,9 +75,18 @@ setTempo punctual ft = write (fromForeignTempo ft) punctual.tempo
 preRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number, previousDrawTime :: Number } -> Effect Unit
 preRender _ _ = pure unit
 
-render :: Punctual -> { zone :: Int, canDraw :: Boolean, nowTime :: Number, previousDrawTime :: Number } -> Effect Unit -- later will be Effect (Array Foreign)
-render _ _ = pure unit
-
+render :: Punctual -> { zone :: Int, canDraw :: Boolean, nowTime :: Number } -> Effect Unit -- later will be Effect (Array Foreign)
+render punctual args = do
+  case args.canDraw of 
+    false -> pure unit
+    true -> do
+      webGLs <- read punctual.webGLs
+      case lookup args.zone webGLs of
+        Nothing -> pure unit
+        Just w -> do
+          tempo <- read punctual.tempo
+          drawWebGL w tempo (numberToDateTime args.nowTime)
+        
 postRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number, previousDrawTime :: Number } -> Effect Unit
 postRender _ _ = pure unit
 
@@ -108,18 +104,20 @@ test webGl2 txt = do
       tempo <- newTempo (1 % 1)
       log $ fragmentShader webGl2 tempo p0 p1
 
-getWebGLForZone :: Punctual -> Int -> Effect (Maybe WebGL)
-getWebGLForZone punctual z = do
+updateWebGLForZone :: Punctual -> Int -> Tempo -> Program -> Effect String -- String is fragment shader code
+updateWebGLForZone punctual z tempo prog = do
   webGLs <- read punctual.webGLs
   case lookup z webGLs of 
-    Just w -> pure (Just w)
+    Just w -> do
+      updateWebGL w tempo prog
+      read w.shaderSrc
     Nothing -> do
-      w <- newWebGL
+      w <- newWebGL tempo prog
       case w of
         Just w' -> do
           write (insert z w' webGLs) punctual.webGLs
-          pure (Just w')
-        Nothing -> pure Nothing
+          read w'.shaderSrc
+        Nothing -> pure "unable to make canvas or WebGL context for program"
 
 deleteWebGLForZone :: Punctual -> Int -> Effect Unit
 deleteWebGLForZone punctual z = do

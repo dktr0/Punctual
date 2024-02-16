@@ -2,7 +2,7 @@
 <html>
 <head>
  <meta charset="UTF-8"></meta>
- <title>LocoMotion</title>
+ <title>Punctual</title>
  <link href="style.css" rel="stylesheet" type="text/css"/>
 </head>
 
@@ -18,12 +18,13 @@
   function animate() {
     window.requestAnimationFrame(animate);
     window.punctual.preRender({canDraw: true});
-    window.punctual.render({zone:0});
+    window.punctual.render({canDraw: true, zone:0, nowTime: Date.now()});
     window.punctual.postRender({canDraw: true});
   }
   window.doEval = function () {
     var t = document.getElementById("editorArea").value;
-    var r = window.punctual.define({zone:0,text:t,time:0}); // time is placeholder obviously
+    var r = window.punctual.define({zone:0,text:t,time: Date.now()});
+    console.log(r);
     document.getElementById('errors').textContent = r.error;
   }
   window.addEventListener('keydown', function (e) {
