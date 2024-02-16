@@ -12,7 +12,9 @@ export const appendCanvasToDocumentBody = canvas => () => document.body.appendCh
 
 export const deleteCanvasFromDocumentBody = canvas => () => document.body.removeChild(canvas);
 
-export const _getWebGL1Context = canvas => () => canvas.getContext('webgl');
+export const _getWebGL1Context = canvas => () => canvas.getContext('webgl',{ powerPreference: 'high-performance', antialias: true });
 
-export const _getWebGL2Context = canvas => () => canvas.getContext('webgl2');
+export const _getWebGL2Context = canvas => () => canvas.getContext('webgl2',{ powerPreference: 'high-performance', antialias: true });
+
+export const _getExtension = context => name => () => context.getExtension(name);
 

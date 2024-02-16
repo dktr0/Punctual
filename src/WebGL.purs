@@ -1,9 +1,9 @@
-module WebGLCanvas where
+module WebGL where
 
 import Prelude ((<$>),bind,discard,($),pure,Unit)
 import Effect
 import Data.Nullable (Nullable, toMaybe)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..),isJust)
 
 foreign import data Canvas :: Type
 
@@ -25,28 +25,39 @@ foreign import _getWebGL2Context :: Canvas -> Effect (Nullable WebGLContext)
 getWebGL2Context :: Canvas -> Effect (Maybe WebGLContext)
 getWebGL2Context c = toMaybe <$> _getWebGL2Context c
 
-type WebGLCanvas = {
+foreign import data WebGLExtension :: Type
+
+foreign import _getExtension :: WebGLContext -> String -> Effect (Nullable WebGLExtension)
+
+getExtension :: WebGLContext -> String -> Effect (Maybe WebGLExtension)
+getExtension c n = toMaybe <$> _getExtension c n
+
+
+type WebGL = {
   canvas :: Canvas,
-  webGLContext :: WebGLContext,
-  webGL2 :: Boolean
+  context :: WebGLContext,
+  webGL2 :: Boolean,
+  khr_parallel_shader_compile :: Boolean
   }  
 
-getWebGLCanvas :: Effect (Maybe WebGLCanvas)
-getWebGLCanvas = do
+newWebGL :: Effect (Maybe WebGL)
+newWebGL = do
   canvas <- createCanvas
   m2 <- getWebGL2Context canvas
   case m2 of
-    Just ctx -> do
+    Just context -> do
       appendCanvasToDocumentBody canvas
-      pure $ Just { canvas, webGLContext: ctx, webGL2: true }
+      khr_parallel_shader_compile <- isJust <$> getExtension context "KHR_parallel_shader_compile"
+      pure $ Just { canvas, context, webGL2: true, khr_parallel_shader_compile }
     Nothing -> do
       m1 <- getWebGL1Context canvas
       case m1 of 
-        Just ctx -> do
+        Just context -> do
           appendCanvasToDocumentBody canvas
-          pure $ Just { canvas, webGLContext: ctx, webGL2: false }
+          khr_parallel_shader_compile <- isJust <$> getExtension context "KHR_parallel_shader_compile"
+          pure $ Just { canvas, context, webGL2: false, khr_parallel_shader_compile }
         Nothing -> pure Nothing
 
-deleteWebGLCanvas :: WebGLCanvas -> Effect Unit
-deleteWebGLCanvas x = deleteCanvasFromDocumentBody x.canvas
+deleteWebGL :: WebGL -> Effect Unit
+deleteWebGL x = deleteCanvasFromDocumentBody x.canvas
 
