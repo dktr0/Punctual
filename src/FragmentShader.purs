@@ -1,14 +1,13 @@
 module FragmentShader where
 
-import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max,(||))
+import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max)
 import Data.Maybe (Maybe(..))
 import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length)
 import Data.List (List(..),(:))
 import Data.List as List
-import Data.Traversable (traverse,for,sequence)
+import Data.Traversable (traverse,sequence)
 import Data.Tuple (Tuple(..),fst,snd)
 import Data.Foldable (fold,intercalate,foldM,elem)
-import Data.Set as Set
 import Data.Unfoldable1 (replicate1)
 import Control.Monad.State (get,modify_)
 import Data.Map (lookup)
@@ -19,7 +18,7 @@ import Data.DateTime (DateTime)
 import NonEmptyList
 import MultiMode (MultiMode(..))
 import Signal (Signal(..))
-import Action (Action,actionToTimes)
+import Action (Action,actionToTimes,actionHasVisualOutput)
 import Output (Output(..))
 import Program (Program)
 import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels,split,unsafeSwizzleX,unsafeSwizzleY,coerce)
@@ -410,7 +409,7 @@ signalToGLSL ah (Mix mm c t e) = do
   es <- signalToGLSL ah e
   combineChannels3 mm GLSLExpr.mix cs ts es
             
-signalToGLSL ah (Seq steps y) = do
+signalToGLSL _ (Seq steps y) = do
   steps' <- signalToGLSL Vec4 steps
   case exprsChannels steps' of
     1 -> pure steps'
@@ -651,7 +650,7 @@ programsToGLSL tempo oldProgram newProgram = do
 
 onlyVideoOutputs :: Maybe Action -> Maybe Action
 onlyVideoOutputs Nothing = Nothing
-onlyVideoOutputs (Just x) = if elem RGB x.output || elem RGBA x.output then Just x else Nothing
+onlyVideoOutputs (Just x) = if actionHasVisualOutput x then Just x else Nothing
 
 traverseActions :: Tempo -> DateTime -> List (Maybe Action) -> List (Maybe Action) -> GLSL (List GLSLExpr)
 traverseActions _ _ Nil Nil = pure List.Nil
@@ -674,6 +673,7 @@ traverseActions tempo eTime (x:xs) (y:ys) = do
     Just h -> pure (h : t)
     Nothing -> pure t
      
+actionsToGLSL :: Tempo -> DateTime -> Maybe Action -> Maybe Action -> GLSL (Maybe GLSLExpr)
 actionsToGLSL _ _ Nothing Nothing = pure $ Just (GLSLExpr.float 3.4)
 actionsToGLSL tempo eTime Nothing (Just new) = do
   rgba <- actionToGLSL new
@@ -696,7 +696,7 @@ actionsToGLSL tempo eTime (Just old) (Just new) = do
     
 actionToGLSL :: Action -> GLSL GLSLExpr
 actionToGLSL x = do
-  case elem RGBA x.output of
+  case elem RGBA x.outputs of
     true -> signalToGLSL Vec4 x.signal >>= exprsRGBAToRGBA
     false -> signalToGLSL Vec3 x.signal >>= exprsRGBToRGBA
     

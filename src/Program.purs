@@ -1,14 +1,14 @@
 module Program where
 
-import Prelude (($),map,bind,pure)
+import Prelude (($),map,bind,pure,map)
 import Data.DateTime (DateTime)
 import Data.List (List(..),catMaybes)
 import Data.Maybe (Maybe)
-import Data.Foldable (foldMap)
+import Data.Foldable (foldMap,any)
 import Effect
 import Effect.Now (nowDateTime)
 
-import Action (Action)
+import Action (Action,actionHasVisualOutput)
 import Signal (SignalInfo,signalInfo)
 
 type Program = {
@@ -23,3 +23,7 @@ emptyProgram :: Effect Program
 emptyProgram = do
   evalTime <- nowDateTime
   pure { actions: Nil, evalTime }
+  
+programHasVisualOutput :: Program -> Boolean
+programHasVisualOutput p = any actionHasVisualOutput $ catMaybes p.actions
+

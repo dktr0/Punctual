@@ -1,6 +1,6 @@
 module Action where
 
-import Prelude (identity,($),one,zero)
+import Prelude (identity,($),one,zero,(==),(||))
 import Data.Tuple (Tuple(..))
 import Data.Tempo (Tempo)
 import Data.DateTime (DateTime, adjust, diff)
@@ -8,25 +8,26 @@ import Data.Time.Duration (Seconds)
 import Data.Maybe (maybe)
 import Data.List (List(..),(:))
 import Data.Newtype (unwrap)
+import Data.Foldable (any)
 
 import Signal (Signal)
 import DefTime (DefTime(..), calculateT1)
 import Transition (Transition(..), transitionToXfade)
 import Duration (Duration(..))
-import Output (Output)
+import Output (Output(..))
 
 type Action = {
   signal :: Signal,
   defTime :: DefTime,
   transition :: Transition,
-  output :: List Output
+  outputs :: List Output
   }
   
 signalToAction :: Signal -> Action
-signalToAction x = { signal: x, defTime: Quant one (InSeconds zero), transition: DefaultCrossFade, output: Nil }
+signalToAction x = { signal: x, defTime: Quant one (InSeconds zero), transition: DefaultCrossFade, outputs: Nil }
 
 setOutput :: Action -> Output -> Action
-setOutput x o = x { output = o : x.output }
+setOutput x o = x { outputs = o : x.outputs }
 
 setCrossFade :: Action -> Number -> Action
 setCrossFade x t = x { transition = CrossFade (InSeconds t) }
@@ -39,3 +40,5 @@ actionToTimes tempo eTime x = Tuple t1' t2'
     t1' = unwrap (diff t1 eTime :: Seconds)
     t2' = unwrap (diff t2 eTime :: Seconds)
 
+actionHasVisualOutput :: Action -> Boolean
+actionHasVisualOutput a = any (\x -> x == RGB || x == RGBA) a.outputs
