@@ -435,8 +435,8 @@ zipBinaryExpression f xs ys = pure $ zipWith (\x y -> { string: f x.string y.str
 
 binaryFunction :: GLSLType -> MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Signal -> Signal -> GLSL Exprs
 binaryFunction ah mm f x y = do
-  xs <- signalToGLSL ah x
-  ys <- signalToGLSL ah y
+  xs <- signalToGLSL ah x >>= traverse assignForced
+  ys <- signalToGLSL ah y >>= traverse assignForced
   combineChannels mm f xs ys
     
 combineChannels :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
@@ -446,8 +446,8 @@ combineChannels Pairwise = combineChannelsPairwise
 combineChannelsPairwise :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
 combineChannelsPairwise f xs ys
   -- no need to extend if either of the inputs is a single Float...
-  | length xs == 1 && (head xs).glslType == Float = combineChannelsCombinatorial f xs ys
-  | length ys == 1 && (head ys).glslType == Float = combineChannelsCombinatorial f xs ys
+  | length xs == 1 && (head xs).glslType == Float = pure $ map (f (head xs)) ys
+  | length ys == 1 && (head ys).glslType == Float = pure $ map (\x -> f x (head ys)) xs
   | otherwise = do
       -- extend xs and ys to equal length in channels
       let n = max (exprsChannels xs) (exprsChannels ys)
@@ -674,7 +674,7 @@ traverseActions tempo eTime (x:xs) (y:ys) = do
     Nothing -> pure t
      
 actionsToGLSL :: Tempo -> DateTime -> Maybe Action -> Maybe Action -> GLSL (Maybe GLSLExpr)
-actionsToGLSL _ _ Nothing Nothing = pure $ Just (GLSLExpr.float 3.4)
+actionsToGLSL _ _ Nothing Nothing = pure Nothing
 actionsToGLSL tempo eTime Nothing (Just new) = do
   rgba <- actionToGLSL new
   let Tuple t0 t1 = actionToTimes tempo eTime new

@@ -45,7 +45,7 @@ assignForced x = do
   pure $ { string: "_" <> show s.nextIndex, glslType: x.glslType, isSimple: true, deps: Set.insert s.nextIndex x.deps }
 
 
-withFxys :: forall a. NonEmptyList GLSLExpr -> GLSL Exprs -> GLSL Exprs
+withFxys :: NonEmptyList GLSLExpr -> GLSL Exprs -> GLSL Exprs
 withFxys fxys a = do
   cachedFxy <- _.fxy <$> get
   rs <- for fxys $ \fxy -> do
@@ -363,7 +363,9 @@ zipWithAAA f xs ys = do
     Just tx -> do
       case fromList r.tailY of
         Nothing -> pure $ singleton z
-        Just ty -> zipWithAAA f tx ty
+        Just ty -> do
+          t <- zipWithAAA f tx ty
+          pure $ z `cons` t
   
 -- given three Exprs, align them (without extending) using unconsAligned3 (larger types fractured to match smaller boundaries)
 -- then zip them with a function a -> a -> a -> a
@@ -379,7 +381,9 @@ zipWithAAAA f xs ys zs = do
         Just ty -> do
           case fromList r.tailZ of
             Nothing -> pure $ singleton a
-            Just tz -> zipWithAAAA f tx ty tz
+            Just tz -> do
+              t <- zipWithAAAA f tx ty tz
+              pure $ a `cons` t
 
 -- given the head of two Exprs, find which one is the smaller type, and use that type to uncons both inputs
 unconsAligned :: Exprs -> Exprs -> GLSL { headX :: GLSLExpr, headY :: GLSLExpr, tailX :: List GLSLExpr, tailY :: List GLSLExpr }
