@@ -8,7 +8,7 @@ import Data.Foldable (foldMap,any)
 import Effect
 import Effect.Now (nowDateTime)
 
-import Action (Action,actionHasVisualOutput)
+import Action (Action,actionHasVisualOutput,actionNeedsWebcam)
 import Signal (SignalInfo,signalInfo)
 
 type Program = {
@@ -27,3 +27,5 @@ emptyProgram = do
 programHasVisualOutput :: Program -> Boolean
 programHasVisualOutput p = any actionHasVisualOutput $ catMaybes p.actions
 
+programNeedsWebcam :: Program -> Boolean
+programNeedsWebcam p = any actionNeedsWebcam $ catMaybes p.actions

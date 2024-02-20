@@ -142,3 +142,7 @@ setUniform2f gl p n x y = do
   loc <- getUniformLocation gl p n
   uniform2f gl loc x y
 
+foreign import data WebGLTexture :: Type
+
+foreign import createTexture :: WebGLCanvas -> Effect WebGLTexture
+

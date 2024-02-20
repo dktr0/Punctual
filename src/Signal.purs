@@ -146,7 +146,7 @@ fit ar x = Mix Pairwise ifFalse ifTrue cond
 
 
 newtype SignalInfo = SignalInfo {
-  needsWebCam :: Boolean,
+  needsWebcam :: Boolean,
   needsAudioInputAnalysis :: Boolean,
   needsAudioOutputAnalysis :: Boolean,
   imgURLs :: Set String,
@@ -161,7 +161,7 @@ instance Show SignalInfo where
 
 instance Semigroup SignalInfo where
   append (SignalInfo x) (SignalInfo y) = SignalInfo {
-    needsWebCam: x.needsWebCam || y.needsWebCam,
+    needsWebcam: x.needsWebcam || y.needsWebcam,
     needsAudioInputAnalysis: x.needsAudioInputAnalysis || y.needsAudioInputAnalysis,
     needsAudioOutputAnalysis: x.needsAudioOutputAnalysis || y.needsAudioOutputAnalysis,
     imgURLs: x.imgURLs <> y.imgURLs,
@@ -170,7 +170,7 @@ instance Semigroup SignalInfo where
 
 instance Monoid SignalInfo where
   mempty = SignalInfo {
-    needsWebCam: false,
+    needsWebcam: false,
     needsAudioInputAnalysis: false,
     needsAudioOutputAnalysis: false,
     imgURLs: mempty,
@@ -178,17 +178,17 @@ instance Monoid SignalInfo where
     }
 
 signalInfo :: Signal -> SignalInfo
-signalInfo Cam = SignalInfo { needsWebCam: true, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: mempty }
-signalInfo ILo = SignalInfo { needsWebCam: false, needsAudioInputAnalysis: true, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: mempty }
-signalInfo IMid = SignalInfo { needsWebCam: false, needsAudioInputAnalysis: true, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: mempty }
-signalInfo IHi = SignalInfo { needsWebCam: false, needsAudioInputAnalysis: true, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: mempty }
-signalInfo (IFFT x) = SignalInfo { needsWebCam: false, needsAudioInputAnalysis: true, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: mempty } <> signalInfo x
-signalInfo Lo = SignalInfo { needsWebCam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: true, imgURLs: mempty, vidURLs: mempty }
-signalInfo Mid = SignalInfo { needsWebCam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: true, imgURLs: mempty, vidURLs: mempty }
-signalInfo Hi = SignalInfo { needsWebCam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: true, imgURLs: mempty, vidURLs: mempty }
-signalInfo (FFT x) = SignalInfo { needsWebCam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: true, imgURLs: mempty, vidURLs: mempty } <> signalInfo x
-signalInfo (Img x) = SignalInfo { needsWebCam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: false, imgURLs: singleton x, vidURLs: mempty }
-signalInfo (Vid x) = SignalInfo { needsWebCam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: singleton x }
+signalInfo Cam = SignalInfo { needsWebcam: true, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: mempty }
+signalInfo ILo = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: true, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: mempty }
+signalInfo IMid = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: true, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: mempty }
+signalInfo IHi = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: true, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: mempty }
+signalInfo (IFFT x) = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: true, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: mempty } <> signalInfo x
+signalInfo Lo = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: true, imgURLs: mempty, vidURLs: mempty }
+signalInfo Mid = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: true, imgURLs: mempty, vidURLs: mempty }
+signalInfo Hi = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: true, imgURLs: mempty, vidURLs: mempty }
+signalInfo (FFT x) = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: true, imgURLs: mempty, vidURLs: mempty } <> signalInfo x
+signalInfo (Img x) = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: false, imgURLs: singleton x, vidURLs: mempty }
+signalInfo (Vid x) = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: singleton x }
 signalInfo x = foldMap signalInfo $ subSignals x
 
 -- given a Signal return the list of the component Signals it is dependent on

@@ -15,11 +15,12 @@ import Data.Newtype (unwrap)
 import Program (Program,emptyProgram)
 import FragmentShader (fragmentShader)
 import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLProgram, attachShader, bindBufferArray, clearColor, clearColorBuffer, compileShader, createFragmentShader, createProgram, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, enableVertexAttribArray, flush, getAttribLocation, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport)
-
+import Webcam
 
 type WebGL = {
   glc :: WebGLCanvas,
   triangleStripBuffer :: WebGLBuffer,
+  webcam :: Webcam,
   program :: Ref Program,
   shaderSrc :: Ref String,
   shader :: Ref WebGLProgram
@@ -35,6 +36,7 @@ newWebGL tempo program = do
 setupWebGL :: WebGLCanvas -> Tempo -> Program -> Effect WebGL
 setupWebGL glc tempo prog = do
   triangleStripBuffer <- newDefaultTriangleStrip glc
+  webcam <- newWebcam glc
   previousProgram <- emptyProgram
   Tuple shaderSrc' shader' <- updateFragmentShader glc tempo previousProgram prog
   program <- new prog
@@ -43,6 +45,7 @@ setupWebGL glc tempo prog = do
   pure {
     glc,
     triangleStripBuffer,
+    webcam,
     program,
     shaderSrc,
     shader
@@ -74,6 +77,9 @@ updateFragmentShader glc tempo oldProg newProg = do
   compileShader glc fShader
   linkProgram glc glProg
   flush glc
+  {-
+  setActive :: Webcam -> Boolean -> Effect Unit
+  ...if old or new -}
   pure $ Tuple shaderSrc glProg
  
  
@@ -83,6 +89,7 @@ deleteWebGL webGL = deleteWebGLCanvas webGL.glc
 
 drawWebGL :: WebGL -> Tempo -> DateTime -> Effect Unit
 drawWebGL webGL tempo now = do
+  t0 <- nowDateTime
   let glc = webGL.glc
   shader <- read webGL.shader
   useProgram glc shader
@@ -100,4 +107,7 @@ drawWebGL webGL tempo now = do
   -- setUniform1f glc shader "_beat" $ timeToCount tempo now
   -- setUniform1f glc shader "_ebeat" $ ??? (eTime' * realToFrac (freq tempo))
   drawDefaultTriangleStrip glc
+  t1 <- nowDateTime
+  log $ " draw time = " <> show (diff t1 t0 :: Milliseconds)
+
 
