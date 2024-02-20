@@ -64,5 +64,5 @@ export const getUniformLocation = gl => p => n => () => gl.getUniformLocation(p,
 
 export const uniform1f = gl => loc => x => () => gl.uniform1f(loc,x);
 
-export const uniform2f = gl => loc => x => y => () => gl.uniform1f(loc,x,y);
+export const uniform2f = gl => loc => x => y => () => gl.uniform2f(loc,x,y);
 

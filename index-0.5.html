@@ -41,7 +41,19 @@
   <div class="editorAndStatus">
     <div class="editor">
 <textarea class="editorArea" id="editorArea">
--- punctual 0.5      
+-- Punctual, an audiovisual live coding language, version 0.5
+-- Chromium/Chrome/Edge/Opera browser strongly recommended
+-- Press Shift-Enter to (re)evaluate/activate code
+-- documentation @ https://github.com/dktr0/Punctual.git
+-- help/discussion @ Estuary discord server
+
+x1 << osc $ 0.11*[1,2]; y1 << osc $ 0.08/[3,4];
+x2 << osc $ 0.06/[5,6]; y2 << osc $ 0.04*[7,8];
+ls << mono $ iline [x1,y1] [x2,y2] 0.002;
+col << hsvrgb [osc 0.11,0.5 ~~ 1 $ osc 0.12, 1];
+mask << prox 0 ** 8;
+a << fit 1 $ ls * col * mask;
+gatep 0.1 (maxp a (fb fxy * 0.98)) >> rgba <> 5
 </textarea>
     </div>
     <div class="status">

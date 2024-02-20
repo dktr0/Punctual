@@ -17,7 +17,7 @@ import Data.DateTime (DateTime)
 import AST (AST,Expression(..),Statement,expression1,statement,parseAST)
 import Program (Program)
 import MultiMode (MultiMode(..))
-import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus)
+import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus,fit)
 import Value (Value(..),valuePosition,listValueToValueSignal,valueToSignal)
 import Action (Action,signalToAction,setOutput,setCrossFade)
 import Output (Output(..))
@@ -245,6 +245,7 @@ parseReserved p "ilinesp" = lift $ signalSignalSignal p $ ILines Pairwise
 parseReserved p "mesh" = lift $ signalSignalSignal p $ Mesh Combinatorial
 parseReserved p "meshp" = lift $ signalSignalSignal p $ Mesh Pairwise
 parseReserved p "seq" = lift $ signalSignalSignal p Seq
+parseReserved p "fit" = lift $ signalSignalSignal p fit
 parseReserved p "iline" = lift $ signalSignalSignalSignal p $ ILine Combinatorial
 parseReserved p "ilinep" = lift $ signalSignalSignalSignal p $ ILine Pairwise
 parseReserved p "line" = lift $ signalSignalSignalSignal p $ Line Combinatorial
