@@ -1,16 +1,17 @@
 module WebGL where
 
-import Prelude ((<$>),bind,discard,pure,Unit,($),(<>),show)
+import Prelude ((<$>),bind,discard,pure,Unit,($),(<>),show,(-))
 import Effect (Effect)
 import Effect.Console (log)
 import Effect.Ref (Ref, new, write, read)
 import Data.Maybe (Maybe(..))
-import Data.Tempo (Tempo,origin)
+import Data.Tempo (Tempo,origin,timeToCount)
 import Effect.Now (nowDateTime)
 import Data.Time.Duration (Milliseconds,Seconds)
 import Data.DateTime (DateTime,diff)
 import Data.Tuple (Tuple(..))
 import Data.Newtype (unwrap)
+import Data.Rational (toNumber)
 
 import Program (Program,emptyProgram)
 import FragmentShader (fragmentShader)
@@ -106,8 +107,8 @@ drawWebGL webGL now = do
   setUniform1f glc shader "_time" $ unwrap (diff now (origin tempo) :: Seconds)
   eTime <- _.evalTime <$> read webGL.program
   setUniform1f glc shader "_etime" $ unwrap (diff now eTime :: Seconds)
-  -- setUniform1f glc shader "_beat" $ timeToCount tempo now
-  -- setUniform1f glc shader "_ebeat" $ ??? (eTime' * realToFrac (freq tempo))
+  setUniform1f glc shader "_beat" $ toNumber $ timeToCount tempo now
+  setUniform1f glc shader "_ebeat" $ toNumber $ timeToCount tempo now - timeToCount tempo eTime
   drawDefaultTriangleStrip glc
   t1 <- nowDateTime
   log $ " draw time = " <> show (diff t1 t0 :: Milliseconds)
