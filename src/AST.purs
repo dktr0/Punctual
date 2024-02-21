@@ -7,7 +7,7 @@ import Data.List (List(..))
 import Data.List.NonEmpty (toList)
 import Data.Maybe (Maybe(..))
 import Parsing (Position,ParseError,runParser,position)
-import Parsing.Combinators (chainl1,(<|>),try,choice,lookAhead,many,many1,option)
+import Parsing.Combinators (chainl1,chainr1,(<|>),try,choice,lookAhead,many,many1,option)
 import Parsing.String (eof)
 import Data.Either (Either(..))
 import Data.Foldable (foldl)
@@ -91,7 +91,7 @@ expression1 = do
 expression2 :: P Expression
 expression2 = do
   _ <- pure unit
-  chainl1 expression3 (operator operators2)
+  chainr1 expression3 (operator operators2) -- note: right associativity for $ and (I think?) &
 
 expression3 :: P Expression
 expression3 = do

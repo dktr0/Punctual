@@ -250,8 +250,8 @@ comparisonOperator :: String -> String -> GLSLExpr -> GLSLExpr -> GLSLExpr
 comparisonOperator o f x y
   | x.glslType == Float && y.glslType == Float = { string: "float(" <> x.string <> o <> y.string <> ")", glslType: Float, isSimple: false, deps: x.deps <> y.deps }
   | x.glslType == y.glslType = forceCast x.glslType { string: f <> "(" <> x.string <> "," <> y.string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps }
-  | x.glslType == Float = forceCast y.glslType { string: "(" <> (coerce y.glslType x).string <> o <> y.string <> ")", glslType: y.glslType, isSimple: false, deps: x.deps <> y.deps }
-  | y.glslType == Float = forceCast x.glslType { string: "(" <> x.string <> o <> (coerce x.glslType y).string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps }
+  | x.glslType == Float = forceCast y.glslType { string: f <> "(" <> (coerce y.glslType x).string <> "," <> y.string <> ")", glslType: y.glslType, isSimple: false, deps: x.deps <> y.deps }
+  | y.glslType == Float = forceCast x.glslType { string: f <> "(" <> x.string <> "," <> (coerce x.glslType y).string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps }
   | otherwise = { string: "!! Internal Punctual GLSL generation error in " <> f, glslType: Float, isSimple: false, deps: x.deps <> y.deps }
 
 equal :: GLSLExpr -> GLSLExpr -> GLSLExpr

@@ -1,6 +1,6 @@
 module WebGL where
 
-import Prelude ((<$>),bind,discard,pure,Unit,($),(<>),show,(-))
+import Prelude ((<$>),bind,discard,pure,Unit,($),(<>),show,(-),unit)
 import Effect (Effect)
 import Effect.Console (log)
 import Effect.Ref (Ref, new, write, read)
@@ -13,7 +13,7 @@ import Data.Tuple (Tuple(..))
 import Data.Newtype (unwrap)
 import Data.Rational (toNumber)
 
-import Program (Program,emptyProgram)
+import Program (Program)
 import FragmentShader (fragmentShader)
 import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLProgram, attachShader, bindBufferArray, clearColor, clearColorBuffer, compileShader, createFragmentShader, createProgram, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, enableVertexAttribArray, flush, getAttribLocation, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport, WebGLTexture, activeTexture,bindTexture2D,setUniform1i)
 import SharedResources
@@ -27,34 +27,29 @@ type WebGL = {
   shader :: Ref WebGLProgram
   }  
 
-newWebGL :: SharedResources -> Program -> Effect (Maybe WebGL)
-newWebGL sharedResources program = do
+newWebGL :: SharedResources -> Program -> Program -> Effect (Maybe WebGL)
+newWebGL sharedResources prog prevProg = do
   mglc <- newWebGLCanvas
   case mglc of 
-    Just glc -> Just <$> setupWebGL sharedResources glc program
+    Just glc -> do
+      triangleStripBuffer <- newDefaultTriangleStrip glc
+      tempo <- getTempo sharedResources
+      Tuple shaderSrc' shader' <- updateFragmentShader glc tempo prevProg prog
+      program <- new prog
+      shaderSrc <- new shaderSrc'
+      shader <- new shader'
+      pure $ Just {
+        sharedResources,
+        glc,
+        triangleStripBuffer,
+        program,
+        shaderSrc,
+        shader
+        }
     Nothing -> pure Nothing
-
-setupWebGL :: SharedResources -> WebGLCanvas -> Program -> Effect WebGL
-setupWebGL sharedResources glc prog = do
-  triangleStripBuffer <- newDefaultTriangleStrip glc
-  previousProgram <- emptyProgram
-  tempo <- getTempo sharedResources
-  Tuple shaderSrc' shader' <- updateFragmentShader glc tempo previousProgram prog
-  program <- new prog
-  shaderSrc <- new shaderSrc'
-  shader <- new shader'
-  pure {
-    sharedResources,
-    glc,
-    triangleStripBuffer,
-    program,
-    shaderSrc,
-    shader
-    }
     
-updateWebGL :: WebGL -> Program -> Effect Unit
-updateWebGL webGL program = do
-  previousProgram <- read webGL.program
+updateWebGL :: WebGL -> Program -> Program -> Effect Unit
+updateWebGL webGL program previousProgram = do
   tempo <- getTempo webGL.sharedResources
   Tuple shaderSrc shader <- updateFragmentShader webGL.glc tempo previousProgram program
   write program webGL.program
@@ -79,9 +74,6 @@ updateFragmentShader glc tempo oldProg newProg = do
   compileShader glc fShader
   linkProgram glc glProg
   flush glc
-  {-
-  setActive :: Webcam -> Boolean -> Effect Unit
-  ...if old or new -}
   pure $ Tuple shaderSrc glProg
  
  
@@ -113,7 +105,8 @@ drawWebGL webGL now = do
   setTexture glc shader glc.webcamTexture 3 "w"
   drawDefaultTriangleStrip glc
   t1 <- nowDateTime
-  log $ " draw time = " <> show (diff t1 t0 :: Milliseconds)
+  -- log $ " draw time = " <> show (diff t1 t0 :: Milliseconds)
+  pure unit
 
 
 -- bind a texture to a specified active texture slot and pass that location into a shader program by setting a uniform

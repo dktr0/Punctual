@@ -118,7 +118,9 @@ signalToGLSL _ (Fb xy) = signalToGLSL Vec2 xy >>= simpleUnaryFunction GLSLExpr.u
 
 signalToGLSL _ Cam = do
   s <- get
-  singleton <$> texture2D "w" s.fxy
+  t <- texture2D "w" (GLSLExpr.unipolar s.fxy)
+  r <- assignForced $ GLSLExpr.lessThanEqual (GLSLExpr.abs s.fxy) (GLSLExpr.float 1.0)  
+  pure $ singleton $ GLSLExpr.product t (GLSLExpr.product (unsafeSwizzleX r) (unsafeSwizzleY r))
 
 signalToGLSL _ (Img url) = do
   s <- get
@@ -604,7 +606,7 @@ header :: String
 header = """precision mediump float;
 #define PI 3.1415926535897932384626433832795
 uniform lowp vec2 res;
-uniform sampler2D f,w,o,i;
+uniform sampler2D f,o,i,w;
 uniform sampler2D t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12;
 uniform float lo,mid,hi,ilo,imid,ihi;
 uniform float _defaultAlpha,_cps,_time,_etime,_beat,_ebeat;

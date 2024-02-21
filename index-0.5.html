@@ -17,9 +17,10 @@
   }
   function animate() {
     window.requestAnimationFrame(animate);
-    window.punctual.preRender({canDraw: true});
-    window.punctual.render({canDraw: true, zone:0, nowTime: Date.now()});
-    window.punctual.postRender({canDraw: true});
+    var now = Date.now();
+    window.punctual.preRender({canDraw: true, nowTime: now});
+    window.punctual.render({canDraw: true, zone:0, nowTime: now});
+    window.punctual.postRender({canDraw: true, nowTime: now});
   }
   window.doEval = function () {
     var t = document.getElementById("editorArea").value;
