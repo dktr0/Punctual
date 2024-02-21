@@ -15,45 +15,46 @@ import Data.Newtype (unwrap)
 import Program (Program,emptyProgram)
 import FragmentShader (fragmentShader)
 import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLProgram, attachShader, bindBufferArray, clearColor, clearColorBuffer, compileShader, createFragmentShader, createProgram, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, enableVertexAttribArray, flush, getAttribLocation, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport)
-import Webcam
+import SharedResources
 
 type WebGL = {
+  sharedResources :: SharedResources,
   glc :: WebGLCanvas,
   triangleStripBuffer :: WebGLBuffer,
-  webcam :: Webcam,
   program :: Ref Program,
   shaderSrc :: Ref String,
   shader :: Ref WebGLProgram
   }  
 
-newWebGL :: Tempo -> Program -> Effect (Maybe WebGL)
-newWebGL tempo program = do
+newWebGL :: SharedResources -> Program -> Effect (Maybe WebGL)
+newWebGL sharedResources program = do
   mglc <- newWebGLCanvas
   case mglc of 
-    Just glc -> Just <$> setupWebGL glc tempo program
+    Just glc -> Just <$> setupWebGL sharedResources glc program
     Nothing -> pure Nothing
 
-setupWebGL :: WebGLCanvas -> Tempo -> Program -> Effect WebGL
-setupWebGL glc tempo prog = do
+setupWebGL :: SharedResources -> WebGLCanvas -> Program -> Effect WebGL
+setupWebGL sharedResources glc prog = do
   triangleStripBuffer <- newDefaultTriangleStrip glc
-  webcam <- newWebcam glc
   previousProgram <- emptyProgram
+  tempo <- getTempo sharedResources
   Tuple shaderSrc' shader' <- updateFragmentShader glc tempo previousProgram prog
   program <- new prog
   shaderSrc <- new shaderSrc'
   shader <- new shader'
   pure {
+    sharedResources,
     glc,
     triangleStripBuffer,
-    webcam,
     program,
     shaderSrc,
     shader
     }
     
-updateWebGL :: WebGL -> Tempo -> Program -> Effect Unit
-updateWebGL webGL tempo program = do
+updateWebGL :: WebGL -> Program -> Effect Unit
+updateWebGL webGL program = do
   previousProgram <- read webGL.program
+  tempo <- getTempo webGL.sharedResources
   Tuple shaderSrc shader <- updateFragmentShader webGL.glc tempo previousProgram program
   write program webGL.program
   write shaderSrc webGL.shaderSrc
@@ -87,8 +88,8 @@ deleteWebGL :: WebGL -> Effect Unit
 deleteWebGL webGL = deleteWebGLCanvas webGL.glc
 
 
-drawWebGL :: WebGL -> Tempo -> DateTime -> Effect Unit
-drawWebGL webGL tempo now = do
+drawWebGL :: WebGL -> DateTime -> Effect Unit
+drawWebGL webGL now = do
   t0 <- nowDateTime
   let glc = webGL.glc
   shader <- read webGL.shader
@@ -101,6 +102,7 @@ drawWebGL webGL tempo now = do
   clearColor glc 0.0 0.0 0.0 0.0
   clearColorBuffer glc
   setUniform2f glc shader "res" 1920.0 1080.0
+  tempo <- getTempo webGL.sharedResources
   setUniform1f glc shader "_time" $ unwrap (diff now (origin tempo) :: Seconds)
   eTime <- _.evalTime <$> read webGL.program
   setUniform1f glc shader "_etime" $ unwrap (diff now eTime :: Seconds)

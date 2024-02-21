@@ -10,7 +10,8 @@ type WebGLCanvas = {
   canvas :: HTMLCanvasElement,
   gl :: WebGLContext,
   webGL2 :: Boolean,
-  khr_parallel_shader_compile :: Boolean
+  khr_parallel_shader_compile :: Boolean,
+  webcamTexture :: WebGLTexture
   }
 
 newWebGLCanvas :: Effect (Maybe WebGLCanvas)
@@ -37,7 +38,14 @@ setupWebGLCanvas canvas gl webGL2 = do
     true -> log "punctual can use WebGL extension KHR_parallel_shader_compile"
   defaultBlendFunc gl
   unpackFlipY gl
-  pure { canvas, gl, webGL2, khr_parallel_shader_compile }
+  webcamTexture <- _createTexture gl
+  pure {
+    canvas,
+    gl,
+    webGL2,
+    khr_parallel_shader_compile,
+    webcamTexture
+    }
  
 deleteWebGLCanvas :: WebGLCanvas -> Effect Unit
 deleteWebGLCanvas webGL = deleteCanvasFromDocumentBody webGL.canvas
@@ -144,5 +152,9 @@ setUniform2f gl p n x y = do
 
 foreign import data WebGLTexture :: Type
 
-foreign import createTexture :: WebGLCanvas -> Effect WebGLTexture
+foreign import _createTexture :: WebGLContext -> Effect WebGLTexture
+
+createTexture :: WebGLCanvas -> Effect WebGLTexture
+createTexture glc = _createTexture glc.gl
+
 

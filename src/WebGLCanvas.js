@@ -66,6 +66,5 @@ export const uniform1f = glc => loc => x => () => glc.gl.uniform1f(loc,x);
 
 export const uniform2f = glc => loc => x => y => () => glc.gl.uniform2f(loc,x,y);
 
-export const createTexture = glc => () => glc.gl.createTexture();
-
+export const _createTexture = gl => () => gl.createTexture();
 

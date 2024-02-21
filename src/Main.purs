@@ -12,17 +12,18 @@ import Data.Rational ((%))
 import Data.Map (Map, empty, lookup, insert, delete)
 import Effect.Ref (Ref, new, read, write)
 import Data.Maybe (Maybe(..))
-import Data.Tempo (ForeignTempo, Tempo, fromForeignTempo, newTempo)
+import Data.Tempo (ForeignTempo, fromForeignTempo, newTempo)
 
 import Program (Program,emptyProgram,programHasVisualOutput)
 import Parser (parsePunctual)
 import WebGL (WebGL, newWebGL, updateWebGL, deleteWebGL, drawWebGL)
 import DateTime (numberToDateTime)
 import FragmentShader (fragmentShader)
-
+import SharedResources (SharedResources)
+import SharedResources as SharedResources
   
 type Punctual = {
-  tempo :: Ref Tempo,
+  sharedResources :: SharedResources,
   programs :: Ref (Map Int Program),
   webGLs :: Ref (Map Int WebGL)
   }
@@ -30,11 +31,11 @@ type Punctual = {
 
 launch :: Effect Punctual
 launch = do
-  tempo <- newTempo (1 % 1) >>= new
+  sharedResources <- SharedResources.newSharedResources
   programs <- new empty
   webGLs <- new empty
   log "punctual 0.5 initialization complete"
-  pure { tempo, programs, webGLs }
+  pure { sharedResources, programs, webGLs }
 
 
 define :: Punctual -> { zone :: Int, time :: Number, text :: String } -> Effect { success :: Boolean, info :: String, error :: String }
@@ -49,14 +50,8 @@ define punctual args = do
       log $ "error: " <> show err
       pure { success: false, info: "", error: show err }
     Right program -> do
-      tempo <- read punctual.tempo            
-{-      programs <- read punctual.programs
-      oldProg <- case lookup args.zone programs of
-              Just p -> pure p
-              Nothing -> emptyProgram        
-      write (insert args.zone program programs) punctual.programs -}
       info <- case programHasVisualOutput program of 
-        true -> updateWebGLForZone punctual args.zone tempo program
+        true -> updateWebGLForZone punctual args.zone program
         false -> do
           deleteWebGLForZone punctual args.zone
           pure ""
@@ -70,7 +65,7 @@ clear punctual args = do
   deleteWebGLForZone punctual args.zone
   
 setTempo :: Punctual -> ForeignTempo -> Effect Unit
-setTempo punctual ft = write (fromForeignTempo ft) punctual.tempo
+setTempo punctual ft = SharedResources.setTempo punctual.sharedResources (fromForeignTempo ft)
 
 preRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number, previousDrawTime :: Number } -> Effect Unit
 preRender _ _ = pure unit
@@ -83,9 +78,7 @@ render punctual args = do
       webGLs <- read punctual.webGLs
       case lookup args.zone webGLs of
         Nothing -> pure unit
-        Just w -> do
-          tempo <- read punctual.tempo
-          drawWebGL w tempo (numberToDateTime args.nowTime)
+        Just w -> drawWebGL w (numberToDateTime args.nowTime)
         
 postRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number, previousDrawTime :: Number } -> Effect Unit
 postRender _ _ = pure unit
@@ -104,15 +97,15 @@ test webGl2 txt = do
       tempo <- newTempo (1 % 1)
       log $ fragmentShader webGl2 tempo p0 p1
 
-updateWebGLForZone :: Punctual -> Int -> Tempo -> Program -> Effect String -- String is fragment shader code
-updateWebGLForZone punctual z tempo prog = do
+updateWebGLForZone :: Punctual -> Int -> Program -> Effect String -- String is fragment shader code
+updateWebGLForZone punctual z prog = do
   webGLs <- read punctual.webGLs
   case lookup z webGLs of 
     Just w -> do
-      updateWebGL w tempo prog
+      updateWebGL w prog
       read w.shaderSrc
     Nothing -> do
-      w <- newWebGL tempo prog
+      w <- newWebGL punctual.sharedResources prog
       case w of
         Just w' -> do
           write (insert z w' webGLs) punctual.webGLs

@@ -23,34 +23,34 @@ import Program (programInfo)
 main :: Effect Unit
 main = launchAff_ $ runSpec [consoleReporter] do
   describe "signal of first action in simple programs is parsed correctly" do
-    "0 >> video" `firstActionSignalIs` Constant 0.0
+    "0 >> rgb" `firstActionSignalIs` Constant 0.0
     "0.5 >> audio" `firstActionSignalIs` Constant 0.5
     "sin 440 >> audio" `firstActionSignalIs` (Sin (Constant 440.0))
-  describe "needsWebCam flag in programInfo is true/false as appropriate" do
-    "sin 440 >> video" `needsWebCam` false
-    "cam >> video" `needsWebCam` true
-    "f x = cam * sin 440; 0 >> video" `needsWebCam` false
-    "f x = cam * sin 440; f 1 >> video" `needsWebCam` true
+  describe "needsWebcam flag in programInfo is true/false as appropriate" do
+    "sin 440 >> rgb" `needsWebcam` false
+    "cam >> rgb" `needsWebcam` true
+    "f x = cam * sin 440; 0 >> rgb" `needsWebcam` false
+    "f x = cam * sin 440; f 1 >> rgb" `needsWebcam` true
   describe "needsAudioInputAnalysis flag in programInfo is true/false as appropriate" do
-    "sin 440 >> video" `needsAudioInputAnalysis` false
-    "sin 440 * ilo >> video" `needsAudioInputAnalysis` true
-    "sin 440 * imid >> video" `needsAudioInputAnalysis` true
-    "sin 440 * ihi>> video" `needsAudioInputAnalysis` true
-    "sin 440 * ifft fx >> video" `needsAudioInputAnalysis` true
+    "sin 440 >> rgb" `needsAudioInputAnalysis` false
+    "sin 440 * ilo >> rgb" `needsAudioInputAnalysis` true
+    "sin 440 * imid >> rgb" `needsAudioInputAnalysis` true
+    "sin 440 * ihi >> rgb" `needsAudioInputAnalysis` true
+    "sin 440 * ifft fx >> rgb" `needsAudioInputAnalysis` true
   describe "needsAudioOutputAnalysis flag in programInfo is true/false as appropriate" do
-    "sin 440 >> video" `needsAudioOutputAnalysis` false
-    "sin 440 * lo >> video" `needsAudioOutputAnalysis` true
-    "sin 440 * mid >> video" `needsAudioOutputAnalysis` true
-    "sin 440 * hi>> video" `needsAudioOutputAnalysis` true
-    "sin 440 * fft fx >> video" `needsAudioOutputAnalysis` true
+    "sin 440 >> rgb" `needsAudioOutputAnalysis` false
+    "sin 440 * lo >> rgb" `needsAudioOutputAnalysis` true
+    "sin 440 * mid >> rgb" `needsAudioOutputAnalysis` true
+    "sin 440 * hi>> rgb" `needsAudioOutputAnalysis` true
+    "sin 440 * fft fx >> rgb" `needsAudioOutputAnalysis` true
 
 
 
 firstActionSignalIs :: forall g m. Monad m => MonadThrow Error g => String -> Signal -> SpecT g Unit m Unit
 firstActionSignalIs txt sig = it txt $ firstActionSignal txt `shouldReturn` sig
   
-needsWebCam :: forall m g. Monad m => MonadThrow Error g => String -> Boolean -> SpecT g Unit m Unit
-needsWebCam txt b = it txt $ ((_.needsWebCam <<< unwrap <<< programInfo) <$> parseErrorToError (testAST txt)) `shouldReturn` b
+needsWebcam :: forall m g. Monad m => MonadThrow Error g => String -> Boolean -> SpecT g Unit m Unit
+needsWebcam txt b = it txt $ ((_.needsWebcam <<< unwrap <<< programInfo) <$> parseErrorToError (testAST txt)) `shouldReturn` b
 
 needsAudioInputAnalysis :: forall m g. Monad m => MonadThrow Error g => String -> Boolean -> SpecT g Unit m Unit
 needsAudioInputAnalysis txt b = it txt $ ((_.needsAudioInputAnalysis <<< unwrap <<< programInfo) <$> parseErrorToError (testAST txt)) `shouldReturn` b
