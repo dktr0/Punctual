@@ -21,3 +21,14 @@ export const _updateWebcamTexture = gl => t => e => () => {
     }
   }
 
+export const _newImage = url => () => {
+  var r = new Image();
+  r.crossOrigin = "Anonymous";
+  r.loaded = false;
+  r.onload = function() { r.loaded = true; }
+  r.src = url;
+  return r;
+  }
+  
+export const _imageIsLoaded = i => () => i.loaded;
+

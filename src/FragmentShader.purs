@@ -606,10 +606,8 @@ header :: String
 header = """precision mediump float;
 #define PI 3.1415926535897932384626433832795
 uniform lowp vec2 res;
-uniform sampler2D f,o,i,w;
-uniform sampler2D t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12;
-uniform float lo,mid,hi,ilo,imid,ihi;
-uniform float _defaultAlpha,_cps,_time,_etime,_beat,_ebeat;
+uniform sampler2D f,o,i,w,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15;
+uniform float lo,mid,hi,ilo,imid,ihi,_defaultAlpha,_cps,_time,_etime,_beat,_ebeat;
 vec3 hsvrgb(vec3 c) {
   vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
   vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
