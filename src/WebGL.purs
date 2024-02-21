@@ -15,7 +15,7 @@ import Data.Rational (toNumber)
 
 import Program (Program,emptyProgram)
 import FragmentShader (fragmentShader)
-import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLProgram, attachShader, bindBufferArray, clearColor, clearColorBuffer, compileShader, createFragmentShader, createProgram, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, enableVertexAttribArray, flush, getAttribLocation, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport)
+import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLProgram, attachShader, bindBufferArray, clearColor, clearColorBuffer, compileShader, createFragmentShader, createProgram, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, enableVertexAttribArray, flush, getAttribLocation, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport, WebGLTexture, activeTexture,bindTexture2D,setUniform1i)
 import SharedResources
 
 type WebGL = {
@@ -109,8 +109,18 @@ drawWebGL webGL now = do
   setUniform1f glc shader "_etime" $ unwrap (diff now eTime :: Seconds)
   setUniform1f glc shader "_beat" $ toNumber $ timeToCount tempo now
   setUniform1f glc shader "_ebeat" $ toNumber $ timeToCount tempo now - timeToCount tempo eTime
+  updateWebcamTexture webGL.sharedResources glc
+  setTexture glc shader glc.webcamTexture 3 "w"
   drawDefaultTriangleStrip glc
   t1 <- nowDateTime
   log $ " draw time = " <> show (diff t1 t0 :: Milliseconds)
 
+
+-- bind a texture to a specified active texture slot and pass that location into a shader program by setting a uniform
+-- (TODO: try doing this only once instead of every draw call...)
+setTexture :: WebGLCanvas -> WebGLProgram -> WebGLTexture -> Int -> String -> Effect Unit
+setTexture glc shader t n uName = do
+  activeTexture glc n
+  bindTexture2D glc t
+  setUniform1i glc shader uName n
 

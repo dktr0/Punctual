@@ -110,26 +110,26 @@ signalToGLSL _ ETime = pure $ singleton $ simpleFromString Float "_etime"
 
 signalToGLSL _ EBeat = pure $ singleton $ simpleFromString Float "_ebeat"
 
-signalToGLSL _ (FFT x) = signalToGLSL Float x >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "_fft")
+signalToGLSL _ (FFT x) = signalToGLSL Float x >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "o")
 
-signalToGLSL _ (IFFT x) = signalToGLSL Float x >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "_ifft")
+signalToGLSL _ (IFFT x) = signalToGLSL Float x >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "i")
 
-signalToGLSL _ (Fb xy) = signalToGLSL Vec2 xy >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignVec2 >>= traverse (texture2D "_fb")
+signalToGLSL _ (Fb xy) = signalToGLSL Vec2 xy >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignVec2 >>= traverse (texture2D "f")
 
 signalToGLSL _ Cam = do
   s <- get
-  singleton <$> texture2D "_fb" s.fxy
+  singleton <$> texture2D "w" s.fxy
 
 signalToGLSL _ (Img url) = do
   s <- get
   case lookup url s.imgMap of
-    Just n -> singleton <$> texture2D ("tex" <> show n) s.fxy
+    Just n -> singleton <$> texture2D ("t" <> show n) s.fxy
     Nothing -> pure $ singleton $ zero
 
 signalToGLSL _ (Vid url) = do
   s <- get
   case lookup url s.vidMap of
-    Just n -> singleton <$> texture2D ("tex" <> show n) s.fxy
+    Just n -> singleton <$> texture2D ("t" <> show n) s.fxy
     Nothing -> pure $ singleton $ zero
 
 
@@ -604,8 +604,8 @@ header :: String
 header = """precision mediump float;
 #define PI 3.1415926535897932384626433832795
 uniform lowp vec2 res;
-uniform sampler2D _fb,_cam,_fft,_ifft;
-uniform sampler2D tex0,tex1,tex2,tex3,tex4,tex5,tex6,tex7,tex8,tex9,tex10,tex11,tex12;
+uniform sampler2D f,w,o,i;
+uniform sampler2D t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12;
 uniform float lo,mid,hi,ilo,imid,ihi;
 uniform float _defaultAlpha,_cps,_time,_etime,_beat,_ebeat;
 vec3 hsvrgb(vec3 c) {

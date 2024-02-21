@@ -62,9 +62,30 @@ export const drawDefaultTriangleStrip = glc => () => glc.gl.drawArrays(glc.gl.TR
 
 export const getUniformLocation = glc => p => n => () => glc.gl.getUniformLocation(p,n);
 
-export const uniform1f = glc => loc => x => () => glc.gl.uniform1f(loc,x);
+export const _uniform1i = gl => loc => x => () => gl.uniform1i(loc,x);
 
-export const uniform2f = glc => loc => x => y => () => glc.gl.uniform2f(loc,x,y);
+export const _uniform1f = gl => loc => x => () => gl.uniform1f(loc,x);
+
+export const _uniform2f = gl => loc => x => y => () => gl.uniform2f(loc,x,y);
 
 export const _createTexture = gl => () => gl.createTexture();
+
+export const _activeTexture0 = gl => () => gl.activeTexture(gl.TEXTURE0);
+export const _activeTexture1 = gl => () => gl.activeTexture(gl.TEXTURE1);
+export const _activeTexture2 = gl => () => gl.activeTexture(gl.TEXTURE2);
+export const _activeTexture3 = gl => () => gl.activeTexture(gl.TEXTURE3);
+export const _activeTexture4 = gl => () => gl.activeTexture(gl.TEXTURE4);
+export const _activeTexture5 = gl => () => gl.activeTexture(gl.TEXTURE5);
+export const _activeTexture6 = gl => () => gl.activeTexture(gl.TEXTURE6);
+export const _activeTexture7 = gl => () => gl.activeTexture(gl.TEXTURE7);
+export const _activeTexture8 = gl => () => gl.activeTexture(gl.TEXTURE8);
+export const _activeTexture9 = gl => () => gl.activeTexture(gl.TEXTURE9);
+export const _activeTexture10 = gl => () => gl.activeTexture(gl.TEXTURE10);
+export const _activeTexture11 = gl => () => gl.activeTexture(gl.TEXTURE11);
+export const _activeTexture12 = gl => () => gl.activeTexture(gl.TEXTURE12);
+export const _activeTexture13 = gl => () => gl.activeTexture(gl.TEXTURE13);
+export const _activeTexture14 = gl => () => gl.activeTexture(gl.TEXTURE14);
+export const _activeTexture15 = gl => () => gl.activeTexture(gl.TEXTURE15);
+
+export const _bindTexture2D = gl => t => () => gl.bindTexture(gl.TEXTURE_2D,t);
 

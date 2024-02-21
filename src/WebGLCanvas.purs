@@ -136,19 +136,26 @@ foreign import data WebGLUniformLocation :: Type
 
 foreign import getUniformLocation :: WebGLCanvas -> WebGLProgram -> String -> Effect WebGLUniformLocation
 
-foreign import uniform1f :: WebGLCanvas -> WebGLUniformLocation -> Number -> Effect Unit
+foreign import _uniform1i :: WebGLContext -> WebGLUniformLocation -> Int -> Effect Unit
 
-foreign import uniform2f :: WebGLCanvas -> WebGLUniformLocation -> Number -> Number -> Effect Unit
+foreign import _uniform1f :: WebGLContext -> WebGLUniformLocation -> Number -> Effect Unit
+
+foreign import _uniform2f :: WebGLContext -> WebGLUniformLocation -> Number -> Number -> Effect Unit
+
+setUniform1i :: WebGLCanvas -> WebGLProgram -> String -> Int -> Effect Unit
+setUniform1i glc p n x = do
+  loc <- getUniformLocation glc p n
+  _uniform1i glc.gl loc x
 
 setUniform1f :: WebGLCanvas -> WebGLProgram -> String -> Number -> Effect Unit
-setUniform1f gl p n x = do
-  loc <- getUniformLocation gl p n
-  uniform1f gl loc x
+setUniform1f glc p n x = do
+  loc <- getUniformLocation glc p n
+  _uniform1f glc.gl loc x
   
 setUniform2f :: WebGLCanvas -> WebGLProgram -> String -> Number -> Number -> Effect Unit
-setUniform2f gl p n x y = do
-  loc <- getUniformLocation gl p n
-  uniform2f gl loc x y
+setUniform2f glc p n x y = do
+  loc <- getUniformLocation glc p n
+  _uniform2f glc.gl loc x y
 
 foreign import data WebGLTexture :: Type
 
@@ -156,5 +163,47 @@ foreign import _createTexture :: WebGLContext -> Effect WebGLTexture
 
 createTexture :: WebGLCanvas -> Effect WebGLTexture
 createTexture glc = _createTexture glc.gl
+
+activeTexture :: WebGLCanvas -> Int -> Effect Unit
+activeTexture glc 0 = _activeTexture0 glc.gl
+activeTexture glc 1 = _activeTexture1 glc.gl
+activeTexture glc 2 = _activeTexture2 glc.gl
+activeTexture glc 3 = _activeTexture3 glc.gl
+activeTexture glc 4 = _activeTexture4 glc.gl
+activeTexture glc 5 = _activeTexture5 glc.gl
+activeTexture glc 6 = _activeTexture6 glc.gl
+activeTexture glc 7 = _activeTexture7 glc.gl
+activeTexture glc 8 = _activeTexture8 glc.gl
+activeTexture glc 9 = _activeTexture9 glc.gl
+activeTexture glc 10 = _activeTexture10 glc.gl
+activeTexture glc 11 = _activeTexture11 glc.gl
+activeTexture glc 12 = _activeTexture12 glc.gl
+activeTexture glc 13 = _activeTexture13 glc.gl
+activeTexture glc 14 = _activeTexture14 glc.gl
+activeTexture glc 15 = _activeTexture15 glc.gl
+activeTexture _ _ = log "strange error in punctual: activeTexture called with texture slot not >=0 && <= 15"
+
+foreign import _activeTexture0 :: WebGLContext -> Effect Unit
+foreign import _activeTexture1 :: WebGLContext -> Effect Unit
+foreign import _activeTexture2 :: WebGLContext -> Effect Unit
+foreign import _activeTexture3 :: WebGLContext -> Effect Unit
+foreign import _activeTexture4 :: WebGLContext -> Effect Unit
+foreign import _activeTexture5 :: WebGLContext -> Effect Unit
+foreign import _activeTexture6 :: WebGLContext -> Effect Unit
+foreign import _activeTexture7 :: WebGLContext -> Effect Unit
+foreign import _activeTexture8 :: WebGLContext -> Effect Unit
+foreign import _activeTexture9 :: WebGLContext -> Effect Unit
+foreign import _activeTexture10 :: WebGLContext -> Effect Unit
+foreign import _activeTexture11 :: WebGLContext -> Effect Unit
+foreign import _activeTexture12 :: WebGLContext -> Effect Unit
+foreign import _activeTexture13 :: WebGLContext -> Effect Unit
+foreign import _activeTexture14 :: WebGLContext -> Effect Unit
+foreign import _activeTexture15 :: WebGLContext -> Effect Unit
+
+foreign import _bindTexture2D :: WebGLContext -> WebGLTexture -> Effect Unit
+
+bindTexture2D :: WebGLCanvas -> WebGLTexture -> Effect Unit
+bindTexture2D glc = _bindTexture2D glc.gl
+
 
 

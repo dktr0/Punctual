@@ -32,6 +32,7 @@ type Punctual = {
 launch :: Effect Punctual
 launch = do
   sharedResources <- SharedResources.newSharedResources
+  SharedResources.setWebcamActive sharedResources true -- temporary/placeholder
   programs <- new empty
   webGLs <- new empty
   log "punctual 0.5 initialization complete"
