@@ -32,3 +32,18 @@ export const _newImage = url => () => {
   
 export const _imageIsLoaded = i => () => i.loaded;
 
+export const _newVideo = url => () => {
+  var r = document.createElement('video');
+  r.crossOrigin = "Anonymous";
+  r.autoplay = true;
+  r.muted = true;
+  r.loop = true;
+  r.isPlaying = false;
+  r.addEventListener('playing', function() { r.isPlaying = true; });
+  r.src = url;
+  r.play();
+  return r;
+  }
+
+export const _videoIsPlaying = v => () => v.isPlaying;
+

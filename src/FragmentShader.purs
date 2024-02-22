@@ -134,9 +134,11 @@ signalToGLSL _ (Img url) = do
 signalToGLSL _ (Vid url) = do
   s <- get
   case lookup url s.vidMap of
-    Just n -> singleton <$> texture2D ("t" <> show n) s.fxy
+    Just n -> do
+      t <- texture2D ("t" <> show n) (GLSLExpr.unipolar s.fxy)
+      r <- assignForced $ GLSLExpr.lessThanEqual (GLSLExpr.abs s.fxy) (GLSLExpr.float 1.0)
+      pure $ singleton $ GLSLExpr.product t (GLSLExpr.product (unsafeSwizzleX r) (unsafeSwizzleY r))
     Nothing -> pure $ singleton $ zero
-
 
 signalToGLSL _ (Blend x) = do
   xs <- signalToGLSL Vec4 x >>= alignRGBA
@@ -716,10 +718,10 @@ exprsRGBAToRGBA xs = do
     Nothing -> pure $ head xs'
     Just t -> foldM blend (head xs') t
 
-fragmentShader :: Boolean -> Tempo -> Program -> Program -> Map String Int -> String
-fragmentShader webGl2 tempo oldProgram newProgram imgMap = header <> assignments <> gl_FragColor <> "}"
+fragmentShader :: Boolean -> Tempo -> Map String Int -> Map String Int -> Program -> Program -> String
+fragmentShader webGl2 tempo imgMap vidMap oldProgram newProgram = header <> assignments <> gl_FragColor <> "}"
   where
-    (Tuple a st) = runGLSL webGl2 imgMap $ programsToGLSL tempo oldProgram newProgram
+    (Tuple a st) = runGLSL webGl2 imgMap vidMap $ programsToGLSL tempo oldProgram newProgram
     assignments = fold $ mapWithIndex indexedGLSLExprToString st.exprs
     gl_FragColor = "gl_FragColor = " <> a.string <> ";\n"
 

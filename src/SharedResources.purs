@@ -17,7 +17,8 @@ import WebGLCanvas (WebGLCanvas, WebGLContext, WebGLTexture)
 type SharedResources = {
   tempo :: Ref Tempo,
   mWebcamElementRef :: Ref (Maybe WebcamElement),
-  images :: Ref (Map String Image)
+  images :: Ref (Map String Image),
+  videos :: Ref (Map String Video)
   }
   
 
@@ -26,10 +27,12 @@ newSharedResources = do
   tempo <- newTempo (1 % 1) >>= new
   mWebcamElementRef <- new Nothing
   images <- new empty
+  videos <- new empty
   pure {
     tempo,
     mWebcamElementRef,
-    images
+    images,
+    videos
   }
 
 -- Tempo
@@ -98,4 +101,26 @@ foreign import _newImage :: String -> Effect Image
 
 foreign import _imageIsLoaded :: Image -> Effect Boolean
   
+  
+-- Videos
+
+foreign import data Video :: Type
+
+getVideo :: SharedResources -> String -> Effect (Maybe Video)
+getVideo sr url = do
+  videos <- read sr.videos
+  case lookup url videos of
+    Nothing -> do
+      v <- _newVideo url
+      write (insert url v videos) sr.videos
+      pure Nothing
+    Just v -> do
+      isPlaying <- _videoIsPlaying v
+      case isPlaying of
+        true -> pure $ Just v
+        false -> pure Nothing
+
+foreign import _newVideo :: String -> Effect Video
+
+foreign import _videoIsPlaying :: Video -> Effect Boolean
 

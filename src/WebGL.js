@@ -8,3 +8,5 @@ export const _imageToTexture = gl => img => t => () => {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   }
 
+export const _videoToTexture = _imageToTexture;
+

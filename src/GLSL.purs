@@ -30,8 +30,8 @@ type GLSLState = {
 
 type GLSL = State GLSLState
 
-runGLSL :: forall a. Boolean -> Map String Int -> GLSL a -> Tuple a GLSLState
-runGLSL webGl2 imgMap x = runState x { nextIndex: 0, exprs: empty, fxy: defaultFxy, imgMap, vidMap: empty, webGl2 }
+runGLSL :: forall a. Boolean -> Map String Int -> Map String Int -> GLSL a -> Tuple a GLSLState
+runGLSL webGl2 imgMap vidMap x = runState x { nextIndex: 0, exprs: empty, fxy: defaultFxy, imgMap, vidMap, webGl2 }
 
 assign :: GLSLExpr -> GLSL GLSLExpr
 assign x
