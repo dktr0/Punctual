@@ -10,7 +10,7 @@ import Data.Tuple (Tuple(..),fst,snd)
 import Data.Foldable (fold,intercalate,foldM,elem)
 import Data.Unfoldable1 (replicate1)
 import Control.Monad.State (get,modify_)
-import Data.Map (lookup)
+import Data.Map (Map,lookup)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Tempo (Tempo)
 import Data.DateTime (DateTime)
@@ -634,7 +634,7 @@ void main() {
 -- thanks to http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl for the HSV-RGB conversion algorithms above!
 
 
-programsToGLSL :: Tempo -> {- Map TextureRef Int -> -} Program -> Program -> GLSL GLSLExpr
+programsToGLSL :: Tempo -> Program -> Program -> GLSL GLSLExpr
 programsToGLSL tempo oldProgram newProgram = do
   let oldActions = map onlyVideoOutputs oldProgram.actions
   let newActions = map onlyVideoOutputs newProgram.actions
@@ -713,22 +713,13 @@ exprsRGBAToRGBA xs = do
     Nothing -> pure $ head xs'
     Just t -> foldM blend (head xs') t
 
-fragmentShader :: Boolean -> Tempo -> {- Map TextureRef Int -> -} Program -> Program -> String
-fragmentShader webGl2 tempo oldProgram newProgram = header <> assignments <> gl_FragColor <> "}"
+fragmentShader :: Boolean -> Tempo -> Program -> Program -> Map String Int -> String
+fragmentShader webGl2 tempo oldProgram newProgram imgMap = header <> assignments <> gl_FragColor <> "}"
   where
-    (Tuple a st) = runGLSL webGl2 $ programsToGLSL tempo oldProgram newProgram
+    (Tuple a st) = runGLSL webGl2 imgMap $ programsToGLSL tempo oldProgram newProgram
     assignments = fold $ mapWithIndex indexedGLSLExprToString st.exprs
     gl_FragColor = "gl_FragColor = " <> a.string <> ";\n"
 
 indexedGLSLExprToString :: Int -> GLSLExpr -> String
 indexedGLSLExprToString n x = glslTypeToString x.glslType <> " _" <> show n <> " = " <> x.string <> ";\n"
-
-{-
-testCodeGen :: Boolean -> Signal -> String
-testCodeGen webGl2 x = assignments <> lastExprs
-  where
-    (Tuple a st) = runGLSL webGl2 (signalToGLSL x)
-    assignments = fold $ mapWithIndex indexedGLSLExprToString st.exprs
-    lastExprs = fold $ map (\y -> y.string <> " :: " <> show y.glslType <> "\n") a
--}
 

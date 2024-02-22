@@ -112,6 +112,7 @@ postRender _ _ = pure unit
 
 -- below this line are functions that are not directly part of the exolang API
 
+{-
 test :: Boolean -> String -> Effect Unit
 test webGl2 txt = do
   eTime <- nowDateTime
@@ -121,6 +122,7 @@ test webGl2 txt = do
       p0 <- emptyProgram
       tempo <- newTempo (1 % 1)
       log $ fragmentShader webGl2 tempo p0 p1
+-}
 
 updateWebGLForZone :: Punctual -> Int -> Program -> Program -> Effect String -- String is fragment shader code
 updateWebGLForZone punctual z prog prevProg = do

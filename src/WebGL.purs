@@ -12,9 +12,11 @@ import Data.DateTime (DateTime,diff)
 import Data.Tuple (Tuple(..))
 import Data.Newtype (unwrap)
 import Data.Rational (toNumber)
-import Data.Map (Map, empty, lookup, insert)
+import Data.Map (Map, empty, lookup, insert, fromFoldable)
 import Data.TraversableWithIndex (traverseWithIndex)
 import Data.Set (toUnfoldable)
+import Data.Unfoldable1 (range)
+import Data.List (List,zip)
 
 import Signal (SignalInfo(..))
 import Program (Program,programInfo)
@@ -30,7 +32,7 @@ type WebGL = {
   shaderSrc :: Ref String,
   shader :: Ref WebGLProgram,
   imageTextures :: Ref (Map String WebGLTexture),
-  imageTexturePlan :: Ref (Array String)
+  imgMap :: Ref (Map String Int)
   }  
 
 newWebGL :: SharedResources -> Program -> Program -> Effect (Maybe WebGL)
@@ -40,12 +42,13 @@ newWebGL sharedResources prog prevProg = do
     Just glc -> do
       triangleStripBuffer <- newDefaultTriangleStrip glc
       tempo <- getTempo sharedResources
-      Tuple shaderSrc' shader' <- updateFragmentShader glc tempo prevProg prog
+      let imgMap' = calculateImageMap prevProg prog
+      Tuple shaderSrc' shader' <- updateFragmentShader glc tempo prevProg prog imgMap'
       program <- new prog
       shaderSrc <- new shaderSrc'
       shader <- new shader'
       imageTextures <- new empty
-      imageTexturePlan <- new []
+      imgMap <- new imgMap'
       let webGL = {
         sharedResources,
         glc,
@@ -54,26 +57,26 @@ newWebGL sharedResources prog prevProg = do
         shaderSrc,
         shader,
         imageTextures,
-        imageTexturePlan
+        imgMap
         }
-      updateTexturePlans webGL prevProg prog
       pure $ Just webGL
     Nothing -> pure Nothing
     
 updateWebGL :: WebGL -> Program -> Program -> Effect Unit
 updateWebGL webGL program previousProgram = do
   tempo <- getTempo webGL.sharedResources
-  Tuple shaderSrc shader <- updateFragmentShader webGL.glc tempo previousProgram program
+  let imgMap = calculateImageMap previousProgram program
+  Tuple shaderSrc shader <- updateFragmentShader webGL.glc tempo previousProgram program imgMap
   write program webGL.program
   write shaderSrc webGL.shaderSrc
   write shader webGL.shader
-  updateTexturePlans webGL previousProgram program
+  write imgMap webGL.imgMap
   
   
-updateFragmentShader :: WebGLCanvas -> Tempo -> Program -> Program -> Effect (Tuple String WebGLProgram)
-updateFragmentShader glc tempo oldProg newProg = do
+updateFragmentShader :: WebGLCanvas -> Tempo -> Program -> Program -> Map String Int -> Effect (Tuple String WebGLProgram)
+updateFragmentShader glc tempo oldProg newProg imgMap = do
   t0 <- nowDateTime
-  let shaderSrc = fragmentShader glc.webGL2 tempo oldProg newProg
+  let shaderSrc = fragmentShader glc.webGL2 tempo oldProg newProg imgMap
   t1 <- nowDateTime
   log $ " GLSL transpile time = " <> show (diff t1 t0 :: Milliseconds)
   glProg <- createProgram glc
@@ -90,14 +93,18 @@ updateFragmentShader glc tempo oldProg newProg = do
   pure $ Tuple shaderSrc glProg
 
   
-updateTexturePlans :: WebGL -> Program -> Program -> Effect Unit
-updateTexturePlans webGL oldProg newProg = do
-  let oldProgInfo = programInfo oldProg
-  let newProgInfo = programInfo newProg
-  let imageTexturePlan = (toUnfoldable $ (unwrap oldProgInfo).imgURLs <> (unwrap newProgInfo).imgURLs) :: Array String
-  write imageTexturePlan webGL.imageTexturePlan
-
- 
+calculateImageMap :: Program -> Program -> Map String Int
+calculateImageMap oldProg newProg = fromFoldable $ zip imgURLs slots
+-- fromFoldable :: forall f k v. Ord k => Foldable f => f (Tuple k v) -> Map k v
+  where
+    oldProgInfo = programInfo oldProg
+    newProgInfo = programInfo newProg
+    imgURLs = (toUnfoldable $ (unwrap oldProgInfo).imgURLs <> (unwrap newProgInfo).imgURLs) :: List String
+    slots = range 4 15 -- :: List Int
+    
+    
+  
+  
 deleteWebGL :: WebGL -> Effect Unit
 deleteWebGL webGL = deleteWebGLCanvas webGL.glc
 
@@ -121,8 +128,8 @@ drawWebGL webGL now = do
   updateWebcamTexture webGL.sharedResources glc
   setTexture glc shader glc.webcamTexture 3 "w"
   -- update image textures
-  imageTexturePlan <- read webGL.imageTexturePlan
-  _ <- traverseWithIndex (setImageTexture webGL shader) imageTexturePlan  
+  imgMap <- read webGL.imgMap
+  _ <- traverseWithIndex (setImageTexture webGL shader) imgMap  
   -- update video textures (TODO)
   -- draw
   pLoc <- getAttribLocation glc shader "p"
@@ -146,8 +153,8 @@ setTexture glc shader t n uName = do
   bindTexture2D glc t
   setUniform1i glc shader uName n
 
-setImageTexture :: WebGL -> WebGLProgram -> Int -> String -> Effect Unit
-setImageTexture webGL shader n url = do
+setImageTexture :: WebGL -> WebGLProgram -> String -> Int -> Effect Unit
+setImageTexture webGL shader url n = do
   mTexture <- getImageTexture webGL url
   case mTexture of
     Just t -> setTexture webGL.glc shader t (n+4) ("t" <> show (n+4))

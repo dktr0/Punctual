@@ -1,6 +1,6 @@
 module Program where
 
-import Prelude (($),map,bind,pure,map)
+import Prelude (($),map,bind,pure)
 import Data.DateTime (DateTime)
 import Data.List (List(..),catMaybes)
 import Data.Maybe (Maybe)
