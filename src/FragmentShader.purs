@@ -125,7 +125,10 @@ signalToGLSL _ Cam = do
 signalToGLSL _ (Img url) = do
   s <- get
   case lookup url s.imgMap of
-    Just n -> singleton <$> texture2D ("t" <> show n) s.fxy
+    Just n -> do
+      t <- texture2D ("t" <> show n) (GLSLExpr.unipolar s.fxy)
+      r <- assignForced $ GLSLExpr.lessThanEqual (GLSLExpr.abs s.fxy) (GLSLExpr.float 1.0)
+      pure $ singleton $ GLSLExpr.product t (GLSLExpr.product (unsafeSwizzleX r) (unsafeSwizzleY r))
     Nothing -> pure $ singleton $ zero
 
 signalToGLSL _ (Vid url) = do

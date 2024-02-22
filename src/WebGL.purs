@@ -157,7 +157,7 @@ setImageTexture :: WebGL -> WebGLProgram -> String -> Int -> Effect Unit
 setImageTexture webGL shader url n = do
   mTexture <- getImageTexture webGL url
   case mTexture of
-    Just t -> setTexture webGL.glc shader t (n+4) ("t" <> show (n+4))
+    Just t -> setTexture webGL.glc shader t n ("t" <> show n)
     Nothing -> pure unit
 
 getImageTexture :: WebGL -> String -> Effect (Maybe WebGLTexture)
