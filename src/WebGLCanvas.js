@@ -2,8 +2,8 @@
 
 export const createHTMLCanvasElement = () => {
   var r = document.createElement('canvas');
-  r.setAttribute("width","1920");
-  r.setAttribute("height","1080");
+//  r.setAttribute("width","1000");
+//  r.setAttribute("height","1000");
   r.setAttribute("style","z-index: -1; position: absolute; width: 100%; height: 100%; left: 0px; top:0px; pointer-events: none");
   return r;
   }
@@ -91,7 +91,7 @@ export const _bindTexture2D = gl => t => () => gl.bindTexture(gl.TEXTURE_2D,t);
 
 export const _createFrameBuffer = gl => () => gl.createFramebuffer();
 
-export const _configureFrameBufferTexture = gl => texture => frameBuffer => width => height => () => {
+export const _initializeFrameBufferTexture = gl => texture => frameBuffer => width => height => () => {
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -103,5 +103,19 @@ export const _configureFrameBufferTexture = gl => texture => frameBuffer => widt
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
+export const _reinitializeFrameBufferTexture = gl => texture => width => height => () => {
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  }
+  
 export const _bindFrameBuffer = gl => x => () => gl.bindFramebuffer(gl.FRAMEBUFFER,x);
+
+export const _getCanvasWidth = c => () => c.clientWidth;
+
+export const _getCanvasHeight = c => () => c.clientHeight;
+
+export const _harmonizeCanvasDimensions = c => () => {
+  c.width = c.clientWidth;
+  c.height = c.clientHeight;
+  }
 

@@ -1,6 +1,6 @@
 module WebGLCanvas where
 
-import Prelude (Unit, bind, discard, pure, unit, (<$>))
+import Prelude (Unit, bind, discard, pure, unit, (<$>), (<>), show, (/=),(||),(==))
 import Effect
 import Effect.Console (log)
 import Effect.Ref (Ref,new,read,write)
@@ -10,6 +10,8 @@ import Data.Int (toNumber)
 
 type WebGLCanvas = {
   canvas :: HTMLCanvasElement,
+  width :: Ref Int,
+  height :: Ref Int,
   gl :: WebGLContext,
   webGL2 :: Boolean,
   khr_parallel_shader_compile :: Boolean,
@@ -36,6 +38,10 @@ newWebGLCanvas = do
 
 setupWebGLCanvas :: HTMLCanvasElement -> WebGLContext -> Boolean -> Effect WebGLCanvas
 setupWebGLCanvas canvas gl webGL2 = do
+  w <- _getCanvasWidth canvas
+  h <- _getCanvasHeight canvas
+  width <- new w
+  height <- new h
   case webGL2 of
     false -> log "punctual will use WebGL1"
     true -> log "punctual will use WebGl2"
@@ -52,11 +58,11 @@ setupWebGLCanvas canvas gl webGL2 = do
   frameBufferTexture1 <- _createTexture gl
   frameBuffer0 <- _createFrameBuffer gl
   frameBuffer1 <- _createFrameBuffer gl
-  _configureFrameBufferTexture gl frameBufferTexture0 frameBuffer0 1920 1080 -- TODO: rework for dynamic width and height
-  _configureFrameBufferTexture gl frameBufferTexture1 frameBuffer1 1920 1080
   frameBufferIndex <- new 0
-  pure {
+  let glc = {
     canvas,
+    width,
+    height,
     gl,
     webGL2,
     khr_parallel_shader_compile,
@@ -68,6 +74,9 @@ setupWebGLCanvas canvas gl webGL2 = do
     frameBuffer1,
     frameBufferIndex
     }
+  _initializeFrameBufferTexture gl frameBufferTexture0 frameBuffer0 w h
+  _initializeFrameBufferTexture gl frameBufferTexture1 frameBuffer1 w h
+  pure glc
   
 deleteWebGLCanvas :: WebGLCanvas -> Effect Unit
 deleteWebGLCanvas webGL = deleteCanvasFromDocumentBody webGL.canvas
@@ -255,7 +264,9 @@ foreign import data WebGLFrameBuffer :: Type
 
 foreign import _createFrameBuffer :: WebGLContext -> Effect WebGLFrameBuffer
 
-foreign import _configureFrameBufferTexture :: WebGLContext -> WebGLTexture -> WebGLFrameBuffer -> Int -> Int -> Effect Unit
+foreign import _initializeFrameBufferTexture :: WebGLContext -> WebGLTexture -> WebGLFrameBuffer -> Int -> Int -> Effect Unit
+
+foreign import _reinitializeFrameBufferTexture :: WebGLContext -> WebGLTexture -> Int -> Int -> Effect Unit
 
 postFragmentShaderSrc :: String
 postFragmentShaderSrc = """
@@ -268,6 +279,21 @@ void main(){
   gl_FragColor = vec4(t.xyz*b,t.w);
 }
 """
+  
+configureFrameBufferTextures :: WebGLCanvas -> Effect Unit
+configureFrameBufferTextures glc = do
+  wPrev <- read glc.width
+  hPrev <- read glc.height
+  w <- getCanvasWidth glc
+  h <- getCanvasHeight glc
+  case (wPrev /= w || hPrev /= h) of
+    false -> pure unit
+    true -> do
+      _reinitializeFrameBufferTexture glc.gl glc.frameBufferTexture0 w h
+      _reinitializeFrameBufferTexture glc.gl glc.frameBufferTexture1 w h
+      write w glc.width
+      write h glc.height
+  
   
 _newPostProgram :: WebGLContext -> Effect WebGLProgram
 _newPostProgram gl = do
@@ -289,12 +315,13 @@ drawPostProgram glc = do
   let p = glc.postProgram
   useProgram glc p
   t <- getOutputTexture glc
-  let w = 1920 -- TODO: rework for dynamic width and height
-  let h = 1080
+  w <- getCanvasWidth glc
+  h <- getCanvasHeight glc
   bindTexture glc p t 0 "t"
   setUniform1f glc p "b" 1.0
   setUniform2f glc p "r" (toNumber w) (toNumber h) 
   viewport glc 0 0 w h
+  harmonizeCanvasDimensions glc
   bindFrameBuffer glc Nothing
   drawDefaultTriangleStrip glc
   toggleFrameBuffers glc
@@ -339,3 +366,20 @@ toggleFrameBuffers glc = do
   case frameBufferIndex of
     0 -> write 1 glc.frameBufferIndex
     _ -> write 0 glc.frameBufferIndex
+    
+getCanvasWidth :: WebGLCanvas -> Effect Int
+getCanvasWidth glc = _getCanvasWidth glc.canvas
+
+foreign import _getCanvasWidth :: HTMLCanvasElement -> Effect Int
+
+getCanvasHeight :: WebGLCanvas -> Effect Int
+getCanvasHeight glc = _getCanvasHeight glc.canvas
+
+foreign import _getCanvasHeight :: HTMLCanvasElement -> Effect Int
+
+harmonizeCanvasDimensions :: WebGLCanvas -> Effect Unit
+harmonizeCanvasDimensions glc = _harmonizeCanvasDimensions glc.canvas
+
+foreign import _harmonizeCanvasDimensions :: HTMLCanvasElement -> Effect Unit
+
+

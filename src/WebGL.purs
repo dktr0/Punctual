@@ -17,10 +17,11 @@ import Data.TraversableWithIndex (traverseWithIndex)
 import Data.Set (toUnfoldable)
 import Data.Unfoldable1 (range)
 import Data.List (List,zip,length)
+import Data.Int as Int
 
 import Program (Program,programInfo)
 import FragmentShader (fragmentShader)
-import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLProgram, attachShader, bindBufferArray, clearColor, clearColorBuffer, compileShader, createFragmentShader, createProgram, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, enableVertexAttribArray, flush, getAttribLocation, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport, WebGLTexture, activeTexture,bindTexture2D,setUniform1i,createTexture,WebGLContext, bindTexture, getFeedbackTexture, getOutputFrameBuffer, bindFrameBuffer, drawPostProgram)
+import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLProgram, attachShader, bindBufferArray, clearColor, clearColorBuffer, compileShader, createFragmentShader, createProgram, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, enableVertexAttribArray, flush, getAttribLocation, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport, WebGLTexture, activeTexture,bindTexture2D,setUniform1i,createTexture,WebGLContext, bindTexture, getFeedbackTexture, getOutputFrameBuffer, bindFrameBuffer, drawPostProgram, getCanvasWidth, getCanvasHeight, configureFrameBufferTextures)
 import SharedResources (SharedResources,getTempo,getImage,updateWebcamTexture,Image,Video,getVideo)
 
 type WebGL = {
@@ -116,12 +117,15 @@ deleteWebGL webGL = deleteWebGLCanvas webGL.glc
 
 drawWebGL :: WebGL -> DateTime -> Effect Unit
 drawWebGL webGL now = do
+  configureFrameBufferTextures webGL.glc
   -- t0 <- nowDateTime
   let glc = webGL.glc
   shader <- read webGL.shader
   useProgram glc shader
   -- update time/tempo/resolution uniforms
-  setUniform2f glc shader "res" 1920.0 1080.0
+  w <- getCanvasWidth webGL.glc
+  h <- getCanvasHeight webGL.glc
+  setUniform2f glc shader "res" (Int.toNumber w) (Int.toNumber h)
   tempo <- getTempo webGL.sharedResources
   setUniform1f glc shader "_time" $ unwrap (diff now (origin tempo) :: Seconds)
   eTime <- _.evalTime <$> read webGL.program
@@ -129,7 +133,7 @@ drawWebGL webGL now = do
   setUniform1f glc shader "_beat" $ toNumber $ timeToCount tempo now
   setUniform1f glc shader "_ebeat" $ toNumber $ timeToCount tempo now - timeToCount tempo eTime
   -- update audio analysis uniforms (TODO)
-  -- update special textures (webcam, fft TODO, ifft TODO, feedback TODO)
+  -- update special textures (webcam, fft TODO, ifft TODO, feedback)
   ft <- getFeedbackTexture glc
   bindTexture glc shader ft 0 "f"
   updateWebcamTexture webGL.sharedResources glc
@@ -145,7 +149,7 @@ drawWebGL webGL now = do
   bindBufferArray glc webGL.triangleStripBuffer
   vertexAttribPointer glc pLoc
   enableVertexAttribArray glc pLoc
-  viewport glc 0 0 1920 1080 -- placeholder, need to read current width and height
+  viewport glc 0 0 w h
   -- clearColor glc 0.0 0.0 0.0 0.0
   -- clearColorBuffer glc
   ofb <- getOutputFrameBuffer glc
