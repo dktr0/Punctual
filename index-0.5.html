@@ -17,14 +17,14 @@
   }
   function animate() {
     window.requestAnimationFrame(animate);
-    var now = Date.now();
+    var now = Date.now()/1000.0;
     window.punctual.preRender({canDraw: true, nowTime: now});
     window.punctual.render({canDraw: true, zone:0, nowTime: now});
     window.punctual.postRender({canDraw: true, nowTime: now});
   }
   window.doEval = function () {
     var t = document.getElementById("editorArea").value;
-    var r = window.punctual.define({zone:0,text:t,time: Date.now()});
+    var r = window.punctual.define({zone:0,text:t,time: Date.now()/1000.0});
     console.log(r);
     document.getElementById('errors').textContent = r.error;
   }

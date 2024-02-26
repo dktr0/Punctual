@@ -86,7 +86,7 @@ setTempo punctual ft = do
   SharedResources.setTempo punctual.sharedResources (fromForeignTempo ft)
 
 
-preRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number, previousDrawTime :: Number } -> Effect Unit
+preRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number } -> Effect Unit
 preRender punctual args = when args.canDraw do  
   log $ "preRender: " <> show args
   -- if any current or immediately preceding programs require the webcam, it should be active
@@ -108,7 +108,7 @@ render punctual args = do
         Just w -> drawWebGL w (numberToDateTime args.nowTime)
         
         
-postRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number, previousDrawTime :: Number } -> Effect Unit
+postRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number } -> Effect Unit
 postRender _ args = log $ "postRender: " <> show args
 
 
