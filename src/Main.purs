@@ -72,6 +72,7 @@ define punctual args = do
         
 clear :: Punctual -> { zone :: Int } -> Effect Unit
 clear punctual args = do
+  log $ "clear: " <> show args
   programs <- read punctual.programs
   write (delete args.zone programs) punctual.programs
   previousPrograms <- read punctual.previousPrograms
@@ -80,11 +81,14 @@ clear punctual args = do
   
   
 setTempo :: Punctual -> ForeignTempo -> Effect Unit
-setTempo punctual ft = SharedResources.setTempo punctual.sharedResources (fromForeignTempo ft)
+setTempo punctual ft = do
+  log $ "setTempo: " <> show ft
+  SharedResources.setTempo punctual.sharedResources (fromForeignTempo ft)
 
 
 preRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number, previousDrawTime :: Number } -> Effect Unit
 preRender punctual args = when args.canDraw do  
+  log $ "preRender: " <> show args
   -- if any current or immediately preceding programs require the webcam, it should be active
   programsNeedWebcam <- any programNeedsWebcam <$> read punctual.programs
   previousProgramsNeedWebcam <- any programNeedsWebcam <$> read punctual.previousPrograms
@@ -94,6 +98,7 @@ preRender punctual args = when args.canDraw do
 
 render :: Punctual -> { zone :: Int, canDraw :: Boolean, nowTime :: Number } -> Effect Unit -- later will be Effect (Array Foreign)
 render punctual args = do
+  log $ "render: " <> show args
   case args.canDraw of 
     false -> pure unit
     true -> do
@@ -104,7 +109,8 @@ render punctual args = do
         
         
 postRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number, previousDrawTime :: Number } -> Effect Unit
-postRender _ _ = pure unit
+postRender _ args = log $ "postRender: " <> show args
+
 
 
 
