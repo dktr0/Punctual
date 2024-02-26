@@ -1,7 +1,7 @@
 import * as P from './output/Main/index.js';
 
-export function exoLang(canvas) {
-  return new LocoMotion(canvas);
+export function exoLang() {
+  return new Punctual();
 }
 
 export function Punctual() {
