@@ -3,15 +3,23 @@ module WebGLCanvas where
 import Prelude (Unit, bind, discard, pure, unit, (<$>))
 import Effect
 import Effect.Console (log)
-import Data.Nullable (Nullable, toMaybe)
+import Effect.Ref (Ref,new,read,write)
+import Data.Nullable (Nullable, toMaybe, null, notNull)
 import Data.Maybe (Maybe(..),isJust)
+import Data.Int (toNumber)
 
 type WebGLCanvas = {
   canvas :: HTMLCanvasElement,
   gl :: WebGLContext,
   webGL2 :: Boolean,
   khr_parallel_shader_compile :: Boolean,
-  webcamTexture :: WebGLTexture
+  postProgram :: WebGLProgram,
+  webcamTexture :: WebGLTexture,
+  frameBufferTexture0 :: WebGLTexture,
+  frameBufferTexture1 :: WebGLTexture,
+  frameBuffer0 :: WebGLFrameBuffer,
+  frameBuffer1 :: WebGLFrameBuffer,
+  frameBufferIndex :: Ref Int -- the index of the frame buffer to which drawing should be directed
   }
 
 newWebGLCanvas :: Effect (Maybe WebGLCanvas)
@@ -36,17 +44,31 @@ setupWebGLCanvas canvas gl webGL2 = do
   case khr_parallel_shader_compile of
     false -> pure unit
     true -> log "punctual can use WebGL extension KHR_parallel_shader_compile"
-  defaultBlendFunc gl
+  -- defaultBlendFunc gl
   unpackFlipY gl
+  postProgram <- _newPostProgram gl
   webcamTexture <- _createTexture gl
+  frameBufferTexture0 <- _createTexture gl
+  frameBufferTexture1 <- _createTexture gl
+  frameBuffer0 <- _createFrameBuffer gl
+  frameBuffer1 <- _createFrameBuffer gl
+  _configureFrameBufferTexture gl frameBufferTexture0 frameBuffer0 1920 1080 -- TODO: rework for dynamic width and height
+  _configureFrameBufferTexture gl frameBufferTexture1 frameBuffer1 1920 1080
+  frameBufferIndex <- new 0
   pure {
     canvas,
     gl,
     webGL2,
     khr_parallel_shader_compile,
-    webcamTexture
+    postProgram,
+    webcamTexture,
+    frameBufferTexture0,
+    frameBufferTexture1,
+    frameBuffer0,
+    frameBuffer1,
+    frameBufferIndex
     }
- 
+  
 deleteWebGLCanvas :: WebGLCanvas -> Effect Unit
 deleteWebGLCanvas webGL = deleteCanvasFromDocumentBody webGL.canvas
 
@@ -98,23 +120,47 @@ newDefaultTriangleStrip gl = do
 
 foreign import data WebGLProgram :: Type
 
-foreign import createProgram :: WebGLCanvas -> Effect WebGLProgram
+foreign import _createProgram :: WebGLContext -> Effect WebGLProgram
+
+createProgram :: WebGLCanvas -> Effect WebGLProgram
+createProgram glc = _createProgram glc.gl
 
 foreign import data WebGLShader :: Type
 
-foreign import createVertexShader :: WebGLCanvas -> Effect WebGLShader
+foreign import _createVertexShader :: WebGLContext -> Effect WebGLShader
 
-foreign import createFragmentShader :: WebGLCanvas -> Effect WebGLShader
+createVertexShader :: WebGLCanvas -> Effect WebGLShader
+createVertexShader glc = _createVertexShader glc.gl
 
-foreign import attachShader :: WebGLCanvas -> WebGLProgram -> WebGLShader -> Effect Unit
+foreign import _createFragmentShader :: WebGLContext -> Effect WebGLShader
 
-foreign import shaderSource :: WebGLCanvas -> WebGLShader -> String -> Effect Unit
+createFragmentShader :: WebGLCanvas -> Effect WebGLShader
+createFragmentShader glc = _createFragmentShader glc.gl
 
-foreign import compileShader :: WebGLCanvas -> WebGLShader -> Effect Unit
+foreign import _attachShader :: WebGLContext -> WebGLProgram -> WebGLShader -> Effect Unit
 
-foreign import linkProgram :: WebGLCanvas -> WebGLProgram -> Effect Unit
+attachShader :: WebGLCanvas -> WebGLProgram -> WebGLShader -> Effect Unit
+attachShader glc = _attachShader glc.gl
 
-foreign import flush :: WebGLCanvas -> Effect Unit
+foreign import _shaderSource :: WebGLContext -> WebGLShader -> String -> Effect Unit
+
+shaderSource :: WebGLCanvas -> WebGLShader -> String -> Effect Unit
+shaderSource glc = _shaderSource glc.gl
+
+foreign import _compileShader :: WebGLContext -> WebGLShader -> Effect Unit
+
+compileShader :: WebGLCanvas -> WebGLShader -> Effect Unit
+compileShader glc = _compileShader glc.gl
+
+foreign import _linkProgram :: WebGLContext-> WebGLProgram -> Effect Unit
+
+linkProgram :: WebGLCanvas -> WebGLProgram -> Effect Unit
+linkProgram glc = _linkProgram glc.gl
+
+foreign import _flush :: WebGLContext -> Effect Unit
+
+flush :: WebGLCanvas -> Effect Unit
+flush glc = _flush glc.gl
 
 foreign import useProgram :: WebGLCanvas -> WebGLProgram -> Effect Unit
 
@@ -205,5 +251,91 @@ foreign import _bindTexture2D :: WebGLContext -> WebGLTexture -> Effect Unit
 bindTexture2D :: WebGLCanvas -> WebGLTexture -> Effect Unit
 bindTexture2D glc = _bindTexture2D glc.gl
 
+foreign import data WebGLFrameBuffer :: Type
 
+foreign import _createFrameBuffer :: WebGLContext -> Effect WebGLFrameBuffer
 
+foreign import _configureFrameBufferTexture :: WebGLContext -> WebGLTexture -> WebGLFrameBuffer -> Int -> Int -> Effect Unit
+
+postFragmentShaderSrc :: String
+postFragmentShaderSrc = """
+precision mediump float;
+uniform vec2 r;
+uniform sampler2D t;
+uniform float b;
+void main(){
+  vec4 t = texture2D(t,gl_FragCoord.xy/r);
+  gl_FragColor = vec4(t.xyz*b,t.w);
+}
+"""
+  
+_newPostProgram :: WebGLContext -> Effect WebGLProgram
+_newPostProgram gl = do
+  glProg <- _createProgram gl
+  vShader <- _createVertexShader gl
+  _attachShader gl glProg vShader
+  _shaderSource gl vShader "attribute vec4 p; void main() { gl_Position = p; }"
+  _compileShader gl vShader
+  fShader <- _createFragmentShader gl
+  _attachShader gl glProg fShader
+  _shaderSource gl fShader postFragmentShaderSrc
+  _compileShader gl fShader
+  _linkProgram gl glProg
+  _flush gl
+  pure glProg
+
+drawPostProgram :: WebGLCanvas -> Effect Unit
+drawPostProgram glc = do
+  let p = glc.postProgram
+  useProgram glc p
+  t <- getOutputTexture glc
+  let w = 1920 -- TODO: rework for dynamic width and height
+  let h = 1080
+  bindTexture glc p t 0 "t"
+  setUniform1f glc p "b" 1.0
+  setUniform2f glc p "r" (toNumber w) (toNumber h) 
+  viewport glc 0 0 w h
+  bindFrameBuffer glc Nothing
+  drawDefaultTriangleStrip glc
+  toggleFrameBuffers glc
+    
+-- bind a texture to a specified active texture slot and pass that location into a shader program by setting a uniform
+bindTexture :: WebGLCanvas -> WebGLProgram -> WebGLTexture -> Int -> String -> Effect Unit
+bindTexture glc shader t n uName = do
+  activeTexture glc n
+  bindTexture2D glc t
+  setUniform1i glc shader uName n
+
+bindFrameBuffer :: WebGLCanvas -> Maybe WebGLFrameBuffer -> Effect Unit
+bindFrameBuffer glc Nothing = _bindFrameBuffer glc.gl null
+bindFrameBuffer glc (Just b) = _bindFrameBuffer glc.gl (notNull b)
+
+foreign import _bindFrameBuffer :: WebGLContext -> Nullable WebGLFrameBuffer -> Effect Unit
+
+getOutputTexture :: WebGLCanvas -> Effect WebGLTexture
+getOutputTexture glc = do
+  frameBufferIndex <- read glc.frameBufferIndex
+  case frameBufferIndex of
+    0 -> pure glc.frameBufferTexture0
+    _ -> pure glc.frameBufferTexture1
+    
+getOutputFrameBuffer :: WebGLCanvas -> Effect WebGLFrameBuffer
+getOutputFrameBuffer glc = do
+  frameBufferIndex <- read glc.frameBufferIndex
+  case frameBufferIndex of
+    0 -> pure glc.frameBuffer0
+    _ -> pure glc.frameBuffer1
+    
+getFeedbackTexture :: WebGLCanvas -> Effect WebGLTexture
+getFeedbackTexture glc = do
+  frameBufferIndex <- read glc.frameBufferIndex
+  case frameBufferIndex of
+    0 -> pure glc.frameBufferTexture1
+    _ -> pure glc.frameBufferTexture0
+    
+toggleFrameBuffers :: WebGLCanvas -> Effect Unit
+toggleFrameBuffers glc = do
+  frameBufferIndex <- read glc.frameBufferIndex
+  case frameBufferIndex of
+    0 -> write 1 glc.frameBufferIndex
+    _ -> write 0 glc.frameBufferIndex

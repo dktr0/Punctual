@@ -28,21 +28,21 @@ export const bindBufferArray = glc => buffer => () => glc.gl.bindBuffer(glc.gl.A
 
 export const bufferData_defaultTriangleStrip = glc => () => glc.gl.bufferData(glc.gl.ARRAY_BUFFER,new Float32Array([-1,1,-1,-1,1,1,1,-1]),glc.gl.STATIC_DRAW);
 
-export const createProgram = glc => () => glc.gl.createProgram();
+export const _createProgram = gl => () => gl.createProgram();
 
-export const createVertexShader = glc => () => glc.gl.createShader(glc.gl.VERTEX_SHADER);
+export const _createVertexShader = gl => () => gl.createShader(gl.VERTEX_SHADER);
 
-export const createFragmentShader = glc => () => glc.gl.createShader(glc.gl.FRAGMENT_SHADER);
+export const _createFragmentShader = gl => () => gl.createShader(gl.FRAGMENT_SHADER);
 
-export const attachShader = glc => p => s => () => glc.gl.attachShader(p,s);
+export const _attachShader = gl => p => s => () => gl.attachShader(p,s);
 
-export const shaderSource = glc => s => txt => () => glc.gl.shaderSource(s,txt);
+export const _shaderSource = gl => s => txt => () => gl.shaderSource(s,txt);
 
-export const compileShader = glc => s => () => glc.gl.compileShader(s);
+export const _compileShader = gl => s => () => gl.compileShader(s);
 
-export const linkProgram = glc => p => () => glc.gl.linkProgram(p);
+export const _linkProgram = gl => p => () => gl.linkProgram(p);
 
-export const flush = glc => () => glc.gl.flush();
+export const _flush = gl => () => gl.flush();
 
 export const useProgram = glc => p => () => glc.gl.useProgram(p);
 
@@ -88,4 +88,20 @@ export const _activeTexture14 = gl => () => gl.activeTexture(gl.TEXTURE14);
 export const _activeTexture15 = gl => () => gl.activeTexture(gl.TEXTURE15);
 
 export const _bindTexture2D = gl => t => () => gl.bindTexture(gl.TEXTURE_2D,t);
+
+export const _createFrameBuffer = gl => () => gl.createFramebuffer();
+
+export const _configureFrameBufferTexture = gl => texture => frameBuffer => width => height => () => {
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, frameBuffer);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+export const _bindFrameBuffer = gl => x => () => gl.bindFramebuffer(gl.FRAMEBUFFER,x);
 

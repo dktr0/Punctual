@@ -20,7 +20,7 @@ import Data.List (List,zip,length)
 
 import Program (Program,programInfo)
 import FragmentShader (fragmentShader)
-import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLProgram, attachShader, bindBufferArray, clearColor, clearColorBuffer, compileShader, createFragmentShader, createProgram, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, enableVertexAttribArray, flush, getAttribLocation, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport, WebGLTexture, activeTexture,bindTexture2D,setUniform1i,createTexture,WebGLContext)
+import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLProgram, attachShader, bindBufferArray, clearColor, clearColorBuffer, compileShader, createFragmentShader, createProgram, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, enableVertexAttribArray, flush, getAttribLocation, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport, WebGLTexture, activeTexture,bindTexture2D,setUniform1i,createTexture,WebGLContext, bindTexture, getFeedbackTexture, getOutputFrameBuffer, bindFrameBuffer, drawPostProgram)
 import SharedResources (SharedResources,getTempo,getImage,updateWebcamTexture,Image,Video,getVideo)
 
 type WebGL = {
@@ -130,6 +130,8 @@ drawWebGL webGL now = do
   setUniform1f glc shader "_ebeat" $ toNumber $ timeToCount tempo now - timeToCount tempo eTime
   -- update audio analysis uniforms (TODO)
   -- update special textures (webcam, fft TODO, ifft TODO, feedback TODO)
+  ft <- getFeedbackTexture glc
+  bindTexture glc shader ft 0 "f"
   updateWebcamTexture webGL.sharedResources glc
   bindTexture glc shader glc.webcamTexture 3 "w"
   -- update image textures
@@ -144,21 +146,16 @@ drawWebGL webGL now = do
   vertexAttribPointer glc pLoc
   enableVertexAttribArray glc pLoc
   viewport glc 0 0 1920 1080 -- placeholder, need to read current width and height
-  clearColor glc 0.0 0.0 0.0 0.0
-  clearColorBuffer glc
+  -- clearColor glc 0.0 0.0 0.0 0.0
+  -- clearColorBuffer glc
+  ofb <- getOutputFrameBuffer glc
+  bindFrameBuffer glc (Just ofb)
   drawDefaultTriangleStrip glc
+  drawPostProgram glc
   -- t1 <- nowDateTime
   -- log $ " draw time = " <> show (diff t1 t0 :: Milliseconds)
   pure unit
 
-
--- bind a texture to a specified active texture slot and pass that location into a shader program by setting a uniform
--- (TODO: try doing this only once instead of every draw call...)
-bindTexture :: WebGLCanvas -> WebGLProgram -> WebGLTexture -> Int -> String -> Effect Unit
-bindTexture glc shader t n uName = do
-  activeTexture glc n
-  bindTexture2D glc t
-  setUniform1i glc shader uName n
 
 bindImageTexture :: WebGL -> WebGLProgram -> String -> Int -> Effect Unit
 bindImageTexture webGL shader url n = do
@@ -214,4 +211,13 @@ getVideoTexture webGL url = do
         Nothing -> pure Nothing
           
 foreign import _videoToTexture :: WebGLContext -> Video -> WebGLTexture -> Effect Unit
+
+
+  
+  
+  
+  
+
+
+
 
