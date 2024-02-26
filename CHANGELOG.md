@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.8.1:
+
+-bugfix affecting multiple layers of embedded arbitrary multichannel signals, eg. [[x,y],z]
+
 0.4.8:
 
 -added lines, linesp, ilines, ilinesp, chain, chainp, mesh and meshp. fixed further bugs affecting combinatorial geometrical transformations of shape functions
