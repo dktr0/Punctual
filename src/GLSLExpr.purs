@@ -397,7 +397,7 @@ fadeIn t1 t2 = { string: "clamp((_etime-" <> t1s <> ")/(" <> t2s <> "-" <> t1s <
     t2s = show t2
 
 fadeOut :: Number -> Number -> GLSLExpr
-fadeOut t1 t2 = { string: "clamp((" <> t1s <> "-_etime)/(" <> t2s <> "-" <> t1s <> "),0.,1.)", glslType: Float, isSimple: false, deps: empty }
+fadeOut t1 t2 = { string: "clamp((" <> t2s <> "-_etime)/(" <> t2s <> "-" <> t1s <> "),0.,1.)", glslType: Float, isSimple: false, deps: empty }
   where
     t1s = show t1
     t2s = show t2
