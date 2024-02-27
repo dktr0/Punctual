@@ -668,10 +668,36 @@ header
 _time :: GLSLExpr
 _time = GLSLExpr GLFloat True "_time"
 
--- convert the action's graph to GLSLExpr-s, using the output type to generate an alignment hint
-actionToGLSL :: Output -> Map TextureRef Int -> Action -> GLSL [GLSLExpr]
-actionToGLSL oType texMap a = graphToGLSL (Just $ actionAlignment oType) (texMap,[defaultFxy]) $ graph a
-  
+
+actionToGLSL :: Output -> Map TextureRef Int -> Action -> GLSL GLSLExpr
+actionToGLSL oType texMap a = do
+
+  -- 1. convert the action's graph to GLSLExpr-s, aligning according to the output type
+  let ah = actionAlignment oType
+  bs <- graphToGLSL (Just ah) (texMap,[defaultFxy]) $ graph a
+  cs <- align ah bs
+
+  -- 2. if output of action is HSV, then each Vec3 has to be converted to RGB
+  ds <- case oType of
+    HSV -> return $ fmap hsvrgb cs
+    _ -> return cs
+
+  -- 3. blend when multiple expressions are RGBA, sum in all other cases
+  e <- case ds of
+    [] -> error "'impossible' error in actionToGLSL"
+    (x:[]) -> return x
+    (x:xs) -> case oType of
+      RGBA -> foldM blend x xs >>= assign
+      _ -> foldM (\y z -> return $ y+z ) x xs >>= assign
+
+  -- for Red Green or Blue direct outputs convert to a Vec3 with 2 zero fields
+  case oType of
+    Red -> return $ exprExprExprToVec3 e 0.0 0.0
+    Green -> return $ exprExprExprToVec3 0.0 e 0.0
+    Blue -> return $ exprExprExprToVec3 0.0 0.0 e
+    _ -> return e
+
+
 defaultFxy :: GLSLExpr
 defaultFxy = GLSLExpr Vec2 True "_fxy()"
 
@@ -688,40 +714,31 @@ actionAlignment _ = GLFloat
 -- *** TODO: prior to GLSL-refactor... addedAction, discontinuedAction, continuingAction
 -- all used a GLSL if-then-else as an optimization, we probably should restore this ***
 
-addedAction :: Tempo -> UTCTime -> Map TextureRef Int -> Int -> Action -> GLSL ([GLSLExpr],[Output])
+addedAction :: Tempo -> UTCTime -> Map TextureRef Int -> Int -> Action -> GLSL (GLSLExpr,[Output])
 addedAction tempo eTime texMap _ newAction = do
-  actionExprs <- actionToGLSL (actionOutputType newAction) texMap newAction
+  actionExpr <- actionToGLSL (actionOutputType newAction) texMap newAction
   let (t1,t2) = actionToTimes tempo eTime newAction
-  let xFadeExpr = xFadeNew eTime t1 t2
-  rs <- mapM (assign . (* xFadeExpr)) actionExprs
-  return (rs, outputs newAction)
+  r <- assign $ actionExpr * xFadeNew eTime t1 t2
+  return (r, outputs newAction)
 
-discontinuedAction :: UTCTime -> Map TextureRef Int -> Int -> Action -> GLSL ([GLSLExpr],[Output])
+discontinuedAction :: UTCTime -> Map TextureRef Int -> Int -> Action -> GLSL (GLSLExpr,[Output])
 discontinuedAction eTime texMap _ oldAction = do
-  actionExprs <- actionToGLSL (actionOutputType oldAction) texMap oldAction
+  actionExpr <- actionToGLSL (actionOutputType oldAction) texMap oldAction
   let (t1,t2) = (eTime,addUTCTime 0.5 eTime) -- 0.5 sec fadeout
-  let xFadeExpr = xFadeOld eTime t1 t2
-  rs <- mapM (assign . (* xFadeExpr)) actionExprs
-  return (rs, outputs oldAction)
-  
-continuingAction :: Tempo -> UTCTime -> Map TextureRef Int -> Int -> Action -> Action -> GLSL ([GLSLExpr],[Output])
+  r <- assign $ actionExpr * xFadeOld eTime t1 t2
+  return (r, outputs oldAction)
+
+continuingAction :: Tempo -> UTCTime -> Map TextureRef Int -> Int -> Action -> Action -> GLSL (GLSLExpr,[Output])
 continuingAction tempo eTime texMap _ newAction oldAction = do
   let oType = actionOutputType newAction
-  case graph newAction == graph oldAction of
-    True -> do
-      rs <- actionToGLSL oType texMap newAction
-      rs' <- mapM assign rs
-      return (rs', outputs newAction)
-    False -> do
-      oldExprs <- actionToGLSL oType texMap oldAction
-      newExprs <- actionToGLSL oType texMap newAction
-      let (t1,t2) = actionToTimes tempo eTime newAction
-      oldExprs' <- mapM (assign . (* xFadeOld eTime t1 t2)) oldExprs -- [GLSLExpr] representing some number n1 of channels
-      newExprs' <- mapM (assign . (* xFadeNew eTime t1 t2)) newExprs -- [GLSLExpr] representing some number n2 of channels
-      rs <- mix oldExprs' newExprs'
-      rs' <- mapM assign rs
-      return (rs', outputs newAction)
-  
+  oldExpr <- actionToGLSL oType texMap oldAction
+  newExpr <- actionToGLSL oType texMap newAction
+  let (t1,t2) = actionToTimes tempo eTime newAction
+  let oldExpr' = oldExpr * xFadeOld eTime t1 t2
+  let newExpr' = newExpr * xFadeNew eTime t1 t2
+  r <- assign $ oldExpr' + newExpr'
+  return (r, outputs newAction)
+
 xFadeOld :: UTCTime -> UTCTime -> UTCTime -> GLSLExpr
 xFadeOld = xFadeFunction "xFadeOld"
 
@@ -739,113 +756,51 @@ xFadeFunction funcName eTime t1 t2 = GLSLExpr GLFloat False b
 -- the resulting GLSLExpr is what should be assigned to gl_FragColor
 fragmentShaderGLSL :: Tempo -> Map TextureRef Int -> Program -> Program -> GLSL GLSLExpr
 fragmentShaderGLSL tempo texMap oldProgram newProgram = do
+  let eTime = evalTime newProgram
+
   -- generate maps of previous, current and all relevant expressions
   let oldActions = IntMap.filter actionOutputsWebGL $ actions oldProgram
   let newActions = IntMap.filter actionOutputsWebGL $ actions newProgram
 
-  -- generate a [GLSLExpr] for all actions, with crossfades
-  let eTime = evalTime newProgram
+  -- generate a GLSLExpr for all actions, with crossfades
   continuingExprs <- sequence $ IntMap.intersectionWithKey (continuingAction tempo eTime texMap) newActions oldActions
   discontinuedExprs <- sequence $ IntMap.mapWithKey (discontinuedAction eTime texMap) $ IntMap.difference oldActions newActions
   newExprs <- sequence $ IntMap.mapWithKey (addedAction tempo eTime texMap) $ IntMap.difference newActions oldActions
-  let allExprs = IntMap.elems $ continuingExprs <> discontinuedExprs <> newExprs -- :: [ ([GLSLExpr],[Output]) ]
+  let allExprs = IntMap.elems $ continuingExprs <> discontinuedExprs <> newExprs -- :: GLSL [ (GLSLExpr,[Output]) ]
 
   -- generate GLSL shader code that maps the sources to outputs
-  alpha <- generateDefaultAlpha allExprs -- a GLFloat representing default alpha for legacy outputs
-  rgba <- generateOutputs alpha allExprs -- RGBA Vec4s for every output, in program order
-  case rgba of
-    [] -> pure $ exprToVec4 0
-    (x:[]) -> pure x
-    xs -> foldM blend (head xs) (tail xs) >>= assign
+  red <- generateOutput Red 0 allExprs
+  green <- generateOutput Green 0 allExprs
+  blue <- generateOutput Blue 0 allExprs
+  let _defaultAlpha = GLSLExpr GLFloat True "_defaultAlpha"
+  alpha <- generateOutput Alpha _defaultAlpha allExprs
+  fdbk <- generateOutput Fdbk 0 allExprs
+  let fdbk' = GLSLExpr Vec3 False $"fb(" <> builder fdbk <> ")"
+  hsv <- generateOutput HSV (exprToVec3 0) allExprs
+  rgb <- generateOutput RGB (exprToVec3 0) allExprs
+  rgba <- generateRGBA allExprs
+  let rgb' = exprExprToVec4 (red + green + blue + hsv + rgb + fdbk') alpha
+  blend rgb' rgba -- NOTE: it would make more sense to convert all outputs to RGBA then blend all...
 
+  -- TODO: red green and blue are always vec3s with data in the appropriate channel
+  -- THEN ALSO: is it doing something weird to alpha when we have red/green/blue/rgb/hsv but no rgba
+  -- (as will be common for everyone except me?)
 
-generateDefaultAlpha :: [([GLSLExpr],[Output])] -> GLSL GLSLExpr
-generateDefaultAlpha allExprs = do
-  let xs = fmap fst $ Prelude.filter (elem Alpha . snd) allExprs -- [[GLSLExpr]] representing all channels of all actions directed to >> alpha
+generateOutput :: Output -> GLSLExpr -> [(GLSLExpr,[Output])] -> GLSL GLSLExpr
+generateOutput o zeroExpr allExprs = do
+  let xs = fmap fst $ Prelude.filter (elem o . snd) allExprs
   case xs of
-    [] -> pure $ GLSLExpr GLFloat True "_defaultAlpha"
-    _ -> do
-      xs' <- mapM monoGLSL xs -- [GLSLExpr], one GLSLExpr per action
-      monoGLSL xs' 
-      
--- | monoGLSL mixes any number of channels down to one GLFloat
-monoGLSL :: [GLSLExpr] -> GLSL GLSLExpr
-monoGLSL [] = pure 0
-monoGLSL xs = do
-  xs' <- align GLFloat xs
-  assign $ Foldable.foldr1 (+) xs'
+    [] -> return zeroExpr
+    (x:[]) -> return x
+    _ -> assign $ Foldable.foldr1 (+) xs
 
- 
-generateOutputs :: GLSLExpr -> [([GLSLExpr],[Output])] -> GLSL [GLSLExpr]
-generateOutputs _ [] = pure []
-generateOutputs alpha (x:xs) = do
-  x' <- generateOutputs' alpha x 
-  xs' <- generateOutputs alpha xs
-  pure $ x' ++ xs'
-  
-generateOutputs' :: GLSLExpr -> ([GLSLExpr],[Output]) -> GLSL [GLSLExpr]
-generateOutputs' alpha xs = do
-  rgba <- generateOutputRGBA xs
-  rgb <- generateOutputRGB alpha xs
-  fdbk <- generateOutputFdbk alpha xs
-  hsv <- generateOutputHSV alpha xs
-  red <- generateOutputRed alpha xs
-  green <- generateOutputGreen alpha xs
-  blue <- generateOutputBlue alpha xs
-  pure $ rgba ++ rgb ++ fdbk ++ hsv ++ red ++ green ++ blue
-  
-generateOutputRGBA :: ([GLSLExpr],[Output]) -> GLSL [GLSLExpr]
-generateOutputRGBA (xs,os)
-  | not (elem RGBA os) = pure []
-  | otherwise = align Vec4 xs 
-
--- RGB outputs: intersperse default alpha between each set of 3 channels
-generateOutputRGB :: GLSLExpr -> ([GLSLExpr],[Output]) -> GLSL [GLSLExpr]
-generateOutputRGB alpha (xs,os)
-  | not (elem RGB os) = pure []
-  | otherwise = do
-      xs' <- align Vec3 xs
-      pure $ fmap (\x -> exprExprToVec4 x alpha) xs' 
-      
--- fdbk outputs: get RGB value from preceding frame's output, append default alpha
-generateOutputFdbk :: GLSLExpr -> ([GLSLExpr],[Output]) -> GLSL [GLSLExpr]
-generateOutputFdbk alpha (xs,os)
-  | not (elem Fdbk os) = pure []
-  | otherwise = do
-      xs' <- align GLFloat xs
-      let xs'' = fmap (\x -> GLSLExpr Vec3 False $ "fb(" <> builder x <> ")") xs'
-      pure $ fmap (\x -> exprExprToVec4 x alpha) xs''
-
--- HSV outputs: convert HSV to RGB and intersperse default alpha between each set of 3 channels
-generateOutputHSV :: GLSLExpr -> ([GLSLExpr],[Output]) -> GLSL [GLSLExpr]
-generateOutputHSV alpha (xs,os)
-  | not (elem HSV os) = pure []
-  | otherwise = do
-      xs' <- align Vec3 xs
-      pure $ fmap ((\x -> exprExprToVec4 x alpha) . hsvrgb) xs' 
-
--- red green or blue outputs: each channel becomes an RGBA value with the appropriate colour, and default alpha
-generateOutputRed :: GLSLExpr -> ([GLSLExpr],[Output]) -> GLSL [GLSLExpr]
-generateOutputRed alpha (xs,os)
-  | not (elem Red os) = pure []
-  | otherwise = do
-      xs' <- align GLFloat xs
-      pure $ fmap (\x -> exprExprExprExprToVec4 x 0 0 alpha) xs'
-
-generateOutputGreen :: GLSLExpr -> ([GLSLExpr],[Output]) -> GLSL [GLSLExpr]
-generateOutputGreen alpha (xs,os)
-  | not (elem Green os) = pure []
-  | otherwise = do
-      xs' <- align GLFloat xs
-      pure $ fmap (\x -> exprExprExprExprToVec4 0 x 0 alpha) xs'
-
-generateOutputBlue :: GLSLExpr -> ([GLSLExpr],[Output]) -> GLSL [GLSLExpr]
-generateOutputBlue alpha (xs,os)
-  | not (elem Blue os) = pure []
-  | otherwise = do
-      xs' <- align GLFloat xs
-      pure $ fmap (\x -> exprExprExprExprToVec4 0 0 x alpha) xs'
-      
+generateRGBA :: [(GLSLExpr,[Output])] -> GLSL GLSLExpr
+generateRGBA xs = do
+  let xs' = fmap fst $ Prelude.filter (elem RGBA . snd) xs
+  case xs' of
+    [] -> return $ GLSLExpr Vec4 False "vec4(0.)"
+    (x:[]) -> return x
+    _ -> foldM blend (head xs') (tail xs') >>= assign
 
 fragmentShader :: Tempo -> Map TextureRef Int -> Program -> Program -> Text
 fragmentShader _ _ _ newProgram | isJust (directGLSL newProgram) = toText header <> fromJust (directGLSL newProgram)
@@ -883,3 +838,4 @@ combineQuaternary PairWise f vs ws xs ys = zipWith4 f vs' ws' xs' ys'
     ys' = Prelude.take n (cycle ys)
     
     
+
