@@ -13,27 +13,34 @@ import Data.Tempo (Tempo, newTempo)
 import Data.Map (Map, empty, lookup, insert)
 
 import WebGLCanvas (WebGLCanvas, WebGLContext, WebGLTexture)
+import AudioAnalyser (WebAudioContext,defaultWebAudioContext)
 
 type SharedResources = {
   tempo :: Ref Tempo,
   mWebcamElementRef :: Ref (Maybe WebcamElement),
   images :: Ref (Map String Image),
-  videos :: Ref (Map String Video)
+  videos :: Ref (Map String Video),
+  webAudioContext :: WebAudioContext
   }
   
 
-newSharedResources :: Effect SharedResources
-newSharedResources = do
+newSharedResources :: Maybe WebAudioContext -> Effect SharedResources
+newSharedResources mWebAudioContext = do
   tempo <- newTempo (1 % 1) >>= new
   mWebcamElementRef <- new Nothing
   images <- new empty
   videos <- new empty
+  webAudioContext <- case mWebAudioContext of
+                       Nothing -> defaultWebAudioContext
+                       Just x -> pure x
   pure {
     tempo,
     mWebcamElementRef,
     images,
-    videos
-  }
+    videos,
+    webAudioContext
+    }
+
 
 -- Tempo
 
@@ -123,4 +130,6 @@ getVideo sr url = do
 foreign import _newVideo :: String -> Effect Video
 
 foreign import _videoIsPlaying :: Video -> Effect Boolean
+
+
 

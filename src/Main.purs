@@ -31,7 +31,7 @@ type Punctual = {
 
 launch :: Effect Punctual
 launch = do
-  sharedResources <- SharedResources.newSharedResources
+  sharedResources <- SharedResources.newSharedResources Nothing
   programs <- new empty
   previousPrograms <- new empty
   webGLs <- new empty

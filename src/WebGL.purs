@@ -1,6 +1,6 @@
 module WebGL where
 
-import Prelude ((<$>),bind,discard,pure,Unit,($),(<>),show,(-),unit,(+))
+import Prelude ((<$>),bind,discard,pure,Unit,($),(<>),show,(-),unit,(+),(>>=))
 import Effect (Effect)
 import Effect.Console (log)
 import Effect.Ref (Ref, new, write, read)
@@ -122,6 +122,7 @@ drawWebGL webGL now = do
   let glc = webGL.glc
   shader <- read webGL.shader
   useProgram glc shader
+  
   -- update time/tempo/resolution uniforms
   w <- getCanvasWidth webGL.glc
   h <- getCanvasHeight webGL.glc
@@ -132,18 +133,29 @@ drawWebGL webGL now = do
   setUniform1f glc shader "_etime" $ unwrap (diff now eTime :: Seconds)
   setUniform1f glc shader "_beat" $ toNumber $ timeToCount tempo now
   setUniform1f glc shader "_ebeat" $ toNumber $ timeToCount tempo now - timeToCount tempo eTime
-  -- update audio analysis uniforms (TODO)
+  
+  -- update audio analysis uniforms
+  {- read webGL.sharedResources.ilo >>= setUniform1f glc shader "ilo" 
+  read webGL.sharedResources.imid >>= setUniform1f glc shader "imid" 
+  read webGL.sharedResources.ihi >>= setUniform1f glc shader "ihi" 
+  read webGL.sharedResources.lo >>= setUniform1f glc shader "lo" 
+  read webGL.sharedResources.mid >>= setUniform1f glc shader "mid" 
+  read webGL.sharedResources.hi >>= setUniform1f glc shader "hi"  -}
+  
   -- update special textures (webcam, fft TODO, ifft TODO, feedback)
   ft <- getFeedbackTexture glc
   bindTexture glc shader ft 0 "f"
   updateWebcamTexture webGL.sharedResources glc
   bindTexture glc shader glc.webcamTexture 3 "w"
+  
   -- update image textures
   imgMap <- read webGL.imageTextureSlots
   _ <- traverseWithIndex (bindImageTexture webGL shader) imgMap  
+  
   -- update video textures
   vidMap <- read webGL.videoTextureSlots
   _ <- traverseWithIndex (bindVideoTexture webGL shader) vidMap
+  
   -- draw
   pLoc <- getAttribLocation glc shader "p"
   bindBufferArray glc webGL.triangleStripBuffer
