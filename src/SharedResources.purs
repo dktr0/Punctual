@@ -13,14 +13,17 @@ import Data.Tempo (Tempo, newTempo)
 import Data.Map (Map, empty, lookup, insert)
 
 import WebGLCanvas (WebGLCanvas, WebGLContext, WebGLTexture)
-import AudioAnalyser (WebAudioContext,defaultWebAudioContext)
+import AudioAnalyser (WebAudioContext,defaultWebAudioContext,WebAudioNode,gainNode,AudioAnalyser,newInputAnalyser,newOutputAnalyser)
 
 type SharedResources = {
   tempo :: Ref Tempo,
   mWebcamElementRef :: Ref (Maybe WebcamElement),
   images :: Ref (Map String Image),
   videos :: Ref (Map String Video),
-  webAudioContext :: WebAudioContext
+  webAudioContext :: WebAudioContext,
+  audioOutputNode :: WebAudioNode,
+  inputAnalyser :: AudioAnalyser,
+  outputAnalyser :: AudioAnalyser
   }
   
 
@@ -33,12 +36,18 @@ newSharedResources mWebAudioContext = do
   webAudioContext <- case mWebAudioContext of
                        Nothing -> defaultWebAudioContext
                        Just x -> pure x
+  audioOutputNode <- gainNode webAudioContext 1.0
+  inputAnalyser <- newInputAnalyser webAudioContext
+  outputAnalyser <- newOutputAnalyser webAudioContext audioOutputNode
   pure {
     tempo,
     mWebcamElementRef,
     images,
     videos,
-    webAudioContext
+    webAudioContext,
+    audioOutputNode,
+    inputAnalyser,
+    outputAnalyser
     }
 
 

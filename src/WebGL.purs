@@ -1,6 +1,6 @@
 module WebGL where
 
-import Prelude ((<$>),bind,discard,pure,Unit,($),(<>),show,(-),unit,(+),(>>=))
+import Prelude ((<$>),bind,discard,pure,Unit,($),(<>),show,(-),unit,(+))
 import Effect (Effect)
 import Effect.Console (log)
 import Effect.Ref (Ref, new, write, read)
@@ -21,7 +21,7 @@ import Data.Int as Int
 
 import Program (Program,programInfo)
 import FragmentShader (fragmentShader)
-import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLProgram, attachShader, bindBufferArray, clearColor, clearColorBuffer, compileShader, createFragmentShader, createProgram, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, enableVertexAttribArray, flush, getAttribLocation, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport, WebGLTexture, activeTexture,bindTexture2D,setUniform1i,createTexture,WebGLContext, bindTexture, getFeedbackTexture, getOutputFrameBuffer, bindFrameBuffer, drawPostProgram, getCanvasWidth, getCanvasHeight, configureFrameBufferTextures)
+import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLContext, WebGLProgram, WebGLTexture, attachShader, bindBufferArray, bindFrameBuffer, bindTexture, compileShader, configureFrameBufferTextures, createFragmentShader, createProgram, createTexture, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, drawPostProgram, enableVertexAttribArray, flush, getAttribLocation, getCanvasHeight, getCanvasWidth, getFeedbackTexture, getOutputFrameBuffer, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport)
 import SharedResources (SharedResources,getTempo,getImage,updateWebcamTexture,Image,Video,getVideo)
 
 type WebGL = {

@@ -14,15 +14,25 @@ type AudioAnalyser = {
   webAudioContext :: WebAudioContext,
   defaultSource :: Effect WebAudioNode,
   intendedSource :: Ref (Effect WebAudioNode),
-  analyserArray :: AnalyserArray,
   sourceAndAnalyser :: Ref (Maybe (Tuple WebAudioNode WebAudioNode)),
+  analyserArray :: AnalyserArray,
   lo :: Ref Number,
   mid :: Ref Number,
   hi :: Ref Number
   }
   
-newAnalyser :: WebAudioContext -> Effect WebAudioNode -> Effect AudioAnalyser
-newAnalyser webAudioContext defaultSource = do
+newInputAnalyser :: WebAudioContext -> Effect AudioAnalyser
+newInputAnalyser webAudioContext = do
+  let x = _defaultAudioInputNode webAudioContext
+  _newAnalyser webAudioContext x
+  
+newOutputAnalyser :: WebAudioContext -> WebAudioNode -> Effect AudioAnalyser
+newOutputAnalyser webAudioContext defaultOutput = do
+  let x = pure defaultOutput
+  _newAnalyser webAudioContext x
+  
+_newAnalyser :: WebAudioContext -> Effect WebAudioNode -> Effect AudioAnalyser
+_newAnalyser webAudioContext defaultSource = do
   intendedSource <- new defaultSource
   analyserArray <- _analyserArray 512
   sourceAndAnalyser <- new Nothing
@@ -33,8 +43,8 @@ newAnalyser webAudioContext defaultSource = do
     webAudioContext,
     defaultSource,
     intendedSource,
-    analyserArray,
     sourceAndAnalyser,
+    analyserArray,
     lo,
     mid,
     hi
@@ -54,77 +64,45 @@ setAnalysisSource a mEffectNode = do
       newSource <- effectNode
       _connect newSource analyser
     
-setAnalysisActive :: AudioAnalyser -> Boolean -> Effect Unit
-setAnalysisActive a false = do
+_disactivateAnalysis :: AudioAnalyser -> Effect Unit
+_disactivateAnalysis a = do
   mSourceAndAnalyser <- read a.sourceAndAnalyser
   case mSourceAndAnalyser of
     Nothing -> pure unit  -- analysis is not currently active, so nothing more to do
     Just (Tuple source analyser)-> do -- disactivate
       _disconnect source analyser
       write Nothing a.sourceAndAnalyser
-setAnalysisActive a true = do
+      
+_activateAnalysis :: AudioAnalyser -> Effect WebAudioNode -- WebAudioNode is current AnalyserNode
+_activateAnalysis a = do
   mSourceAndAnalyser <- read a.sourceAndAnalyser
   case mSourceAndAnalyser of
-    Just _ -> pure unit -- analysis is already active, so nothing more to do
+    Just (Tuple _ analyserNode) -> pure analyserNode -- analysis is already active, so nothing more to do
     Nothing -> do -- analysis is not active, so need to make new source and analyser nodes
       intendedSource' <- read a.intendedSource
       sourceNode <- intendedSource'
       analyserNode <- _analyserNode a.webAudioContext 1024 0.5
       _connect sourceNode analyserNode
       write (Just $ Tuple sourceNode analyserNode) a.sourceAndAnalyser
-         
+      pure analyserNode
       
-    {-
-updateAudioAnalysis :: SharedResources -> forall r. { ifft :: Boolean, ilo :: Boolean, imid :: Boolean, ihi :: Boolean, fft :: Boolean, lo :: Boolean, mid :: Boolean, hi :: Boolean | r } -> Effect Unit
-updateAudioAnalysis sr needs = do
-  case (needs.ifft || needs.ilo || needs.imid || needs.ihi) of
-    false -> do
-      mConnected <- read sr.audioAnalysisNodeInputConnected
-      case mConnected of
-        Nothing -> pure unit
-        Just n -> do
-          _disconnectNodes n sr.audioInputAnalyser
-          write Nothing sr.audioAnalysisNodeInputConnected    
-    true -> do
-      mAudioAnalysisNodeInput <- read sr.audioAnalysisNodeInput
-      case mAudioAnalysisNodeInput of
-        Nothing -> ...connect to microphone...
-        Just audioAnalysisNodeInput -> _connectNodes audioAnalysisNodeInput sr.audioInputAnalyser
-      _getByteFrequencyData sr.audioInputAnalyser sr.audioInputAnalysisArray    
+updateAnalyser :: AudioAnalyser -> forall r. { fft :: Boolean, lo :: Boolean, mid :: Boolean, hi :: Boolean | r } -> Effect Unit
+updateAnalyser a needs = do
   case (needs.fft || needs.lo || needs.mid || needs.hi) of
-    false -> do
-      mConnected <- read sr.audioAnalysisNodeOutputConnected
-      case mConnected of
-        Nothing -> pure unit
-        Just n -> do
-          _disconnectNodes n sr.audioOutputAnalyser
-          write Nothing sr.audioAnalysisNodeOutputConnected    
+    false -> _disactivateAnalysis a
     true -> do
-      mAudioAnalysisNodeOutput <- read sr.audioAnalysisNodeOutput
-      case mAudioAnalysisNodeOutput of
-        Nothing -> ...connect to ?
-        Just audioAnalysisNodeOutput -> _connectNodes audioAnalysisNodeInput sr.audioInputAnalyser
-     _getByteFrequencyData sr.audioOutputAnalyser sr.audioOutputAnalysisArray
-     
-  when needs.ilo $ do
-    x <- _getLo sr.audioInputAnalysisArray
-    write x sr.ilo 
-  when needs.imid $ do
-    x <- _getMid sr.audioInputAnalysisArray
-    write x sr.imid
-  when needs.ihi $ do
-    x <- _getHi sr.audioInputAnalysisArray
-    write x sr.ihi
-  when needs.lo $ do
-    x <- _getLo sr.audioOutputAnalysisArray
-    write x sr.lo 
-  when needs.mid $ do
-    x <- _getMid sr.audioOutputAnalysisArray
-    write x sr.mid
-  when needs.hi $ do
-    x <- _getHi sr.audioOutputAnalysisArray
-    write x sr.hi
--}
+      analyserNode <- _activateAnalysis a
+      _getByteFrequencyData analyserNode a.analyserArray
+      when needs.lo $ do
+        x <- _getLo a.analyserArray
+        write x a.lo
+      when needs.mid $ do
+        x <- _getMid a.analyserArray
+        write x a.mid
+      when needs.hi $ do
+        x <- _getHi a.analyserArray
+        write x a.hi
+        
 
 foreign import data WebAudioContext :: Type
 
@@ -134,7 +112,11 @@ foreign import data WebAudioNode :: Type
 
 foreign import _monoGainNode :: WebAudioContext -> Number -> Effect WebAudioNode
 
+foreign import gainNode :: WebAudioContext -> Number -> Effect WebAudioNode
+
 foreign import _analyserNode :: WebAudioContext -> Int -> Number -> Effect WebAudioNode
+
+foreign import _defaultAudioInputNode :: WebAudioContext -> Effect WebAudioNode
 
 foreign import _connect :: WebAudioNode -> WebAudioNode -> Effect Unit
 

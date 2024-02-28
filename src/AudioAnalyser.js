@@ -4,7 +4,17 @@ export const defaultWebAudioContext = () => new AudioContext();
 
 export const _monoGainNode = ac => gain => () => new GainNode(ac,{ gain:gain, channelCount:1, channelCountMode:"explicit" });
 
+export const gainNode = ac => gain => () => new GainNode(ac,{ gain:gain });
+
 export const _analyserNode = ac => fftSize => smoothingTimeConstant => () => new AnalyserNode(ac,{ fftSize:fftSize, smoothingTimeConstant:smoothingTimeConstant });
+
+export const _defaultAudioInputNode = ac => () => {
+  var r = ac.createGain();
+  navigator.mediaDevices.getUserMedia({ audio: true, video: false}).then(function(stream) {
+    var x = new MediaStreamAudioSourceNode($1,{mediaStream: stream});
+    x.connect($r);
+  });
+  }
 
 export const _connect = src => dest => () => src.connect(dest);
 
