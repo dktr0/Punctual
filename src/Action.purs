@@ -10,7 +10,7 @@ import Data.List (List(..),(:))
 import Data.Newtype (unwrap)
 import Data.Foldable (any)
 
-import Signal (Signal,signalInfo,SignalInfo(..))
+import Signal (Signal)
 import DefTime (DefTime(..), calculateT1)
 import Transition (Transition(..), transitionToXfade)
 import Duration (Duration(..))
@@ -42,7 +42,4 @@ actionToTimes tempo eTime x = Tuple t1' t2'
 
 actionHasVisualOutput :: Action -> Boolean
 actionHasVisualOutput a = any (\x -> x == RGB || x == RGBA) a.outputs
-
-actionNeedsWebcam :: Action -> Boolean
-actionNeedsWebcam a = (unwrap $ signalInfo a.signal).needsWebcam
 

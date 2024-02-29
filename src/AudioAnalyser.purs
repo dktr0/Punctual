@@ -1,14 +1,13 @@
 module AudioAnalyser where
 
-import Prelude (bind,discard,pure,Unit,unit,(>>=),($),when,(||))
-import Data.Rational ((%))
+import Prelude (Unit, bind, discard, pure, unit, when, ($), (<>))
 import Effect (Effect)
-import Effect.Console (log)
 import Effect.Ref (Ref,new,read,write)
+import Effect.Console (log)
 import Data.Maybe (Maybe(..))
-import Data.Tempo (Tempo, newTempo)
-import Data.Map (Map, empty, lookup, insert)
 import Data.Tuple (Tuple(..))
+import Data.Monoid.Disj (Disj)
+import Data.Newtype (unwrap)
 
 type AudioAnalyser = {
   webAudioContext :: WebAudioContext,
@@ -72,6 +71,7 @@ _disactivateAnalysis a = do
     Just (Tuple source analyser)-> do -- disactivate
       _disconnect source analyser
       write Nothing a.sourceAndAnalyser
+      log "punctual: disactivating an audio analyser..."
       
 _activateAnalysis :: AudioAnalyser -> Effect WebAudioNode -- WebAudioNode is current AnalyserNode
 _activateAnalysis a = do
@@ -84,22 +84,23 @@ _activateAnalysis a = do
       analyserNode <- _analyserNode a.webAudioContext 1024 0.5
       _connect sourceNode analyserNode
       write (Just $ Tuple sourceNode analyserNode) a.sourceAndAnalyser
+      log "punctual: activating an audio analyser..."
       pure analyserNode
       
-updateAnalyser :: AudioAnalyser -> forall r. { fft :: Boolean, lo :: Boolean, mid :: Boolean, hi :: Boolean | r } -> Effect Unit
+updateAnalyser :: AudioAnalyser -> forall r. { fft :: Disj Boolean, lo :: Disj Boolean, mid :: Disj Boolean, hi :: Disj Boolean | r } -> Effect Unit
 updateAnalyser a needs = do
-  case (needs.fft || needs.lo || needs.mid || needs.hi) of
+  case (unwrap $ needs.fft <> needs.lo <> needs.mid <> needs.hi) of
     false -> _disactivateAnalysis a
     true -> do
       analyserNode <- _activateAnalysis a
       _getByteFrequencyData analyserNode a.analyserArray
-      when needs.lo $ do
+      when (unwrap needs.lo) $ do
         x <- _getLo a.analyserArray
         write x a.lo
-      when needs.mid $ do
+      when (unwrap needs.mid) $ do
         x <- _getMid a.analyserArray
         write x a.mid
-      when needs.hi $ do
+      when (unwrap needs.hi) $ do
         x <- _getHi a.analyserArray
         write x a.hi
         

@@ -12,9 +12,10 @@ import Data.Map (Map, empty, lookup, insert, delete)
 import Effect.Ref (Ref, new, read, write)
 import Data.Maybe (Maybe(..))
 import Data.Tempo (ForeignTempo, fromForeignTempo)
-import Data.Foldable (any)
+import Data.Foldable (foldMap)
+import Data.Newtype (unwrap)
 
-import Program (Program,emptyProgram,programHasVisualOutput,programNeedsWebcam)
+import Program (Program,emptyProgram,programHasVisualOutput,programInfo)
 import Parser (parsePunctual)
 import WebGL (WebGL, newWebGL, updateWebGL, deleteWebGL, drawWebGL)
 import DateTime (numberToDateTime)
@@ -82,23 +83,24 @@ clear punctual args = do
   
 setTempo :: Punctual -> ForeignTempo -> Effect Unit
 setTempo punctual ft = do
-  log $ "setTempo: " <> show ft
+  -- log $ "setTempo: " <> show ft
   SharedResources.setTempo punctual.sharedResources (fromForeignTempo ft)
 
 
 preRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number } -> Effect Unit
 preRender punctual args = when args.canDraw do  
-  log $ "preRender: " <> show args
-  -- if any current or immediately preceding programs require the webcam, it should be active
-  programsNeedWebcam <- any programNeedsWebcam <$> read punctual.programs
-  previousProgramsNeedWebcam <- any programNeedsWebcam <$> read punctual.previousPrograms
-  SharedResources.setWebcamActive punctual.sharedResources (programsNeedWebcam || previousProgramsNeedWebcam)
-  -- TODO: here we would also update audio analysis, FFT, etc values as necessary
+  -- log $ "preRender: " <> show args
+  -- TODO: really this calculation should be done during define, with results cached
+  programsInfo <- foldMap programInfo <$> read punctual.programs
+  previousProgramsInfo <- foldMap programInfo <$> read punctual.programs
+  let combinedInfo = programsInfo <> previousProgramsInfo
+  SharedResources.setWebcamActive punctual.sharedResources $ unwrap combinedInfo.webcam
+  SharedResources.updateAudioAnalysers punctual.sharedResources combinedInfo
 
 
 render :: Punctual -> { zone :: Int, canDraw :: Boolean, nowTime :: Number } -> Effect Unit -- later will be Effect (Array Foreign)
 render punctual args = do
-  log $ "render: " <> show args
+  -- log $ "render: " <> show args
   case args.canDraw of 
     false -> pure unit
     true -> do
@@ -109,7 +111,7 @@ render punctual args = do
         
         
 postRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number } -> Effect Unit
-postRender _ args = log $ "postRender: " <> show args
+postRender _ args = pure unit -- log $ "postRender: " <> show args
 
 
 

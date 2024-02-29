@@ -105,9 +105,9 @@ calculateTextureSlots oldProg newProg = Tuple (fromFoldable $ zip imgURLs imgSlo
   where
     oldProgInfo = programInfo oldProg
     newProgInfo = programInfo newProg
-    imgURLs = (toUnfoldable $ (unwrap oldProgInfo).imgURLs <> (unwrap newProgInfo).imgURLs) :: List String
+    imgURLs = (toUnfoldable $ oldProgInfo.imgURLs <> newProgInfo.imgURLs) :: List String
     imgSlots = range 4 15
-    vidURLs = (toUnfoldable $ (unwrap oldProgInfo).vidURLs <> (unwrap newProgInfo).vidURLs) :: List String
+    vidURLs = (toUnfoldable $ oldProgInfo.vidURLs <> newProgInfo.vidURLs) :: List String
     vidSlots = range (4 + length imgURLs) 15 
      
   

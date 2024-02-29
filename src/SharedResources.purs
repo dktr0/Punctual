@@ -11,9 +11,10 @@ import Effect.Ref (Ref,new,read,write)
 import Data.Maybe (Maybe(..))
 import Data.Tempo (Tempo, newTempo)
 import Data.Map (Map, empty, lookup, insert)
+import Data.Monoid.Disj (Disj)
 
 import WebGLCanvas (WebGLCanvas, WebGLContext, WebGLTexture)
-import AudioAnalyser (WebAudioContext,defaultWebAudioContext,WebAudioNode,gainNode,AudioAnalyser,newInputAnalyser,newOutputAnalyser)
+import AudioAnalyser (WebAudioContext,defaultWebAudioContext,WebAudioNode,gainNode,AudioAnalyser,newInputAnalyser,newOutputAnalyser,updateAnalyser)
 
 type SharedResources = {
   tempo :: Ref Tempo,
@@ -49,6 +50,11 @@ newSharedResources mWebAudioContext = do
     inputAnalyser,
     outputAnalyser
     }
+
+updateAudioAnalysers :: SharedResources -> forall r. { ifft::Disj Boolean, ilo::Disj Boolean, imid::Disj Boolean, ihi::Disj Boolean, fft::Disj Boolean, lo::Disj Boolean, mid::Disj Boolean, hi::Disj Boolean | r } -> Effect Unit
+updateAudioAnalysers sr needs = do
+  updateAnalyser sr.inputAnalyser { fft: needs.ifft, lo: needs.ilo, mid: needs.imid, hi: needs.ihi }
+  updateAnalyser sr.outputAnalyser needs
 
 
 -- Tempo

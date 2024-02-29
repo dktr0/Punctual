@@ -1,12 +1,12 @@
 module Signal where
 
-import Prelude (class Eq,class Show,($),negate,class Semigroup,class Monoid,(<>),(||),mempty)
-import Data.Newtype (class Newtype)
+import Prelude (class Eq, class Show, mempty, negate, ($), (<>))
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.List (List(..),(:))
 import Data.Foldable (foldMap)
 import Data.Set (Set,singleton)
+import Data.Monoid.Disj (Disj)
 
 import MultiMode
 
@@ -145,15 +145,21 @@ fit ar x = Mix Pairwise ifFalse ifTrue cond
     ifFalse = Zoom (SignalList $ Constant 1.0 : Division Pairwise Aspect ar : Nil) x
 
 
-newtype SignalInfo = SignalInfo {
-  needsWebcam :: Boolean,
-  needsAudioInputAnalysis :: Boolean,
-  needsAudioOutputAnalysis :: Boolean,
+type SignalInfo = {
+  webcam :: Disj Boolean,
+  fft :: Disj Boolean,
+  lo :: Disj Boolean,
+  mid :: Disj Boolean,
+  hi :: Disj Boolean,
+  ifft :: Disj Boolean,
+  ilo :: Disj Boolean,
+  imid :: Disj Boolean,
+  ihi :: Disj Boolean,
   imgURLs :: Set String,
   vidURLs :: Set String
   }
 
-derive instance Eq SignalInfo
+{- derive instance Eq SignalInfo
 derive instance Generic SignalInfo _
 derive instance Newtype SignalInfo _
 instance Show SignalInfo where
@@ -161,7 +167,7 @@ instance Show SignalInfo where
 
 instance Semigroup SignalInfo where
   append (SignalInfo x) (SignalInfo y) = SignalInfo {
-    needsWebcam: x.needsWebcam || y.needsWebcam,
+    webcam: x.webcam || y.webcam,
     needsAudioInputAnalysis: x.needsAudioInputAnalysis || y.needsAudioInputAnalysis,
     needsAudioOutputAnalysis: x.needsAudioOutputAnalysis || y.needsAudioOutputAnalysis,
     imgURLs: x.imgURLs <> y.imgURLs,
@@ -170,25 +176,32 @@ instance Semigroup SignalInfo where
 
 instance Monoid SignalInfo where
   mempty = SignalInfo {
-    needsWebcam: false,
-    needsAudioInputAnalysis: false,
-    needsAudioOutputAnalysis: false,
+    webcam: false,
+    fft: false,
+    lo: false,
+    mid: false,
+    hi: false,
+    ifft: false,
+    ilo: false,
+    imid: false,
+    ihi: false,
     imgURLs: mempty,
     vidURLs: mempty
     }
+-}
 
 signalInfo :: Signal -> SignalInfo
-signalInfo Cam = SignalInfo { needsWebcam: true, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: mempty }
-signalInfo ILo = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: true, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: mempty }
-signalInfo IMid = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: true, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: mempty }
-signalInfo IHi = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: true, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: mempty }
-signalInfo (IFFT x) = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: true, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: mempty } <> signalInfo x
-signalInfo Lo = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: true, imgURLs: mempty, vidURLs: mempty }
-signalInfo Mid = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: true, imgURLs: mempty, vidURLs: mempty }
-signalInfo Hi = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: true, imgURLs: mempty, vidURLs: mempty }
-signalInfo (FFT x) = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: true, imgURLs: mempty, vidURLs: mempty } <> signalInfo x
-signalInfo (Img x) = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: false, imgURLs: singleton x, vidURLs: mempty }
-signalInfo (Vid x) = SignalInfo { needsWebcam: false, needsAudioInputAnalysis: false, needsAudioOutputAnalysis: false, imgURLs: mempty, vidURLs: singleton x }
+signalInfo Cam = mempty { webcam: true }
+signalInfo ILo = mempty { ilo: true }
+signalInfo IMid = mempty { imid: true }
+signalInfo IHi = mempty { ihi: true }
+signalInfo (IFFT x) = mempty { ifft: true } <> signalInfo x
+signalInfo Lo = mempty { lo: true }
+signalInfo Mid = mempty { mid: true }
+signalInfo Hi = mempty { hi: true }
+signalInfo (FFT x) = mempty { fft: true } <> signalInfo x
+signalInfo (Img x) = mempty { imgURLs: singleton x }
+signalInfo (Vid x) = mempty { vidURLs: singleton x }
 signalInfo x = foldMap signalInfo $ subSignals x
 
 -- given a Signal return the list of the component Signals it is dependent on
