@@ -1,6 +1,6 @@
 module AudioAnalyser where
 
-import Prelude (Unit, bind, discard, pure, unit, when, ($), (<>))
+import Prelude (Unit, bind, discard, pure, unit, when, ($), (<>), show)
 import Effect (Effect)
 import Effect.Ref (Ref,new,read,write)
 import Effect.Console (log)
@@ -92,6 +92,7 @@ updateAnalyser a needs = do
   case (unwrap $ needs.fft <> needs.lo <> needs.mid <> needs.hi) of
     false -> _disactivateAnalysis a
     true -> do
+      resumeWebAudioContext a.webAudioContext
       analyserNode <- _activateAnalysis a
       _getByteFrequencyData analyserNode a.analyserArray
       when (unwrap needs.lo) $ do
@@ -109,9 +110,11 @@ foreign import data WebAudioContext :: Type
 
 foreign import defaultWebAudioContext :: Effect WebAudioContext
 
+foreign import resumeWebAudioContext :: WebAudioContext -> Effect Unit
+
 foreign import data WebAudioNode :: Type
 
-foreign import _monoGainNode :: WebAudioContext -> Number -> Effect WebAudioNode
+-- foreign import _monoGainNode :: WebAudioContext -> Number -> Effect WebAudioNode
 
 foreign import gainNode :: WebAudioContext -> Number -> Effect WebAudioNode
 

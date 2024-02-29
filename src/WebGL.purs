@@ -1,6 +1,6 @@
 module WebGL where
 
-import Prelude ((<$>),bind,discard,pure,Unit,($),(<>),show,(-),unit,(+))
+import Prelude ((<$>),bind,discard,pure,Unit,($),(<>),show,(-),unit,(+),(>>=))
 import Effect (Effect)
 import Effect.Console (log)
 import Effect.Ref (Ref, new, write, read)
@@ -135,12 +135,12 @@ drawWebGL webGL now = do
   setUniform1f glc shader "_ebeat" $ toNumber $ timeToCount tempo now - timeToCount tempo eTime
   
   -- update audio analysis uniforms
-  {- read webGL.sharedResources.ilo >>= setUniform1f glc shader "ilo" 
-  read webGL.sharedResources.imid >>= setUniform1f glc shader "imid" 
-  read webGL.sharedResources.ihi >>= setUniform1f glc shader "ihi" 
-  read webGL.sharedResources.lo >>= setUniform1f glc shader "lo" 
-  read webGL.sharedResources.mid >>= setUniform1f glc shader "mid" 
-  read webGL.sharedResources.hi >>= setUniform1f glc shader "hi"  -}
+  read webGL.sharedResources.inputAnalyser.lo >>= setUniform1f glc shader "ilo" 
+  read webGL.sharedResources.inputAnalyser.mid >>= setUniform1f glc shader "imid" 
+  read webGL.sharedResources.inputAnalyser.hi >>= setUniform1f glc shader "ihi" 
+  read webGL.sharedResources.outputAnalyser.lo >>= setUniform1f glc shader "lo" 
+  read webGL.sharedResources.outputAnalyser.mid >>= setUniform1f glc shader "mid" 
+  read webGL.sharedResources.outputAnalyser.hi >>= setUniform1f glc shader "hi"
   
   -- update special textures (webcam, fft TODO, ifft TODO, feedback)
   ft <- getFeedbackTexture glc

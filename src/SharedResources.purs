@@ -50,7 +50,7 @@ newSharedResources mWebAudioContext = do
     inputAnalyser,
     outputAnalyser
     }
-
+    
 updateAudioAnalysers :: SharedResources -> forall r. { ifft::Disj Boolean, ilo::Disj Boolean, imid::Disj Boolean, ihi::Disj Boolean, fft::Disj Boolean, lo::Disj Boolean, mid::Disj Boolean, hi::Disj Boolean | r } -> Effect Unit
 updateAudioAnalysers sr needs = do
   updateAnalyser sr.inputAnalyser { fft: needs.ifft, lo: needs.ilo, mid: needs.imid, hi: needs.ihi }

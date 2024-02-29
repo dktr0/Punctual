@@ -12,9 +12,10 @@ import Data.Map (Map, empty, lookup, insert, delete)
 import Effect.Ref (Ref, new, read, write)
 import Data.Maybe (Maybe(..))
 import Data.Tempo (ForeignTempo, fromForeignTempo)
-import Data.Foldable (foldMap)
+import Data.Foldable (fold)
 import Data.Newtype (unwrap)
 
+import Signal (SignalInfo,emptySignalInfo)
 import Program (Program,emptyProgram,programHasVisualOutput,programInfo)
 import Parser (parsePunctual)
 import WebGL (WebGL, newWebGL, updateWebGL, deleteWebGL, drawWebGL)
@@ -26,6 +27,9 @@ type Punctual = {
   sharedResources :: SharedResources,
   programs :: Ref (Map Int Program),
   previousPrograms :: Ref (Map Int Program),
+  programInfos :: Ref (Map Int SignalInfo),
+  previousProgramInfos :: Ref (Map Int SignalInfo),
+  combinedProgramInfo :: Ref SignalInfo,
   webGLs :: Ref (Map Int WebGL)
   }
 
@@ -35,9 +39,12 @@ launch = do
   sharedResources <- SharedResources.newSharedResources Nothing
   programs <- new empty
   previousPrograms <- new empty
+  programInfos <- new empty
+  previousProgramInfos <- new empty
+  combinedProgramInfo <- new emptySignalInfo
   webGLs <- new empty
   log "punctual 0.5 initialization complete"
-  pure { sharedResources, programs, previousPrograms, webGLs }
+  pure { sharedResources, programs, previousPrograms, programInfos, previousProgramInfos, combinedProgramInfo, webGLs }
 
 
 define :: Punctual -> { zone :: Int, time :: Number, text :: String } -> Effect { success :: Boolean, info :: String, error :: String }
@@ -51,49 +58,76 @@ define punctual args = do
     Left err -> do
       log $ "error: " <> show err
       pure { success: false, info: "", error: show err }
-    Right newProgram -> do
-      -- update record of current and previous programs for this zone
-      programs <- read punctual.programs
-      previousProgram <-
-        case lookup args.zone programs of
-          Just x -> pure x
-          Nothing -> emptyProgram
-      previousPrograms <- read punctual.previousPrograms
-      write (insert args.zone previousProgram previousPrograms) punctual.previousPrograms
-      write (insert args.zone newProgram programs) punctual.programs
-      -- update visual rendering system
-      info <- case programHasVisualOutput newProgram of 
-        true -> updateWebGLForZone punctual args.zone newProgram previousProgram
-        false -> do
-          deleteWebGLForZone punctual args.zone
-          pure ""
-      -- TODO: audio rendering system
-      pure { success: true, info, error: "" }
-        
+    Right newProgram -> _newProgramInZone punctual args.zone newProgram
+      
+_newProgramInZone :: Punctual -> Int -> Program -> Effect { success :: Boolean, info :: String, error :: String }
+_newProgramInZone punctual zone newProgram = do
+  programs <- read punctual.programs
+  previousPrograms <- read punctual.previousPrograms
+  programInfos <- read punctual.programInfos
+  previousProgramInfos <- read punctual.previousProgramInfos
+  previousProgram <-
+    case lookup zone programs of
+      Just x -> pure x
+      Nothing -> emptyProgram
+  previousProgramInfo <-
+    case lookup zone programInfos of
+      Just x -> pure x
+      Nothing -> pure emptySignalInfo
+  let newPrograms = insert zone newProgram programs
+  let newPreviousPrograms = insert zone previousProgram previousPrograms
+  let newProgramInfos = insert zone (programInfo newProgram) programInfos
+  let newPreviousProgramInfos = insert zone previousProgramInfo previousProgramInfos
+  write newPrograms punctual.programs
+  write newPreviousPrograms punctual.previousPrograms
+  write newProgramInfos punctual.programInfos
+  write newPreviousProgramInfos punctual.previousProgramInfos
+  _updateCombinedProgramInfo punctual
+  -- update visual rendering system
+  info <- case programHasVisualOutput newProgram of 
+    true -> updateWebGLForZone punctual zone newProgram previousProgram
+    false -> do
+      deleteWebGLForZone punctual zone
+      pure ""
+  -- TODO: update audio rendering system
+  pure { success: true, info, error: "" }
+      
+_updateCombinedProgramInfo :: Punctual -> Effect Unit
+_updateCombinedProgramInfo punctual = do
+  programsInfo <- fold <$> read punctual.programInfos
+  previousProgramsInfo <- fold <$> read punctual.previousProgramInfos
+  let combinedInfo = programsInfo <> previousProgramsInfo
+  log $ "_updateCombinedProgramInfo: " <> show combinedInfo
+  write combinedInfo punctual.combinedProgramInfo
         
 clear :: Punctual -> { zone :: Int } -> Effect Unit
 clear punctual args = do
-  log $ "clear: " <> show args
   programs <- read punctual.programs
-  write (delete args.zone programs) punctual.programs
   previousPrograms <- read punctual.previousPrograms
-  write (delete args.zone previousPrograms) punctual.previousPrograms
+  programInfos <- read punctual.programInfos
+  previousProgramInfos <- read punctual.previousProgramInfos
+  let newPrograms = delete args.zone programs
+  let newPreviousPrograms = delete args.zone previousPrograms
+  let newProgramInfos = delete args.zone programInfos
+  let newPreviousProgramInfos = delete args.zone previousProgramInfos
+  write newPrograms punctual.programs
+  write newPreviousPrograms punctual.previousPrograms
+  write newProgramInfos punctual.programInfos
+  write newPreviousProgramInfos punctual.previousProgramInfos
+  _updateCombinedProgramInfo punctual
   deleteWebGLForZone punctual args.zone
   
   
 setTempo :: Punctual -> ForeignTempo -> Effect Unit
-setTempo punctual ft = do
-  -- log $ "setTempo: " <> show ft
-  SharedResources.setTempo punctual.sharedResources (fromForeignTempo ft)
+setTempo punctual ft = SharedResources.setTempo punctual.sharedResources (fromForeignTempo ft)
 
 
 preRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number } -> Effect Unit
-preRender punctual args = when args.canDraw do  
-  -- log $ "preRender: " <> show args
-  -- TODO: really this calculation should be done during define, with results cached
-  programsInfo <- foldMap programInfo <$> read punctual.programs
-  previousProgramsInfo <- foldMap programInfo <$> read punctual.programs
-  let combinedInfo = programsInfo <> previousProgramsInfo
+preRender punctual args = when args.canDraw $ _updateSharedResources punctual
+
+_updateSharedResources :: Punctual -> Effect Unit
+_updateSharedResources punctual = do
+  combinedInfo <- read punctual.combinedProgramInfo
   SharedResources.setWebcamActive punctual.sharedResources $ unwrap combinedInfo.webcam
   SharedResources.updateAudioAnalysers punctual.sharedResources combinedInfo
 
@@ -111,7 +145,7 @@ render punctual args = do
         
         
 postRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number } -> Effect Unit
-postRender _ args = pure unit -- log $ "postRender: " <> show args
+postRender _ _ = pure unit -- log $ "postRender: " <> show args
 
 
 

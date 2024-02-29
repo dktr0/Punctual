@@ -1,6 +1,6 @@
 module Signal where
 
-import Prelude (class Eq, class Show, mempty, negate, ($), (<>))
+import Prelude (class Eq, class Show, mempty, negate, ($), (<>), pure)
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.List (List(..),(:))
@@ -159,49 +159,33 @@ type SignalInfo = {
   vidURLs :: Set String
   }
 
-{- derive instance Eq SignalInfo
-derive instance Generic SignalInfo _
-derive instance Newtype SignalInfo _
-instance Show SignalInfo where
-  show = genericShow
-
-instance Semigroup SignalInfo where
-  append (SignalInfo x) (SignalInfo y) = SignalInfo {
-    webcam: x.webcam || y.webcam,
-    needsAudioInputAnalysis: x.needsAudioInputAnalysis || y.needsAudioInputAnalysis,
-    needsAudioOutputAnalysis: x.needsAudioOutputAnalysis || y.needsAudioOutputAnalysis,
-    imgURLs: x.imgURLs <> y.imgURLs,
-    vidURLs: x.vidURLs <> y.vidURLs
-    }
-
-instance Monoid SignalInfo where
-  mempty = SignalInfo {
-    webcam: false,
-    fft: false,
-    lo: false,
-    mid: false,
-    hi: false,
-    ifft: false,
-    ilo: false,
-    imid: false,
-    ihi: false,
-    imgURLs: mempty,
-    vidURLs: mempty
-    }
--}
+emptySignalInfo :: SignalInfo
+emptySignalInfo = {
+  webcam: pure false,
+  fft: pure false,
+  lo: pure false,
+  mid: pure false,
+  hi: pure false,
+  ifft: pure false,
+  ilo: pure false,
+  imid: pure false,
+  ihi: pure false,
+  imgURLs: mempty,
+  vidURLs: mempty
+  }
 
 signalInfo :: Signal -> SignalInfo
-signalInfo Cam = mempty { webcam: true }
-signalInfo ILo = mempty { ilo: true }
-signalInfo IMid = mempty { imid: true }
-signalInfo IHi = mempty { ihi: true }
-signalInfo (IFFT x) = mempty { ifft: true } <> signalInfo x
-signalInfo Lo = mempty { lo: true }
-signalInfo Mid = mempty { mid: true }
-signalInfo Hi = mempty { hi: true }
-signalInfo (FFT x) = mempty { fft: true } <> signalInfo x
-signalInfo (Img x) = mempty { imgURLs: singleton x }
-signalInfo (Vid x) = mempty { vidURLs: singleton x }
+signalInfo Cam = emptySignalInfo { webcam = pure true }
+signalInfo ILo = emptySignalInfo { ilo = pure true }
+signalInfo IMid = emptySignalInfo { imid = pure true }
+signalInfo IHi = emptySignalInfo { ihi = pure true }
+signalInfo (IFFT x) = emptySignalInfo { ifft = pure true } <> signalInfo x
+signalInfo Lo = emptySignalInfo { lo = pure true }
+signalInfo Mid = emptySignalInfo { mid = pure true }
+signalInfo Hi = emptySignalInfo { hi = pure true }
+signalInfo (FFT x) = emptySignalInfo { fft = pure true } <> signalInfo x
+signalInfo (Img x) = emptySignalInfo { imgURLs = singleton x }
+signalInfo (Vid x) = emptySignalInfo { vidURLs = singleton x }
 signalInfo x = foldMap signalInfo $ subSignals x
 
 -- given a Signal return the list of the component Signals it is dependent on
