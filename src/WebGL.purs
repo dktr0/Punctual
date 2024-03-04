@@ -1,6 +1,6 @@
 module WebGL where
 
-import Prelude ((<$>),bind,discard,pure,Unit,($),(<>),show,(-),unit,(+),(>>=))
+import Prelude ((<$>),bind,discard,pure,Unit,($),(<>),show,(-),unit,(+),(>>=),when,(==))
 import Effect (Effect)
 import Effect.Console (log)
 import Effect.Ref (Ref, new, write, read)
@@ -18,23 +18,29 @@ import Data.Set (toUnfoldable)
 import Data.Unfoldable1 (range)
 import Data.List (List,zip,length)
 import Data.Int as Int
+import Data.Monoid.Disj (Disj(..))
 
+import Signal (SignalInfo)
 import Program (Program,programInfo)
 import FragmentShader (fragmentShader)
 import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLContext, WebGLProgram, WebGLTexture, attachShader, bindBufferArray, bindFrameBuffer, bindTexture, compileShader, configureFrameBufferTextures, createFragmentShader, createProgram, createTexture, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, drawPostProgram, enableVertexAttribArray, flush, getAttribLocation, getCanvasHeight, getCanvasWidth, getFeedbackTexture, getOutputFrameBuffer, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport)
 import SharedResources (SharedResources,getTempo,getImage,updateWebcamTexture,Image,Video,getVideo)
+import AudioAnalyser (AnalyserArray)
 
 type WebGL = {
   sharedResources :: SharedResources,
   glc :: WebGLCanvas,
   triangleStripBuffer :: WebGLBuffer,
   program :: Ref Program,
+  programInfo :: Ref SignalInfo, -- note: combined info of past and current programs
   shaderSrc :: Ref String,
   shader :: Ref WebGLProgram,
   imageTextures :: Ref (Map String WebGLTexture),
   videoTextures :: Ref (Map String WebGLTexture),
   imageTextureSlots :: Ref (Map String Int),
-  videoTextureSlots :: Ref (Map String Int)
+  videoTextureSlots :: Ref (Map String Int),
+  fftTexture :: WebGLTexture,
+  ifftTexture :: WebGLTexture
   }  
 
 newWebGL :: SharedResources -> Program -> Program -> Effect (Maybe WebGL)
@@ -44,26 +50,33 @@ newWebGL sharedResources prog prevProg = do
     Just glc -> do
       triangleStripBuffer <- newDefaultTriangleStrip glc
       tempo <- getTempo sharedResources
-      let (Tuple imgMap vidMap) = calculateTextureSlots prevProg prog
+      let newProgInfo = programInfo prog <> programInfo prevProg
+      let (Tuple imgMap vidMap) = calculateTextureSlots newProgInfo
       Tuple shaderSrc' shader' <- updateFragmentShader glc tempo imgMap vidMap prevProg prog
       program <- new prog
+      programInfo <- new newProgInfo
       shaderSrc <- new shaderSrc'
       shader <- new shader'
       imageTextures <- new empty
       videoTextures <- new empty
       imageTextureSlots <- new imgMap
       videoTextureSlots <- new vidMap
+      fftTexture <- createTexture glc
+      ifftTexture <- createTexture glc
       let webGL = {
         sharedResources,
         glc,
         triangleStripBuffer,
         program,
+        programInfo,
         shaderSrc,
         shader,
         imageTextures,
         videoTextures,
         imageTextureSlots,
-        videoTextureSlots
+        videoTextureSlots,
+        fftTexture,
+        ifftTexture
         }
       pure $ Just webGL
     Nothing -> pure Nothing
@@ -71,9 +84,11 @@ newWebGL sharedResources prog prevProg = do
 updateWebGL :: WebGL -> Program -> Program -> Effect Unit
 updateWebGL webGL program previousProgram = do
   tempo <- getTempo webGL.sharedResources
-  let (Tuple imgMap vidMap) = calculateTextureSlots previousProgram program
+  let progInfo = programInfo program <> programInfo previousProgram
+  let (Tuple imgMap vidMap) = calculateTextureSlots progInfo
   Tuple shaderSrc shader <- updateFragmentShader webGL.glc tempo imgMap vidMap previousProgram program 
   write program webGL.program
+  write progInfo webGL.programInfo
   write shaderSrc webGL.shaderSrc
   write shader webGL.shader
   write imgMap webGL.imageTextureSlots
@@ -100,14 +115,12 @@ updateFragmentShader glc tempo imgMap vidMap oldProg newProg = do
   pure $ Tuple shaderSrc glProg
 
   
-calculateTextureSlots :: Program -> Program -> Tuple (Map String Int) (Map String Int)
-calculateTextureSlots oldProg newProg = Tuple (fromFoldable $ zip imgURLs imgSlots) (fromFoldable $ zip vidURLs vidSlots)
+calculateTextureSlots :: SignalInfo -> Tuple (Map String Int) (Map String Int)
+calculateTextureSlots progInfo = Tuple (fromFoldable $ zip imgURLs imgSlots) (fromFoldable $ zip vidURLs vidSlots)
   where
-    oldProgInfo = programInfo oldProg
-    newProgInfo = programInfo newProg
-    imgURLs = (toUnfoldable $ oldProgInfo.imgURLs <> newProgInfo.imgURLs) :: List String
+    imgURLs = toUnfoldable progInfo.imgURLs :: List String
     imgSlots = range 4 15
-    vidURLs = (toUnfoldable $ oldProgInfo.vidURLs <> newProgInfo.vidURLs) :: List String
+    vidURLs = toUnfoldable progInfo.vidURLs :: List String
     vidSlots = range (4 + length imgURLs) 15 
      
   
@@ -145,6 +158,13 @@ drawWebGL webGL now = do
   -- update special textures (webcam, fft TODO, ifft TODO, feedback)
   ft <- getFeedbackTexture glc
   bindTexture glc shader ft 0 "f"
+  programInfo <- read webGL.programInfo
+  when (programInfo.fft == Disj true) $ do
+    _fftToTexture glc.gl webGL.sharedResources.outputAnalyser.analyserArray webGL.fftTexture
+    bindTexture glc shader webGL.fftTexture 1 "o"
+  when (programInfo.ifft == Disj true) $ do
+    _fftToTexture glc.gl webGL.sharedResources.inputAnalyser.analyserArray webGL.ifftTexture
+    bindTexture glc shader webGL.ifftTexture 2 "i"
   updateWebcamTexture webGL.sharedResources glc
   bindTexture glc shader glc.webcamTexture 3 "w"
   
@@ -228,12 +248,5 @@ getVideoTexture webGL url = do
           
 foreign import _videoToTexture :: WebGLContext -> Video -> WebGLTexture -> Effect Unit
 
-
-  
-  
-  
-  
-
-
-
+foreign import _fftToTexture :: WebGLContext -> AnalyserArray -> WebGLTexture -> Effect Unit
 
