@@ -6,9 +6,7 @@ import Data.Tempo (Tempo)
 import Data.DateTime (DateTime, adjust, diff)
 import Data.Time.Duration (Seconds)
 import Data.Maybe (maybe)
-import Data.List (List(..),(:))
 import Data.Newtype (unwrap)
-import Data.Foldable (any)
 
 import Signal (Signal)
 import DefTime (DefTime(..), calculateT1)
@@ -20,14 +18,14 @@ type Action = {
   signal :: Signal,
   defTime :: DefTime,
   transition :: Transition,
-  outputs :: List Output
+  output :: Output
   }
   
 signalToAction :: Signal -> Action
-signalToAction x = { signal: x, defTime: Quant one (InSeconds zero), transition: DefaultCrossFade, outputs: Nil }
+signalToAction x = { signal: x, defTime: Quant one (InSeconds zero), transition: DefaultCrossFade, output: Audio }
 
 setOutput :: Action -> Output -> Action
-setOutput x o = x { outputs = o : x.outputs }
+setOutput x o = x { output = o }
 
 setCrossFade :: Action -> Number -> Action
 setCrossFade x t = x { transition = CrossFade (InSeconds t) }
@@ -41,5 +39,5 @@ actionToTimes tempo eTime x = Tuple t1' t2'
     t2' = unwrap (diff t2 eTime :: Seconds)
 
 actionHasVisualOutput :: Action -> Boolean
-actionHasVisualOutput a = any (\x -> x == RGB || x == RGBA) a.outputs
+actionHasVisualOutput a = a.output == RGBA || a.output == RGB || a.output == Multiply
 

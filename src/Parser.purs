@@ -265,6 +265,7 @@ parseReserved p "delay" = lift $ numberSignalSignalSignal p Delay
 parseReserved p "audio" = pure $ ValueOutput p Audio
 parseReserved p "rgba" = pure $ ValueOutput p RGBA
 parseReserved p "rgb" = pure $ ValueOutput p RGB
+parseReserved p "multiply" = pure $ ValueOutput p Multiply
 parseReserved p x = throwError $ ParseError ("internal error in Punctual: parseReserved called with unknown reserved word " <> x) p
 
 parseOperator :: Position -> String -> P Value

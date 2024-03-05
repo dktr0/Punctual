@@ -4,10 +4,9 @@ import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),o
 import Data.Maybe (Maybe(..))
 import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length)
 import Data.List (List(..),(:))
-import Data.List as List
 import Data.Traversable (traverse,sequence)
 import Data.Tuple (Tuple(..),fst,snd)
-import Data.Foldable (fold,intercalate,foldM,elem)
+import Data.Foldable (fold,intercalate,foldM)
 import Data.Unfoldable1 (replicate1)
 import Control.Monad.State (get,modify_)
 import Data.Map (Map,lookup)
@@ -18,10 +17,10 @@ import Data.DateTime (DateTime)
 import NonEmptyList
 import MultiMode (MultiMode(..))
 import Signal (Signal(..))
-import Action (Action,actionToTimes,actionHasVisualOutput)
+import Action (Action,actionToTimes)
 import Output (Output(..))
 import Program (Program)
-import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels,split,unsafeSwizzleX,unsafeSwizzleY,coerce)
+import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,one,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels,split,unsafeSwizzleX,unsafeSwizzleY,coerce,exprChannels)
 import GLSLExpr as GLSLExpr
 import GLSL (GLSL,align,alignNoExtend,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignVec4,alignRGBA,runGLSL,withFxys,extend,zipWithAAA,zipWithAAAA)
 
@@ -641,65 +640,74 @@ void main() {
 
 programsToGLSL :: Tempo -> Program -> Program -> GLSL GLSLExpr
 programsToGLSL tempo oldProgram newProgram = do
-  let oldActions = map onlyVideoOutputs oldProgram.actions
-  let newActions = map onlyVideoOutputs newProgram.actions
   fxy <- assignForced GLSLExpr.defaultFxy
   modify_ $ \s -> s { fxy = fxy }
-  rgbas <- traverseActions tempo newProgram.evalTime oldActions newActions -- List GLSLExpr
-  case List.head rgbas of
+  mExpr <- foldActions tempo newProgram.evalTime Nothing oldProgram.actions newProgram.actions
+  case mExpr of
     Nothing -> pure $ coerce Vec4 zero
-    Just h -> do
-      case List.tail rgbas of
-        Nothing -> pure h
-        Just t -> foldM blend h t
-
-onlyVideoOutputs :: Maybe Action -> Maybe Action
-onlyVideoOutputs Nothing = Nothing
-onlyVideoOutputs (Just x) = if actionHasVisualOutput x then Just x else Nothing
-
-traverseActions :: Tempo -> DateTime -> List (Maybe Action) -> List (Maybe Action) -> GLSL (List GLSLExpr)
-traverseActions _ _ Nil Nil = pure List.Nil
-traverseActions tempo eTime (x:xs) Nil = do
-  mh <- actionsToGLSL tempo eTime x Nothing 
-  t <- traverseActions tempo eTime xs Nil
-  case mh of
-    Just h -> pure (h : t)
-    Nothing -> pure t
-traverseActions tempo eTime Nil (y:ys) = do
-  mh <- actionsToGLSL tempo eTime Nothing y 
-  t <- traverseActions tempo eTime Nil ys
-  case mh of
-    Just h -> pure (h : t)
-    Nothing -> pure t
-traverseActions tempo eTime (x:xs) (y:ys) = do
-  mh <- actionsToGLSL tempo eTime x y
-  t <- traverseActions tempo eTime xs ys
-  case mh of
-    Just h -> pure (h : t)
-    Nothing -> pure t
+    Just expr -> do
+      case exprChannels expr of
+        3 -> pure $ GLSLExpr.vec4binary expr one
+        _ -> pure expr
+        
+foldActions :: Tempo -> DateTime -> Maybe GLSLExpr -> List (Maybe Action) -> List (Maybe Action) -> GLSL (Maybe GLSLExpr)
+foldActions _ _ prevOutputExpr _ Nil = pure prevOutputExpr
+foldActions tempo eTime prevOutputExpr Nil (y:ys) = do
+  mExpr <- appendActions tempo eTime prevOutputExpr Nothing y 
+  foldActions tempo eTime mExpr Nil ys
+foldActions tempo eTime prevOutputExpr (x:xs) (y:ys) = do
+  mExpr <- appendActions tempo eTime prevOutputExpr x y
+  foldActions tempo eTime mExpr xs ys
      
-actionsToGLSL :: Tempo -> DateTime -> Maybe Action -> Maybe Action -> GLSL (Maybe GLSLExpr)
-actionsToGLSL _ _ Nothing Nothing = pure Nothing
-actionsToGLSL tempo eTime Nothing (Just new) = do
-  rgba <- actionToGLSL new
-  let Tuple t0 t1 = actionToTimes tempo eTime new
-  Just <$> assignForced (GLSLExpr.product rgba $ GLSLExpr.fadeIn t0 t1)
-actionsToGLSL tempo eTime (Just old) Nothing = do
-  rgba <- actionToGLSL old
-  let Tuple t0 t1 = actionToTimes tempo eTime old
-  Just <$> assignForced (GLSLExpr.product rgba $ GLSLExpr.fadeOut t0 t1)
-actionsToGLSL tempo eTime (Just old) (Just new) = do
-  case old == new of
-    true -> Just <$> (actionToGLSL new >>= assignForced)
-    false -> do
-      rgbaOld <- actionToGLSL old
-      rgbaNew <- actionToGLSL new
-      let Tuple t0 t1 = actionToTimes tempo eTime new
-      rgbaOld' <- assignForced (GLSLExpr.product rgbaOld $ GLSLExpr.fadeOut t0 t1)
-      rgbaNew' <- assignForced (GLSLExpr.product rgbaNew $ GLSLExpr.fadeIn t0 t1)
-      Just <$> assignForced (GLSLExpr.sum rgbaOld' rgbaNew')
+appendActions :: Tempo -> DateTime -> Maybe GLSLExpr -> Maybe Action -> Maybe Action -> GLSL (Maybe GLSLExpr)
+appendActions _ _ prevOutputExpr _ Nothing = pure prevOutputExpr
+appendActions tempo eTime prevOutputExpr mOldAction (Just newAction) = do
+  mNewExpr <- actionToGLSL newAction.output newAction
+  case mNewExpr of 
+    Nothing -> pure prevOutputExpr
+    Just newExpr -> do
+      let Tuple t0 t1 = actionToTimes tempo eTime newAction
+      newExpr' <- assignForced $ GLSLExpr.product newExpr $ GLSLExpr.fadeIn t0 t1
+      case mOldAction of
+        Nothing -> appendExpr newAction.output prevOutputExpr newExpr'
+        Just oldAction -> do
+          mOldExpr <- actionToGLSL newAction.output oldAction
+          case mOldExpr of
+            Nothing -> appendExpr newAction.output prevOutputExpr newExpr'
+            Just oldExpr -> do
+              oldExpr' <- assignForced $ GLSLExpr.product oldExpr $ GLSLExpr.fadeOut t0 t1
+              expr <- assignForced (GLSLExpr.sum newExpr' oldExpr')
+              appendExpr newAction.output prevOutputExpr expr
+        
+actionToGLSL :: Output -> Action -> GLSL (Maybe GLSLExpr)
+actionToGLSL Audio _ = pure Nothing
+actionToGLSL RGBA a = do
+  xs <- signalToGLSL Vec4 a.signal >>= alignRGBA
+  Just <$> foldM (\x y -> blend x y >>= assignForced) (head xs) (tail xs)
+actionToGLSL _ a = do
+  xs <- signalToGLSL Vec3 a.signal >>= alignVec3
+  Just <$> foldM (\x y -> assignForced $ GLSLExpr.sum x y) (head xs) (tail xs)
+
+   
+appendExpr :: Output -> Maybe GLSLExpr -> GLSLExpr -> GLSL (Maybe GLSLExpr)
+appendExpr Audio x _ = pure x
+appendExpr RGBA Nothing x = pure $ Just x
+appendExpr RGBA (Just prevExpr) x = do
+  let prevRGBA = case GLSLExpr.exprChannels prevExpr of
+                   3 -> GLSLExpr.vec4binary prevExpr (GLSLExpr.float 1.0)
+                   _ -> prevExpr
+  Just <$> (blend prevRGBA x >>= assignForced)
+appendExpr RGB Nothing x = pure $ Just x
+appendExpr RGB (Just prevExpr) x = do
+  let prevRGB = GLSLExpr.coerceVec3 prevExpr -- discards previous alpha channel if there was one
+  Just <$> (assignForced $ GLSLExpr.sum prevRGB x)
+appendExpr Multiply Nothing x = pure $ Just x
+appendExpr Multiply (Just prevExpr) x = do
+  let prevRGB = GLSLExpr.coerceVec3 prevExpr -- discards previous alpha channel if there was one
+  Just <$> (assignForced $ GLSLExpr.product prevRGB x)
+
     
-actionToGLSL :: Action -> GLSL GLSLExpr
+{- actionToGLSL :: Action -> GLSL GLSLExpr
 actionToGLSL x = do
   case elem RGBA x.outputs of
     true -> signalToGLSL Vec4 x.signal >>= exprsRGBAToRGBA
@@ -717,6 +725,7 @@ exprsRGBAToRGBA xs = do
   case fromList (tail xs') of
     Nothing -> pure $ head xs'
     Just t -> foldM blend (head xs') t
+-}
 
 fragmentShader :: Boolean -> Tempo -> Map String Int -> Map String Int -> Program -> Program -> String
 fragmentShader webGl2 tempo imgMap vidMap oldProgram newProgram = header <> assignments <> gl_FragColor <> "}"

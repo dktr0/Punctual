@@ -160,11 +160,11 @@ drawWebGL webGL now = do
   bindTexture glc shader ft 0 "f"
   programInfo <- read webGL.programInfo
   when (programInfo.fft == Disj true) $ do
-    _fftToTexture glc.gl webGL.sharedResources.outputAnalyser.analyserArray webGL.fftTexture
     bindTexture glc shader webGL.fftTexture 1 "o"
+    _fftToTexture glc.gl webGL.sharedResources.outputAnalyser.analyserArray webGL.fftTexture
   when (programInfo.ifft == Disj true) $ do
-    _fftToTexture glc.gl webGL.sharedResources.inputAnalyser.analyserArray webGL.ifftTexture
     bindTexture glc shader webGL.ifftTexture 2 "i"
+    _fftToTexture glc.gl webGL.sharedResources.inputAnalyser.analyserArray webGL.ifftTexture
   updateWebcamTexture webGL.sharedResources glc
   bindTexture glc shader glc.webcamTexture 3 "w"
   

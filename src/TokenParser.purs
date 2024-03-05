@@ -34,7 +34,7 @@ boolean = choice [
 reservedNamesDef :: Array String
 reservedNamesDef = [
   "if","then","else",
-  "audio","rgba","rgb",
+  "audio","rgba","rgb","multiply",
   "pi","audioin","cps","time","beat","etime","ebeat","rnd",
   "fx","fy","fxy","px","py","pxy","frt","fr","ft","aspect",
   "lo","mid","hi","ilo","imid","ihi","fft","ifft",
@@ -44,7 +44,7 @@ reservedNamesDef = [
   "sqrt","tan","tanh","trunc",
   "rtxy","rtx","rty","xyrt","xyr","xyt","zero","zer0","bipolar","unipolar",
   "osc","tri","saw","sqr","lftri","lfsaw","lfsqr",
-  "mono","cpsmidi","midicps","dbamp","ampdb","blend",
+  "mono","cpsmidi","midicps","dbamp","ampdb",
   "hsvrgb","hsvh","hsvs","hsvv","hsvr","hsvg","hsvb",
   "rgbhsv","rgbh","rgbs","rgbv","rgbr","rgbg","rgbb",
   "dist","prox",

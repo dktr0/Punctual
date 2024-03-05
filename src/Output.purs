@@ -7,9 +7,11 @@ import Data.Show.Generic (genericShow)
 data Output =
   Audio |
   RGBA |
-  RGB
+  RGB |
+  Multiply
 
 derive instance Eq Output
 derive instance Generic Output _
 instance Show Output where
   show = genericShow
+
