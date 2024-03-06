@@ -6,9 +6,9 @@ import Data.Show.Generic (genericShow)
 
 data Output =
   Audio |
-  RGBA |
-  RGB |
-  Multiply
+  Blend |
+  Add |
+  Mult
 
 derive instance Eq Output
 derive instance Generic Output _

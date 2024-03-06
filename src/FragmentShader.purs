@@ -18,7 +18,8 @@ import NonEmptyList
 import MultiMode (MultiMode(..))
 import Signal (Signal(..))
 import Action (Action,actionToTimes)
-import Output (Output(..))
+import Output (Output)
+import Output as Output
 import Program (Program)
 import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,one,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels,split,unsafeSwizzleX,unsafeSwizzleY,coerce,exprChannels)
 import GLSLExpr as GLSLExpr
@@ -680,8 +681,8 @@ appendActions tempo eTime prevOutputExpr mOldAction (Just newAction) = do
               appendExpr newAction.output prevOutputExpr expr
         
 actionToGLSL :: Output -> Action -> GLSL (Maybe GLSLExpr)
-actionToGLSL Audio _ = pure Nothing
-actionToGLSL RGBA a = do
+actionToGLSL Output.Audio _ = pure Nothing
+actionToGLSL Output.Blend a = do
   xs <- signalToGLSL Vec4 a.signal >>= alignRGBA
   Just <$> foldM (\x y -> blend x y >>= assignForced) (head xs) (tail xs)
 actionToGLSL _ a = do
@@ -690,19 +691,19 @@ actionToGLSL _ a = do
 
    
 appendExpr :: Output -> Maybe GLSLExpr -> GLSLExpr -> GLSL (Maybe GLSLExpr)
-appendExpr Audio x _ = pure x
-appendExpr RGBA Nothing x = pure $ Just x
-appendExpr RGBA (Just prevExpr) x = do
+appendExpr Output.Audio x _ = pure x
+appendExpr Output.Blend Nothing x = pure $ Just x
+appendExpr Output.Blend (Just prevExpr) x = do
   let prevRGBA = case GLSLExpr.exprChannels prevExpr of
                    3 -> GLSLExpr.vec4binary prevExpr (GLSLExpr.float 1.0)
                    _ -> prevExpr
   Just <$> (blend prevRGBA x >>= assignForced)
-appendExpr RGB Nothing x = pure $ Just x
-appendExpr RGB (Just prevExpr) x = do
+appendExpr Output.Add Nothing x = pure $ Just x
+appendExpr Output.Add (Just prevExpr) x = do
   let prevRGB = GLSLExpr.coerceVec3 prevExpr -- discards previous alpha channel if there was one
   Just <$> (assignForced $ GLSLExpr.sum prevRGB x)
-appendExpr Multiply Nothing x = pure $ Just x
-appendExpr Multiply (Just prevExpr) x = do
+appendExpr Output.Mult Nothing x = pure $ Just x
+appendExpr Output.Mult (Just prevExpr) x = do
   let prevRGB = GLSLExpr.coerceVec3 prevExpr -- discards previous alpha channel if there was one
   Just <$> (assignForced $ GLSLExpr.product prevRGB x)
 

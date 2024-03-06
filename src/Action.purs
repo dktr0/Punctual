@@ -39,5 +39,5 @@ actionToTimes tempo eTime x = Tuple t1' t2'
     t2' = unwrap (diff t2 eTime :: Seconds)
 
 actionHasVisualOutput :: Action -> Boolean
-actionHasVisualOutput a = a.output == RGBA || a.output == RGB || a.output == Multiply
+actionHasVisualOutput a = a.output == Blend || a.output == Add || a.output == Mult
 

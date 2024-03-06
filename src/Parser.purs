@@ -18,9 +18,10 @@ import AST (AST,Expression(..),Statement,expression1,statement,parseAST)
 import Program (Program)
 import MultiMode (MultiMode(..))
 import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus,fit)
-import Value (Value(..),valuePosition,listValueToValueSignal,valueToSignal)
+import Value (Value(..),valuePosition,listValueToValueSignal,valueToSignal,class ToValue, class FromValue, toValue, fromValue, valueToAction)
 import Action (Action,signalToAction,setOutput,setCrossFade)
-import Output (Output(..))
+import Output (Output)
+import Output as Output
 
 type PState = Map.Map String Value
 
@@ -146,76 +147,75 @@ parseReserved p "ebeat" = pure $ ValueSignal p EBeat
 parseReserved p "etime" = pure $ ValueSignal p ETime
 parseReserved p "rnd" = pure $ ValueSignal p Rnd
 parseReserved p "audioin" = pure $ ValueSignal p AudioIn
-parseReserved p "fft" = lift $ signalSignal p FFT
-parseReserved p "ifft" = lift $ signalSignal p IFFT
-parseReserved p "mono" = lift $ signalSignal p Mono
+parseReserved p "fft" = pure $ signalSignal p FFT
+parseReserved p "ifft" = pure $ signalSignal p IFFT
+parseReserved p "mono" = pure $ signalSignal p Mono
 parseReserved p "rep" = lift $ intSignalSignal p Rep
-parseReserved p "bipolar" = lift $ signalSignal p Bipolar
-parseReserved p "unipolar" = lift $ signalSignal p Unipolar
-parseReserved p "fb" = lift $ signalSignal p Fb
+parseReserved p "bipolar" = pure $ signalSignal p Bipolar
+parseReserved p "unipolar" = pure $ signalSignal p Unipolar
+parseReserved p "fb" = pure $ signalSignal p Fb
 parseReserved p "img" = lift $ stringSignal p Img
 parseReserved p "vid" = lift $ stringSignal p Vid
 parseReserved p "cam" = pure $ ValueSignal p Cam
-parseReserved p "blend" = lift $ signalSignal p Blend
-parseReserved p "rgbhsv" = lift $ signalSignal p RgbHsv
-parseReserved p "hsvrgb" = lift $ signalSignal p HsvRgb
-parseReserved p "hsvh" = lift $ signalSignal p HsvH
-parseReserved p "hsvs" = lift $ signalSignal p HsvS
-parseReserved p "hsvv" = lift $ signalSignal p HsvV
-parseReserved p "hsvr" = lift $ signalSignal p HsvR
-parseReserved p "hsvg" = lift $ signalSignal p HsvG
-parseReserved p "hsvb" = lift $ signalSignal p HsvB
-parseReserved p "rgbh" = lift $ signalSignal p RgbH
-parseReserved p "rgbs" = lift $ signalSignal p RgbS
-parseReserved p "rgbv" = lift $ signalSignal p RgbV
-parseReserved p "rgbr" = lift $ signalSignal p RgbR
-parseReserved p "rgbg" = lift $ signalSignal p RgbG
-parseReserved p "rgbb" = lift $ signalSignal p RgbB
-parseReserved p "osc" = lift $ signalSignal p Osc
-parseReserved p "tri" = lift $ signalSignal p Tri
-parseReserved p "saw" = lift $ signalSignal p Saw
-parseReserved p "sqr" = lift $ signalSignal p Sqr
-parseReserved p "lftri" = lift $ signalSignal p LFTri
-parseReserved p "lfsaw" = lift $ signalSignal p LFSaw
-parseReserved p "lfsqr" = lift $ signalSignal p LFSqr
-parseReserved p "abs" = lift $ signalSignal p Abs
-parseReserved p "acos" = lift $ signalSignal p Acos
-parseReserved p "acosh" = lift $ signalSignal p Acosh
-parseReserved p "asin" = lift $ signalSignal p Asin
-parseReserved p "asinh" = lift $ signalSignal p Asinh
-parseReserved p "atan" = lift $ signalSignal p Atan
-parseReserved p "atanh" = lift $ signalSignal p Atanh
-parseReserved p "cbrt" = lift $ signalSignal p Cbrt
-parseReserved p "ceil" = lift $ signalSignal p Ceil
-parseReserved p "cos" = lift $ signalSignal p Cos
-parseReserved p "cosh" = lift $ signalSignal p Cosh
-parseReserved p "exp" = lift $ signalSignal p Exp
-parseReserved p "floor" = lift $ signalSignal p Floor
-parseReserved p "log" = lift $ signalSignal p Log
-parseReserved p "log2" = lift $ signalSignal p Log2
-parseReserved p "log10" = lift $ signalSignal p Log10
-parseReserved p "round" = lift $ signalSignal p Round
-parseReserved p "sign" = lift $ signalSignal p Sign
-parseReserved p "sin" = lift $ signalSignal p Sin
-parseReserved p "sinh" = lift $ signalSignal p Sinh
-parseReserved p "sqrt" = lift $ signalSignal p Sqrt
-parseReserved p "tan" = lift $ signalSignal p Tan
-parseReserved p "tanh" = lift $ signalSignal p Tanh
-parseReserved p "trunc" = lift $ signalSignal p Trunc
-parseReserved p "rtxy" = lift $ signalSignal p RtXy
-parseReserved p "rtx" = lift $ signalSignal p RtX
-parseReserved p "rty" = lift $ signalSignal p RtY
-parseReserved p "xyrt" = lift $ signalSignal p XyRt
-parseReserved p "xyr" = lift $ signalSignal p XyR
-parseReserved p "xyt" = lift $ signalSignal p XyT
-parseReserved p "point" = lift $ signalSignal p Point
-parseReserved p "distance" = lift $ signalSignal p Distance
-parseReserved p "prox" = lift $ signalSignal p Prox
-parseReserved p "midicps" = lift $ signalSignal p MidiCps
-parseReserved p "cpsmidi" = lift $ signalSignal p CpsMidi
-parseReserved p "dbamp" = lift $ signalSignal p DbAmp
-parseReserved p "ampdb" = lift $ signalSignal p AmpDb
-parseReserved p "fract" = lift $ signalSignal p Fract
+parseReserved p "rgbhsv" = pure $ signalSignal p RgbHsv
+parseReserved p "hsvrgb" = pure $ signalSignal p HsvRgb
+parseReserved p "hsvh" = pure $ signalSignal p HsvH
+parseReserved p "hsvs" = pure $ signalSignal p HsvS
+parseReserved p "hsvv" = pure $ signalSignal p HsvV
+parseReserved p "hsvr" = pure $ signalSignal p HsvR
+parseReserved p "hsvg" = pure $ signalSignal p HsvG
+parseReserved p "hsvb" = pure $ signalSignal p HsvB
+parseReserved p "rgbh" = pure $ signalSignal p RgbH
+parseReserved p "rgbs" = pure $ signalSignal p RgbS
+parseReserved p "rgbv" = pure $ signalSignal p RgbV
+parseReserved p "rgbr" = pure $ signalSignal p RgbR
+parseReserved p "rgbg" = pure $ signalSignal p RgbG
+parseReserved p "rgbb" = pure $ signalSignal p RgbB
+parseReserved p "osc" = pure $ signalSignal p Osc
+parseReserved p "tri" = pure $ signalSignal p Tri
+parseReserved p "saw" = pure $ signalSignal p Saw
+parseReserved p "sqr" = pure $ signalSignal p Sqr
+parseReserved p "lftri" = pure $ signalSignal p LFTri
+parseReserved p "lfsaw" = pure $ signalSignal p LFSaw
+parseReserved p "lfsqr" = pure $ signalSignal p LFSqr
+parseReserved p "abs" = pure $ signalSignal p Abs
+parseReserved p "acos" = pure $ signalSignal p Acos
+parseReserved p "acosh" = pure $ signalSignal p Acosh
+parseReserved p "asin" = pure $ signalSignal p Asin
+parseReserved p "asinh" = pure $ signalSignal p Asinh
+parseReserved p "atan" = pure $ signalSignal p Atan
+parseReserved p "atanh" = pure $ signalSignal p Atanh
+parseReserved p "cbrt" = pure $ signalSignal p Cbrt
+parseReserved p "ceil" = pure $ signalSignal p Ceil
+parseReserved p "cos" = pure $ signalSignal p Cos
+parseReserved p "cosh" = pure $ signalSignal p Cosh
+parseReserved p "exp" = pure $ signalSignal p Exp
+parseReserved p "floor" = pure $ signalSignal p Floor
+parseReserved p "log" = pure $ signalSignal p Log
+parseReserved p "log2" = pure $ signalSignal p Log2
+parseReserved p "log10" = pure $ signalSignal p Log10
+parseReserved p "round" = pure $ signalSignal p Round
+parseReserved p "sign" = pure $ signalSignal p Sign
+parseReserved p "sin" = pure $ signalSignal p Sin
+parseReserved p "sinh" = pure $ signalSignal p Sinh
+parseReserved p "sqrt" = pure $ signalSignal p Sqrt
+parseReserved p "tan" = pure $ signalSignal p Tan
+parseReserved p "tanh" = pure $ signalSignal p Tanh
+parseReserved p "trunc" = pure $ signalSignal p Trunc
+parseReserved p "rtxy" = pure $ signalSignal p RtXy
+parseReserved p "rtx" = pure $ signalSignal p RtX
+parseReserved p "rty" = pure $ signalSignal p RtY
+parseReserved p "xyrt" = pure $ signalSignal p XyRt
+parseReserved p "xyr" = pure $ signalSignal p XyR
+parseReserved p "xyt" = pure $ signalSignal p XyT
+parseReserved p "point" = pure $ signalSignal p Point
+parseReserved p "distance" = pure $ signalSignal p Distance
+parseReserved p "prox" = pure $ signalSignal p Prox
+parseReserved p "midicps" = pure $ signalSignal p MidiCps
+parseReserved p "cpsmidi" = pure $ signalSignal p CpsMidi
+parseReserved p "dbamp" = pure $ signalSignal p DbAmp
+parseReserved p "ampdb" = pure $ signalSignal p AmpDb
+parseReserved p "fract" = pure $ signalSignal p Fract
 parseReserved p "max" = lift $ signalSignalSignal p $ Max Combinatorial
 parseReserved p "maxp" = lift $ signalSignalSignal p $ Max Pairwise
 parseReserved p "min" = lift $ signalSignalSignal p $ Min Combinatorial
@@ -262,10 +262,10 @@ parseReserved p "bpf" = lift $ signalSignalSignalSignal p $ BPF Combinatorial
 parseReserved p "bpfp" = lift $ signalSignalSignalSignal p $ BPF Pairwise
 
 parseReserved p "delay" = lift $ numberSignalSignalSignal p Delay
-parseReserved p "audio" = pure $ ValueOutput p Audio
-parseReserved p "rgba" = pure $ ValueOutput p RGBA
-parseReserved p "rgb" = pure $ ValueOutput p RGB
-parseReserved p "multiply" = pure $ ValueOutput p Multiply
+parseReserved p "audio" = pure $ ValueOutput p Output.Audio
+parseReserved p "blend" = pure $ ValuePolymorphic p (ValueOutput p Output.Blend : signalSignal p Blend : Nil)
+parseReserved p "add" = pure $ ValueOutput p Output.Add
+parseReserved p "mult" = pure $ ValueOutput p Output.Mult
 parseReserved p x = throwError $ ParseError ("internal error in Punctual: parseReserved called with unknown reserved word " <> x) p
 
 parseOperator :: Position -> String -> P Value
@@ -303,97 +303,63 @@ parseOperator p "<=:" = lift $ signalSignalSignal p $ LessThanEqual Pairwise
 parseOperator p x = throwError $ ParseError ("internal error in Punctual: parseOperator called with unsupported operator " <> x) p
 
 
-signalSignal :: Position -> (Signal -> Signal) -> Either ParseError Value
-signalSignal p f =
-  pure $ ValueFunction p (\x ->
-    case x of
-      ValueSignal _ x' -> pure $ ValueSignal p (f x')
-      ValueInt _ x' -> pure $ ValueSignal p (f $ Constant $ toNumber x')
-      ValueNumber _ x' -> pure $ ValueSignal p (f $ Constant x')
-      y -> throwError $ ParseError "expected Signal" (valuePosition y)
-    )
+ab :: forall a b. FromValue a => ToValue b => Position -> (a -> b) -> Value
+ab p f = ValueFunction p (\v -> fromValue v >>= (pure <<< toValue p <<< f))
 
+abc :: forall a b c. FromValue a => FromValue b => ToValue c => Position -> (a -> b -> c) -> Value
+abc p f = ValueFunction p (\v -> fromValue v >>= (pure <<< ab p <<< f ))
+
+abcd :: forall a b c d. FromValue a => FromValue b => FromValue c => ToValue d => Position -> (a -> b -> c -> d) -> Value
+abcd p f = ValueFunction p (\v -> fromValue v >>= (pure <<< abc p <<< f ))
+
+
+-- todo: replace signalSignal calls with direct calls to ab
+signalSignal :: Position -> (Signal -> Signal) -> Value
+signalSignal = ab 
+
+-- TODO: replace stringSignal calls with direct calls to ab
 stringSignal :: Position -> (String -> Signal) -> Either ParseError Value
-stringSignal p f =
-  pure $ ValueFunction p (\x ->
-    case x of
-      ValueString _ x' -> pure $ ValueSignal p (f x')
-      y -> throwError $ ParseError "expected String" (valuePosition y)
-    )
+stringSignal p f = pure $ ab p f
 
+aAction :: forall a. FromValue a => Position -> (a -> Action) -> Value
+aAction p f = ValueFunction p (\v -> fromValue v >>= (pure <<< ValueAction p <<< f))
+
+-- TODO: replace outputAction calls with direct calls to aAction
 outputAction :: Position -> (Output -> Action) -> Either ParseError Value
-outputAction p f =
-  pure $ ValueFunction p (\x ->
-    case x of
-      ValueOutput _ x' -> pure $ ValueAction p (f x')
-      y -> throwError $ ParseError "expected Output" (valuePosition y)
-    )
+outputAction p f = pure $ aAction p f
 
+-- TODO: replace numberAction calls with direct calls to aAction
 numberAction :: Position -> (Number -> Action) -> Either ParseError Value
-numberAction p f =
-  pure $ ValueFunction p (\x ->
-    case x of
-      ValueNumber _ x' -> pure $ ValueAction p (f x')
-      ValueInt _ x' -> pure $ ValueAction p (f $ toNumber x')
-      y -> throwError $ ParseError "expected Number or Int" (valuePosition y)
-    )
+numberAction p f = pure $ aAction p f
 
+
+-- TODO: replace signalSignalSignal calls with direct calls to abc
 signalSignalSignal :: Position -> (Signal -> Signal -> Signal) -> Either ParseError Value
-signalSignalSignal p f =
-  pure $ ValueFunction p (\x ->
-    case x of
-      ValueSignal _ x' -> signalSignal p (f x')
-      ValueInt _ x' -> signalSignal p (f $ Constant $ toNumber x')
-      ValueNumber _ x' -> signalSignal p (f $ Constant x')
-      y -> throwError $ ParseError "expected Signal" (valuePosition y)
-    )
+signalSignalSignal p f = pure $ abc p f
 
+-- TODO: replace intSignalSignal calls with direct calls to abc
 intSignalSignal :: Position -> (Int -> Signal -> Signal) -> Either ParseError Value
-intSignalSignal p f =
-  pure $ ValueFunction p (\x ->
-    case x of
-      ValueInt _ x' -> signalSignal p (f x')
-      y -> throwError $ ParseError "expected Int" (valuePosition y)
-    )
+intSignalSignal p f = pure $ abc p f
 
+actionAAction :: forall a. FromValue a => Position -> (Action -> a -> Action) -> Value
+actionAAction p f = ValueFunction p (\v -> valueToAction v >>= (pure <<< aAction p <<< f))
+
+-- TODO: replace actionOutputAction calls with direct calls to actionAAction
 actionOutputAction :: Position -> (Action -> Output -> Action) -> Either ParseError Value
-actionOutputAction p f =
-  pure $ ValueFunction p (\x ->
-    case x of
-      ValueAction _ x' -> outputAction p (f x')
-      ValueSignal _ x' -> outputAction p (f $ signalToAction x')
-      ValueNumber _ x' -> outputAction p (f $ signalToAction $ Constant x')
-      ValueInt _ x' -> outputAction p (f $ signalToAction $ Constant $ toNumber x')
-      y -> throwError $ ParseError "expected Signal or Action" (valuePosition y)
-    )
+actionOutputAction p f = pure $ actionAAction p f 
 
+-- TODO: replace actionNumberAction calls with direct calls to actionAAction
 actionNumberAction :: Position -> (Action -> Number -> Action) -> Either ParseError Value
-actionNumberAction p f =
-  pure $ ValueFunction p (\x ->
-    case x of
-      ValueAction _ x' -> numberAction p (f x')
-      ValueSignal _ x' -> numberAction p (f $ signalToAction x')
-      y -> throwError $ ParseError "expected Signal or Action" (valuePosition y)
-    )
+actionNumberAction p f = pure $ actionAAction p f
 
+-- TODO: replace signalSignalSignalSignal calls with direct calls to abcd
 signalSignalSignalSignal :: Position -> (Signal -> Signal -> Signal -> Signal) -> Either ParseError Value
-signalSignalSignalSignal p f =
-  pure $ ValueFunction p (\x ->
-    case x of
-      ValueSignal _ x' -> signalSignalSignal p (f x')
-      ValueInt _ x' -> signalSignalSignal p (f $ Constant $ toNumber x')
-      ValueNumber _ x' -> signalSignalSignal p (f $ Constant x')
-      y -> throwError $ ParseError "expected Signal" (valuePosition y)
-    )
+signalSignalSignalSignal p f = pure $ abcd p f
 
+-- TODO: replace numberSignalSignalSignal calls with direct calls to abcd
 numberSignalSignalSignal :: Position -> (Number -> Signal -> Signal -> Signal) -> Either ParseError Value
-numberSignalSignalSignal p f =
-  pure $ ValueFunction p (\x ->
-    case x of
-      ValueInt _ x' -> signalSignalSignal p (f $ toNumber x')
-      ValueNumber _ x' -> signalSignalSignal p (f x')
-      y -> throwError $ ParseError "expected Signal" (valuePosition y)
-    )
+numberSignalSignalSignal p f = pure $ abcd p f
+
 
 embedLambdas :: Position -> List String -> Expression -> P Value
 embedLambdas _ Nil e = parseExpression e
