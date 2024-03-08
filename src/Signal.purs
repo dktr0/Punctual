@@ -33,7 +33,7 @@ data Signal =
   Vid String |
   Bipolar Signal |
   Unipolar Signal |
-  Blend Signal |
+  Blend Signal | Add Signal | Mul Signal |
   RgbHsv Signal | HsvRgb Signal |
   HsvH Signal | HsvS Signal | HsvV Signal | HsvR Signal | HsvG Signal | HsvB Signal |
   RgbH Signal | RgbS Signal | RgbV Signal | RgbR Signal | RgbG Signal | RgbB Signal |
@@ -202,6 +202,8 @@ subSignals (Bipolar x) = x:Nil
 subSignals (Unipolar x) = x:Nil
 subSignals (Fb x) = x:Nil
 subSignals (Blend x) = x:Nil
+subSignals (Add x) = x:Nil
+subSignals (Mul x) = x:Nil
 subSignals (RgbHsv x) = x:Nil
 subSignals (HsvRgb x) = x:Nil
 subSignals (HsvH x) = x:Nil

@@ -319,13 +319,26 @@ setfxy [x1,y1,x2,y2,...] -- remap fx and fy by setting them to the value of a sp
 
 ## Punctual Output Notations
 
-A Punctual statement does not cause audio or video output unless it ends with >> and an output notation. 'audio' and 'video' are the two most commonly used outputs:
+A Punctual statement does not cause audio or video output unless it ends with >> and an output notation.
+
+In the pre-alpha draft of Punctual 0.5, the following outputs are available:
 
 \>> audio -- audio output: If multiple channels of audio are present, they are spread/panned "equidistantly" over the available audio outputs.
 
-\>> video -- video output: every three channels of signal are interpreted as red, green, and blue intensities (from 0 to 1); if only a one-channel signal is provided the value of that signal is used for all of red, green, and blue intensities; if a two-channel signal is provided the first channel is used for red, and the second channel is used for green and blue. (note: 'rgb' is a synonym for 'video')
+\>> blend -- video output where every four channels of signal are interpreted as red, green, blue, and alpha channels, with the alpha channel controlling the blending with "previous" visual output (previous = in earlier statements in the same Punctual program), and (assuming it arrives at the final output of the program) also affecting the transparency of Punctual's visual output. Whenever less than 4 channels are available, the missing channels are formed as follows: the 2nd or 3rd channels are repeated to get to 3 channels, and then a default value of 1.0 is inserted for the missing alpha channel.
 
-There are a number of additional output types for particular purposes, as follows:
+\>> rgba -- video output where every four channels of signal are interpreted as red, green, blue, and alpha channels. Unlike 'blend' above, with 'rgba' all previous visual output (previous = earlier statements in the same Punctual program) is disregarded - the visual output from that point in the program simply becomes the signal provided to rgba. Whenever less than 4 channels are available, the missing channels are formed as follows: the 2nd or 3rd channels are repeated to get to 3 channels, and then a default value of 1.0 is inserted for the missing alpha channel. (Note: this is very different semantics than the RGBA output had in Punctual 0.4. 'blend' above in Punctual 0.5 is the loose equivalent of 'rgba' in Punctual 0.4.)
+
+\>> add -- video output where every three channels of signal are interpreted as red, green, and blue intensities (from 0 to 1), are added to any previous RGB output (previous = effect of earlier statements in the same Punctual program), clamped to fall between 0 and 1, to form a new, resulting RGB output; if previous output is RGBA, then only the RGB channels of that previous output are used by mul. if only a one-channel signal is provided the value of that signal is used for all of red, green, and blue intensities; if a two-channel signal is provided the first channel is used for red, and the second channel is used for green and blue.
+
+\>> mul -- video output where every three channels of signal are interpreted as red, green, and blue intensities (from 0 to 1), are multiplied by any previous RGB output (previous = effect of earlier statements in the same Punctual program), clamped to fall between 0 and 1, to form a new, resulting RGB output; if previous output is RGBA, then only the RGB channels of that previous output are used by mul. if only a one-channel signal is provided the value of that signal is used for all of red, green, and blue intensities; if a two-channel signal is provided the first channel is used for red, and the second channel is used for green and blue.
+
+\>> rgb -- video output where every three channels of signal are interpreted as red, green, and blue intensities (from 0 to 1). Unlike the output modes above, with 'rgb' all previous visual output (previous = earlier statements in the same Punctual program) is disregarded - the visual output from that point in the program simply becomes the signal provided to rgb. if only a one-channel signal is provided the value of that signal is used for all of red, green, and blue intensities; if a two-channel signal is provided the first channel is used for red, and the second channel is used for green and blue. (Note: this is very different semantics than the rgb output had in Punctual 0.4. 'add' above in Punctual 0.5 is the loose equivalent of 'rgb' in Punctual 0.4.)
+
+
+In version 0.4 of Punctual, the following outputs are/were available - they are all deprecated and will not be available in Punctual 0.5:
+
+\>> video -- video output: every three channels of signal are interpreted as red, green, and blue intensities (from 0 to 1); if only a one-channel signal is provided the value of that signal is used for all of red, green, and blue intensities; if a two-channel signal is provided the first channel is used for red, and the second channel is used for green and blue. (note: 'rgb' is a synonym for 'video')
 
 \>> left -- audio output panned to the left (ie. to the first audio output connected to the system). If multiple channels are present, they are mixed together before being sent to the output.
 

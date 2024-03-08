@@ -145,6 +145,18 @@ signalToGLSL _ (Blend x) = do
   case fromList (tail xs) of
     Nothing -> pure $ singleton $ head xs
     Just t -> singleton <$> foldM blend (head xs) t
+    
+signalToGLSL _ (Add x) = do
+  xs <- signalToGLSL Vec3 x >>= alignVec3
+  case fromList (tail xs) of
+    Nothing -> pure $ singleton $ head xs
+    Just t -> singleton <$> foldM add (head xs) t
+    
+signalToGLSL _ (Mul x) = do
+  xs <- signalToGLSL Vec3 x >>= alignVec3
+  case fromList (tail xs) of
+    Nothing -> pure $ singleton $ head xs
+    Just t -> singleton <$> foldM mul (head xs) t
 
 signalToGLSL _ (RgbHsv x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv
 signalToGLSL _ (HsvRgb x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb
@@ -523,7 +535,13 @@ blend a b = do
   b' <- assign b
   alpha <- swizzleW b'
   pure $ ternaryFunction "mix" Vec4 a b' alpha
-
+  
+add :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec3
+add a b = pure $ GLSLExpr.sum a b
+  
+mul :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec3
+mul a b = pure $ GLSLExpr.product a b
+  
 acosh :: Exprs -> GLSL Exprs
 acosh xs = do
   s <- get
@@ -685,6 +703,9 @@ actionToGLSL Output.Audio _ = pure Nothing
 actionToGLSL Output.Blend a = do
   xs <- signalToGLSL Vec4 a.signal >>= alignRGBA
   Just <$> foldM (\x y -> blend x y >>= assignForced) (head xs) (tail xs)
+actionToGLSL Output.RGBA a = do
+  xs <- signalToGLSL Vec4 a.signal >>= alignRGBA
+  Just <$> foldM (\x y -> blend x y >>= assignForced) (head xs) (tail xs)
 actionToGLSL _ a = do
   xs <- signalToGLSL Vec3 a.signal >>= alignVec3
   Just <$> foldM (\x y -> assignForced $ GLSLExpr.sum x y) (head xs) (tail xs)
@@ -692,42 +713,25 @@ actionToGLSL _ a = do
    
 appendExpr :: Output -> Maybe GLSLExpr -> GLSLExpr -> GLSL (Maybe GLSLExpr)
 appendExpr Output.Audio x _ = pure x
-appendExpr Output.Blend Nothing x = pure $ Just x
+appendExpr _ Nothing x = pure $ Just x
+appendExpr Output.RGBA (Just _) x = pure $ Just x
+appendExpr Output.RGB (Just _) x = pure $ Just x
 appendExpr Output.Blend (Just prevExpr) x = do
   let prevRGBA = case GLSLExpr.exprChannels prevExpr of
                    3 -> GLSLExpr.vec4binary prevExpr (GLSLExpr.float 1.0)
                    _ -> prevExpr
   Just <$> (blend prevRGBA x >>= assignForced)
-appendExpr Output.Add Nothing x = pure $ Just x
 appendExpr Output.Add (Just prevExpr) x = do
   let prevRGB = GLSLExpr.coerceVec3 prevExpr -- discards previous alpha channel if there was one
   Just <$> (assignForced $ GLSLExpr.sum prevRGB x)
-appendExpr Output.Mult Nothing x = pure $ Just x
-appendExpr Output.Mult (Just prevExpr) x = do
+appendExpr Output.Mul (Just prevExpr) x = do
   let prevRGB = GLSLExpr.coerceVec3 prevExpr -- discards previous alpha channel if there was one
   Just <$> (assignForced $ GLSLExpr.product prevRGB x)
+appendExpr Output.RGB (Just prevExpr) x = do
+  let prevRGB = GLSLExpr.coerceVec3 prevExpr -- discards previous alpha channel if there was one
+  Just <$> (assignForced $ GLSLExpr.sum prevRGB x)
 
     
-{- actionToGLSL :: Action -> GLSL GLSLExpr
-actionToGLSL x = do
-  case elem RGBA x.outputs of
-    true -> signalToGLSL Vec4 x.signal >>= exprsRGBAToRGBA
-    false -> signalToGLSL Vec3 x.signal >>= exprsRGBToRGBA
-    
-exprsRGBToRGBA :: Exprs -> GLSL GLSLExpr
-exprsRGBToRGBA xs = do
-  xs' <- alignVec3 xs
-  rgb <- foldM (\b a -> assignForced $ GLSLExpr.sum b a) (head xs') (tail xs')
-  assignForced $ GLSLExpr.vec4binary rgb (GLSLExpr.float 1.0)
-  
-exprsRGBAToRGBA :: Exprs -> GLSL GLSLExpr
-exprsRGBAToRGBA xs = do
-  xs' <- alignRGBA xs
-  case fromList (tail xs') of
-    Nothing -> pure $ head xs'
-    Just t -> foldM blend (head xs') t
--}
-
 fragmentShader :: Boolean -> Tempo -> Map String Int -> Map String Int -> Program -> Program -> String
 fragmentShader webGl2 tempo imgMap vidMap oldProgram newProgram = header <> assignments <> gl_FragColor <> "}"
   where

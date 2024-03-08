@@ -18,7 +18,7 @@ import AST (AST,Expression(..),Statement,expression1,statement,parseAST)
 import Program (Program)
 import MultiMode (MultiMode(..))
 import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus,fit)
-import Value (Value(..),valuePosition,listValueToValueSignal,valueToSignal,class ToValue, class FromValue, toValue, fromValue, valueToAction)
+import Value (Value(..),valuePosition,listValueToValueSignal,valueToSignal,class ToValue, class FromValue, toValue, fromValue, valueToAction, valueToFunction)
 import Action (Action,signalToAction,setOutput,setCrossFade)
 import Output (Output)
 import Output as Output
@@ -101,17 +101,16 @@ parseExpression (IfThenElse p i t e) = do
   t' <- parseExpression t >>= valueToSignal
   e' <- parseExpression e >>= valueToSignal
   pure $ ValueSignal p $ Mix Combinatorial i' e' t'
-  
-  
+
+
 application :: forall m. Applicative m => MonadThrow ParseError m => Value -> Value -> m Value
 application f x = do
-  case f of
-    ValueFunction _ f' -> do
-      case f' x of
-        Left err -> throwError err
-        Right y -> pure y
-    v -> throwError $ ParseError "expected function" (valuePosition v)
+  f' <- valueToFunction f
+  case f' x of
+    Right a -> pure a
+    Left err -> throwError err
 
+  
 
 parseReserved :: Position -> String -> P Value
 parseReserved p "append" = lift $ signalSignalSignal p Append
@@ -264,8 +263,10 @@ parseReserved p "bpfp" = lift $ signalSignalSignalSignal p $ BPF Pairwise
 parseReserved p "delay" = lift $ numberSignalSignalSignal p Delay
 parseReserved p "audio" = pure $ ValueOutput p Output.Audio
 parseReserved p "blend" = pure $ ValuePolymorphic p (ValueOutput p Output.Blend : signalSignal p Blend : Nil)
-parseReserved p "add" = pure $ ValueOutput p Output.Add
-parseReserved p "mult" = pure $ ValueOutput p Output.Mult
+parseReserved p "rgba" = pure $ ValueOutput p Output.RGBA -- TODO: rework FragmentShader.purs with support for RGBA as a Signal that accesses previous output
+parseReserved p "add" = pure $ ValuePolymorphic p (ValueOutput p Output.Add : signalSignal p Add : Nil)
+parseReserved p "mul" = pure $ ValuePolymorphic p (ValueOutput p Output.Mul : signalSignal p Mul : Nil)
+parseReserved p "rgb" = pure $ ValueOutput p Output.RGB -- TODO: rework FragmentShader.purs with support for RGB as a Signal that accesses previous output
 parseReserved p x = throwError $ ParseError ("internal error in Punctual: parseReserved called with unknown reserved word " <> x) p
 
 parseOperator :: Position -> String -> P Value
@@ -273,7 +274,7 @@ parseOperator p ">>" = lift $ actionOutputAction p setOutput
 parseOperator p "<>" = lift $ actionNumberAction p setCrossFade
 parseOperator p "$" = pure $ ValueFunction p (\f -> pure $ ValueFunction p (\x -> application f x))
 parseOperator p "&" = pure $ ValueFunction p (\x -> pure $ ValueFunction p (\f -> application f x))
-parseOperator p "++" = lift $ signalSignalSignal p Zip
+parseOperator p "++" = lift $ signalSignalSignal p Append
 parseOperator p "~~" = lift $ signalSignalSignalSignal p modulatedRangeLowHigh
 parseOperator p "+-" = lift $ signalSignalSignalSignal p modulatedRangePlusMinus
 parseOperator p "+" = lift $ signalSignalSignal p $ Sum Combinatorial
