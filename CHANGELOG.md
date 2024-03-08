@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.9:
+
+-'add' as synonym for rgb output, 'blend' as synonym for rgba output (to ease forthcoming transition to new punctual 0.5 output modes)
+
 0.4.8.1:
 
 -bugfix affecting multiple layers of embedded arbitrary multichannel signals, eg. [[x,y],z]

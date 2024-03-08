@@ -54,7 +54,7 @@ ls << mono $ iline [x1,y1] [x2,y2] 0.002;
 col << hsvrgb [osc 0.11,0.5 ~~ 1 $ osc 0.12, 1];
 mask << prox 0 ** 8;
 a << fit 1 $ ls * col * mask;
-gatep 0.1 (maxp a (fb fxy * 0.98)) >> rgba <> 5
+gatep 0.1 (maxp a (fb fxy * 0.98)) >> add <> 5
 </textarea>
     </div>
     <div class="status">

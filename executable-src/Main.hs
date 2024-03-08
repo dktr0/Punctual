@@ -38,7 +38,7 @@ headElement = do
 
 intro :: Text
 intro
-  ="-- Punctual, an audiovisual live coding language, version 0.4.7\n\
+  ="-- Punctual, an audiovisual live coding language, version 0.4.9\n\
    \-- Chromium/Chrome/Edge/Opera browser strongly recommended\n\
    \-- Press Shift-Enter to (re)evaluate/activate code\n\
    \-- documentation @ https://github.com/dktr0/Punctual.git\n\
@@ -50,7 +50,7 @@ intro
    \col << hsvrgb [osc 0.11,0.5 ~~ 1 $ osc 0.12, 1];\n\
    \mask << prox 0 ** 8;\n\
    \a << fit 1 $ lines * col  * mask;\n\
-   \gatep 0.1 (maxp a (fb fxy * 0.98)) >> video <> 5\n"
+   \gatep 0.1 (maxp a (fb fxy * 0.98)) >> add <> 5\n"
 
 main :: IO ()
 main = do

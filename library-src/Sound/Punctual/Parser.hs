@@ -215,7 +215,9 @@ outputs = asum [
   reserved "rgb" >> return [RGB],
   reserved "hsv" >> return [HSV],
   reserved "alpha" >> return [Alpha],
-  reserved "fdbk" >> return [Fdbk]
+  reserved "fdbk" >> return [Fdbk],
+  reserved "blend" >> return [RGBA],
+  reserved "add" >> return [RGB]
   ]
 
 definitions1H :: H Graph
