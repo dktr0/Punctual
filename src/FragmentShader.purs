@@ -190,7 +190,7 @@ signalToGLSL ah (Asinh x) = signalToGLSL ah x >>= asinh
 signalToGLSL ah (Atan x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.atan
 signalToGLSL ah (Atanh x) = signalToGLSL ah x >>= atanh
 signalToGLSL ah (Bipolar x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.bipolar
-signalToGLSL ah (Cbrt x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.cbrt
+signalToGLSL ah (Cbrt x) = signalToGLSL ah x >>= cbrt
 signalToGLSL ah (Ceil x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.ceil
 signalToGLSL ah (Cos x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.cos
 signalToGLSL ah (Cosh x) = signalToGLSL ah x >>= cosh
@@ -601,7 +601,10 @@ round xs = do
   case s.webGl2 of
     true -> pure $ map (GLSLExpr.simpleUnaryFunctionPure "round") xs
     false -> traverse assign xs >>= simpleUnaryExpression (\x -> "(floor(" <> x <> ")+0.5)")
-
+    
+cbrt :: Exprs -> GLSL Exprs
+cbrt xs = traverse assign xs >>= simpleUnaryExpression (\x -> "(exp(log(abs(" <> x <> "))/3.)*sign(" <> x <> "))")
+  
 spin :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr
 spin fxy a = do
   aPi <- assignForced $ GLSLExpr.product a GLSLExpr.pi

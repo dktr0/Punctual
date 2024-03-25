@@ -479,9 +479,6 @@ asin = simpleUnaryFunctionPure "asin"
 atan :: GLSLExpr -> GLSLExpr
 atan = simpleUnaryFunctionPure "atan"
 
-cbrt :: GLSLExpr -> GLSLExpr
-cbrt = flip pow (float 0.33333333)
-
 ceil :: GLSLExpr -> GLSLExpr
 ceil = simpleUnaryFunctionPure "ceil"
 
