@@ -102,7 +102,7 @@ graphToGLSL ah env (Asin x) = graphToGLSL ah env x >>= return . fmap (unaryFunct
 graphToGLSL ah env (Asinh x) = graphToGLSL ah env $ Log $ Sum PairWise x $ Sqrt (Pow PairWise x 2 + 1) -- for WebGL1 compatibility, WebGL 2 has "asinh" directly
 graphToGLSL ah env (Atan x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "atan")
 graphToGLSL ah env (Atanh x) = graphToGLSL ah env $ Log (Division PairWise (1 + x) (1 - x)) / 2 -- for WebGL1 compatibility, WebGL 2 has "atanh" directly
-graphToGLSL ah env (Cbrt x) = graphToGLSL ah env $ Pow PairWise x 0.3333333333
+graphToGLSL ah env (Cbrt x) = graphToGLSL ah env x >>= mapM assign >>= (pure . fmap cbrt)
 graphToGLSL ah env (Ceil x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "ceil")
 graphToGLSL ah env (Cos x) = graphToGLSL ah env x >>= return . fmap (unaryFunctionMatched "cos")
 graphToGLSL ah env (Cosh x) = graphToGLSL ah env $ (Sum PairWise (Exp x) (Exp (x * (-1)))) / 2 -- for WebGL1 compatibility, WebGL 2 has "cosh" directly
@@ -559,6 +559,9 @@ dbamp x = pow 10 (x/20)
 
 ampdb :: GLSLExpr -> GLSLExpr
 ampdb x = 20 * Sound.Punctual.GLSLExpr.log x / Sound.Punctual.GLSLExpr.log 10
+
+cbrt :: GLSLExpr -> GLSLExpr
+cbrt x = unaryFunctionMatched "exp" (Sound.Punctual.GLSLExpr.log (abs x) / 3.0) * signum x
 
 -- must be GLFloat GLFloat Vec2
 -- currently w parameter is not quite-intuitive - it means something like 1/2 of the width of the line...
