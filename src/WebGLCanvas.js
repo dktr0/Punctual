@@ -110,12 +110,12 @@ export const _reinitializeFrameBufferTexture = gl => texture => width => height 
   
 export const _bindFrameBuffer = gl => x => () => gl.bindFramebuffer(gl.FRAMEBUFFER,x);
 
-export const _getCanvasWidth = c => () => c.clientWidth;
+export const _getCanvasWidth = c => () => c.clientWidth * window.devicePixelRatio;
 
-export const _getCanvasHeight = c => () => c.clientHeight;
+export const _getCanvasHeight = c => () => c.clientHeight * window.devicePixelRatio;
 
 export const _harmonizeCanvasDimensions = c => () => {
-  c.width = c.clientWidth;
-  c.height = c.clientHeight;
+  c.width = c.clientWidth * window.devicePixelRatio;
+  c.height = c.clientHeight * window.devicePixelRatio;
   }
 
