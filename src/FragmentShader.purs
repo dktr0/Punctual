@@ -730,9 +730,6 @@ appendExpr Output.Add (Just prevExpr) x = do
 appendExpr Output.Mul (Just prevExpr) x = do
   let prevRGB = GLSLExpr.coerceVec3 prevExpr -- discards previous alpha channel if there was one
   Just <$> (assignForced $ GLSLExpr.product prevRGB x)
-appendExpr Output.RGB (Just prevExpr) x = do
-  let prevRGB = GLSLExpr.coerceVec3 prevExpr -- discards previous alpha channel if there was one
-  Just <$> (assignForced $ GLSLExpr.sum prevRGB x)
 
     
 fragmentShader :: Boolean -> Tempo -> Map String Int -> Map String Int -> Program -> Program -> String

@@ -89,9 +89,9 @@ combine3Pairwise f xs ys zs = zipWith ($) (zipWith f xs' ys') zs'
 multi :: forall a. NonEmptyList (NonEmptyList a) -> NonEmptyList (NonEmptyList a)
 multi xs = do 
   case fromList (tail xs) of 
-    Nothing -> pure $ head xs
+    Nothing -> map singleton $ head xs
     Just t -> do -- in NonEmptyList monad
-      x <- head xs -- :: a
-      y <- multi t
-      pure $ x `cons` y
+      x <- head xs
+      y <- multi t 
+      pure $ x `cons` y 
 
