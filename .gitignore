@@ -1,4 +1,5 @@
 punctual-standalone.zip
+node_modules/
 dev-result
 result
 benchmarks.html

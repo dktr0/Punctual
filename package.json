@@ -1,0 +1,30 @@
+{
+  "name": "punctual",
+  "version": "0.5",
+  "description": "punctual",
+  "private": true,
+  "dependencies": {
+    "purescript": "^0.15.15",
+    "spago": "^0.21.0",
+    "esbuild": "^0.15.18",
+    "http-server": "*"
+  },
+  "devDependencies": {
+  },
+  "scripts": {
+    "build": "npx spago build && npx esbuild exolang.js --bundle --minify --format=esm --outfile=punctual.js",
+    "serve": "npx http-server -c-1",
+    "repl": "npx spago repl"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dktr0/Punctual.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "GPLv3",
+  "bugs": {
+    "url": "https://github.com/dktr0/Punctual/issues"
+  },
+  "homepage": "https://github.com/dktr0/Punctual"
+}
