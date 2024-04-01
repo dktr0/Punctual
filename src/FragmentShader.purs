@@ -238,7 +238,7 @@ signalToGLSL _ (XyRt xy) = do
   xs <- traverse swizzleX xys
   ys <- traverse swizzleY xys
   rs <- zipBinaryExpression (\x y -> "sqrt((" <> x <> "*" <> x <> ")+(" <> y <> "*" <> y <> "))") xs ys
-  ts <- zipBinaryExpression (\x y -> "atan(" <> x <> "," <> y <> ")") xs ys
+  ts <- zipBinaryExpression (\x y -> "atan(" <> y <> "," <> x <> ")") xs ys
   pure $ concat $ zipWith (\x y -> x `cons` singleton y) rs ts
 
 signalToGLSL _ (XyR xy) = do
@@ -251,7 +251,7 @@ signalToGLSL _ (XyT xy) = do
   xys <- signalToGLSL Vec2 xy >>= alignVec2
   xs <- traverse swizzleX xys
   ys <- traverse swizzleY xys
-  zipBinaryExpression (\x y -> "atan(" <> x <> "," <> y <> ")") xs ys
+  zipBinaryExpression (\x y -> "atan(" <> y <> "," <> x <> ")") xs ys
 
 signalToGLSL _ (Distance xy) = do
   fxy <- _.fxy <$> get
