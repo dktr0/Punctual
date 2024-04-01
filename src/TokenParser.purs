@@ -73,16 +73,25 @@ operators2 :: Array String
 operators2 = ["$","&"]
 
 operators3 :: Array String
-operators3 = [
-  "++","~~","+-",
-  "+","-","*","/","%","**","==","/=",">","<",">=","<=",
-  "+:","-:","*:","/:","%:","**:","==:","/=:",">:","<:",">=:","<=:"
-  ]
+operators3 = ["++","~~","+-"]
+
+operators4 :: Array String
+operators4 = ["==","/=",">","<",">=","<=","==:","/=:",">:","<:",">=:","<=:"]
+  
+operators5 :: Array String
+operators5 = ["+","-","+:","-:"]
+  
+operators6 :: Array String
+operators6 = ["*","/","%","*:","/:","%:"]
+
+operators7 :: Array String
+operators7 = ["**","**:"]
+
 
 tokenParser :: GenTokenParser String Identity
 tokenParser = makeTokenParser $ LanguageDef (unGenLanguageDef emptyDef) {
   reservedNames = reservedNamesDef,
-  reservedOpNames = operators0 <> operators1 <> operators2 <> operators3,
+  reservedOpNames = operators0 <> operators1 <> operators2 <> operators3 <> operators4 <> operators5 <> operators6 <> operators7,
   commentStart = "{-",
   commentEnd = "-}",
   commentLine = "--",

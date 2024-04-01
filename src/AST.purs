@@ -12,7 +12,7 @@ import Parsing.String (eof)
 import Data.Either (Either(..))
 import Data.Foldable (foldl)
 
-import TokenParser (P, commaSep, identifier, number, parens, reserved, reservedOp, semiSep, stringLiteral, whiteSpace, brackets, reservedNamesDef, operators1, operators2, operators3, comma, integer,naturalOrFloat)
+import TokenParser (P, commaSep, identifier, number, parens, reserved, reservedOp, semiSep, stringLiteral, whiteSpace, brackets, reservedNamesDef, operators1, operators2, operators3, operators4, operators5, operators6, operators7, comma, integer,naturalOrFloat)
 
 
 type AST = List (Maybe Statement)
@@ -100,6 +100,26 @@ expression3 = do
 
 expression4 :: P Expression
 expression4 = do
+  _ <- pure unit
+  chainl1 expression5 (operator operators4)
+  
+expression5 :: P Expression
+expression5 = do
+  _ <- pure unit
+  chainl1 expression6 (operator operators5)
+  
+expression6 :: P Expression
+expression6 = do
+  _ <- pure unit
+  chainl1 expression7 (operator operators6)
+  
+expression7 :: P Expression
+expression7 = do
+  _ <- pure unit
+  chainl1 expression8 (operator operators7)
+  
+expression8 :: P Expression
+expression8 = do
   _ <- pure unit
   choice [
     try application,
