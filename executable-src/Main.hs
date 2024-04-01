@@ -38,7 +38,7 @@ headElement = do
 
 intro :: Text
 intro
-  ="-- Punctual, an audiovisual live coding language, version 0.4.9.1\n\
+  ="-- Punctual, an audiovisual live coding language, version 0.4.9.2\n\
    \-- Chromium/Chrome/Edge/Opera browser strongly recommended\n\
    \-- Press Shift-Enter to (re)evaluate/activate code\n\
    \-- documentation @ https://github.com/dktr0/Punctual.git\n\

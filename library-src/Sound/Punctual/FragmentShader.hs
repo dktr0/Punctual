@@ -435,10 +435,12 @@ unaryFunctionWithPosition f ah (m,fxys) x = do
   alignHint ah $ concat zss
 
 unaryPositionTransform :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> GLSLType -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
-unaryPositionTransform f t ah env@(texMap,fxy) a b = do
-  a' <- graphToGLSL (Just t) env a >>= align t
-  fxy' <- mapM assign [ f fxy' a'' | fxy' <- fxy, a'' <- a' ]
-  graphToGLSL ah (texMap,fxy') b
+unaryPositionTransform f t ah (m,fxys) a b = do
+  zss <- forM fxys $ \fxy -> do
+    a' <- graphToGLSL (Just t) (m,[fxy]) a >>= align t
+    fxy' <- mapM assign $ fmap (f fxy) a'
+    graphToGLSL ah (m,fxy') b
+  alignHint ah $ concat zss
 
 binaryMatchedGraphs :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]
 binaryMatchedGraphs Combinatorial = binaryMatchedGraphsCombinatorial

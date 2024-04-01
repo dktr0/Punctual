@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.9.2:
+
+-bugfix affecting combinatorial geometry transformations (i.e. spin [x,y,z] $ tile [x,y] w)
+
 0.4.9.1:
 
 -bugfix to cbrt (visuals)

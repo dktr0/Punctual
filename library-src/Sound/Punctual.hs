@@ -52,7 +52,7 @@ new canvas = do
   punctualWebGL'' <- newIORef punctualWebGL'
   tNow <- getCurrentTime
   tempo' <- newIORef $ Tempo { time=tNow, freq=0.5, Data.Tempo.count=0 }
-  putStrLn "Punctual 0.4.9.1 initialization complete"
+  putStrLn "Punctual 0.4.9.2 initialization complete"
   pure $ Punctual {
     punctualWs = punctualWs',
     punctualWebGL = punctualWebGL'',
