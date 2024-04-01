@@ -110,7 +110,7 @@ application :: P Expression
 application = do
   _ <- pure unit
   p <- position
-  f <- argument
+  f <- functionInApplication
   firstArg <- argument
   otherArgs <- many argument
   pure $ foldl (Application p) (Application p f firstArg) otherArgs
@@ -129,6 +129,17 @@ argument = do
     try list,
     try lambda,
     try ifThenElse,
+    Identifier p <$> identifier
+    ]
+    
+functionInApplication :: P Expression
+functionInApplication = do
+  _ <- pure unit
+  p <- position
+  choice [
+    parens functionInApplication,
+    try reservedNames,
+    parens lambda,
     Identifier p <$> identifier
     ]
 
