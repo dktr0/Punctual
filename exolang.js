@@ -32,3 +32,6 @@ Punctual.prototype.postRender = function(args) {
   return P.postRender(this.punctual)(args)();
 }
 
+Punctual.prototype.test = function(name,f) {
+  return P.test(this.punctual)(name)(f)();
+}

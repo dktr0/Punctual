@@ -61,9 +61,9 @@ setAnalysisSource a mEffectNode = do
   case mSourceAndAnalyser of
     Nothing -> pure unit  -- analysis is not currently active, so nothing more to do
     Just (Tuple source analyser) -> do -- analysis currently active, so disconnect and reconnect
-      _disconnect source analyser
+      disconnect source analyser
       newSource <- effectNode
-      _connect newSource analyser
+      connect newSource analyser
     
 _disactivateAnalysis :: AudioAnalyser -> Effect Unit
 _disactivateAnalysis a = do
@@ -71,7 +71,7 @@ _disactivateAnalysis a = do
   case mSourceAndAnalyser of
     Nothing -> pure unit  -- analysis is not currently active, so nothing more to do
     Just (Tuple source analyser)-> do -- disactivate
-      _disconnect source analyser
+      disconnect source analyser
       write Nothing a.sourceAndAnalyser
       log "punctual: disactivating an audio analyser..."
       
@@ -84,7 +84,7 @@ _activateAnalysis a = do
       intendedSource' <- read a.intendedSource
       sourceNode <- intendedSource'
       analyserNode <- _analyserNode a.webAudioContext 1024 0.5
-      _connect sourceNode analyserNode
+      connect sourceNode analyserNode
       write (Just $ Tuple sourceNode analyserNode) a.sourceAndAnalyser
       log "punctual: activating an audio analyser..."
       pure analyserNode

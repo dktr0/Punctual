@@ -4,6 +4,10 @@ export const defaultWebAudioContext = () => new AudioContext();
 
 export const resumeWebAudioContext = ac => () => ac.resume();
 
+export const currentTime = ac => () => ac.currentTime;
+
+export const destination = ac => () => ac.destination;
+
 export const gainNode = ac => gain => () => new GainNode(ac,{ gain:gain });
 
 export const _analyserNode = ac => fftSize => smoothingTimeConstant => () => new AnalyserNode(ac,{ fftSize:fftSize, smoothingTimeConstant:smoothingTimeConstant });
@@ -17,7 +21,7 @@ export const _defaultAudioInputNode = ac => () => {
   return r;
   }
 
-export const _connect = src => dest => () => src.connect(dest);
+export const connect = src => dest => () => src.connect(dest);
 
-export const _disconnect = src => dest => () => src.disconnect(dest);
+export const disconnect = src => dest => () => src.disconnect(dest);
 

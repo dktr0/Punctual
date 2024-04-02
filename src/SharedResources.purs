@@ -39,6 +39,7 @@ newSharedResources mWebAudioContext = do
                        Nothing -> defaultWebAudioContext
                        Just x -> pure x
   audioOutputNode <- gainNode webAudioContext 1.0
+  destination webAudioContext >>= connect audioOutputNode
   inputAnalyser <- newInputAnalyser webAudioContext
   outputAnalyser <- newOutputAnalyser webAudioContext audioOutputNode
   pure {

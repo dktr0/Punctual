@@ -35,12 +35,17 @@
       window.doEval();
     }
   });
-
+  window.testIndex = 0;
+  window.test = function() {
+    window.punctual.test("test" + window.testIndex,parseFloat(document.getElementById("editorArea").value));
+    window.testIndex++;
+  }
   </script>
 
   <div id="canvasDiv"><canvas id="canvas"></canvas></div>
   <div class="editorAndStatus">
     <div class="editor">
+    <button onclick="test()">test</button>
 <textarea class="editorArea" id="editorArea">
 -- Punctual, an audiovisual live coding language, version 0.5
 -- Chromium/Chrome/Edge/Opera browser strongly recommended
