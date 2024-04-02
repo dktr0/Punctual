@@ -14,7 +14,8 @@ import Data.Map (Map, empty, lookup, insert)
 import Data.Monoid.Disj (Disj)
 
 import WebGLCanvas (WebGLCanvas, WebGLContext, WebGLTexture)
-import AudioAnalyser (WebAudioContext,defaultWebAudioContext,WebAudioNode,gainNode,AudioAnalyser,newInputAnalyser,newOutputAnalyser,updateAnalyser)
+import WebAudio
+import AudioAnalyser (AudioAnalyser,newInputAnalyser,newOutputAnalyser,updateAnalyser)
 
 type SharedResources = {
   tempo :: Ref Tempo,

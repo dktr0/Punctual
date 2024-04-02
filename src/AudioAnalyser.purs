@@ -1,6 +1,6 @@
 module AudioAnalyser where
 
-import Prelude (Unit, bind, discard, pure, unit, when, ($), (<>), show)
+import Prelude (Unit, bind, discard, pure, unit, when, ($), (<>))
 import Effect (Effect)
 import Effect.Ref (Ref,new,read,write)
 import Effect.Console (log)
@@ -8,6 +8,8 @@ import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Data.Monoid.Disj (Disj)
 import Data.Newtype (unwrap)
+
+import WebAudio
 
 type AudioAnalyser = {
   webAudioContext :: WebAudioContext,
@@ -105,27 +107,6 @@ updateAnalyser a needs = do
         x <- _getHi a.analyserArray
         write x a.hi
         
-
-foreign import data WebAudioContext :: Type
-
-foreign import defaultWebAudioContext :: Effect WebAudioContext
-
-foreign import resumeWebAudioContext :: WebAudioContext -> Effect Unit
-
-foreign import data WebAudioNode :: Type
-
--- foreign import _monoGainNode :: WebAudioContext -> Number -> Effect WebAudioNode
-
-foreign import gainNode :: WebAudioContext -> Number -> Effect WebAudioNode
-
-foreign import _analyserNode :: WebAudioContext -> Int -> Number -> Effect WebAudioNode
-
-foreign import _defaultAudioInputNode :: WebAudioContext -> Effect WebAudioNode
-
-foreign import _connect :: WebAudioNode -> WebAudioNode -> Effect Unit
-
-foreign import _disconnect :: WebAudioNode -> WebAudioNode -> Effect Unit
-
 foreign import data AnalyserArray :: Type
 
 foreign import _analyserArray :: Int -> Effect AnalyserArray
