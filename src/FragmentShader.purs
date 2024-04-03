@@ -57,7 +57,6 @@ signalToGLSL _ (Mono x) = do
   let s = "(" <> intercalate " + " (_.string <$> xs') <> ")"
   pure $ singleton $ { string: s, glslType: Float, isSimple: false, deps: fold (_.deps <$> xs) }
 
-signalToGLSL _ (Rep 0 _) = pure $ singleton $ zero
 signalToGLSL ah (Rep n x) = (concat <<< replicate1 n) <$> signalToGLSL ah x
 
 signalToGLSL _ Pi = pure $ singleton $ GLSLExpr.pi

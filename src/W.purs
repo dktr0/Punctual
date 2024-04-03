@@ -2,16 +2,17 @@ module W where
 
 -- A monad and associated functions for generating the code of a WebAudio audio worklet.
 
-import Prelude (bind,discard,Unit,(<>),($),show,(+),pure,(>>=),map)
+import Prelude (Unit, bind, discard, map, pure, show, ($), (+), (<$>), (<<<), (<>), (>>=))
 import Control.Monad.State (State,get,put,runState,modify_)
-import Data.List.NonEmpty (NonEmptyList,singleton,fromList,length,head,concat)
+import Data.List.NonEmpty (NonEmptyList,singleton,fromList,length,head,concat,zipWith,cons)
 import Data.Either (Either(..))
 import Data.Foldable (intercalate)
 import Data.Traversable (traverse)
-import Data.Tuple (Tuple)
+import Data.Tuple (Tuple(..))
 import Data.Maybe (Maybe(..))
+import Data.Unfoldable1 (replicate1)
 
-import NonEmptyList (multi)
+import NonEmptyList (multi,extendToEqualLength)
 import Signal (Signal(..))
 
 
@@ -69,14 +70,18 @@ signalToFrame (Append x y) = do
   ys <- signalToFrame y
   pure $ xs <> ys
   
--- Zip x y
+signalToFrame (Zip x y) = do
+  xs <- signalToFrame x
+  ys <- signalToFrame y
+  let Tuple xs' ys' = extendToEqualLength xs ys
+  pure $ concat $ zipWith (\anX anY -> anX `cons` singleton anY ) xs' ys'
 
 signalToFrame (Mono x) = do
   xs <- signalToFrame x
   y <- assign $ intercalate "+" $ map showSample xs
   pure $ singleton $ y
 
--- Rep n x
+signalToFrame (Rep n x) = (concat <<< replicate1 n) <$> signalToFrame x
 
 signalToFrame Pi = pure $ singleton $ Right "Math.PI"
 
