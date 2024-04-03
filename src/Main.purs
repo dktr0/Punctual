@@ -14,6 +14,7 @@ import Data.Maybe (Maybe(..))
 import Data.Tempo (ForeignTempo, fromForeignTempo)
 import Data.Foldable (fold)
 import Data.Newtype (unwrap)
+import Data.List (List(..),(:))
 
 import Signal (SignalInfo,emptySignalInfo,Signal(..))
 import Program (Program,emptyProgram,programHasVisualOutput,programInfo)
@@ -190,7 +191,8 @@ test p name f = do
   case mAudioWorklet of
     Just audioWorklet -> stopWorklet audioWorklet (t+0.5) 5.0
     Nothing -> pure unit
-  audioWorklet <- runWorklet p.sharedResources.webAudioContext p.sharedResources.audioOutputNode name (Osc (Constant f)) (t+0.5) 5.0
+  let testSignal = Mono $ SignalList (Osc (Constant f) : Osc (Constant $ f *1.01) : Nil)
+  audioWorklet <- runWorklet p.sharedResources.webAudioContext p.sharedResources.audioOutputNode name testSignal (t+0.5) 5.0
   write (Just audioWorklet) p.audioWorklet
 
 

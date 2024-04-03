@@ -61,7 +61,7 @@ const t = currentTime + (n/sampleRate);
     restOfClass = """
 const fOut = fOutEnd == -1.0 ? 1.0 : clamp(0,1,(fOutEnd-t)/fOutDur);
 const f = Math.min(fIn,fOut);
-output[0][n] = output[0][n] * f;
+output[0][n] = output[0][n] * f * 0.1; // 0.1 is placeholder for testing
 }
 this.framesOut += blockSize;
 return (fOutEnd == -1.0 ? true : (currentTime + (blockSize/sampleRate) <= fOutEnd));

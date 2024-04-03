@@ -2,13 +2,16 @@ module W where
 
 -- A monad and associated functions for generating the code of a WebAudio audio worklet.
 
-import Prelude (bind,discard,Unit,(<>),($),show,(+),pure,(>>=))
+import Prelude (bind,discard,Unit,(<>),($),show,(+),pure,(>>=),map)
 import Control.Monad.State (State,get,put,runState,modify_)
-import Data.List.NonEmpty (NonEmptyList,singleton)
+import Data.List.NonEmpty (NonEmptyList,singleton,fromList,length,head,concat)
 import Data.Either (Either(..))
+import Data.Foldable (intercalate)
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple)
+import Data.Maybe (Maybe(..))
 
+import NonEmptyList (multi)
 import Signal (Signal(..))
 
 
@@ -50,15 +53,33 @@ type Frame = NonEmptyList Sample
 signalToFrame :: Signal -> W Frame
 
 signalToFrame (Constant x) = pure $ singleton $ Left x
--- SignalList xs
+
+signalToFrame (SignalList xs) = 
+  case fromList xs of
+    Nothing -> pure $ singleton $ Left 0.0
+    Just xs' -> do
+      case length xs' of
+        1 -> signalToFrame (head xs')
+        _ -> do
+          xs'' <- traverse signalToFrame xs' -- :: NonEmptyList Frame == NonEmptyList (NonEmptyList Sample)
+          pure $ concat $ multi xs''
+
 signalToFrame (Append x y) = do
   xs <- signalToFrame x
   ys <- signalToFrame y
   pure $ xs <> ys
+  
 -- Zip x y
--- Mono x
+
+signalToFrame (Mono x) = do
+  xs <- signalToFrame x
+  y <- assign $ intercalate "+" $ map showSample xs
+  pure $ singleton $ y
+
 -- Rep n x
+
 signalToFrame Pi = pure $ singleton $ Right "Math.PI"
+
 -- Cps 
 -- Time
 -- Beat
@@ -67,6 +88,7 @@ signalToFrame Pi = pure $ singleton $ Right "Math.PI"
 -- Rnd
 -- AudioIn
 -- ...
+
 signalToFrame (Osc f) = signalToFrame f >>= traverse osc
 
 {-  
