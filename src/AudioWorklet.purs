@@ -1,13 +1,15 @@
 module AudioWorklet where
 
-import Prelude ((<>),show,Unit,pure,unit,bind,discard,(+))
+import Prelude ((<>),Unit,pure,unit,discard,($),show)
 import Effect (Effect)
 import Data.Nullable (Nullable,toMaybe)
 import Data.Maybe (Maybe(..))
+import Data.Tuple (Tuple(..))
+import Data.List.NonEmpty (head)
 
-import Signal
-import WebAudio (WebAudioContext,WebAudioNode,currentTime)
-
+import Signal (Signal)
+import WebAudio (WebAudioContext,WebAudioNode)
+import W
 
 type AudioWorklet = {
   name :: String,
@@ -16,63 +18,52 @@ type AudioWorklet = {
   audioWorkletNode :: Nullable WebAudioNode
   }
 
-runWorklet :: WebAudioContext -> WebAudioNode -> String -> Signal -> Effect AudioWorklet
-runWorklet ctx dest name s = _runWorklet ctx dest name (code s name)
+runWorklet :: WebAudioContext -> WebAudioNode -> String -> Signal -> Number -> Number -> Effect AudioWorklet
+runWorklet ctx dest name s fInStart fInDur = _runWorklet ctx dest name (code s name fInStart fInDur)
 
 foreign import _runWorklet :: WebAudioContext -> WebAudioNode -> String -> String -> Effect AudioWorklet
 
-stopWorklet :: WebAudioContext -> AudioWorklet -> Effect Unit
-stopWorklet ctx w = do
+stopWorklet :: AudioWorklet -> Number -> Number -> Effect Unit
+stopWorklet w fOutStart fOutDur = do
   case toMaybe w.audioWorkletNode of
     Nothing -> pure unit
     Just n -> do
-      t <- currentTime ctx
-      setWorkletParamValue n "fOutStart" (t + 0.5)
-      setWorkletParamValue n "fOutDur" 5.0
+      setWorkletParamValue n "fOutStart" fOutStart
+      setWorkletParamValue n "fOutDur" fOutDur
       -- not sure if we also need to have a scheduled disconnect of the processor?
 
 foreign import setWorkletParamValue :: WebAudioNode -> String -> Number -> Effect Unit
 
-code :: Signal -> String -> String
-code s name = part1 <> part2 <> innerLoop s <> part4 <> part5
+code :: Signal -> String -> Number -> Number -> String
+code s name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> innerLoop <> fadeInCalculation <> restOfClass <> registerProcessor
   where
-    part1 = "class " <> name <> " extends AudioWorkletProcessor {\n"
-    part2 = """static get parameterDescriptors() { return [
-{ name: 'fInStart', defaultValue: 0.0 },
-{ name: 'fInDur', defaultValue: 5.0 },
-{ name: 'fOutStart', defaultValue: -1.0 },
-{ name: 'fOutDur', defaultValue: 5.0 }
-];}
-constructor() { super(); this.framesOut = 0; this.runTime = currentTime }
-clamp(min,max,x) { return Math.max(Math.min(max,x),min); }
-process(inputs,outputs,parameters) {
+    Tuple frame wState = runW $ signalToFrame s
+    prefix = "function clamp(min,max,x) { return Math.max(Math.min(max,x),min); }\n\n"
+    classHeader = "class " <> name <> " extends AudioWorkletProcessor {\n\n"
+    getParameterDescriptors = "static get parameterDescriptors() { return [{ name:'fOutStart', defaultValue:-1.0 },{ name:'fOutDur', defaultValue:5.0 }]; }\n\n"
+    constructor = "constructor() { super(); this.framesOut = 0; this.runTime = currentTime; this.m = new Float32Array(" <> show wState.allocation <> ")}\n\n"
+    innerLoopPrefix = """process(inputs,outputs,parameters) {
 const input = inputs[0];
 const output = outputs[0];
-const fInStart = parameters.fInStart[0] == 0.0 ? this.runTime : parameters.fInStart[0];
-const fInDur = parameters.fInDur[0];
-const fOutStart = parameters.fOutStart[0] == -1.0 ? -1.0 : parameters.fOutStart[0];
-const fOutDur = parameters.fOutDur[0];
 const blockSize = 128;
+const fOutDur = parameters.fOutDur[0];
+const fOutEnd = parameters.fOutStart[0] == -1.0 ? -1.0 : parameters.fOutStart[0] + fOutDur;
+const m = this.m;
 for(let n=0; n<blockSize; n++){
 const t = currentTime + (n/sampleRate);
 """
-    part4 = """
-const fIn = this.clamp(0,1, (t-fInStart)/fInDur);
-const fOut = fOutStart == -1.0 ? 1.0 : this.clamp(0,1,(fOutStart+fOutDur-t)/fOutDur);
+    innerLoop = wState.code <> "output[0][n] = " <> showSample (head frame) <> ";\n"
+    fadeInCalculation = "const fIn = clamp(0,1,(t-" <> show fInStart <> ")/" <> show fInDur <> ");"
+    restOfClass = """
+const fOut = fOutEnd == -1.0 ? 1.0 : clamp(0,1,(fOutEnd-t)/fOutDur);
 const f = Math.min(fIn,fOut);
 output[0][n] = output[0][n] * f;
 }
 this.framesOut += blockSize;
-return (fOutStart == -1.0 ? true : (currentTime + (blockSize/sampleRate) <= fOutStart + fOutDur));
+return (fOutEnd == -1.0 ? true : (currentTime + (blockSize/sampleRate) <= fOutEnd));
 }
 }
-"""
-    part5 = "registerProcessor('" <> name <> "'," <> name <> ");\n"
 
-innerLoop :: Signal -> String
-innerLoop (Osc (Constant f)) = "output[0][n] = Math.sin(t * 2.0 * Math.PI * " <> show f <> ") * 0.1;\n"
--- "output[0][n] = Math.sin( (currentTime - this.runTime + (n/sampleRate)) * 2.0 * Math.PI * " <> show f <> ");\n"
--- "output[0][n] = Math.sin( (this.framesOut + n) * 2.0 * Math.PI * " <> show f <> " / sampleRate);\n"
-innerLoop Rnd = "output[0][n] = Math.random();\n"
-innerLoop _ = "output[0][n] = 0;\n"
+"""
+    registerProcessor = "registerProcessor('" <> name <> "'," <> name <> ");\n"
 

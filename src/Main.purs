@@ -23,7 +23,7 @@ import DateTime (numberToDateTime)
 import SharedResources (SharedResources)
 import SharedResources as SharedResources
 import AudioWorklet (runWorklet,stopWorklet,AudioWorklet)
-import WebAudio (resumeWebAudioContext)
+import WebAudio (resumeWebAudioContext,currentTime)
   
 type Punctual = {
   sharedResources :: SharedResources,
@@ -185,11 +185,12 @@ deleteWebGLForZone punctual z = do
 test :: Punctual -> String -> Number -> Effect Unit
 test p name f = do
   resumeWebAudioContext p.sharedResources.webAudioContext
+  t <- currentTime p.sharedResources.webAudioContext
   mAudioWorklet <- read p.audioWorklet  
   case mAudioWorklet of
-    Just audioWorklet -> stopWorklet p.sharedResources.webAudioContext audioWorklet
+    Just audioWorklet -> stopWorklet audioWorklet (t+0.5) 5.0
     Nothing -> pure unit
-  audioWorklet <- runWorklet p.sharedResources.webAudioContext p.sharedResources.audioOutputNode name (Osc (Constant f))
+  audioWorklet <- runWorklet p.sharedResources.webAudioContext p.sharedResources.audioOutputNode name (Osc (Constant f)) (t+0.5) 5.0
   write (Just audioWorklet) p.audioWorklet
 
 
