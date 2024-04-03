@@ -7,7 +7,9 @@ var Ss=e=>a=>u=>l=>()=>{var t={name:u,code:l,connected:!1,audioWorkletNode:null}
 
 `),R="class "+(a+` extends AudioWorkletProcessor {
 
-`);return`function clamp(min,max,x) { return Math.max(Math.min(max,x),min); }
+`);return`'use strict';
+
+function clamp(min,max,x) { return Math.max(Math.min(max,x),min); }
 
 `+(R+(`static get parameterDescriptors() { return [{ name:'fOutStart', defaultValue:-1.0 },{ name:'fOutDur', defaultValue:5.0 }]; }
 

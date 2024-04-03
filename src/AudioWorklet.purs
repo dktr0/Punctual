@@ -38,7 +38,11 @@ code :: Signal -> String -> Number -> Number -> String
 code s name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> innerLoop <> fadeInCalculation <> restOfClass <> registerProcessor
   where
     Tuple frame wState = runW $ signalToFrame s
-    prefix = "function clamp(min,max,x) { return Math.max(Math.min(max,x),min); }\n\n"
+    prefix = """'use strict';
+
+function clamp(min,max,x) { return Math.max(Math.min(max,x),min); }
+
+"""
     classHeader = "class " <> name <> " extends AudioWorkletProcessor {\n\n"
     getParameterDescriptors = "static get parameterDescriptors() { return [{ name:'fOutStart', defaultValue:-1.0 },{ name:'fOutDur', defaultValue:5.0 }]; }\n\n"
     constructor = "constructor() { super(); this.framesOut = 0; this.runTime = currentTime; this.m = new Float32Array(" <> show wState.allocation <> ")}\n\n"
