@@ -2,18 +2,19 @@ module W where
 
 -- A monad and associated functions for generating the code of a WebAudio audio worklet.
 
-import Prelude (Unit, bind, discard, map, pure, show, ($), (+), (<$>), (<<<), (<>), (>>=))
+import Prelude (Unit, bind, discard, map, pure, show, ($), (+), (<$>), (<<<), (<>), (>>=), (==), otherwise)
 import Control.Monad.State (State,get,put,runState,modify_)
 import Data.List.NonEmpty (NonEmptyList,singleton,fromList,length,head,concat,zipWith,cons)
 import Data.Either (Either(..))
 import Data.Foldable (intercalate)
-import Data.Traversable (traverse)
+import Data.Traversable (traverse,sequence)
 import Data.Tuple (Tuple(..))
 import Data.Maybe (Maybe(..))
 import Data.Unfoldable1 (replicate1)
 
 import NonEmptyList (multi,extendToEqualLength)
 import Signal (Signal(..))
+import MultiMode (MultiMode(..))
 
 
 type W = State WState
@@ -140,20 +141,70 @@ signalToFrame (DbAmp x) = signalToFrame x >>= traverse dbamp
 signalToFrame (AmpDb x) = signalToFrame x >>= traverse ampdb
 signalToFrame (Fract x) = signalToFrame x >>= traverse fract
 
-{-  
-signalToFrame (Sum mm x y) = do
-  x' <- signalToFrame x 
-  y' <- signalToFrame y 
-  ... TODO: some function that combines (taking account of combinatorial vs. pairwise) two n-channel Frames through a provided sum function of type Sample -> Sample -> W Sample
+signalToFrame (Sum mm x y) = binaryFunction sum mm x y
+
+{-
+  Difference MultiMode Signal Signal |
+  Product MultiMode Signal Signal |
+  Division MultiMode Signal Signal |
+  Mod MultiMode Signal Signal |
+  Pow MultiMode Signal Signal |
+  Equal MultiMode Signal Signal |
+  NotEqual MultiMode Signal Signal |
+  GreaterThan MultiMode Signal Signal |
+  GreaterThanEqual MultiMode Signal Signal |
+  LessThan MultiMode Signal Signal |
+  LessThanEqual MultiMode Signal Signal |
+  Max MultiMode Signal Signal |
+  Min MultiMode Signal Signal |
+  Gate MultiMode Signal Signal |
+  Clip MultiMode Signal Signal |
+  Between MultiMode Signal Signal |
+  SmoothStep MultiMode Signal Signal |
+-}
+
+{-
+  Seq Signal Signal |
+  Mix MultiMode Signal Signal Signal |
+  ILine MultiMode Signal Signal Signal |
+  Line MultiMode Signal Signal Signal |
+  LinLin MultiMode Signal Signal Signal |
+  LPF MultiMode Signal Signal Signal | HPF MultiMode Signal Signal Signal | BPF MultiMode Signal Signal Signal |
+  Delay Number Signal Signal
 -}
 
 signalToFrame _ = pure $ singleton $ Left 0.0
-
+  
 
 unaryFunction :: String -> Signal -> W Frame
 unaryFunction name s = do
   xs <- signalToFrame s
   traverse (\x -> assign $ name <> "(" <> showSample x <> ")") xs
+
+binaryFunction :: (Sample -> Sample -> W Sample) -> MultiMode -> Signal -> Signal -> W Frame
+binaryFunction f mm x y = do
+  xs <- signalToFrame x -- NonEmptyList Sample
+  ys <- signalToFrame y -- NonEmptyList Sample
+  combineFrames mm f xs ys
+  
+combineFrames :: MultiMode -> (Sample -> Sample -> W Sample) -> Frame -> Frame -> W Frame
+combineFrames Combinatorial = combineFramesCombinatorial
+combineFrames Pairwise = combineFramesPairwise
+
+combineFramesPairwise :: (Sample -> Sample -> W Sample) -> Frame -> Frame -> W Frame
+combineFramesPairwise f xs ys
+  | length xs == 1 = traverse (f (head xs)) ys
+  | length ys == 1 = traverse (\x -> f x (head ys)) xs
+  | otherwise = do -- extend xs and ys to equal length in channels
+      let Tuple xs' ys' = extendToEqualLength xs ys
+      sequence $ zipWith f xs' ys'
+
+combineFramesCombinatorial :: (Sample -> Sample -> W Sample) -> Frame -> Frame -> W Frame
+combineFramesCombinatorial f xs ys = do
+  sequence $ do -- in NonEmptyList monad
+    x <- xs
+    y <- ys
+    pure $ f x y
 
 
 bipolar :: Sample -> W Sample
