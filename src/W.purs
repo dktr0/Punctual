@@ -85,13 +85,17 @@ signalToFrame (Rep n x) = (concat <<< replicate1 n) <$> signalToFrame x
 
 signalToFrame Pi = pure $ singleton $ Right "Math.PI"
 
--- Cps 
--- Time
--- Beat
--- EBeat
--- ETime
+signalToFrame CPS = pure $ singleton $ Right "cps"
 
-signalToFrame Rnd = pure $ singleton $ Right $ "(Math.random()*2-1)"
+signalToFrame Time = pure $ singleton $ Right "time"
+
+signalToFrame Beat = pure $ singleton $ Right "beat"
+
+signalToFrame ETime = pure $ singleton $ Right "eTime"
+
+signalToFrame EBeat = pure $ singleton $ Right "eBeat"
+
+signalToFrame Rnd = singleton <$> assign "Math.random()*2-1"
 
 -- AudioIn
 -- ...

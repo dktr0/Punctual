@@ -34,6 +34,7 @@ stopWorklet w fOutStart fOutDur = do
 
 foreign import setWorkletParamValue :: WebAudioNode -> String -> Number -> Effect Unit
 
+
 code :: Signal -> String -> Number -> Number -> String
 code s name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> innerLoop <> fadeInCalculation <> restOfClass <> registerProcessor
   where
@@ -44,17 +45,33 @@ function clamp(min,max,x) { return Math.max(Math.min(max,x),min); }
 
 """
     classHeader = "class " <> name <> " extends AudioWorkletProcessor {\n\n"
-    getParameterDescriptors = "static get parameterDescriptors() { return [{ name:'fOutStart', defaultValue:-1.0 },{ name:'fOutDur', defaultValue:5.0 }]; }\n\n"
+    getParameterDescriptors = """static get parameterDescriptors() {
+return [
+  { name:'fOutStart', defaultValue:-1.0 },
+  { name:'fOutDur', defaultValue:5.0 },
+  { name:'cps', defaultValue:1.0 },
+  { name:'origin', defaultValue:0.0 },
+  { name:'eval',defaultValue:0.0 }
+];}
+
+"""
     constructor = "constructor() { super(); this.framesOut = 0; this.runTime = currentTime; this.m = new Float32Array(" <> show wState.allocation <> ")}\n\n"
     innerLoopPrefix = """process(inputs,outputs,parameters) {
 const input = inputs[0];
 const output = outputs[0];
 const blockSize = 128;
+const cps = parameters.cps[0];
+const origin = parameters.origin[0];
+const eval = parameters.eval[0];
 const fOutDur = parameters.fOutDur[0];
 const fOutEnd = parameters.fOutStart[0] == -1.0 ? -1.0 : parameters.fOutStart[0] + fOutDur;
 const m = this.m;
 for(let n=0; n<blockSize; n++){
 const t = currentTime + (n/sampleRate);
+const time = t - origin;
+const beat = time * cps;
+const eTime = t - eval;
+const eBeat = eTime * cps;
 """
     innerLoop = wState.code <> "output[0][n] = " <> showSample (head frame) <> ";\n"
     fadeInCalculation = "const fIn = clamp(0,1,(t-" <> show fInStart <> ")/" <> show fInDur <> ");"
