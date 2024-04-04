@@ -98,9 +98,47 @@ signalToFrame EBeat = pure $ singleton $ Right "eBeat"
 signalToFrame Rnd = singleton <$> assign "Math.random()*2-1"
 
 -- AudioIn
--- ...
 
+signalToFrame (Bipolar x) = signalToFrame x >>= traverse bipolar
+signalToFrame (Unipolar x) = signalToFrame x >>= traverse unipolar
 signalToFrame (Osc f) = signalToFrame f >>= traverse osc
+
+-- Tri Signal
+-- Saw Signal
+-- Sqr Signal
+-- LFTri Signal
+-- LFSaw Signal
+-- LFSqr Signal
+
+signalToFrame (Abs x) = unaryFunction "Math.abs" x
+signalToFrame (Acos x) = unaryFunction "Math.acos" x
+signalToFrame (Acosh x) = unaryFunction "Math.acosh" x
+signalToFrame (Asin x) = unaryFunction "Math.asin" x
+signalToFrame (Asinh x) = unaryFunction "Math.asinh" x
+signalToFrame (Atan x) = unaryFunction "Math.atan" x
+signalToFrame (Atanh x) = unaryFunction "Math.atanh" x
+signalToFrame (Cbrt x) = unaryFunction "Math.cbrt" x
+signalToFrame (Ceil x) = unaryFunction "Math.ceil" x
+signalToFrame (Cos x) = unaryFunction "Math.cos" x
+signalToFrame (Cosh x) = unaryFunction "Math.cosh" x
+signalToFrame (Exp x) = unaryFunction "Math.exp" x
+signalToFrame (Floor x) = unaryFunction "Math.floor" x
+signalToFrame (Log x) = unaryFunction "Math.log" x
+signalToFrame (Log2 x) = unaryFunction "Math.log2" x
+signalToFrame (Log10 x) = unaryFunction "Math.log10" x
+signalToFrame (Round x) = unaryFunction "Math.round" x
+signalToFrame (Sign x) = unaryFunction "Math.sign" x
+signalToFrame (Sin x) = unaryFunction "Math.sin" x
+signalToFrame (Sinh x) = unaryFunction "Math.sinh" x
+signalToFrame (Sqrt x) = unaryFunction "Math.sqrt" x
+signalToFrame (Tan x) = unaryFunction "Math.tan" x
+signalToFrame (Tanh x) = unaryFunction "Math.tanh" x
+signalToFrame (Trunc x) = unaryFunction "Math.trunc" x
+signalToFrame (MidiCps x) = signalToFrame x >>= traverse midicps
+signalToFrame (CpsMidi x) = signalToFrame x >>= traverse cpsmidi
+signalToFrame (DbAmp x) = signalToFrame x >>= traverse dbamp
+signalToFrame (AmpDb x) = signalToFrame x >>= traverse ampdb
+signalToFrame (Fract x) = signalToFrame x >>= traverse fract
 
 {-  
 signalToFrame (Sum mm x y) = do
@@ -112,11 +150,36 @@ signalToFrame (Sum mm x y) = do
 signalToFrame _ = pure $ singleton $ Left 0.0
 
 
+unaryFunction :: String -> Signal -> W Frame
+unaryFunction name s = do
+  xs <- signalToFrame s
+  traverse (\x -> assign $ name <> "(" <> showSample x <> ")") xs
+
+
+bipolar :: Sample -> W Sample
+bipolar x = assign $ showSample x <> "*2-1"
+
+unipolar :: Sample -> W Sample
+unipolar x = assign $ showSample x <> "*0.5+0.5"
+
 osc :: Sample -> W Sample
 osc x = assign $ "Math.sin(t * 2.0 * Math.PI * " <> showSample x <> ")"
-  
+
+midicps :: Sample -> W Sample
+midicps x = assign $ "440 * (2 ** ((" <> showSample x <> "-69)/12))"
+
+cpsmidi :: Sample -> W Sample
+cpsmidi x = assign $ "69 + (12 * (Math.log2(" <> showSample x <> "/440)))"
+
+dbamp :: Sample -> W Sample
+dbamp x = assign $ "10 ** (" <> showSample x <> "/20)"
+
+ampdb :: Sample -> W Sample
+ampdb x = assign $ 20 * Math.log10(" <> showSample x <> ")"
+
+fract :: Sample -> W Sample
+fract x = assign $ showSample x <> "%1"
+
 sum :: Sample -> Sample -> W Sample
 sum (Left x) (Left y) = pure $ Left (x+y)
 sum x y = assign $ showSample x <> "+" <> showSample y
-
-
