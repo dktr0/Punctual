@@ -85,7 +85,7 @@ signalToFrame (Rep n x) = (concat <<< replicate1 n) <$> signalToFrame x
 
 signalToFrame Pi = pure $ singleton $ Right "Math.PI"
 
-signalToFrame CPS = pure $ singleton $ Right "cps"
+signalToFrame Cps = pure $ singleton $ Right "cps"
 
 signalToFrame Time = pure $ singleton $ Right "time"
 
@@ -175,7 +175,7 @@ dbamp :: Sample -> W Sample
 dbamp x = assign $ "10 ** (" <> showSample x <> "/20)"
 
 ampdb :: Sample -> W Sample
-ampdb x = assign $ 20 * Math.log10(" <> showSample x <> ")"
+ampdb x = assign $ "20 * Math.log10(" <> showSample x <> ")"
 
 fract :: Sample -> W Sample
 fract x = assign $ showSample x <> "%1"
