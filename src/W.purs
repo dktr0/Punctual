@@ -90,7 +90,9 @@ signalToFrame Pi = pure $ singleton $ Right "Math.PI"
 -- Beat
 -- EBeat
 -- ETime
--- Rnd
+
+signalToFrame Rnd = pure $ singleton $ Right $ "(Math.random()*2-1)"
+
 -- AudioIn
 -- ...
 
