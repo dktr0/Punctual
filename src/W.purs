@@ -2,7 +2,7 @@ module W where
 
 -- A monad and associated functions for generating the code of a WebAudio audio worklet.
 
-import Prelude (Unit, bind, discard, map, pure, show, ($), (+), (<$>), (<<<), (<>), (>>=), (==), otherwise)
+import Prelude (Unit, bind, discard, map, pure, show, ($), (+), (<$>), (<<<), (<>), (>>=), (==), otherwise, (-), (/), (*), mod, (/=), (>), (>=), (<), (<=), max, min)
 import Control.Monad.State (State,get,put,runState,modify_)
 import Data.List.NonEmpty (NonEmptyList,singleton,fromList,length,head,concat,zipWith,cons)
 import Data.Either (Either(..))
@@ -11,6 +11,8 @@ import Data.Traversable (traverse,sequence)
 import Data.Tuple (Tuple(..))
 import Data.Maybe (Maybe(..))
 import Data.Unfoldable1 (replicate1)
+import Data.Number (pow)
+import Data.Ord (abs)
 
 import NonEmptyList (multi,extendToEqualLength)
 import Signal (Signal(..))
@@ -85,17 +87,11 @@ signalToFrame (Mono x) = do
 signalToFrame (Rep n x) = (concat <<< replicate1 n) <$> signalToFrame x
 
 signalToFrame Pi = pure $ singleton $ Right "Math.PI"
-
 signalToFrame Cps = pure $ singleton $ Right "cps"
-
 signalToFrame Time = pure $ singleton $ Right "time"
-
 signalToFrame Beat = pure $ singleton $ Right "beat"
-
 signalToFrame ETime = pure $ singleton $ Right "eTime"
-
 signalToFrame EBeat = pure $ singleton $ Right "eBeat"
-
 signalToFrame Rnd = singleton <$> assign "Math.random()*2-1"
 
 -- AudioIn
@@ -141,41 +137,42 @@ signalToFrame (DbAmp x) = signalToFrame x >>= traverse dbamp
 signalToFrame (AmpDb x) = signalToFrame x >>= traverse ampdb
 signalToFrame (Fract x) = signalToFrame x >>= traverse fract
 
-signalToFrame (Sum mm x y) = binaryFunction sum mm x y
+signalToFrame (Sum mm x y) = binaryFunction (operator (+) "+") mm x y
+signalToFrame (Difference mm x y) = binaryFunction (operator (-) "-") mm x y
+signalToFrame (Product mm x y) = binaryFunction (operator (*) "*") mm x y
+signalToFrame (Division mm x y) = binaryFunction safeDivision mm x y
+signalToFrame (Mod mm x y) = binaryFunction (operator mod "%") mm x y
+signalToFrame (Pow mm x y) = binaryFunction (operator pow "**") mm x y
+signalToFrame (Equal mm x y) = binaryFunction (operator (\a b -> if a == b then 1.0 else 0.0) "==") mm x y
+signalToFrame (NotEqual mm x y) = binaryFunction (operator (\a b -> if a /= b then 1.0 else 0.0) "!=") mm x y
+signalToFrame (GreaterThan mm x y) = binaryFunction (operator (\a b -> if a > b then 1.0 else 0.0) ">") mm x y
+signalToFrame (GreaterThanEqual mm x y) = binaryFunction (operator (\a b -> if a >= b then 1.0 else 0.0) ">=") mm x y
+signalToFrame (LessThan mm x y) = binaryFunction (operator (\a b -> if a < b then 1.0 else 0.0) "<") mm x y
+signalToFrame (LessThanEqual mm x y) = binaryFunction (operator (\a b -> if a <= b then 1.0 else 0.0) "<=") mm x y
+signalToFrame (Max mm x y) = binaryFunction (function max "Math.max") mm x y
+signalToFrame (Min mm x y) = binaryFunction (function min "Math.min") mm x y
+signalToFrame (Gate mm x y) = binaryFunction gate mm x y
 
 {-
-  Difference MultiMode Signal Signal |
-  Product MultiMode Signal Signal |
-  Division MultiMode Signal Signal |
-  Mod MultiMode Signal Signal |
-  Pow MultiMode Signal Signal |
-  Equal MultiMode Signal Signal |
-  NotEqual MultiMode Signal Signal |
-  GreaterThan MultiMode Signal Signal |
-  GreaterThanEqual MultiMode Signal Signal |
-  LessThan MultiMode Signal Signal |
-  LessThanEqual MultiMode Signal Signal |
-  Max MultiMode Signal Signal |
-  Min MultiMode Signal Signal |
-  Gate MultiMode Signal Signal |
-  Clip MultiMode Signal Signal |
-  Between MultiMode Signal Signal |
-  SmoothStep MultiMode Signal Signal |
+signalToFrame (Clip mm x y) = binaryFunctionWithRangeArgument clip mm x y
+signalToFrame (Between mm x y) = binaryFunctionWithRangeArgument between mm x y
+signalToFrame (SmoothStep mm x y) = binaryFunctionWithRangeArgument smoothStep mm x y
+Seq Signal Signal |
 -}
 
 {-
-  Seq Signal Signal |
   Mix MultiMode Signal Signal Signal |
-  ILine MultiMode Signal Signal Signal |
-  Line MultiMode Signal Signal Signal |
   LinLin MultiMode Signal Signal Signal |
-  LPF MultiMode Signal Signal Signal | HPF MultiMode Signal Signal Signal | BPF MultiMode Signal Signal Signal |
+  LPF MultiMode Signal Signal Signal |
+  HPF MultiMode Signal Signal Signal |
+  BPF MultiMode Signal Signal Signal |
   Delay Number Signal Signal
 -}
 
 signalToFrame _ = pure $ singleton $ Left 0.0
   
 
+-- TODO: add a pathway to unaryFunction so that all of these can be applied to numeric constants and stay as numeric constants...
 unaryFunction :: String -> Signal -> W Frame
 unaryFunction name s = do
   xs <- signalToFrame s
@@ -231,6 +228,21 @@ ampdb x = assign $ "20 * Math.log10(" <> showSample x <> ")"
 fract :: Sample -> W Sample
 fract x = assign $ showSample x <> "%1"
 
-sum :: Sample -> Sample -> W Sample
-sum (Left x) (Left y) = pure $ Left (x+y)
-sum x y = assign $ showSample x <> "+" <> showSample y
+operator :: (Number -> Number -> Number) -> String -> Sample -> Sample -> W Sample
+operator f _ (Left x) (Left y) = pure $ Left (f x y)
+operator _ op x y = assign $ showSample x <> op <> showSample y
+
+function :: (Number -> Number -> Number) -> String -> Sample -> Sample -> W Sample
+function f _ (Left x) (Left y) = pure $ Left (f x y)
+function _ f x y = assign $ f <> "(" <> showSample x <> "," <> showSample y <> ")"
+
+safeDivision :: Sample -> Sample -> W Sample
+safeDivision (Left _) (Left 0.0) = pure $ Left 0.0
+safeDivision (Left x) (Left y) = pure $ Left (x/y)
+safeDivision x y = assign $ showSample y <> "!=0? " <> showSample x <> "/" <> showSample y <> " : 0"
+
+gate :: Sample -> Sample -> W Sample
+gate (Left x) (Left y) = pure $ Left $ if abs y >= x then y else 0.0
+gate x y = assign $ "Math.abs(" <> showSample y <> ")>=" <> showSample x <> "?" <> showSample y <> ":0"
+
+

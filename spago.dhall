@@ -26,6 +26,7 @@ to generate this file without the comments in this block.
   , "newtype"
   , "now"
   , "nullable"
+  , "numbers"
   , "ordered-collections"
   , "parsing"
   , "prelude"
