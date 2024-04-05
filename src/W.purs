@@ -11,7 +11,7 @@ import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
 import Data.Maybe (Maybe(..))
 import Data.Unfoldable1 (replicate1)
-import Data.Number (pow)
+import Data.Number as Number
 import Data.Ord (abs)
 
 import NonEmptyList (multi,extendToEqualLength,combineM)
@@ -107,30 +107,30 @@ signalToFrame (Osc f) = signalToFrame f >>= traverse osc
 -- LFSaw Signal
 -- LFSqr Signal
 
-signalToFrame (Abs x) = unaryFunction "Math.abs" x
-signalToFrame (Acos x) = unaryFunction "Math.acos" x
-signalToFrame (Acosh x) = unaryFunction "Math.acosh" x
-signalToFrame (Asin x) = unaryFunction "Math.asin" x
-signalToFrame (Asinh x) = unaryFunction "Math.asinh" x
-signalToFrame (Atan x) = unaryFunction "Math.atan" x
-signalToFrame (Atanh x) = unaryFunction "Math.atanh" x
-signalToFrame (Cbrt x) = unaryFunction "Math.cbrt" x
-signalToFrame (Ceil x) = unaryFunction "Math.ceil" x
-signalToFrame (Cos x) = unaryFunction "Math.cos" x
-signalToFrame (Cosh x) = unaryFunction "Math.cosh" x
-signalToFrame (Exp x) = unaryFunction "Math.exp" x
-signalToFrame (Floor x) = unaryFunction "Math.floor" x
-signalToFrame (Log x) = unaryFunction "Math.log" x
-signalToFrame (Log2 x) = unaryFunction "Math.log2" x
-signalToFrame (Log10 x) = unaryFunction "Math.log10" x
-signalToFrame (Round x) = unaryFunction "Math.round" x
-signalToFrame (Sign x) = unaryFunction "Math.sign" x
-signalToFrame (Sin x) = unaryFunction "Math.sin" x
-signalToFrame (Sinh x) = unaryFunction "Math.sinh" x
-signalToFrame (Sqrt x) = unaryFunction "Math.sqrt" x
-signalToFrame (Tan x) = unaryFunction "Math.tan" x
-signalToFrame (Tanh x) = unaryFunction "Math.tanh" x
-signalToFrame (Trunc x) = unaryFunction "Math.trunc" x
+signalToFrame (Abs x) = unaryFunction abs "Math.abs" x
+signalToFrame (Acos x) = unaryFunction Number.acos "Math.acos" x
+signalToFrame (Acosh x) = unaryFunction acosh "Math.acosh" x
+signalToFrame (Asin x) = unaryFunction Number.asin "Math.asin" x
+signalToFrame (Asinh x) = unaryFunction asinh "Math.asinh" x
+signalToFrame (Atan x) = unaryFunction Number.atan "Math.atan" x
+signalToFrame (Atanh x) = unaryFunction atanh "Math.atanh" x
+signalToFrame (Cbrt x) = unaryFunction cbrt "Math.cbrt" x
+signalToFrame (Ceil x) = unaryFunction Number.ceil "Math.ceil" x
+signalToFrame (Cos x) = unaryFunction Number.cos "Math.cos" x
+signalToFrame (Cosh x) = unaryFunction cosh "Math.cosh" x
+signalToFrame (Exp x) = unaryFunction Number.exp "Math.exp" x
+signalToFrame (Floor x) = unaryFunction Number.floor "Math.floor" x
+signalToFrame (Log x) = unaryFunction Number.log "Math.log" x
+signalToFrame (Log2 x) = unaryFunction log2 "Math.log2" x
+signalToFrame (Log10 x) = unaryFunction log10 "Math.log10" x
+signalToFrame (Round x) = unaryFunction Number.round "Math.round" x
+signalToFrame (Sign x) = unaryFunction Number.sign "Math.sign" x
+signalToFrame (Sin x) = unaryFunction Number.sin "Math.sin" x
+signalToFrame (Sinh x) = unaryFunction sinh "Math.sinh" x
+signalToFrame (Sqrt x) = unaryFunction Number.sqrt "Math.sqrt" x
+signalToFrame (Tan x) = unaryFunction Number.tan "Math.tan" x
+signalToFrame (Tanh x) = unaryFunction tanh "Math.tanh" x
+signalToFrame (Trunc x) = unaryFunction Number.trunc "Math.trunc" x
 signalToFrame (MidiCps x) = signalToFrame x >>= traverse midicps
 signalToFrame (CpsMidi x) = signalToFrame x >>= traverse cpsmidi
 signalToFrame (DbAmp x) = signalToFrame x >>= traverse dbamp
@@ -142,7 +142,7 @@ signalToFrame (Difference mm x y) = binaryFunction (operator (-) "-") mm x y
 signalToFrame (Product mm x y) = binaryFunction (operator (*) "*") mm x y
 signalToFrame (Division mm x y) = binaryFunction safeDivision mm x y
 signalToFrame (Mod mm x y) = binaryFunction (operator mod "%") mm x y
-signalToFrame (Pow mm x y) = binaryFunction (operator pow "**") mm x y
+signalToFrame (Pow mm x y) = binaryFunction (operator Number.pow "**") mm x y
 signalToFrame (Equal mm x y) = binaryFunction (operator (\a b -> if a == b then 1.0 else 0.0) "==") mm x y
 signalToFrame (NotEqual mm x y) = binaryFunction (operator (\a b -> if a /= b then 1.0 else 0.0) "!=") mm x y
 signalToFrame (GreaterThan mm x y) = binaryFunction (operator (\a b -> if a > b then 1.0 else 0.0) ">") mm x y
@@ -171,12 +171,13 @@ Seq Signal Signal |
 
 signalToFrame _ = pure $ singleton $ Left 0.0
   
-
--- TODO: add a pathway to unaryFunction so that all of these can be applied to numeric constants and stay as numeric constants...
-unaryFunction :: String -> Signal -> W Frame
-unaryFunction name s = do
+unaryFunction :: (Number -> Number) -> String -> Signal -> W Frame
+unaryFunction f name s = do
   xs <- signalToFrame s
-  traverse (\x -> assign $ name <> "(" <> showSample x <> ")") xs
+  let g x = case x of
+              Left x' -> pure $ Left $ f x'
+              Right x' -> assign $ name <> "(" <> x' <> ")"
+  traverse g xs
 
 binaryFunction :: (Sample -> Sample -> W Sample) -> MultiMode -> Signal -> Signal -> W Frame
 binaryFunction f mm x y = do
@@ -280,4 +281,14 @@ smoothStep (Tuple e0 e1) x = do
   t <- assign $ "Math.max(0.0,Math.min(1.0," <> a <> "))"
   let t' = showSample t
   assign $ t' <> "*" <> t' <> "*(3-(2*" <> t' <> "))"
+
+foreign import acosh :: Number -> Number
+foreign import asinh :: Number -> Number
+foreign import atanh :: Number -> Number
+foreign import cbrt :: Number -> Number
+foreign import cosh :: Number -> Number
+foreign import log2 :: Number -> Number
+foreign import log10 :: Number -> Number
+foreign import sinh :: Number -> Number
+foreign import tanh :: Number -> Number
 
