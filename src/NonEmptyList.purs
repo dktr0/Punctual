@@ -2,12 +2,13 @@ module NonEmptyList where
 
 -- utility functions over PureScript's NonEmptyList
 
-import Prelude (max,($),(+),(/),bind,pure,map,(>=))
+import Prelude (max,($),(+),(/),bind,pure,map,(>=),class Applicative,(==),otherwise)
 import Data.List.NonEmpty (NonEmptyList,length,concat,zipWith,singleton,fromList,init,tail,head,cons)
 import Data.Tuple (Tuple(..))
 import Data.Unfoldable1 (replicate1,unfoldr1)
 import Data.List as List
 import Data.Maybe (Maybe(..))
+import Data.Traversable (sequence,traverse)
 
 import MultiMode (MultiMode(..))
 
@@ -66,6 +67,25 @@ combinePairwise f xs ys = zipWith f xs' ys'
     n = max (length xs) (length ys)
     xs' = extendByRepetition n xs
     ys' = extendByRepetition n ys
+
+combineM :: forall a b c m. Applicative m => MultiMode -> (a -> b -> m c) -> NonEmptyList a -> NonEmptyList b -> m (NonEmptyList c)
+combineM Combinatorial = combineMCombinatorial
+combineM Pairwise = combineMPairwise
+
+combineMPairwise :: forall a b c m. Applicative m => (a -> b -> m c) -> NonEmptyList a -> NonEmptyList b -> m (NonEmptyList c)
+combineMPairwise f xs ys
+  | length xs == 1 = traverse (f (head xs)) ys
+  | length ys == 1 = traverse (\x -> f x (head ys)) xs
+  | otherwise = do -- extend xs and ys to equal length in channels
+      let Tuple xs' ys' = extendToEqualLength xs ys
+      sequence $ zipWith f xs' ys'
+
+combineMCombinatorial :: forall a b c m. Applicative m => (a -> b -> m c) -> NonEmptyList a -> NonEmptyList b -> m (NonEmptyList c)
+combineMCombinatorial f xs ys = do
+  sequence $ do -- in NonEmptyList monad
+    x <- xs
+    y <- ys
+    pure $ f x y
     
 combine3 :: forall a b c d. MultiMode -> (a -> b -> c -> d) -> NonEmptyList a -> NonEmptyList b -> NonEmptyList c -> NonEmptyList d
 combine3 Combinatorial = combine3Combinatorial

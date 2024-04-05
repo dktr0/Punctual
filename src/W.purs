@@ -2,21 +2,21 @@ module W where
 
 -- A monad and associated functions for generating the code of a WebAudio audio worklet.
 
-import Prelude (Unit, bind, discard, map, pure, show, ($), (+), (<$>), (<<<), (<>), (>>=), (==), otherwise, (-), (/), (*), mod, (/=), (>), (>=), (<), (<=), max, min)
+import Prelude (Unit, bind, discard, map, max, min, mod, pure, show, ($), (*), (+), (-), (/), (/=), (<), (<$>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), (&&))
 import Control.Monad.State (State,get,put,runState,modify_)
-import Data.List.NonEmpty (NonEmptyList,singleton,fromList,length,head,concat,zipWith,cons)
+import Data.List.NonEmpty (NonEmptyList,singleton,fromList,length,head,concat,zipWith,cons,drop)
 import Data.Either (Either(..))
-import Data.Foldable (intercalate)
-import Data.Traversable (traverse,sequence)
+import Data.Foldable (intercalate,indexl)
+import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
 import Data.Maybe (Maybe(..))
 import Data.Unfoldable1 (replicate1)
 import Data.Number (pow)
 import Data.Ord (abs)
 
-import NonEmptyList (multi,extendToEqualLength)
+import NonEmptyList (multi,extendToEqualLength,combineM)
 import Signal (Signal(..))
-import MultiMode (MultiMode(..))
+import MultiMode (MultiMode)
 
 
 type W = State WState
@@ -152,11 +152,11 @@ signalToFrame (LessThanEqual mm x y) = binaryFunction (operator (\a b -> if a <=
 signalToFrame (Max mm x y) = binaryFunction (function max "Math.max") mm x y
 signalToFrame (Min mm x y) = binaryFunction (function min "Math.min") mm x y
 signalToFrame (Gate mm x y) = binaryFunction gate mm x y
+signalToFrame (Clip mm x y) = binaryFunctionWithRange clip mm x y
+signalToFrame (Between mm x y) = binaryFunctionWithRange between mm x y
+signalToFrame (SmoothStep mm x y) = binaryFunctionWithRange smoothStep mm x y
 
 {-
-signalToFrame (Clip mm x y) = binaryFunctionWithRangeArgument clip mm x y
-signalToFrame (Between mm x y) = binaryFunctionWithRangeArgument between mm x y
-signalToFrame (SmoothStep mm x y) = binaryFunctionWithRangeArgument smoothStep mm x y
 Seq Signal Signal |
 -}
 
@@ -180,29 +180,27 @@ unaryFunction name s = do
 
 binaryFunction :: (Sample -> Sample -> W Sample) -> MultiMode -> Signal -> Signal -> W Frame
 binaryFunction f mm x y = do
-  xs <- signalToFrame x -- NonEmptyList Sample
-  ys <- signalToFrame y -- NonEmptyList Sample
-  combineFrames mm f xs ys
+  xs <- signalToFrame x
+  ys <- signalToFrame y
+  combineM mm f xs ys
   
-combineFrames :: MultiMode -> (Sample -> Sample -> W Sample) -> Frame -> Frame -> W Frame
-combineFrames Combinatorial = combineFramesCombinatorial
-combineFrames Pairwise = combineFramesPairwise
+binaryFunctionWithRange :: (Tuple Sample Sample -> Sample -> W Sample) -> MultiMode -> Signal -> Signal -> W Frame
+binaryFunctionWithRange f mm x y = do
+  xs <- frameToRanges <$> signalToFrame x
+  ys <- signalToFrame y
+  combineM mm f xs ys
 
-combineFramesPairwise :: (Sample -> Sample -> W Sample) -> Frame -> Frame -> W Frame
-combineFramesPairwise f xs ys
-  | length xs == 1 = traverse (f (head xs)) ys
-  | length ys == 1 = traverse (\x -> f x (head ys)) xs
-  | otherwise = do -- extend xs and ys to equal length in channels
-      let Tuple xs' ys' = extendToEqualLength xs ys
-      sequence $ zipWith f xs' ys'
-
-combineFramesCombinatorial :: (Sample -> Sample -> W Sample) -> Frame -> Frame -> W Frame
-combineFramesCombinatorial f xs ys = do
-  sequence $ do -- in NonEmptyList monad
-    x <- xs
-    y <- ys
-    pure $ f x y
-
+frameToRanges :: Frame -> NonEmptyList (Tuple Sample Sample)
+frameToRanges xs = 
+  let a = head xs
+      b = case indexl 1 xs of
+            Just x -> x
+            Nothing -> a
+      h = Tuple a b
+  in case fromList (drop 2 xs) of
+       Nothing -> singleton h
+       Just t -> h `cons` frameToRanges t
+    
 
 bipolar :: Sample -> W Sample
 bipolar x = assign $ showSample x <> "*2-1"
@@ -237,12 +235,49 @@ function f _ (Left x) (Left y) = pure $ Left (f x y)
 function _ f x y = assign $ f <> "(" <> showSample x <> "," <> showSample y <> ")"
 
 safeDivision :: Sample -> Sample -> W Sample
-safeDivision (Left _) (Left 0.0) = pure $ Left 0.0
-safeDivision (Left x) (Left y) = pure $ Left (x/y)
+safeDivision (Left x) (Left y) = pure $ Left $ _safeDivision x y
 safeDivision x y = assign $ showSample y <> "!=0? " <> showSample x <> "/" <> showSample y <> " : 0"
+
+_safeDivision :: Number -> Number -> Number
+_safeDivision _ 0.0 = 0.0
+_safeDivision x y = x/y
 
 gate :: Sample -> Sample -> W Sample
 gate (Left x) (Left y) = pure $ Left $ if abs y >= x then y else 0.0
 gate x y = assign $ "Math.abs(" <> showSample y <> ")>=" <> showSample x <> "?" <> showSample y <> ":0"
 
+clip :: Tuple Sample Sample -> Sample -> W Sample
+clip (Tuple (Left e0) (Left e1)) (Left x) = pure $ Left $ _clip e0 e1 x
+clip (Tuple e0 e1) x = assign $ "Math.max(" <> min' <> ",Math.min(" <> max' <> "," <> showSample x <> "))"
+  where
+    min' = "Math.min(" <> showSample e0 <> "," <> showSample e1 <> ")"
+    max' = "Math.max(" <> showSample e0 <> "," <> showSample e1 <> ")"
+    
+_clip :: Number -> Number -> Number -> Number
+_clip e0 e1 x = _uncheckedClip min' max' x
+  where
+    min' = min e0 e1
+    max' = max e0 e1
+    
+_uncheckedClip :: Number -> Number -> Number -> Number
+_uncheckedClip e0 e1 x = max e0 (min e1 x)
+
+between :: Tuple Sample Sample -> Sample -> W Sample
+between (Tuple (Left e0) (Left e1)) (Left x) = pure $ Left $ if x >= min' && x <= max' then 1.0 else 0.0
+  where
+    min' = min e0 e1
+    max' = max e0 e1
+between (Tuple e0 e1) x = assign $ "(" <> showSample x <> ">=" <> min' <> "&&" <> showSample x <> "<=" <> max' <> ")?1:0"
+  where
+    min' = "Math.min(" <> showSample e0 <> "," <> showSample e1 <> ")"
+    max' = "Math.max(" <> showSample e0 <> "," <> showSample e1 <> ")"
+    
+smoothStep :: Tuple Sample Sample -> Sample -> W Sample
+smoothStep (Tuple (Left e0) (Left e1)) (Left x) = pure $ Left $ t * t * (3.0 - (2.0 * t))
+  where t = _uncheckedClip 0.0 1.0 $ _safeDivision (x - e0) (e1 - e0)
+smoothStep (Tuple e0 e1) x = do
+  let a = "(" <> showSample x <> "-" <> showSample e0 <> ")/(" <> showSample e1 <> "-" <> showSample e0 <> ")"
+  t <- assign $ "Math.max(0.0,Math.min(1.0," <> a <> "))"
+  let t' = showSample t
+  assign $ t' <> "*" <> t' <> "*(3-(2*" <> t' <> "))"
 
