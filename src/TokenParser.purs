@@ -55,6 +55,7 @@ reservedNamesDef = [
   "fit","min","max","minp","maxp",
   "clip","clipp","between","betweenp","smoothstep","smoothstepp","gate","gatep","when","seq",
   "setfx","setfy","setfxy","zoom","move","tile","spin",
+  "early","late","slow","fast",
   "lpf","lpfp","hpf","hpfp","bpf","bpfp","delay",
   "linlin","linlinp",
   "rep",

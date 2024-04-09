@@ -1,6 +1,7 @@
 module FragmentShader where
 
 import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max)
+import Data.Functor (mapFlipped)
 import Data.Maybe (Maybe(..))
 import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length)
 import Data.List (List(..),(:))
@@ -21,9 +22,9 @@ import Action (Action,actionToTimes)
 import Output (Output)
 import Output as Output
 import Program (Program)
-import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,one,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels,split,unsafeSwizzleX,unsafeSwizzleY,coerce,exprChannels)
+import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,one,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels,unsafeSwizzleX,unsafeSwizzleY,coerce,exprChannels)
 import GLSLExpr as GLSLExpr
-import GLSL (GLSL,align,alignNoExtend,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignVec4,alignRGBA,runGLSL,withFxys,extend,zipWithAAA,zipWithAAAA)
+import GLSL (GLSL,align,alignNoExtend,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignVec4,alignRGBA,runGLSL,withFxys,extend,zipWithAAA,zipWithAAAA,osc,tri,saw,sqr,withAlteredTime)
 
 
 signalToGLSL :: GLSLType -> Signal -> GLSL Exprs
@@ -69,17 +70,11 @@ signalToGLSL _ Pxy = pure $ singleton $ GLSLExpr.pxy
 
 signalToGLSL _ Aspect = pure $ singleton $ GLSLExpr.aspect
 
-signalToGLSL _ Fx = do
-  s <- get
-  pure $ singleton $ unsafeSwizzleX s.fxy
+signalToGLSL _ Fx = (singleton <<< unsafeSwizzleX <<< _.fxy) <$> get
 
-signalToGLSL _ Fy = do
-  s <- get
-  pure $ singleton $ unsafeSwizzleY s.fxy
+signalToGLSL _ Fy = (singleton <<< unsafeSwizzleY <<< _.fxy) <$> get
 
-signalToGLSL _ Fxy = do
-  s <- get
-  pure $ singleton s.fxy
+signalToGLSL _ Fxy = (singleton <<< _.fxy) <$> get
 
 signalToGLSL _ FRt = signalToGLSL Vec2 $ XyRt Fxy
 
@@ -101,13 +96,13 @@ signalToGLSL _ IHi = pure $ singleton $ simpleFromString Float "ihi"
 
 signalToGLSL _ Cps = pure $ singleton $ simpleFromString Float "_cps"
 
-signalToGLSL _ Time = pure $ singleton $ GLSLExpr.time
+signalToGLSL _ Time = (singleton <<< _.time) <$> get
 
-signalToGLSL _ Beat = pure $ singleton $ simpleFromString Float "_beat"
+signalToGLSL _ Beat = (singleton <<< _.beat) <$> get
 
-signalToGLSL _ ETime = pure $ singleton $ simpleFromString Float "_etime"
+signalToGLSL _ ETime = (singleton <<< _.etime) <$> get
 
-signalToGLSL _ EBeat = pure $ singleton $ simpleFromString Float "_ebeat"
+signalToGLSL _ EBeat = (singleton <<< _.ebeat) <$> get
 
 signalToGLSL _ (FFT x) = signalToGLSL Float x >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "o")
 
@@ -172,13 +167,13 @@ signalToGLSL _ (RgbH x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunct
 signalToGLSL _ (RgbS x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv >>= traverse swizzleY
 signalToGLSL _ (RgbV x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv >>= traverse swizzleZ
 
-signalToGLSL ah (Osc x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.osc
-signalToGLSL ah (Tri x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.tri
-signalToGLSL ah (Saw x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.saw
-signalToGLSL ah (Sqr x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.sqr
-signalToGLSL ah (LFTri x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.tri
-signalToGLSL ah (LFSaw x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.saw
-signalToGLSL ah (LFSqr x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.sqr
+signalToGLSL ah (Osc x) = signalToGLSL ah x >>= traverse osc
+signalToGLSL ah (Tri x) = signalToGLSL ah x >>= traverse tri
+signalToGLSL ah (Saw x) = signalToGLSL ah x >>= traverse saw
+signalToGLSL ah (Sqr x) = signalToGLSL ah x >>= traverse sqr
+signalToGLSL ah (LFTri x) = signalToGLSL ah x >>= traverse tri
+signalToGLSL ah (LFSaw x) = signalToGLSL ah x >>= traverse saw
+signalToGLSL ah (LFSqr x) = signalToGLSL ah x >>= traverse sqr
 
 signalToGLSL ah (Abs x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.abs
 signalToGLSL ah (Acos x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.acos
@@ -304,6 +299,28 @@ signalToGLSL ah (Spin x z) = do
   fxys <- traverse (spin fxy) xs >>= traverse assignForced
   withFxys fxys $ signalToGLSL ah z
 
+signalToGLSL ah (Early x z) = do
+  xs <- signalToGLSL Float x >>= alignFloat
+  s <- get  
+  let xs' = mapFlipped xs $ \y -> {
+    time: GLSLExpr.sum s.time y,
+    beat: s.beat, -- PLACEHOLDER
+    etime: GLSLExpr.sum s.etime y,
+    ebeat: s.ebeat -- PLACEHOLDER
+    }
+  withAlteredTime xs' $ signalToGLSL ah z
+  
+signalToGLSL ah (Slow x z) = do
+  xs <- signalToGLSL Float x >>= alignFloat
+  s <- get
+  let xs' = mapFlipped xs $ \y -> {
+    time: GLSLExpr.division s.time y,
+    beat: s.beat, -- PLACEHOLDER
+    etime: GLSLExpr.division s.etime y,
+    ebeat: s.ebeat -- PLACEHOLDER
+    }
+  withAlteredTime xs' $ signalToGLSL ah z
+
 signalToGLSL ah (Sum mm x y) = binaryFunction ah mm GLSLExpr.sum x y
 signalToGLSL ah (Difference mm x y) = binaryFunction ah mm GLSLExpr.difference x y
 signalToGLSL ah (Product mm x y) = binaryFunction ah mm GLSLExpr.product x y
@@ -427,7 +444,8 @@ signalToGLSL ah (Mix mm c t e) = do
   es <- signalToGLSL ah e
   combineChannels3 mm GLSLExpr.mix cs ts es
             
-signalToGLSL _ (Seq steps y) = do
+{-          
+signalToGLSL _ (Seq steps) = do
   steps' <- signalToGLSL Vec4 steps
   case exprsChannels steps' of
     1 -> pure steps'
@@ -435,6 +453,7 @@ signalToGLSL _ (Seq steps y) = do
       let steps'' = concat $ map split steps' -- ? there is also splitIntoFloats in GLSL.purs which assigns, do we want to use that?
       ys <- signalToGLSL Float y >>= alignFloat
       pure $ map (GLSLExpr.seq steps'') ys
+-}
  
 signalToGLSL _ _ = pure $ singleton $ zero
 

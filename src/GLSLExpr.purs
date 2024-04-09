@@ -390,6 +390,18 @@ seq steps y = { string: s, glslType: Float, isSimple: false, deps: fold (map _.d
 defaultFxy :: GLSLExpr
 defaultFxy = { string: "((gl_FragCoord.xy/res)*2.-1.)", glslType: Vec2, isSimple: false, deps: empty }
 
+defaultTime :: GLSLExpr
+defaultTime = simpleFromString Float "_time"
+
+defaultBeat :: GLSLExpr
+defaultBeat = simpleFromString Float "_beat"
+
+defaultETime :: GLSLExpr
+defaultETime = simpleFromString Float "_etime"
+
+defaultEBeat :: GLSLExpr
+defaultEBeat = simpleFromString Float "_ebeat"
+
 fadeIn :: Number -> Number -> GLSLExpr 
 fadeIn t1 t2 = { string: "clamp((_etime-" <> t1s <> ")/(" <> t2s <> "-" <> t1s <> "),0.,1.)", glslType: Float, isSimple: false, deps: empty }
   where
@@ -407,20 +419,6 @@ prox a b
   | a.glslType /= Vec2 || b.glslType /= Vec2 = { string: "!! Internal Punctual GLSL generation error in prox", glslType: Float, isSimple: false, deps: a.deps <> b.deps }
   | otherwise = { string: "clamp((2.828427-distance(" <> a.string <> "," <> b.string <> "))/2.828427,0.,1.)", glslType: Float, isSimple: false, deps: a.deps <> b.deps }
 
-osc :: GLSLExpr -> GLSLExpr
-osc = sin <<< product (product (product pi (float 2.0)) time)
-  
-phasor :: GLSLExpr -> GLSLExpr -- Any -> Any
-phasor = fract <<< product (simpleFromString Float "_time") 
-
-tri :: GLSLExpr -> GLSLExpr -- Any -> Any
-tri f = { string: "(1.-(4.*abs(" <> (phasor f).string <> "-0.5)))", glslType: f.glslType, isSimple: f.isSimple, deps: f.deps }
-
-saw :: GLSLExpr -> GLSLExpr -- Any -> Any
-saw = bipolar <<< phasor
-
-sqr :: GLSLExpr -> GLSLExpr -- Any -> Any
-sqr = bipolar <<< greaterThanEqual (float 0.5) <<< phasor
 
 bipolar :: GLSLExpr -> GLSLExpr -- Any -> Any
 bipolar x = { string: "(" <> x.string <> "*2.-1.)", glslType: x.glslType, isSimple: x.isSimple, deps: x.deps }
@@ -493,9 +491,6 @@ exp = simpleUnaryFunctionPure "exp"
 
 floor :: GLSLExpr -> GLSLExpr
 floor = simpleUnaryFunctionPure "floor"
-
-time :: GLSLExpr
-time = simpleFromString Float "_time"
 
 midicps :: GLSLExpr -> GLSLExpr
 midicps m = product (pow (division (difference m (float 69.0)) (float 12.0)) (float 2.0)) (float 440.0)

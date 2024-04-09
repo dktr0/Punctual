@@ -17,7 +17,7 @@ import Data.DateTime (DateTime)
 import AST (AST,Expression(..),Statement,expression1,statement,parseAST)
 import Program (Program)
 import MultiMode (MultiMode(..))
-import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus,fit)
+import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus,fit,fast,late)
 import Value (Value(..),valuePosition,listValueToValueSignal,valueToSignal,class ToValue, class FromValue, toValue, fromValue, valueToAction, valueToFunction)
 import Action (Action,signalToAction,setOutput,setCrossFade)
 import Output (Output)
@@ -133,6 +133,10 @@ parseReserved p "zoom" = lift $ signalSignalSignal p Zoom
 parseReserved p "move" = lift $ signalSignalSignal p Move
 parseReserved p "tile" = lift $ signalSignalSignal p Tile
 parseReserved p "spin" = lift $ signalSignalSignal p Spin
+parseReserved p "early" = lift $ signalSignalSignal p Early
+parseReserved p "late" = lift $ signalSignalSignal p late
+parseReserved p "slow" = lift $ signalSignalSignal p Slow
+parseReserved p "fast" = lift $ signalSignalSignal p fast
 parseReserved p "lo" = pure $ ValueSignal p Lo
 parseReserved p "mid" = pure $ ValueSignal p Mid
 parseReserved p "hi" = pure $ ValueSignal p Hi
@@ -243,7 +247,7 @@ parseReserved p "ilines" = lift $ signalSignalSignal p $ ILines Combinatorial
 parseReserved p "ilinesp" = lift $ signalSignalSignal p $ ILines Pairwise
 parseReserved p "mesh" = lift $ signalSignalSignal p $ Mesh Combinatorial
 parseReserved p "meshp" = lift $ signalSignalSignal p $ Mesh Pairwise
-parseReserved p "seq" = lift $ signalSignalSignal p Seq
+parseReserved p "seq" = pure $ signalSignal p Seq
 parseReserved p "fit" = lift $ signalSignalSignal p fit
 parseReserved p "iline" = lift $ signalSignalSignalSignal p $ ILine Combinatorial
 parseReserved p "ilinep" = lift $ signalSignalSignalSignal p $ ILine Pairwise

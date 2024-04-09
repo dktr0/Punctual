@@ -22,17 +22,32 @@ import GLSLExpr
 type GLSLState = {
   nextIndex :: Int,
   exprs :: Map Int GLSLExpr,
-  fxy :: GLSLExpr,
   imgMap :: Map String Int,
   vidMap :: Map String Int,
-  webGl2 :: Boolean
+  webGl2 :: Boolean,
+  fxy :: GLSLExpr,
+  time :: GLSLExpr,
+  beat :: GLSLExpr,
+  etime :: GLSLExpr,
+  ebeat :: GLSLExpr
   }
 
 type GLSL = State GLSLState
 
 runGLSL :: forall a. Boolean -> Map String Int -> Map String Int -> GLSL a -> Tuple a GLSLState
-runGLSL webGl2 imgMap vidMap x = runState x { nextIndex: 0, exprs: empty, fxy: defaultFxy, imgMap, vidMap, webGl2 }
-
+runGLSL webGl2 imgMap vidMap x = runState x {
+  nextIndex: 0,
+  exprs: empty,
+  imgMap,
+  vidMap,
+  webGl2,
+  fxy: defaultFxy, 
+  time: defaultTime,
+  beat: defaultBeat,
+  etime: defaultETime,
+  ebeat: defaultEBeat
+  }
+  
 assign :: GLSLExpr -> GLSL GLSLExpr
 assign x
   | x.isSimple = pure x -- don't assign/reassign expressions that are marked simple
@@ -53,7 +68,16 @@ withFxys fxys a = do
     a
   modify_ $ \s -> s { fxy = cachedFxy }
   pure $ concat rs
-    
+
+withAlteredTime :: NonEmptyList { time :: GLSLExpr, beat :: GLSLExpr, etime :: GLSLExpr, ebeat :: GLSLExpr }  -> GLSL Exprs -> GLSL Exprs
+withAlteredTime xs a = do
+  cached <- get
+  rs <- for xs $ \x -> do
+    modify_ $ \s -> s { time = x.time, beat = x.beat, etime = x.etime, ebeat = x.ebeat }
+    a
+  modify_ $ \s -> s { time = cached.time, beat = cached.beat, etime = cached.etime, ebeat = cached.ebeat }
+  pure $ concat rs
+  
 
 _swizzle :: String -> GLSLType -> GLSLExpr -> GLSL GLSLExpr
 _swizzle spec rType x = do
@@ -428,23 +452,26 @@ takeChannels n xs
           txs' <- takeChannels (n - exprChannels x) txs
           pure $ x `cons` txs'
 
-{-
--- write code to the accumulated Builder without adding a new variable assignment
-write :: Builder -> GLSL ()
-write x = do
-  (c,m,b) <- get
-  put (c,m,b <> x)
 
--- create a variable of a given type and initialize it to 0. then conditionally
--- execute a block of other code (GLSL GLSLExpr) assigning its result to the
--- previously created variable.
-assignConditional :: Builder -> GLSL GLSLExpr -> GLSL GLSLExpr
-assignConditional condition x = mdo -- ?? will this work ?? if not, I guess we do some kind of sandboxed run of x to extract type...
-  let t = glslType x'
-  r <- assign $ unsafeCast t $ constantFloat 0
-  write $ "if(" <> condition <> ") {\n"
-  x' <- x
-  write $ builder r <> "=" <> builder x' <> "\n}\n"
-  return r
--}
+osc :: GLSLExpr -> GLSL GLSLExpr -- Any -> Any
+osc f = do
+  t <- _.time <$> get
+  pure $ sin $ product (product (product pi (float 2.0)) t) f
+  
+phasor :: GLSLExpr -> GLSL GLSLExpr -- Any -> Any
+phasor f = do
+  t <- _.time <$> get
+  pure $ fract $ product t f 
+
+tri :: GLSLExpr -> GLSL GLSLExpr -- Any -> Any
+tri f = do
+  p <- phasor f
+  pure $ { string: "(1.-(4.*abs(" <> p.string <> "-0.5)))", glslType: f.glslType, isSimple: f.isSimple, deps: f.deps }
+
+saw :: GLSLExpr -> GLSL GLSLExpr -- Any -> Any
+saw f = bipolar <$> phasor f
+
+sqr :: GLSLExpr -> GLSL GLSLExpr -- Any -> Any
+sqr f = bipolar <$> greaterThanEqual (float 0.5) <$> phasor f
+
 

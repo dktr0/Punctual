@@ -156,10 +156,8 @@ signalToFrame (Clip mm x y) = binaryFunctionWithRange clip mm x y
 signalToFrame (Between mm x y) = binaryFunctionWithRange between mm x y
 signalToFrame (SmoothStep mm x y) = binaryFunctionWithRange smoothStep mm x y
 
-{-
-Seq Signal Signal |
--}
-
+-- signalToFrame (Seq steps) = do
+  
 {-
   Mix MultiMode Signal Signal Signal |
   LinLin MultiMode Signal Signal Signal |
@@ -170,6 +168,7 @@ Seq Signal Signal |
 -}
 
 signalToFrame _ = pure $ singleton $ Left 0.0
+
   
 unaryFunction :: (Number -> Number) -> String -> Signal -> W Frame
 unaryFunction f name s = do

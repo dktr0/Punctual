@@ -81,6 +81,7 @@ data Signal =
   Fract Signal |
   SetFx Signal Signal | SetFy Signal Signal | SetFxy Signal Signal |
   Zoom Signal Signal | Move Signal Signal | Tile Signal Signal | Spin Signal Signal |
+  Early Signal Signal | Slow Signal Signal |
   Sum MultiMode Signal Signal |
   Difference MultiMode Signal Signal |
   Product MultiMode Signal Signal |
@@ -107,7 +108,7 @@ data Signal =
   Lines MultiMode Signal Signal |
   ILines MultiMode Signal Signal |
   Mesh MultiMode Signal Signal |
-  Seq Signal Signal |
+  Seq Signal |
   Mix MultiMode Signal Signal Signal |
   ILine MultiMode Signal Signal Signal |
   Line MultiMode Signal Signal Signal |
@@ -144,6 +145,11 @@ fit ar x = Mix Pairwise ifFalse ifTrue cond
     ifTrue = Zoom (SignalList $ Division Pairwise ar Aspect : Constant 1.0 : Nil) x
     ifFalse = Zoom (SignalList $ Constant 1.0 : Division Pairwise Aspect ar : Nil) x
 
+fast :: Signal -> Signal -> Signal
+fast x = Slow (Division Pairwise (Constant 1.0) x)
+
+late :: Signal -> Signal -> Signal
+late x = Early (Division Pairwise (Constant 1.0) x)
 
 type SignalInfo = {
   webcam :: Disj Boolean,
@@ -270,6 +276,8 @@ subSignals (Zoom x y) = x:y:Nil
 subSignals (Move x y) = x:y:Nil
 subSignals (Tile x y) = x:y:Nil
 subSignals (Spin x y) = x:y:Nil
+subSignals (Early x y) = x:y:Nil
+subSignals (Slow x y) = x:y:Nil
 subSignals (Sum _ x y) = x:y:Nil
 subSignals (Difference _ x y) = x:y:Nil
 subSignals (Product _ x y) = x:y:Nil
@@ -292,7 +300,7 @@ subSignals (Between _ x y) = x:y:Nil
 subSignals (SmoothStep _ x y) = x:y:Nil
 subSignals (VLine _ x y) = x:y:Nil
 subSignals (HLine _ x y) = x:y:Nil
-subSignals (Seq x y) = x:y:Nil
+subSignals (Seq steps) = steps:Nil
 subSignals (ILine _ x y z) = x:y:z:Nil
 subSignals (Line _ x y z) = x:y:z:Nil
 subSignals (LinLin _ x y z) = x:y:z:Nil
