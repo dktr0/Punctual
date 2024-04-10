@@ -304,9 +304,9 @@ signalToGLSL ah (Early x z) = do
   s <- get  
   let xs' = mapFlipped xs $ \y -> {
     time: GLSLExpr.sum s.time y,
-    beat: s.beat, -- PLACEHOLDER
+    beat: GLSLExpr.sum s.beat $ GLSLExpr.product y $ simpleFromString Float "_cps",
     etime: GLSLExpr.sum s.etime y,
-    ebeat: s.ebeat -- PLACEHOLDER
+    ebeat: GLSLExpr.sum s.ebeat $ GLSLExpr.product y $ simpleFromString Float "_cps"
     }
   withAlteredTime xs' $ signalToGLSL ah z
   
@@ -315,9 +315,9 @@ signalToGLSL ah (Slow x z) = do
   s <- get
   let xs' = mapFlipped xs $ \y -> {
     time: GLSLExpr.division s.time y,
-    beat: s.beat, -- PLACEHOLDER
+    beat: GLSLExpr.division s.beat y,
     etime: GLSLExpr.division s.etime y,
-    ebeat: s.ebeat -- PLACEHOLDER
+    ebeat: GLSLExpr.division s.ebeat y
     }
   withAlteredTime xs' $ signalToGLSL ah z
 
