@@ -444,18 +444,17 @@ signalToGLSL ah (Mix mm c t e) = do
   es <- signalToGLSL ah e
   combineChannels3 mm GLSLExpr.mix cs ts es
             
-{-          
 signalToGLSL _ (Seq steps) = do
-  steps' <- signalToGLSL Vec4 steps
-  case exprsChannels steps' of
+  steps' <- signalToGLSL Float steps >>= alignFloat
+  case length steps' of
     1 -> pure steps'
     _ -> do
-      let steps'' = concat $ map split steps' -- ? there is also splitIntoFloats in GLSL.purs which assigns, do we want to use that?
-      ys <- signalToGLSL Float y >>= alignFloat
-      pure $ map (GLSLExpr.seq steps'') ys
--}
+      b <- _.beat <$> get
+      b' <- assignForced $ GLSLExpr.fract b
+      singleton <$> assignForced (GLSLExpr.seq steps' b')
  
 signalToGLSL _ _ = pure $ singleton $ zero
+
 
 simpleUnaryFunction :: (GLSLExpr -> GLSLExpr) -> Exprs -> GLSL Exprs
 simpleUnaryFunction f = traverse $ \x -> pure $ f x

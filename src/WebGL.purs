@@ -144,6 +144,7 @@ drawWebGL webGL now = do
   setUniform1f glc shader "_time" $ unwrap (diff now (origin tempo) :: Seconds)
   eTime <- _.evalTime <$> read webGL.program
   setUniform1f glc shader "_etime" $ unwrap (diff now eTime :: Seconds)
+  setUniform1f glc shader "_cps" $ toNumber $ tempo.freq
   setUniform1f glc shader "_beat" $ toNumber $ timeToCount tempo now
   setUniform1f glc shader "_ebeat" $ toNumber $ timeToCount tempo now - timeToCount tempo eTime
   

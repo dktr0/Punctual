@@ -377,7 +377,7 @@ seq steps y = { string: s, glslType: Float, isSimple: false, deps: fold (map _.d
     stepSize = 1.0 / toNumber nSteps
     firstStep = "(step(" <> y.string <> "," <> show stepSize <> ")*" <> (head steps).string <> ")"
     lastStep = "(step(" <> show (1.0-stepSize) <> "," <> y.string <> ")*" <> (last steps).string <> ")"
-    middleStep n r = "((step(" <> show (stepSize*toNumber n) <> "," <> y.string <> ")-step(" <> y.string <> "," <> show (stepSize*toNumber n + stepSize) <> "))*" <> r <> ")"
+    middleStep n r = "((step(" <> show (stepSize*toNumber n) <> "," <> y.string <> ")-step(" <> show (stepSize*toNumber n + stepSize) <> "," <> y.string  <> "))*" <> r <> ")"
     middleStepExprs = case List.init (tail steps) of
                         Just xs -> xs
                         _ -> List.Nil
