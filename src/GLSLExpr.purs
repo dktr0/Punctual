@@ -205,8 +205,8 @@ glslArithmeticOperator o x y
   | y.glslType == Float = { string: "(" <> x.string <> o <> y.string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps  }
   | otherwise = { string: "!! Internal Punctual GLSL generation error in " <> o, glslType: Float, isSimple: false, deps: x.deps <> y.deps }
 
-sum :: GLSLExpr -> GLSLExpr -> GLSLExpr
-sum = glslArithmeticOperator "+"
+add :: GLSLExpr -> GLSLExpr -> GLSLExpr
+add = glslArithmeticOperator "+"
 
 difference :: GLSLExpr -> GLSLExpr -> GLSLExpr
 difference = glslArithmeticOperator "-"
@@ -481,7 +481,7 @@ ceil :: GLSLExpr -> GLSLExpr
 ceil = simpleUnaryFunctionPure "ceil"
 
 cpsmidi :: GLSLExpr -> GLSLExpr
-cpsmidi = sum (float 69.0) <<< product (float 12.0) <<< log2 <<< flip division (float 440.0)
+cpsmidi = add (float 69.0) <<< product (float 12.0) <<< log2 <<< flip division (float 440.0)
 
 dbamp :: GLSLExpr -> GLSLExpr
 dbamp = pow (float 10.0) <<< flip division (float 20.0)

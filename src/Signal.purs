@@ -82,7 +82,7 @@ data Signal =
   SetFx Signal Signal | SetFy Signal Signal | SetFxy Signal Signal |
   Zoom Signal Signal | Move Signal Signal | Tile Signal Signal | Spin Signal Signal |
   Early Signal Signal | Slow Signal Signal |
-  Sum MultiMode Signal Signal |
+  Addition MultiMode Signal Signal |
   Difference MultiMode Signal Signal |
   Product MultiMode Signal Signal |
   Division MultiMode Signal Signal |
@@ -136,7 +136,7 @@ modulatedRangePlusMinus :: Signal -> Signal -> Signal -> Signal
 modulatedRangePlusMinus a b = modulatedRangeLowHigh low high
   where
     low = Product Combinatorial a (Difference Pairwise (Constant 1.0) b)
-    high = Product Combinatorial a (Sum Pairwise (Constant 1.0) b)
+    high = Product Combinatorial a (Addition Pairwise (Constant 1.0) b)
 
 fit :: Signal -> Signal -> Signal
 fit ar x = Mix Pairwise ifFalse ifTrue cond
@@ -195,7 +195,7 @@ signalInfo (Vid x) = emptySignalInfo { vidURLs = singleton x }
 signalInfo x = foldMap signalInfo $ subSignals x
 
 -- given a Signal return the list of the component Signals it is dependent on
--- for example, Sum x y is dependent on x and y, Bipolar x is dependent on x
+-- for example, Add x y is dependent on x and y, Bipolar x is dependent on x
 subSignals :: Signal -> List Signal
 subSignals (SignalList xs) = xs
 subSignals (Append x y) = x:y:Nil
@@ -278,7 +278,7 @@ subSignals (Tile x y) = x:y:Nil
 subSignals (Spin x y) = x:y:Nil
 subSignals (Early x y) = x:y:Nil
 subSignals (Slow x y) = x:y:Nil
-subSignals (Sum _ x y) = x:y:Nil
+subSignals (Addition _ x y) = x:y:Nil
 subSignals (Difference _ x y) = x:y:Nil
 subSignals (Product _ x y) = x:y:Nil
 subSignals (Division _ x y) = x:y:Nil

@@ -303,10 +303,10 @@ signalToGLSL ah (Early x z) = do
   xs <- signalToGLSL Float x >>= alignFloat
   s <- get  
   let xs' = mapFlipped xs $ \y -> {
-    time: GLSLExpr.sum s.time y,
-    beat: GLSLExpr.sum s.beat $ GLSLExpr.product y $ simpleFromString Float "_cps",
-    etime: GLSLExpr.sum s.etime y,
-    ebeat: GLSLExpr.sum s.ebeat $ GLSLExpr.product y $ simpleFromString Float "_cps"
+    time: GLSLExpr.add s.time y,
+    beat: GLSLExpr.add s.beat $ GLSLExpr.product y $ simpleFromString Float "_cps",
+    etime: GLSLExpr.add s.etime y,
+    ebeat: GLSLExpr.add s.ebeat $ GLSLExpr.product y $ simpleFromString Float "_cps"
     }
   withAlteredTime xs' $ signalToGLSL ah z
   
@@ -321,7 +321,7 @@ signalToGLSL ah (Slow x z) = do
     }
   withAlteredTime xs' $ signalToGLSL ah z
 
-signalToGLSL ah (Sum mm x y) = binaryFunction ah mm GLSLExpr.sum x y
+signalToGLSL ah (Addition mm x y) = binaryFunction ah mm GLSLExpr.add x y
 signalToGLSL ah (Difference mm x y) = binaryFunction ah mm GLSLExpr.difference x y
 signalToGLSL ah (Product mm x y) = binaryFunction ah mm GLSLExpr.product x y
 signalToGLSL ah (Division mm x y) = binaryFunction ah mm GLSLExpr.division x y
@@ -554,7 +554,7 @@ blend a b = do
   pure $ ternaryFunction "mix" Vec4 a b' alpha
   
 add :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec3
-add a b = pure $ GLSLExpr.sum a b
+add a b = pure $ GLSLExpr.add a b
   
 mul :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec3
 mul a b = pure $ GLSLExpr.product a b
@@ -628,7 +628,7 @@ spin fxy a = do
   ct <- assignForced $ GLSLExpr.cos aPi
   st <- assignForced $ GLSLExpr.sin aPi
   let x = GLSLExpr.difference (GLSLExpr.product (unsafeSwizzleX fxy) ct) (GLSLExpr.product (unsafeSwizzleY fxy) st)
-  let y = GLSLExpr.sum (GLSLExpr.product (unsafeSwizzleY fxy) ct) (GLSLExpr.product (unsafeSwizzleX fxy) st)
+  let y = GLSLExpr.add (GLSLExpr.product (unsafeSwizzleY fxy) ct) (GLSLExpr.product (unsafeSwizzleX fxy) st)
   assignForced $ GLSLExpr.vec2binary x y
   
   
@@ -715,7 +715,7 @@ appendActions tempo eTime prevOutputExpr mOldAction (Just newAction) = do
             Nothing -> appendExpr newAction.output prevOutputExpr newExpr'
             Just oldExpr -> do
               oldExpr' <- assignForced $ GLSLExpr.product oldExpr $ GLSLExpr.fadeOut t0 t1
-              expr <- assignForced (GLSLExpr.sum newExpr' oldExpr')
+              expr <- assignForced (GLSLExpr.add newExpr' oldExpr')
               appendExpr newAction.output prevOutputExpr expr
         
 actionToGLSL :: Output -> Action -> GLSL (Maybe GLSLExpr)
@@ -728,7 +728,7 @@ actionToGLSL Output.RGBA a = do
   Just <$> foldM (\x y -> blend x y >>= assignForced) (head xs) (tail xs)
 actionToGLSL _ a = do
   xs <- signalToGLSL Vec3 a.signal >>= alignVec3
-  Just <$> foldM (\x y -> assignForced $ GLSLExpr.sum x y) (head xs) (tail xs)
+  Just <$> foldM (\x y -> assignForced $ GLSLExpr.add x y) (head xs) (tail xs)
 
    
 appendExpr :: Output -> Maybe GLSLExpr -> GLSLExpr -> GLSL (Maybe GLSLExpr)
@@ -743,7 +743,7 @@ appendExpr Output.Blend (Just prevExpr) x = do
   Just <$> (blend prevRGBA x >>= assignForced)
 appendExpr Output.Add (Just prevExpr) x = do
   let prevRGB = GLSLExpr.coerceVec3 prevExpr -- discards previous alpha channel if there was one
-  Just <$> (assignForced $ GLSLExpr.sum prevRGB x)
+  Just <$> (assignForced $ GLSLExpr.add prevRGB x)
 appendExpr Output.Mul (Just prevExpr) x = do
   let prevRGB = GLSLExpr.coerceVec3 prevExpr -- discards previous alpha channel if there was one
   Just <$> (assignForced $ GLSLExpr.product prevRGB x)

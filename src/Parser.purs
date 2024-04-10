@@ -281,7 +281,7 @@ parseOperator p "&" = pure $ ValueFunction p (\x -> pure $ ValueFunction p (\f -
 parseOperator p "++" = lift $ signalSignalSignal p Append
 parseOperator p "~~" = lift $ signalSignalSignalSignal p modulatedRangeLowHigh
 parseOperator p "+-" = lift $ signalSignalSignalSignal p modulatedRangePlusMinus
-parseOperator p "+" = lift $ signalSignalSignal p $ Sum Combinatorial
+parseOperator p "+" = lift $ signalSignalSignal p $ Addition Combinatorial
 parseOperator p "-" = lift $ signalSignalSignal p $ Difference Combinatorial
 parseOperator p "*" = lift $ signalSignalSignal p $ Product Combinatorial
 parseOperator p "/" = lift $ signalSignalSignal p $ Division Combinatorial
@@ -293,7 +293,7 @@ parseOperator p ">" = lift $ signalSignalSignal p $ GreaterThan Combinatorial
 parseOperator p "<" = lift $ signalSignalSignal p $ LessThan Combinatorial
 parseOperator p ">=" = lift $ signalSignalSignal p $ GreaterThanEqual Combinatorial
 parseOperator p "<=" = lift $ signalSignalSignal p $ LessThanEqual Combinatorial
-parseOperator p "+:" = lift $ signalSignalSignal p $ Sum Pairwise
+parseOperator p "+:" = lift $ signalSignalSignal p $ Addition Pairwise
 parseOperator p "-:" = lift $ signalSignalSignal p $ Difference Pairwise
 parseOperator p "*:" = lift $ signalSignalSignal p $ Product Pairwise
 parseOperator p "/:" = lift $ signalSignalSignal p $ Division Pairwise
