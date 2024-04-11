@@ -443,7 +443,7 @@ signalToGLSL ah (Mix mm x y a) = do
   y' <- signalToGLSL ah y
   xys <- extendAligned x' y' -- :: NonEmptyList (Tuple GLSLExpr GLSLExpr)
   a' <- signalToGLSL ah a >>= alignFloat
-  combineM mm (\(Tuple xx yy) aa -> pure $ GLSLExpr.mix xx yy aa) xys a'
+  sequence $ combine mm (\(Tuple xx yy) aa -> pure $ GLSLExpr.mix xx yy aa) xys a'
             
 signalToGLSL _ (Seq steps) = do
   steps' <- signalToGLSL Float steps >>= alignFloat

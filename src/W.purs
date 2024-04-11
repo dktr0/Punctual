@@ -16,7 +16,7 @@ import Data.Number as Number
 import Data.Ord (abs)
 import Data.Int (toNumber)
 
-import NonEmptyList (multi,extendToEqualLength,combineM)
+import NonEmptyList (multi,extendToEqualLength,combine,combine3)
 import Signal (Signal(..))
 import MultiMode (MultiMode)
 
@@ -196,11 +196,15 @@ signalToFrame (Mix mm x y a) = do
   let Tuple x'' y'' = extendToEqualLength x' y'
   let xys = zip x'' y''
   a' <- signalToFrame a
-  combineM mm mix xys a'
+  sequence $ combine mm mix xys a'
   
-{-
-  LinLin MultiMode Signal Signal Signal |
-  LPF MultiMode Signal Signal Signal |
+signalToFrame (LinLin mm r1 r2 x) = do
+  r1s <- frameToRanges <$> signalToFrame r1
+  r2s <- frameToRanges <$> signalToFrame r2
+  xs <- signalToFrame x
+  sequence $ combine3 mm linlin r1s r2s xs
+
+{-  LPF MultiMode Signal Signal Signal |
   HPF MultiMode Signal Signal Signal |
   BPF MultiMode Signal Signal Signal |
   Delay Number Signal Signal
@@ -229,13 +233,13 @@ binaryFunction :: (Sample -> Sample -> W Sample) -> MultiMode -> Signal -> Signa
 binaryFunction f mm x y = do
   xs <- signalToFrame x
   ys <- signalToFrame y
-  combineM mm f xs ys
+  sequence $ combine mm f xs ys
   
 binaryFunctionWithRange :: (Tuple Sample Sample -> Sample -> W Sample) -> MultiMode -> Signal -> Signal -> W Frame
 binaryFunctionWithRange f mm x y = do
   xs <- frameToRanges <$> signalToFrame x
   ys <- signalToFrame y
-  combineM mm f xs ys
+  sequence $ combine mm f xs ys
 
 frameToRanges :: Frame -> NonEmptyList (Tuple Sample Sample)
 frameToRanges xs = 
@@ -382,6 +386,13 @@ sum = assign <<< intercalate "+" <<< map showSample
 mix :: Tuple Sample Sample -> Sample -> W Sample
 mix (Tuple (Left x) (Left y)) (Left a) = pure $ Left $ ((y-x)*a)+x
 mix (Tuple x y) a = difference y x >>= product a >>= add x
+
+linlin :: Tuple Sample Sample -> Tuple Sample Sample -> Sample -> W Sample
+linlin (Tuple (Left r1x) (Left r1y)) (Tuple (Left r2x) (Left r2y)) (Left x) = pure $ Left $ (_division (x - r1x) (r1y - r1x)) * (r2y - r2x) + r2x
+linlin (Tuple r1x r1y) (Tuple r2x r2y) x = do
+  x' <- difference x r1x
+  r2 <- difference r2y r2x
+  difference r1y r1x >>= division x' >>= product r2 >>= add r2x
 
   
 foreign import acosh :: Number -> Number
