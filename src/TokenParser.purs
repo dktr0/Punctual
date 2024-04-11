@@ -31,14 +31,17 @@ boolean = choice [
   reserved "false" $> false
   ]
 
-reservedNamesDef :: Array String
-reservedNamesDef = [
-  "if","then","else",
-  "audio","blend","rgba","add","mul","rgb",
+functionsWithNoArgumentsDef :: Array String
+functionsWithNoArgumentsDef = [
   "pi","audioin","cps","time","beat","etime","ebeat","rnd",
   "fx","fy","fxy","px","py","pxy","frt","fr","ft","aspect",
-  "lo","mid","hi","ilo","imid","ihi","fft","ifft",
-  "if","then","else",
+  "lo","mid","hi","ilo","imid","ihi"
+  ]
+  
+functionsWithArgumentsDef :: Array String
+functionsWithArgumentsDef = [
+  "blend","add","mul",
+  "fft","ifft",
   "abs","acos","acosh","asin","asinh","atan","atanh","cbrt","ceil","cos",
   "cosh","exp","fract","floor","log","log2","log10","round","sign","sin","sinh",
   "sqrt","tan","tanh","trunc",
@@ -63,6 +66,15 @@ reservedNamesDef = [
   "mix","mixp"
   ]
 
+otherReservedNamesDef :: Array String
+otherReservedNamesDef = [
+  "if","then","else",
+  "audio","blend","rgba","add","mul","rgb"
+  ]
+
+reservedNamesDef :: Array String
+reservedNamesDef = functionsWithNoArgumentsDef <> functionsWithArgumentsDef <> otherReservedNamesDef
+  
 -- operators0 are used at the top-level of parsing (statements) but not in recursive expressions
 operators0 :: Array String
 operators0 = ["<<","="]

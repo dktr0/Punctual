@@ -12,7 +12,7 @@ import Parsing.String (eof)
 import Data.Either (Either(..))
 import Data.Foldable (foldl)
 
-import TokenParser (P, commaSep, identifier, number, parens, reserved, reservedOp, semiSep, stringLiteral, whiteSpace, brackets, reservedNamesDef, operators1, operators2, operators3, operators4, operators5, operators6, operators7, comma, integer,naturalOrFloat)
+import TokenParser (P, commaSep, identifier, number, parens, reserved, reservedOp, semiSep, stringLiteral, whiteSpace, brackets, functionsWithArgumentsDef, functionsWithNoArgumentsDef, operators1, operators2, operators3, operators4, operators5, operators6, operators7, comma, integer,naturalOrFloat)
 
 
 type AST = List (Maybe Statement)
@@ -123,6 +123,7 @@ expression8 = do
   _ <- pure unit
   choice [
     try application,
+    try intOrNumber,
     argument
     ]
 
@@ -141,8 +142,9 @@ argument = do
   p <- position
   choice [
     parens expression1,
-    try reservedNames,
-    try intOrNumber,
+    functionsWithNoArguments,
+    functionsWithArguments,
+    try positiveIntOrNumber,
     try $ LiteralString p <$> stringLiteral,
     try fromTo,
     try fromThenTo,
@@ -158,13 +160,16 @@ functionInApplication = do
   p <- position
   choice [
     parens functionInApplication,
-    try reservedNames,
+    functionsWithArguments,
     parens lambda,
     Identifier p <$> identifier
     ]
 
-reservedNames :: P Expression
-reservedNames = choice $ map (try <<< reservedName) reservedNamesDef
+functionsWithNoArguments :: P Expression
+functionsWithNoArguments = choice $ map (try <<< reservedName) functionsWithNoArgumentsDef
+
+functionsWithArguments :: P Expression
+functionsWithArguments = choice $ map (try <<< reservedName) functionsWithArgumentsDef
 
 reservedName :: String -> P Expression
 reservedName x = do
@@ -209,6 +214,14 @@ intOrNumber = do
   case x of
     Left i -> if isPositive then (pure $ LiteralInt p i) else (pure $ LiteralInt p (i*(-1)))
     Right f -> if isPositive then (pure $ LiteralNumber p f) else (pure $ LiteralNumber p (f*(-1.0)))
+
+positiveIntOrNumber:: P Expression
+positiveIntOrNumber = do
+  p <- position
+  x <- naturalOrFloat
+  case x of
+    Left i -> pure $ LiteralInt p i
+    Right f -> pure $ LiteralNumber p f
 
 lambda :: P Expression
 lambda = do
