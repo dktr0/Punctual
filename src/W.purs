@@ -5,7 +5,7 @@ module W where
 import Prelude (Unit, bind, discard, map, pure, show, ($), (*), (+), (-), (/), (/=), (<), (<$>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), (&&))
 import Prelude as Prelude
 import Control.Monad.State (State,get,put,runState,modify_)
-import Data.List.NonEmpty (NonEmptyList,singleton,fromList,length,head,concat,zipWith,cons,drop)
+import Data.List.NonEmpty (NonEmptyList,singleton,fromList,length,head,concat,zipWith,cons,drop,zip)
 import Data.Either (Either(..))
 import Data.Foldable (intercalate,indexl)
 import Data.Traversable (traverse,for,sequence)
@@ -189,9 +189,16 @@ signalToFrame (Seq steps) = do
     _ -> do
       b <- (_.beat <$> get) >>= fract
       singleton <$> seq steps' b  
+
+signalToFrame (Mix mm x y a) = do
+  x' <- signalToFrame x
+  y' <- signalToFrame y
+  let Tuple x'' y'' = extendToEqualLength x' y'
+  let xys = zip x'' y''
+  a' <- signalToFrame a
+  combineM mm mix xys a'
   
 {-
-  Mix MultiMode Signal Signal Signal |
   LinLin MultiMode Signal Signal Signal |
   LPF MultiMode Signal Signal Signal |
   HPF MultiMode Signal Signal Signal |
@@ -372,6 +379,11 @@ seq steps x = do
 sum :: NonEmptyList Sample -> W Sample
 sum = assign <<< intercalate "+" <<< map showSample
 
+mix :: Tuple Sample Sample -> Sample -> W Sample
+mix (Tuple (Left x) (Left y)) (Left a) = pure $ Left $ ((y-x)*a)+x
+mix (Tuple x y) a = difference y x >>= product a >>= add x
+
+  
 foreign import acosh :: Number -> Number
 foreign import asinh :: Number -> Number
 foreign import atanh :: Number -> Number

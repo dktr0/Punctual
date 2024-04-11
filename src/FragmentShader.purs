@@ -438,11 +438,11 @@ signalToGLSL ah (LinLin mm r1 r2 x) = do
           xs' <- alignFloat xs
           pure $ combine3Pairwise GLSLExpr.linlin r1s r2s xs'
   
-signalToGLSL ah (Mix mm c t e) = do
-  cs <- signalToGLSL ah c
-  ts <- signalToGLSL ah t
-  es <- signalToGLSL ah e
-  combineChannels3 mm GLSLExpr.mix cs ts es
+signalToGLSL ah (Mix mm x y a) = do
+  x' <- signalToGLSL ah x
+  y' <- signalToGLSL ah y
+  a' <- signalToGLSL ah a
+  combineChannels3 mm GLSLExpr.mix x' y' a'
             
 signalToGLSL _ (Seq steps) = do
   steps' <- signalToGLSL Float steps >>= alignFloat
