@@ -544,8 +544,8 @@ clipEtcFunction ah mm f r x = do
         false -> do
           let n = max (length rs) (exprsChannels xs)
           let rs' = extendByRepetition n rs -- extend rs so that it has n *elements*
-          xs' <- extend n xs -- extend xs so that it has n *channels*
-          zipWithAAA f rs' xs'
+          xs' <- extend n xs >>= alignFloat -- extend xs so that it has n *channels*, and align to floats so that each channel pairs with an element from rs'
+          sequence $ zipWith (\rr xx -> assignForced $ GLSLExpr.smoothstep rr xx) rs' xs'
 
 
 blend :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec4
