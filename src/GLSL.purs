@@ -14,7 +14,7 @@ import Data.List.NonEmpty (NonEmptyList,singleton,concat,cons,head,tail,fromList
 import Control.Monad.State (State,get,put,runState,modify_)
 import Data.Traversable (traverse,for)
 import Data.Set as Set
-import Data.Tuple (Tuple)
+import Data.Tuple (Tuple(..))
 import Data.Unfoldable1 (replicate1)
 
 import GLSLExpr
@@ -378,7 +378,7 @@ exprRGBA x
 
 -- given two Exprs, align them (without extending) using unconsAligned (larger types fractured to match smaller boundaries)
 -- then zip them with a binary function a -> a -> a
-zipWithAAA :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
+zipWithAAA :: forall a. (GLSLExpr -> GLSLExpr -> a) -> Exprs -> Exprs -> GLSL (NonEmptyList a)
 zipWithAAA f xs ys = do
   r <- unconsAligned xs ys
   let z =  f r.headX r.headY
@@ -390,10 +390,10 @@ zipWithAAA f xs ys = do
         Just ty -> do
           t <- zipWithAAA f tx ty
           pure $ z `cons` t
-  
+
 -- given three Exprs, align them (without extending) using unconsAligned3 (larger types fractured to match smaller boundaries)
 -- then zip them with a function a -> a -> a -> a
-zipWithAAAA :: (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> Exprs -> GLSL Exprs
+zipWithAAAA :: forall a. (GLSLExpr -> GLSLExpr -> GLSLExpr -> a) -> Exprs -> Exprs -> Exprs -> GLSL (NonEmptyList a)
 zipWithAAAA f xs ys zs = do
   r <- unconsAligned3 xs ys zs
   let a = f r.headX r.headY r.headZ
@@ -434,6 +434,13 @@ extend n xs
   | otherwise = do
       let m = ((n-1) / exprsChannels xs) + 1
       takeChannels n $ concat $ replicate1 m $ xs
+
+extendAligned :: Exprs -> Exprs -> GLSL (NonEmptyList (Tuple GLSLExpr GLSLExpr))
+extendAligned xs ys = do
+  let n = Prelude.max (exprsChannels xs) (exprsChannels ys)
+  xs' <- extend n xs
+  ys' <- extend n ys
+  zipWithAAA Tuple xs' ys'
 
 -- take n channels from the provided Exprs, or just all of the provided Exprs if they have less channels than
 takeChannels :: Int -> Exprs -> GLSL Exprs

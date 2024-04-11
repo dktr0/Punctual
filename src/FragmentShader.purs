@@ -24,7 +24,7 @@ import Output as Output
 import Program (Program)
 import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,one,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels,unsafeSwizzleX,unsafeSwizzleY,coerce,exprChannels)
 import GLSLExpr as GLSLExpr
-import GLSL (GLSL,align,alignNoExtend,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignVec4,alignRGBA,runGLSL,withFxys,extend,zipWithAAA,zipWithAAAA,osc,tri,saw,sqr,withAlteredTime)
+import GLSL (GLSL,align,alignNoExtend,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignVec4,alignRGBA,runGLSL,withFxys,extend,zipWithAAA,zipWithAAAA,osc,tri,saw,sqr,withAlteredTime,extendAligned)
 
 
 signalToGLSL :: GLSLType -> Signal -> GLSL Exprs
@@ -441,8 +441,9 @@ signalToGLSL ah (LinLin mm r1 r2 x) = do
 signalToGLSL ah (Mix mm x y a) = do
   x' <- signalToGLSL ah x
   y' <- signalToGLSL ah y
-  a' <- signalToGLSL ah a
-  combineChannels3 mm GLSLExpr.mix x' y' a'
+  xys <- extendAligned x' y' -- :: NonEmptyList (Tuple GLSLExpr GLSLExpr)
+  a' <- signalToGLSL ah a >>= alignFloat
+  combineM mm (\(Tuple xx yy) aa -> pure $ GLSLExpr.mix xx yy aa) xys a'
             
 signalToGLSL _ (Seq steps) = do
   steps' <- signalToGLSL Float steps >>= alignFloat
