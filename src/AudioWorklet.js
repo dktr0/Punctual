@@ -1,10 +1,11 @@
 "use strict";
 
-export const _runWorklet = ctx => dest => name => code => () => {
+export const _runWorklet = ctx => dest => name => code => nOutputChnls => () => {
+  console.log(code);
   var r = { name: name, code: code, connected: false, audioWorkletNode: null };
   var url = window.URL.createObjectURL( new Blob( [code], { type: 'text/javascript' }));
   ctx.audioWorklet.addModule(url).then( () => {
-    const node = new AudioWorkletNode(ctx,name);
+    const node = new AudioWorkletNode(ctx,name,{outputChannelCount:[nOutputChnls]});
     node.connect(dest);
     r.audioWorkletNode = node;
     r.connected = true;

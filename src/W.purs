@@ -13,7 +13,7 @@ import Data.Tuple (Tuple(..))
 import Data.Maybe (Maybe(..))
 import Data.Unfoldable1 (replicate1,iterateN)
 import Data.Number as Number
-import Data.Ord (abs)
+import Data.Ord as Ord
 import Data.Int (toNumber)
 
 import NonEmptyList (multi,extendToEqualLength,combine,combine3)
@@ -110,7 +110,7 @@ signalToFrame (Osc f) = signalToFrame f >>= traverse osc
 -- LFSaw Signal
 -- LFSqr Signal
 
-signalToFrame (Abs x) = unaryFunction abs "Math.abs" x
+signalToFrame (Abs x) = signalToFrame x >>= traverse abs
 signalToFrame (Acos x) = unaryFunction Number.acos "Math.acos" x
 signalToFrame (Acosh x) = unaryFunction acosh "Math.acosh" x
 signalToFrame (Asin x) = unaryFunction Number.asin "Math.asin" x
@@ -287,16 +287,26 @@ function f _ (Left x) (Left y) = pure $ Left (f x y)
 function _ f x y = assign $ f <> "(" <> showSample x <> "," <> showSample y <> ")"
 
 add :: Sample -> Sample -> W Sample
-add = operator (+) "+"
+add (Left 0.0) x = pure x
+add x (Left 0.0) = pure x
+add x y = operator (+) "+" x y
 
 difference :: Sample -> Sample -> W Sample
-difference = operator (-) "-"
+difference x (Left 0.0) = pure x
+difference x y = operator (-) "-" x y
 
 product :: Sample -> Sample -> W Sample
-product = operator (*) "*"
+product (Left 0.0) _ = pure $ Left 0.0
+product (Left 1.0) x = pure x
+product _ (Left 0.0) = pure $ Left 0.0
+product x (Left 1.0) = pure x
+product x y = operator (*) "*" x y
 
 division :: Sample -> Sample -> W Sample
 division (Left x) (Left y) = pure $ Left $ _division x y
+division (Left 0.0) _ = pure $ Left 0.0
+division _ (Left 0.0) = pure $ Left 0.0
+division x (Left 1.0) = pure x
 division x y = assign $ showSample y <> "!=0? " <> showSample x <> "/" <> showSample y <> " : 0"
 
 _division :: Number -> Number -> Number
@@ -334,7 +344,7 @@ min :: Sample -> Sample -> W Sample
 min = function Prelude.min "Math.min"
 
 gate :: Sample -> Sample -> W Sample
-gate (Left x) (Left y) = pure $ Left $ if abs y >= x then y else 0.0
+gate (Left x) (Left y) = pure $ Left $ if Ord.abs y >= x then y else 0.0
 gate x y = assign $ "Math.abs(" <> showSample y <> ")>=" <> showSample x <> "?" <> showSample y <> ":0"
 
 clip :: Tuple Sample Sample -> Sample -> W Sample
@@ -380,7 +390,7 @@ seq steps x = do
   let f val stepStart = between (Tuple (Left stepStart) (Left $ stepStart+stepSize)) x >>= product val
   sequence (zipWith f steps stepStarts) >>= sum
   
-sum :: NonEmptyList Sample -> W Sample
+sum :: Frame -> W Sample
 sum = assign <<< intercalate "+" <<< map showSample
 
 mix :: Tuple Sample Sample -> Sample -> W Sample
@@ -394,6 +404,9 @@ linlin (Tuple r1x r1y) (Tuple r2x r2y) x = do
   r2 <- difference r2y r2x
   difference r1y r1x >>= division x' >>= product r2 >>= add r2x
 
+abs :: Sample -> W Sample
+abs (Left x) = pure $ Left $ Ord.abs x
+abs (Right x) = assign $ "Math.abs(" <> x <> ")"
   
 foreign import acosh :: Number -> Number
 foreign import asinh :: Number -> Number

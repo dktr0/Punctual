@@ -1,15 +1,18 @@
 module AudioWorklet where
 
-import Prelude ((<>),Unit,pure,unit,discard,($),show)
+import Prelude ((<>),Unit,pure,unit,discard,($),show,(>>=),(-))
 import Effect (Effect)
 import Data.Nullable (Nullable,toMaybe)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
-import Data.List.NonEmpty (head)
+import Data.List.NonEmpty (length,zipWith)
+import Data.Unfoldable1 (range)
+import Data.Foldable (fold)
 
 import Signal (Signal)
 import WebAudio (WebAudioContext,WebAudioNode)
 import W
+import AudioPanning (splay)
 
 type AudioWorklet = {
   name :: String,
@@ -19,9 +22,9 @@ type AudioWorklet = {
   }
 
 runWorklet :: WebAudioContext -> WebAudioNode -> String -> Signal -> Number -> Number -> Effect AudioWorklet
-runWorklet ctx dest name s fInStart fInDur = _runWorklet ctx dest name (code s name fInStart fInDur)
+runWorklet ctx dest name s fInStart fInDur = _runWorklet ctx dest name (code s name fInStart fInDur) 2
 
-foreign import _runWorklet :: WebAudioContext -> WebAudioNode -> String -> String -> Effect AudioWorklet
+foreign import _runWorklet :: WebAudioContext -> WebAudioNode -> String -> String -> Int -> Effect AudioWorklet
 
 stopWorklet :: AudioWorklet -> Number -> Number -> Effect Unit
 stopWorklet w fOutStart fOutDur = do
@@ -36,9 +39,9 @@ foreign import setWorkletParamValue :: WebAudioNode -> String -> Number -> Effec
 
 
 code :: Signal -> String -> Number -> Number -> String
-code s name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> innerLoop <> fadeInCalculation <> restOfClass <> registerProcessor
+code s name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> fadeCalculations <> wState.code <> outputs <> restOfClass <> registerProcessor
   where
-    Tuple frame wState = runW $ signalToFrame s
+    Tuple frame wState = runW $ signalToFrame s >>= splay 2
     prefix = """'use strict';
 
 function clamp(min,max,x) { return Math.max(Math.min(max,x),min); }
@@ -51,7 +54,7 @@ return [
   { name:'fOutDur', defaultValue:5.0 },
   { name:'cps', defaultValue:1.0 },
   { name:'origin', defaultValue:0.0 },
-  { name:'eval',defaultValue:0.0 }
+  { name:'evalTimeAudio',defaultValue:0.0 }
 ];}
 
 """
@@ -62,7 +65,7 @@ const output = outputs[0];
 const blockSize = 128;
 const cps = parameters.cps[0];
 const origin = parameters.origin[0];
-const eval = parameters.eval[0];
+const evalTimeAudio = parameters.evalTimeAudio[0];
 const fOutDur = parameters.fOutDur[0];
 const fOutEnd = parameters.fOutStart[0] == -1.0 ? -1.0 : parameters.fOutStart[0] + fOutDur;
 const m = this.m;
@@ -70,16 +73,15 @@ for(let n=0; n<blockSize; n++){
 const t = currentTime + (n/sampleRate);
 const time = t - origin;
 const beat = time * cps;
-const eTime = t - eval;
+const eTime = 0.0; // t - evalTimeAudio;
 const eBeat = eTime * cps;
-"""
-    innerLoop = wState.code <> "output[0][n] = " <> showSample (head frame) <> ";\n"
-    fadeInCalculation = "const fIn = clamp(0,1,(t-" <> show fInStart <> ")/" <> show fInDur <> ");"
-    restOfClass = """
 const fOut = fOutEnd == -1.0 ? 1.0 : clamp(0,1,(fOutEnd-t)/fOutDur);
-const f = Math.min(fIn,fOut);
-output[0][n] = output[0][n] * f * 0.1; // 0.1 is placeholder for testing
-}
+"""
+    fadeCalculations = "const fIn = clamp(0,1,(t-" <> show fInStart <> ")/" <> show fInDur <> ");\nconst f = Math.min(fIn,fOut);\n"
+    outputIndices = range 0 (length frame - 1)
+    outputF i x = "output[" <> show i <> "][n] = " <> showSample x <> "*f*0.1;\n"
+    outputs = fold $ zipWith outputF outputIndices frame
+    restOfClass = """}
 this.framesOut += blockSize;
 return (fOutEnd == -1.0 ? true : (currentTime + (blockSize/sampleRate) <= fOutEnd));
 }

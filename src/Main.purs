@@ -191,7 +191,7 @@ test p name f = do
   case mAudioWorklet of
     Just audioWorklet -> stopWorklet audioWorklet (t+0.5) 5.0
     Nothing -> pure unit
-  let testSignal = Mono $ SignalList (Osc (Constant f) : Osc (Constant $ f *1.01) : Nil)
+  let testSignal = SignalList (Osc (Constant f) : Osc (Constant $ f *1.5) : Osc (Constant $ f *2.25) : Osc (Constant $ f *(2.25*1.5)) : Nil)
   audioWorklet <- runWorklet p.sharedResources.webAudioContext p.sharedResources.audioOutputNode name testSignal (t+0.5) 5.0
   write (Just audioWorklet) p.audioWorklet
 
