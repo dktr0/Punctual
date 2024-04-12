@@ -124,6 +124,7 @@ expression8 = do
   choice [
     try application,
     try intOrNumber,
+    output,
     argument
     ]
 
@@ -242,4 +243,11 @@ ifThenElse = do
   reserved "else"
   e <- argument
   pure $ IfThenElse p i t e
+
+output :: P Expression
+output = choice $ map reservedName ["audio","blend","rgba","add","mul","rgb"]
+
+  
+
+
 

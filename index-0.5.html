@@ -37,7 +37,7 @@
   });
   window.testIndex = 0;
   window.test = function() {
-    window.punctual.test("test" + window.testIndex,parseFloat(document.getElementById("editorArea").value));
+    window.punctual.test("test" + window.testIndex,document.getElementById("editorArea").value);
     window.testIndex++;
   }
   </script>

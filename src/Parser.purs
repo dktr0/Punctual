@@ -5,7 +5,7 @@ import Data.Int (toNumber)
 import Data.Tuple (Tuple(..))
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
-import Data.List (range,List(..),(:))
+import Data.List (range,List(..),(:),head)
 import Data.Traversable (traverse)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.State.Trans (StateT,evalStateT,runStateT,get,modify_)
@@ -36,6 +36,18 @@ parsePunctual txt eTime = do
   Tuple xs _ <- runP Map.empty $ astToListMaybeAction ast
   pure { actions: xs, evalTime: eTime }
 
+-- just for testing
+parseSignal :: String -> Either ParseError Signal
+parseSignal txt = do
+  ast <- parseAST txt
+  Tuple xs _ <- runP Map.empty $ astToListMaybeAction ast 
+  case head xs of
+    Just mA -> do
+      case mA of
+        Just x -> pure x.signal
+        Nothing -> pure $ Constant 0.0
+    Nothing -> pure $ Constant 0.0
+  
 testAST :: String -> Either ParseError { actions :: List (Maybe Action) }
 testAST txt = do
   ast <- parseAST txt

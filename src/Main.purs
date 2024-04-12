@@ -14,11 +14,10 @@ import Data.Maybe (Maybe(..))
 import Data.Tempo (ForeignTempo, fromForeignTempo)
 import Data.Foldable (fold)
 import Data.Newtype (unwrap)
-import Data.List (List(..),(:))
 
-import Signal (SignalInfo,emptySignalInfo,Signal(..))
+import Signal (SignalInfo,emptySignalInfo)
 import Program (Program,emptyProgram,programHasVisualOutput,programInfo)
-import Parser (parsePunctual)
+import Parser (parsePunctual,parseSignal)
 import WebGL (WebGL, newWebGL, updateWebGL, deleteWebGL, drawWebGL)
 import DateTime (numberToDateTime)
 import SharedResources (SharedResources)
@@ -183,17 +182,20 @@ deleteWebGLForZone punctual z = do
     Nothing -> pure unit
 
   
-test :: Punctual -> String -> Number -> Effect Unit
-test p name f = do
-  resumeWebAudioContext p.sharedResources.webAudioContext
-  t <- currentTime p.sharedResources.webAudioContext
-  mAudioWorklet <- read p.audioWorklet  
-  case mAudioWorklet of
-    Just audioWorklet -> stopWorklet audioWorklet (t+0.5) 5.0
-    Nothing -> pure unit
-  let testSignal = SignalList (Osc (Constant f) : Osc (Constant $ f *1.5) : Osc (Constant $ f *2.25) : Osc (Constant $ f *(2.25*1.5)) : Nil)
-  audioWorklet <- runWorklet p.sharedResources.webAudioContext p.sharedResources.audioOutputNode name testSignal (t+0.5) 5.0
-  write (Just audioWorklet) p.audioWorklet
+test :: Punctual -> String -> String -> Effect Unit
+test p name txt = do
+  let mTestSignal = parseSignal txt
+  case mTestSignal of
+    Right testSignal -> do
+      resumeWebAudioContext p.sharedResources.webAudioContext
+      t <- currentTime p.sharedResources.webAudioContext
+      mAudioWorklet <- read p.audioWorklet  
+      case mAudioWorklet of
+        Just audioWorklet -> stopWorklet audioWorklet (t+0.5) 5.0
+        Nothing -> pure unit
+      audioWorklet <- runWorklet p.sharedResources.webAudioContext p.sharedResources.audioOutputNode name testSignal (t+0.5) 5.0
+      write (Just audioWorklet) p.audioWorklet
+    Left _ -> log "parse error in test"
 
 
 
