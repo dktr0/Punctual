@@ -5,7 +5,7 @@ module W where
 import Prelude (Unit, bind, discard, map, pure, show, ($), (*), (+), (-), (/), (/=), (<), (<$>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), (&&))
 import Prelude as Prelude
 import Control.Monad.State (State,get,put,runState,modify_)
-import Data.List.NonEmpty (NonEmptyList,singleton,fromList,length,head,concat,zipWith,cons,drop,zip)
+import Data.List.NonEmpty (NonEmptyList,singleton,fromList,length,head,concat,zipWith,cons,drop)
 import Data.Either (Either(..))
 import Data.Foldable (intercalate,indexl)
 import Data.Traversable (traverse,for,sequence)
@@ -16,9 +16,10 @@ import Data.Number as Number
 import Data.Ord as Ord
 import Data.Int (toNumber)
 
-import NonEmptyList (multi,extendToEqualLength,combine,combine3)
+-- import NonEmptyList (multi,extendToEqualLength,combine,combine3)
 import Signal (Signal(..))
 import MultiMode (MultiMode)
+import Multi (Multi,flatten,simplify,zip,rep)
 
 
 type W = State WState
@@ -58,21 +59,16 @@ writeCode :: String -> W Unit
 writeCode x = modify_ $ \s -> s { code = s.code <> x } 
   
 
-type Frame = NonEmptyList Sample
+type Frame = Multi Sample
 
 signalToFrame :: Signal -> W Frame
 
-signalToFrame (Constant x) = pure $ singleton $ Left x
+signalToFrame (Constant x) = pure $ pure $ Left x
 
 signalToFrame (SignalList xs) = 
   case fromList xs of
-    Nothing -> pure $ singleton $ Left 0.0
-    Just xs' -> do
-      case length xs' of
-        1 -> signalToFrame (head xs')
-        _ -> do
-          xs'' <- traverse signalToFrame xs' -- :: NonEmptyList Frame == NonEmptyList (NonEmptyList Sample)
-          pure $ concat $ multi xs''
+    Nothing -> pure $ pure $ Left 0.0
+    Just xs' -> simplify <$> traverse signalToFrame xs' -- :: NonEmptyList Frame == NonEmptyList (Multi Sample)
 
 signalToFrame (Append x y) = do
   xs <- signalToFrame x
@@ -82,23 +78,22 @@ signalToFrame (Append x y) = do
 signalToFrame (Zip x y) = do
   xs <- signalToFrame x
   ys <- signalToFrame y
-  let Tuple xs' ys' = extendToEqualLength xs ys
-  pure $ concat $ zipWith (\anX anY -> anX `cons` singleton anY ) xs' ys'
+  pure $ zip xs ys
+  
+signalToFrame (Mono x) = pure <$> (signalToFrame x >>= sum)
 
-signalToFrame (Mono x) = singleton <$> (signalToFrame x >>= sum)
+signalToFrame (Rep n x) = rep n <$> signalToFrame x
 
-signalToFrame (Rep n x) = (concat <<< replicate1 n) <$> signalToFrame x
-
-signalToFrame Pi = pure $ singleton $ Right "Math.PI"
-signalToFrame Cps = pure $ singleton $ Right "cps"
-signalToFrame Time = pure $ singleton $ Right "time"
-signalToFrame Beat = pure $ singleton $ Right "beat"
-signalToFrame ETime = pure $ singleton $ Right "eTime"
-signalToFrame EBeat = pure $ singleton $ Right "eBeat"
-signalToFrame Rnd = singleton <$> assign "Math.random()*2-1"
+signalToFrame Pi = pure $ pure $ Right "Math.PI"
+signalToFrame Cps = pure $ pure $ Right "cps"
+signalToFrame Time = pure $ pure $ Right "time"
+signalToFrame Beat = pure $ pure $ Right "beat"
+signalToFrame ETime = pure $ pure $ Right "eTime"
+signalToFrame EBeat = pure $ pure $ Right "eBeat"
+signalToFrame Rnd = pure <$> assign "Math.random()*2-1"
 
 -- AudioIn
-
+{-
 signalToFrame (Bipolar x) = signalToFrame x >>= traverse bipolar
 signalToFrame (Unipolar x) = signalToFrame x >>= traverse unipolar
 signalToFrame (Osc f) = signalToFrame f >>= traverse osc
@@ -203,6 +198,7 @@ signalToFrame (LinLin mm r1 r2 x) = do
   r2s <- frameToRanges <$> signalToFrame r2
   xs <- signalToFrame x
   sequence $ combine3 mm linlin r1s r2s xs
+-}
 
 {-  LPF MultiMode Signal Signal Signal |
   HPF MultiMode Signal Signal Signal |
@@ -210,8 +206,9 @@ signalToFrame (LinLin mm r1 r2 x) = do
   Delay Number Signal Signal
 -}
 
-signalToFrame _ = pure $ singleton $ Left 0.0
+signalToFrame _ = pure $ pure $ Left 0.0
 
+{-
 withAlteredTime :: NonEmptyList { time :: Sample, beat :: Sample, etime :: Sample, ebeat :: Sample }  -> W Frame -> W Frame
 withAlteredTime xs a = do
   cached <- get
@@ -251,6 +248,9 @@ frameToRanges xs =
   in case fromList (drop 2 xs) of
        Nothing -> singleton h
        Just t -> h `cons` frameToRanges t
+
+-}
+
 
 bipolar :: Sample -> W Sample
 bipolar x = assign $ showSample x <> "*2-1"
@@ -382,6 +382,7 @@ smoothStep (Tuple e0 e1) x = do
   let t' = showSample t
   assign $ t' <> "*" <> t' <> "*(3-(2*" <> t' <> "))"
 
+{-
 seq :: Frame -> Sample -> W Sample
 seq steps x = do
   let nSteps = length steps
@@ -389,9 +390,10 @@ seq steps x = do
   let stepStarts = iterateN nSteps (_ + stepSize) 0.0
   let f val stepStart = between (Tuple (Left stepStart) (Left $ stepStart+stepSize)) x >>= product val
   sequence (zipWith f steps stepStarts) >>= sum
+-}
   
 sum :: Frame -> W Sample
-sum = assign <<< intercalate "+" <<< map showSample
+sum = assign <<< intercalate "+" <<< map showSample <<< flatten
 
 mix :: Tuple Sample Sample -> Sample -> W Sample
 mix (Tuple (Left x) (Left y)) (Left a) = pure $ Left $ ((y-x)*a)+x

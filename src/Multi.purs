@@ -1,54 +1,65 @@
 module Multi where
 
-import Prelude (class Functor,($),map,flip,class Eq,(==),class Show,(<>),show,(<<<),class Apply,apply,class Applicative)
+import Prelude (class Applicative, class Apply, class Eq, class Functor, class Show, map, pure, show, ($), (<>), (==))
+import Data.Semigroup (class Semigroup, append)
 import Data.List.NonEmpty (NonEmptyList,concat,singleton,cons,intercalate)
 import Control.Apply (lift2)
+import Data.Unfoldable1 (class Unfoldable1, replicate1)
+import Data.Tuple (Tuple(..))
 
-import NonEmptyList (multi)
+import NonEmptyList (multi,zipWithEqualLength)
 import MultiMode (MultiMode(..))
 
-data Multi a = 
-  Multi1 (NonEmptyList a) | -- 1-dimensional, represents variants or channels
-  Multi2 (NonEmptyList (NonEmptyList a)) -- micro-dimension represents 'recent' variation
-  
-instance Eq a => Eq (Multi a) where
-  eq (Multi1 xs) (Multi1 ys) = xs == ys
-  eq (Multi2 xs) (Multi2 ys) = xs == ys
-  eq _ _ = false
-
-instance Show a => Show (Multi a) where
-  show (Multi1 xs) = "Multi1 (" <> show xs <> ")"
-  show (Multi2 xs) = "Multi2 (" <> show xs <> ")"
-
-instance Functor Multi where
-  map f (Multi1 xs) = Multi1 $ map f xs
-  map f (Multi2 xs) = Multi2 $ map (map f) xs
-
-instance Apply Multi where
-  apply (Multi1 fs) (Multi1 xs) = Multi2 $ map (\f -> map f xs) fs
-  apply fs xs = apply (Multi1 $ flatten fs) (Multi1 $ flatten xs) 
+data Multi a = Multi (NonEmptyList (NonEmptyList a)) -- micro-dimension represents 'most recent' variation
   
 flatten :: forall a. Multi a -> NonEmptyList a
-flatten (Multi1 xs) = xs
-flatten (Multi2 xs) = concat $ multi xs
+flatten (Multi xs) = concat $ multi xs
 
+instance Eq a => Eq (Multi a) where
+  eq (Multi xs) (Multi ys) = xs == ys
+
+instance Show a => Show (Multi a) where
+  show (Multi xs) = "Multi (" <> show xs <> ")"
+
+instance Functor Multi where
+  map f (Multi xs) = Multi $ map (map f) xs
+
+instance Apply Multi where
+  apply fs xs = Multi $ map (\f -> map f (flatten xs)) (flatten fs)
+    
 instance Applicative Multi where
-  pure x = Multi1 $ singleton x
+  pure x = Multi $ singleton $ singleton x
 
--- to be used, for example, in implementation of seq
+instance Semigroup (Multi a) where
+  append (Multi xs) (Multi ys) = Multi $ append xs ys
+  
+instance Unfoldable1 Multi where
+  unfoldr1 f b = pure a
+    where Tuple a _ = f b
+
+-- to be used, for example, in implementation of SignalList
+simplify :: forall a. NonEmptyList (Multi a) -> Multi a
+simplify xs = Multi $ map flatten xs
+
+-- to be used, for example, in implementation of Zip
+zip :: forall a. Multi a -> Multi a -> Multi a
+zip xs ys = Multi $ zipWithEqualLength (\x y -> x `cons` singleton y) (flatten xs) (flatten ys)
+    
+-- to be used, for example, in implementation of Rep
+rep :: forall a. Int -> Multi a -> Multi a
+rep n (Multi xs) = Multi $ concat $ replicate1 n xs
+    
+-- to be used, for example, in implementation of Seq
 semiFlatten :: forall a. Multi a -> NonEmptyList (NonEmptyList a)
-semiFlatten (Multi1 xs) = singleton xs
-semiFlatten (Multi2 xs) = xs
+semiFlatten (Multi xs) = xs
 
-atomAtomAtom :: forall a b c. (a -> b -> c) -> Multi a -> Multi b -> Multi c
-atomAtomAtom = lift2
+combine :: forall a b c. (a -> b -> c) -> MultiMode -> Multi a -> Multi b -> Multi c
+combine f Combinatorial = lift2 f
+combine f Pairwise = combinePairwise f
 
-test1 :: Multi Int
-test1 = Multi1 (1 `cons` (2 `cons` singleton 3))
-
-test2 :: Multi Int
-test2 = Multi1 (5 `cons` singleton 7)
+combinePairwise :: forall a b c. (a -> b -> c) -> Multi a -> Multi b -> Multi c
+combinePairwise f (Multi xss) (Multi yss) = Multi $ zipWithEqualLength (\xs ys -> zipWithEqualLength f xs ys) xss yss
 
 pp :: forall a. Show a => Multi a -> String
-pp (Multi1 xs) = "[" <> intercalate "," (map show xs) <> "]"
-pp (Multi2 xs) = "[" <> intercalate "," (map (pp <<< Multi1) xs) <> "]"
+pp (Multi xss) = "[" <> intercalate "," (map (\xs -> "[" <> intercalate "," (map show xs) <> "]" ) xss) <> "]"
+

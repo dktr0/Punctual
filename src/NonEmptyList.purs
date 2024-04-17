@@ -11,6 +11,12 @@ import Data.Maybe (Maybe(..))
 
 import MultiMode (MultiMode(..))
 
+-- a variation on the standard zipWith - extends both list arguments to equal length before zipWith-ing them
+zipWithEqualLength :: forall a b c. (a -> b -> c) -> NonEmptyList a -> NonEmptyList b -> NonEmptyList c
+zipWithEqualLength f xs ys = zipWith f xs' ys'
+  where
+    Tuple xs' ys' = extendToEqualLength xs ys
+
 extendToEqualLength :: forall a b. NonEmptyList a -> NonEmptyList b -> Tuple (NonEmptyList a) (NonEmptyList b)
 extendToEqualLength xs ys = Tuple (extendByRepetition n xs) (extendByRepetition n ys)
   where n = max (length xs) (length ys)
