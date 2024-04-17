@@ -1,9 +1,11 @@
 module Multi where
 
-import Prelude (class Applicative, class Apply, class Eq, class Functor, class Show, map, pure, show, ($), (<>), (==))
+import Prelude (class Applicative, class Apply, class Eq, class Functor, class Show, map, pure, show, ($), (<>), (==), (<$>))
 import Data.Semigroup (class Semigroup, append)
 import Data.List.NonEmpty (NonEmptyList,concat,singleton,cons,intercalate)
 import Control.Apply (lift2)
+import Data.Foldable (class Foldable,foldl,foldr,foldMapDefaultL)
+import Data.Traversable (class Traversable,traverse,sequenceDefault)
 import Data.Unfoldable1 (class Unfoldable1, replicate1)
 import Data.Tuple (Tuple(..))
 
@@ -32,6 +34,15 @@ instance Applicative Multi where
 
 instance Semigroup (Multi a) where
   append (Multi xs) (Multi ys) = Multi $ append xs ys
+
+instance Foldable Multi where
+  foldl f b xs = foldl f b $ flatten xs 
+  foldr f b xs = foldr f b $ flatten xs
+  foldMap = foldMapDefaultL 
+
+instance Traversable Multi where
+  traverse f (Multi xs) = Multi <$> traverse (traverse f) xs
+  sequence = sequenceDefault
   
 instance Unfoldable1 Multi where
   unfoldr1 f b = pure a

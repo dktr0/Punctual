@@ -19,7 +19,7 @@ import Data.Int (toNumber)
 -- import NonEmptyList (multi,extendToEqualLength,combine,combine3)
 import Signal (Signal(..))
 import MultiMode (MultiMode)
-import Multi (Multi,flatten,simplify,zip,rep)
+import Multi (Multi,flatten,simplify,zip,rep,combine)
 
 
 type W = State WState
@@ -93,7 +93,7 @@ signalToFrame EBeat = pure $ pure $ Right "eBeat"
 signalToFrame Rnd = pure <$> assign "Math.random()*2-1"
 
 -- AudioIn
-{-
+
 signalToFrame (Bipolar x) = signalToFrame x >>= traverse bipolar
 signalToFrame (Unipolar x) = signalToFrame x >>= traverse unipolar
 signalToFrame (Osc f) = signalToFrame f >>= traverse osc
@@ -135,6 +135,7 @@ signalToFrame (DbAmp x) = signalToFrame x >>= traverse dbamp
 signalToFrame (AmpDb x) = signalToFrame x >>= traverse ampdb
 signalToFrame (Fract x) = signalToFrame x >>= traverse fract
 
+{-
 signalToFrame (Early x z) = do
   xs <- signalToFrame x
   s <- get  
@@ -157,6 +158,7 @@ signalToFrame (Slow x z) = do
     ebeat <- division s.ebeat y
     pure { time, beat, etime, ebeat }  
   withAlteredTime xs' $ signalToFrame z
+-}
 
 signalToFrame (Addition mm x y) = binaryFunction add mm x y
 signalToFrame (Difference mm x y) = binaryFunction difference mm x y
@@ -173,10 +175,11 @@ signalToFrame (LessThanEqual mm x y) = binaryFunction lessThanEqual mm x y
 signalToFrame (Max mm x y) = binaryFunction max mm x y
 signalToFrame (Min mm x y) = binaryFunction min mm x y
 signalToFrame (Gate mm x y) = binaryFunction gate mm x y
-signalToFrame (Clip mm x y) = binaryFunctionWithRange clip mm x y
-signalToFrame (Between mm x y) = binaryFunctionWithRange between mm x y
-signalToFrame (SmoothStep mm x y) = binaryFunctionWithRange smoothStep mm x y
+-- signalToFrame (Clip mm x y) = binaryFunctionWithRange clip mm x y
+-- signalToFrame (Between mm x y) = binaryFunctionWithRange between mm x y
+-- signalToFrame (SmoothStep mm x y) = binaryFunctionWithRange smoothStep mm x y
 
+{-
 signalToFrame (Seq steps) = do
   steps' <- signalToFrame steps
   case length steps' of
@@ -217,7 +220,8 @@ withAlteredTime xs a = do
     a
   modify_ $ \s -> s { time = cached.time, beat = cached.beat, etime = cached.etime, ebeat = cached.ebeat }
   pure $ concat rs
-  
+-}
+
 unaryFunction :: (Number -> Number) -> String -> Signal -> W Frame
 unaryFunction f name s = do
   xs <- signalToFrame s
@@ -230,8 +234,9 @@ binaryFunction :: (Sample -> Sample -> W Sample) -> MultiMode -> Signal -> Signa
 binaryFunction f mm x y = do
   xs <- signalToFrame x
   ys <- signalToFrame y
-  sequence $ combine mm f xs ys
-  
+  sequence $ combine f mm xs ys
+
+{-
 binaryFunctionWithRange :: (Tuple Sample Sample -> Sample -> W Sample) -> MultiMode -> Signal -> Signal -> W Frame
 binaryFunctionWithRange f mm x y = do
   xs <- frameToRanges <$> signalToFrame x
@@ -248,7 +253,6 @@ frameToRanges xs =
   in case fromList (drop 2 xs) of
        Nothing -> singleton h
        Just t -> h `cons` frameToRanges t
-
 -}
 
 
