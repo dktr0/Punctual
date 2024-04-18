@@ -5,13 +5,13 @@ module W where
 import Prelude (Unit, bind, discard, map, pure, show, ($), (*), (+), (-), (/), (/=), (<), (<$>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), (&&))
 import Prelude as Prelude
 import Control.Monad.State (State,get,put,runState,modify_)
-import Data.List.NonEmpty (NonEmptyList,singleton,fromList,length,head,zipWith,cons,drop)
+import Data.List.NonEmpty (NonEmptyList, fromList, length, zipWith)
 import Data.Either (Either(..))
-import Data.Foldable (intercalate,indexl)
+import Data.Foldable (intercalate)
 import Data.Traversable (traverse,for,sequence)
 import Data.Tuple (Tuple(..))
 import Data.Maybe (Maybe(..))
-import Data.Unfoldable1 (replicate1,iterateN)
+import Data.Unfoldable1 (iterateN)
 import Data.Number as Number
 import Data.Ord as Ord
 import Data.Int (toNumber)
@@ -19,7 +19,7 @@ import Data.Int (toNumber)
 import NonEmptyList (zipWithEqualLength)
 import Signal (Signal(..))
 import MultiMode (MultiMode)
-import Multi (Multi,flatten,simplify,zip,rep,combine,combine3,concat,toTuples,fromNonEmptyList)
+import Multi (Multi,flatten,semiFlatten,simplify,zip,rep,combine,combine3,concat,toTuples,fromNonEmptyList)
 
 
 type W = State WState
@@ -177,15 +177,11 @@ signalToFrame (Clip mm x y) = binaryFunctionWithRange clip mm x y
 signalToFrame (Between mm x y) = binaryFunctionWithRange between mm x y
 signalToFrame (SmoothStep mm x y) = binaryFunctionWithRange smoothStep mm x y
 
-{-
-signalToFrame (Seq steps) = do
-  steps' <- signalToFrame steps
-  case length steps' of
-    1 -> pure steps'
-    _ -> do
-      b <- (_.beat <$> get) >>= fract
-      singleton <$> seq steps' b  
--}
+signalToFrame (Seq s) = do
+  xs <- semiFlatten <$> signalToFrame s -- :: NonEmptyList Frame
+  b <- (_.beat <$> get) >>= fract
+  rs <- traverse (\x -> seq x b) xs -- NonEmptyList Sample
+  pure $ fromNonEmptyList rs
 
 signalToFrame (Mix mm x y a) = do
   x' <- flatten <$> signalToFrame x
@@ -200,7 +196,8 @@ signalToFrame (LinLin mm r1 r2 x) = do
   xs <- signalToFrame x
   sequence $ combine3 linlin mm r1s r2s xs
 
-{-  LPF MultiMode Signal Signal Signal |
+{-
+  LPF MultiMode Signal Signal Signal |
   HPF MultiMode Signal Signal Signal |
   BPF MultiMode Signal Signal Signal |
   Delay Number Signal Signal
@@ -369,15 +366,13 @@ smoothStep (Tuple e0 e1) x = do
   let t' = showSample t
   assign $ t' <> "*" <> t' <> "*(3-(2*" <> t' <> "))"
 
-{-
-seq :: Frame -> Sample -> W Sample
+seq :: NonEmptyList Sample -> Sample -> W Sample
 seq steps x = do
   let nSteps = length steps
   let stepSize = 1.0 / toNumber nSteps
   let stepStarts = iterateN nSteps (_ + stepSize) 0.0
   let f val stepStart = between (Tuple (Left stepStart) (Left $ stepStart+stepSize)) x >>= product val
-  sequence (zipWith f steps stepStarts) >>= sum
--}
+  sequence (zipWith f steps stepStarts) >>= (sum <<< fromNonEmptyList)
   
 sum :: Frame -> W Sample
 sum = assign <<< intercalate "+" <<< map showSample <<< flatten

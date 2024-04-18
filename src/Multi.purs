@@ -68,10 +68,10 @@ concat xs = Multi $ map flatten xs
 -- to be used, for example, in implementation of Rep
 rep :: forall a. Int -> Multi a -> Multi a
 rep n x = Multi $ replicate1 n (flatten x)
-    
+
 -- to be used, for example, in implementation of Seq
 semiFlatten :: forall a. Multi a -> NonEmptyList (NonEmptyList a)
-semiFlatten (Multi xs) = xs
+semiFlatten (Multi xs) = multi xs
 
 combine :: forall a b c. (a -> b -> c) -> MultiMode -> Multi a -> Multi b -> Multi c
 combine f Combinatorial = lift2 f
