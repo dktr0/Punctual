@@ -13,6 +13,7 @@ import Signal (Signal)
 import WebAudio (WebAudioContext,WebAudioNode)
 import W
 import AudioPanning (splay)
+import Multi (flatten)
 
 type AudioWorklet = {
   name :: String,
@@ -41,7 +42,8 @@ foreign import setWorkletParamValue :: WebAudioNode -> String -> Number -> Effec
 code :: Signal -> String -> Number -> Number -> String
 code s name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> fadeCalculations <> wState.code <> outputs <> restOfClass <> registerProcessor
   where
-    Tuple frame wState = runW $ signalToFrame s >>= splay 2
+    Tuple frameMulti wState = runW $ signalToFrame s >>= splay 2
+    frame = flatten frameMulti
     prefix = """'use strict';
 
 function clamp(min,max,x) { return Math.max(Math.min(max,x),min); }

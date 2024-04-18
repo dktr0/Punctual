@@ -7,7 +7,7 @@ import Prelude as Prelude
 import Control.Monad.State (State,get,put,runState,modify_)
 import Data.List.NonEmpty (NonEmptyList, fromList, length, zipWith)
 import Data.Either (Either(..))
-import Data.Foldable (intercalate)
+import Data.Foldable (intercalate,foldM)
 import Data.Traversable (traverse,for,sequence)
 import Data.Tuple (Tuple(..))
 import Data.Maybe (Maybe(..))
@@ -18,7 +18,7 @@ import Data.Int (toNumber)
 
 import NonEmptyList (zipWithEqualLength)
 import Signal (Signal(..))
-import MultiMode (MultiMode)
+import MultiMode (MultiMode(..))
 import Multi (Multi,flatten,semiFlatten,simplify,zip,rep,combine,combine3,concat,toTuples,fromNonEmptyList)
 
 
@@ -376,6 +376,10 @@ seq steps x = do
   
 sum :: Frame -> W Sample
 sum = assign <<< intercalate "+" <<< map showSample <<< flatten
+
+-- given a list of frames, sum over corresponding channels pairwise
+sumChannels :: NonEmptyList Frame -> W Frame
+sumChannels xs = foldM (\x y -> sequence $ combine add Pairwise x y) ((pure $ Left 0.0) :: Frame) xs
 
 mix :: Tuple Sample Sample -> Sample -> W Sample
 mix (Tuple (Left x) (Left y)) (Left a) = pure $ Left $ ((y-x)*a)+x
