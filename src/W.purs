@@ -16,10 +16,10 @@ import Data.Number as Number
 import Data.Ord as Ord
 import Data.Int (toNumber)
 
--- import NonEmptyList (multi,extendToEqualLength,combine,combine3)
+import NonEmptyList (zipWithEqualLength)
 import Signal (Signal(..))
 import MultiMode (MultiMode)
-import Multi (Multi,flatten,simplify,zip,rep,combine,concat,toTuples)
+import Multi (Multi,flatten,simplify,zip,rep,combine,combine3,concat,toTuples,fromNonEmptyList)
 
 
 type W = State WState
@@ -185,21 +185,20 @@ signalToFrame (Seq steps) = do
     _ -> do
       b <- (_.beat <$> get) >>= fract
       singleton <$> seq steps' b  
+-}
 
 signalToFrame (Mix mm x y a) = do
-  x' <- signalToFrame x
-  y' <- signalToFrame y
-  let Tuple x'' y'' = extendToEqualLength x' y'
-  let xys = zip x'' y''
+  x' <- flatten <$> signalToFrame x
+  y' <- flatten <$> signalToFrame y
+  let xys = fromNonEmptyList $ zipWithEqualLength Tuple x' y'
   a' <- signalToFrame a
-  sequence $ combine mm mix xys a'
-  
+  sequence $ combine mix mm xys a'
+
 signalToFrame (LinLin mm r1 r2 x) = do
-  r1s <- frameToRanges <$> signalToFrame r1
-  r2s <- frameToRanges <$> signalToFrame r2
+  r1s <- toTuples <$> signalToFrame r1
+  r2s <- toTuples <$> signalToFrame r2
   xs <- signalToFrame x
-  sequence $ combine3 mm linlin r1s r2s xs
--}
+  sequence $ combine3 linlin mm r1s r2s xs
 
 {-  LPF MultiMode Signal Signal Signal |
   HPF MultiMode Signal Signal Signal |

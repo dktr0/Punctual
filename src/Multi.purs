@@ -1,10 +1,10 @@
 module Multi where
 
-import Prelude (class Applicative, class Apply, class Eq, class Functor, class Show, map, pure, show, ($), (<>), (==), (<$>))
+import Prelude (class Applicative, class Apply, class Eq, class Functor, class Show, map, pure, show, ($), (<>), (==), (<$>), (<<<))
 import Data.Semigroup (class Semigroup, append)
 import Data.List.NonEmpty (NonEmptyList,singleton,cons,intercalate,head,fromList,drop)
 import Data.List.NonEmpty as L
-import Control.Apply (lift2)
+import Control.Apply (lift2,lift3)
 import Data.Foldable (class Foldable,foldl,foldr,foldMapDefaultL,indexl)
 import Data.Traversable (class Traversable,traverse,sequenceDefault)
 import Data.Unfoldable1 (class Unfoldable1, replicate1, unfoldr1)
@@ -18,6 +18,9 @@ data Multi a = Multi (NonEmptyList (NonEmptyList a)) -- micro-dimension represen
   
 flatten :: forall a. Multi a -> NonEmptyList a
 flatten (Multi xs) = L.concat $ multi xs
+
+fromNonEmptyList :: forall a. NonEmptyList a -> Multi a
+fromNonEmptyList = Multi <<< map singleton 
 
 instance Eq a => Eq (Multi a) where
   eq (Multi xs) (Multi ys) = xs == ys
@@ -73,6 +76,10 @@ semiFlatten (Multi xs) = xs
 combine :: forall a b c. (a -> b -> c) -> MultiMode -> Multi a -> Multi b -> Multi c
 combine f Combinatorial = lift2 f
 combine f Pairwise = combinePairwise f
+
+combine3 :: forall a b c d. (a -> b -> c -> d) -> MultiMode -> Multi a -> Multi b -> Multi c -> Multi d
+combine3 f Combinatorial a b c = lift3 f a b c
+combine3 f Pairwise a b c = combinePairwise ($) (combinePairwise f a b) c
 
 combinePairwise :: forall a b c. (a -> b -> c) -> Multi a -> Multi b -> Multi c
 combinePairwise f (Multi xss) (Multi yss) = Multi $ zipWithEqualLength (\xs ys -> zipWithEqualLength f xs ys) xss yss
