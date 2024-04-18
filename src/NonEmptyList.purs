@@ -3,8 +3,9 @@ module NonEmptyList where
 -- utility functions over PureScript's NonEmptyList
 
 import Prelude (max,($),(+),(/),bind,pure,map,(>=),(==),otherwise)
-import Data.List.NonEmpty (NonEmptyList,length,concat,zipWith,singleton,fromList,init,tail,head,cons)
+import Data.List.NonEmpty (NonEmptyList,length,concat,zipWith,singleton,fromList,init,tail,head,cons,drop)
 import Data.Tuple (Tuple(..))
+import Data.Foldable (indexl)
 import Data.Unfoldable1 (replicate1,unfoldr1)
 import Data.List as List
 import Data.Maybe (Maybe(..))
@@ -96,3 +97,13 @@ multi xs = do
       y <- multi t 
       pure $ x `cons` y 
 
+unconsTuple :: forall a. NonEmptyList a -> Tuple (Tuple a a) (Maybe (NonEmptyList a))
+unconsTuple xs =
+  let a = head xs
+      b = case indexl 1 xs of
+            Just x -> x
+            Nothing -> a
+      h = Tuple a b
+  in case fromList (drop 2 xs) of
+       Nothing -> Tuple h Nothing
+       Just t -> Tuple h (Just t)
