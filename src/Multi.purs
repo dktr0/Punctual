@@ -2,10 +2,10 @@ module Multi where
 
 import Prelude (class Applicative, class Apply, class Eq, class Functor, class Show, map, pure, show, ($), (<>), (==), (<$>), (<<<))
 import Data.Semigroup (class Semigroup, append)
-import Data.List.NonEmpty (NonEmptyList,singleton,cons,intercalate,head,fromList,drop)
+import Data.List.NonEmpty (NonEmptyList, cons, intercalate, singleton)
 import Data.List.NonEmpty as L
 import Control.Apply (lift2,lift3)
-import Data.Foldable (class Foldable,foldl,foldr,foldMapDefaultL,indexl)
+import Data.Foldable (class Foldable, foldMapDefaultL, foldl, foldr)
 import Data.Traversable (class Traversable,traverse,sequenceDefault)
 import Data.Unfoldable1 (class Unfoldable1, replicate1, unfoldr1)
 import Data.Tuple (Tuple(..))

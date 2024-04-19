@@ -40,7 +40,7 @@ foreign import setWorkletParamValue :: WebAudioNode -> String -> Number -> Effec
 
 
 code :: Signal -> String -> Number -> Number -> String
-code s name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> fadeCalculations <> wState.code <> outputs <> restOfClass <> registerProcessor
+code s name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> fadeCalculations <> wState.code <> outputs <> debug <> restOfClass <> registerProcessor
   where
     Tuple frameMulti wState = runW $ signalToFrame s >>= splay 2
     frame = flatten frameMulti
@@ -83,6 +83,7 @@ const fOut = fOutEnd == -1.0 ? 1.0 : clamp(0,1,(fOutEnd-t)/fOutDur);
     outputIndices = range 0 (length frame - 1)
     outputF i x = "output[" <> show i <> "][n] = " <> showSample x <> "*f*0.1;\n"
     outputs = fold $ zipWith outputF outputIndices frame
+    debug = ("// signal:" <> show s <> "\n") <> ("// frameMulti:" <> show frameMulti <> "\n") <> ("// frame:" <> show frame <> "\n")
     restOfClass = """}
 this.framesOut += blockSize;
 return (fOutEnd == -1.0 ? true : (currentTime + (blockSize/sampleRate) <= fOutEnd));
