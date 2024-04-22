@@ -41,3 +41,5 @@ actionToTimes tempo eTime x = Tuple t1' t2'
 actionHasVisualOutput :: Action -> Boolean
 actionHasVisualOutput a = a.output == Blend || a.output == RGBA || a.output == Add || a.output == Mul || a.output == RGB
 
+
+

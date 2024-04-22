@@ -5,17 +5,32 @@ import Program (Program)
 
 type AudioZone = {
   sharedResources :: SharedResources,
-  program :: Ref Program,
-  signals :: Ref (Map Int Signal),
-  worklets :: Ref (Map Int AudioWorklet)
+  signals :: Ref (List (Maybe Signal)),
+  worklets :: Ref (List (Maybe AudioWorklet))
   }
 
 newAudioZone :: SharedResources -> Program -> Effect AudioZone
+newAudioZone sharedResources p = do
+  let signals' = ...
+  worklets' <- ...
+  signals <- new signals'
+  worklets <- new worklets'
+  pure {
+    sharedResources,
+    signals,
+    worklets
+  }
 -- launch audio worklets for every signal in the program with an audio output
 -- cache the signals for comparison during redefinition
 
+
+{- type Program = {
+  actions :: List (Maybe Action),
+  evalTime :: DateTime
+  } -}
+
 redefineAudioZone :: AudioZone -> Program -> Effect Unit
--- compare signals with audio outputs to cached signals
+-- compare signals with audio outputs to cached signals 
 -- any that are the same, do nothing
 -- any that are new, add a new worklet
 -- any that are removed, delete the worklet
