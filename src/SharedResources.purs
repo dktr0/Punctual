@@ -25,7 +25,8 @@ type SharedResources = {
   webAudioContext :: WebAudioContext,
   audioOutputNode :: WebAudioNode,
   inputAnalyser :: AudioAnalyser,
-  outputAnalyser :: AudioAnalyser
+  outputAnalyser :: AudioAnalyser,
+  audioWorkletCount :: Ref Int
   }
   
 
@@ -42,6 +43,7 @@ newSharedResources mWebAudioContext = do
   destination webAudioContext >>= connect audioOutputNode
   inputAnalyser <- newInputAnalyser webAudioContext
   outputAnalyser <- newOutputAnalyser webAudioContext audioOutputNode
+  audioWorkletCount <- new 0
   pure {
     tempo,
     mWebcamElementRef,
@@ -50,7 +52,8 @@ newSharedResources mWebAudioContext = do
     webAudioContext,
     audioOutputNode,
     inputAnalyser,
-    outputAnalyser
+    outputAnalyser,
+    audioWorkletCount
     }
     
 updateAudioAnalysers :: SharedResources -> forall r. { ifft::Disj Boolean, ilo::Disj Boolean, imid::Disj Boolean, ihi::Disj Boolean, fft::Disj Boolean, lo::Disj Boolean, mid::Disj Boolean, hi::Disj Boolean | r } -> Effect Unit

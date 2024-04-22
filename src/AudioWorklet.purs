@@ -1,6 +1,6 @@
 module AudioWorklet where
 
-import Prelude ((<>),Unit,pure,unit,discard,($),show,(>>=),(-))
+import Prelude ((<>),Unit,pure,unit,discard,($),show,(>>=),(-),bind)
 import Effect (Effect)
 import Data.Nullable (Nullable,toMaybe)
 import Data.Maybe (Maybe(..))
@@ -17,19 +17,27 @@ import Multi (flatten)
 
 type AudioWorklet = {
   name :: String,
+  signal :: Signal,
   code :: String,
+  audioWorklet' :: AudioWorklet'
+  }
+  
+type AudioWorklet' = {
   connected :: Boolean,
   audioWorkletNode :: Nullable WebAudioNode
   }
 
 runWorklet :: WebAudioContext -> WebAudioNode -> String -> Signal -> Number -> Number -> Effect AudioWorklet
-runWorklet ctx dest name s fInStart fInDur = _runWorklet ctx dest name (code s name fInStart fInDur) 2
+runWorklet ctx dest name signal fInStart fInDur = do
+  let code = generateWorkletCode signal name fInStart fInDur
+  audioWorklet' <- _runWorklet ctx dest name code 2
+  pure { name, signal, code, audioWorklet' }
 
-foreign import _runWorklet :: WebAudioContext -> WebAudioNode -> String -> String -> Int -> Effect AudioWorklet
+foreign import _runWorklet :: WebAudioContext -> WebAudioNode -> String -> String -> Int -> Effect AudioWorklet'
 
 stopWorklet :: AudioWorklet -> Number -> Number -> Effect Unit
 stopWorklet w fOutStart fOutDur = do
-  case toMaybe w.audioWorkletNode of
+  case toMaybe w.audioWorklet'.audioWorkletNode of
     Nothing -> pure unit
     Just n -> do
       setWorkletParamValue n "fOutStart" fOutStart
@@ -39,8 +47,8 @@ stopWorklet w fOutStart fOutDur = do
 foreign import setWorkletParamValue :: WebAudioNode -> String -> Number -> Effect Unit
 
 
-code :: Signal -> String -> Number -> Number -> String
-code s name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> fadeCalculations <> wState.code <> outputs <> debug <> restOfClass <> registerProcessor
+generateWorkletCode :: Signal -> String -> Number -> Number -> String
+generateWorkletCode s name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> fadeCalculations <> wState.code <> outputs <> debug <> restOfClass <> registerProcessor
   where
     Tuple frameMulti wState = runW $ signalToFrame s >>= splay 2
     frame = flatten frameMulti
