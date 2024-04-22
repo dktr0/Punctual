@@ -16,14 +16,13 @@ import Data.Foldable (fold)
 import Data.Newtype (unwrap)
 
 import Signal (SignalInfo,emptySignalInfo)
-import Program (Program,emptyProgram,programHasVisualOutput,programInfo)
-import Parser (parsePunctual,parseSignal)
-import WebGL (WebGL, newWebGL, updateWebGL, deleteWebGL, drawWebGL)
+import Program (Program,emptyProgram,programHasVisualOutput,programHasAudioOutput,programInfo)
+import Parser (parsePunctual)
 import DateTime (numberToDateTime)
 import SharedResources (SharedResources)
 import SharedResources as SharedResources
-import AudioWorklet (runWorklet,stopWorklet,AudioWorklet)
-import WebAudio (resumeWebAudioContext,currentTime)
+import WebGL (WebGL, newWebGL, updateWebGL, deleteWebGL, drawWebGL)
+import AudioZone (AudioZone,newAudioZone,redefineAudioZone,deleteAudioZone)
   
 type Punctual = {
   sharedResources :: SharedResources,
@@ -33,7 +32,7 @@ type Punctual = {
   previousProgramInfos :: Ref (Map Int SignalInfo),
   combinedProgramInfo :: Ref SignalInfo,
   webGLs :: Ref (Map Int WebGL),
-  audioWorklet :: Ref (Maybe AudioWorklet)
+  audioZones :: Ref (Map Int AudioZone)
   }
 
 
@@ -46,9 +45,9 @@ launch = do
   previousProgramInfos <- new empty
   combinedProgramInfo <- new emptySignalInfo
   webGLs <- new empty
-  audioWorklet <- new Nothing
+  audioZones <- new empty
   log "punctual 0.5 initialization complete"
-  pure { sharedResources, programs, previousPrograms, programInfos, previousProgramInfos, combinedProgramInfo, webGLs, audioWorklet }
+  pure { sharedResources, programs, previousPrograms, programInfos, previousProgramInfos, combinedProgramInfo, webGLs, audioZones }
 
 
 define :: Punctual -> { zone :: Int, time :: Number, text :: String } -> Effect { success :: Boolean, info :: String, error :: String }
@@ -93,7 +92,10 @@ _newProgramInZone punctual zone newProgram = do
     false -> do
       deleteWebGLForZone punctual zone
       pure ""
-  -- TODO: update audio rendering system
+  -- update audio rendering system
+  case programHasAudioOutput newProgram of
+    true -> updateAudioForZone punctual zone newProgram
+    false -> deleteAudioForZone punctual zone
   pure { success: true, info, error: "" }
       
 _updateCombinedProgramInfo :: Punctual -> Effect Unit
@@ -120,6 +122,7 @@ clear punctual args = do
   write newPreviousProgramInfos punctual.previousProgramInfos
   _updateCombinedProgramInfo punctual
   deleteWebGLForZone punctual args.zone
+  deleteAudioForZone punctual args.zone
   
   
 setTempo :: Punctual -> ForeignTempo -> Effect Unit
@@ -181,39 +184,22 @@ deleteWebGLForZone punctual z = do
        write (delete z webGLs) punctual.webGLs
     Nothing -> pure unit
 
-  
-test :: Punctual -> String -> String -> Effect Unit
-test p name txt = do
-  let mTestSignal = parseSignal txt
-  case mTestSignal of
-    Right testSignal -> do
-      resumeWebAudioContext p.sharedResources.webAudioContext
-      t <- currentTime p.sharedResources.webAudioContext
-      mAudioWorklet <- read p.audioWorklet  
-      case mAudioWorklet of
-        Just audioWorklet -> stopWorklet audioWorklet (t+0.5) 5.0
-        Nothing -> pure unit
-      audioWorklet <- runWorklet p.sharedResources.webAudioContext p.sharedResources.audioOutputNode name testSignal (t+0.5) 5.0
-      write (Just audioWorklet) p.audioWorklet
-    Left _ -> log "parse error in test"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+updateAudioForZone :: Punctual -> Int -> Program -> Effect Unit
+updateAudioForZone punctual z prog = do
+  audioZones <- read punctual.audioZones
+  case lookup z audioZones of
+    Just x -> redefineAudioZone x prog
+    Nothing -> do
+      x <- newAudioZone punctual.sharedResources prog
+      write (insert z x audioZones) punctual.audioZones
+      
+deleteAudioForZone :: Punctual -> Int -> Effect Unit
+deleteAudioForZone punctual z = do
+  audioZones <- read punctual.audioZones
+  case lookup z audioZones of
+    Just x -> do
+      log "punctual DEBUG: delete audio zone"
+      deleteAudioZone x
+      write (delete z audioZones) punctual.audioZones
+    Nothing -> pure unit
 

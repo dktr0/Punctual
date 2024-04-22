@@ -1,11 +1,12 @@
 module AudioZone where 
 
-import Prelude (Unit,map,bind,(/=),pure,($),discard,otherwise,(+),(<$>),(<>),show,(==))
+import Prelude (Unit,map,bind,(/=),pure,($),discard,otherwise,(+),(<$>),(<>),show,(==),unit,max,(>=),(-))
 import Data.Maybe (Maybe(..))
-import Data.List (List,zipWith)
+import Data.List (List(..),zipWith,length)
 import Effect (Effect)
 import Effect.Ref (Ref, new, read, write)
-import Data.Traversable (sequence,traverse)
+import Data.Traversable (sequence,traverse,traverse_)
+import Data.Unfoldable1 (replicate1)
 
 import SharedResources (SharedResources)
 import Program (Program)
@@ -56,13 +57,29 @@ addOrRemoveWorklet sharedResources (Just prevWorklet) (Just sig) = do
 redefineAudioZone :: AudioZone -> Program -> Effect Unit
 redefineAudioZone audioZone p = do
   worklets <- read audioZone.worklets
-  worklets' <- sequence $ zipWith (addOrRemoveWorklet audioZone.sharedResources) worklets (map justAudioSignals p.actions)
-  write worklets' audioZone.worklets  
+  let n = max (length worklets) (length p.actions)
+  let worklets' = extendByPadding Nothing n worklets
+  let actions' = extendByPadding Nothing n p.actions 
+  worklets'' <- sequence $ zipWith (addOrRemoveWorklet audioZone.sharedResources) worklets' (map justAudioSignals actions')
+  write worklets'' audioZone.worklets  
   
+extendByPadding :: forall a. a -> Int -> List a -> List a
+extendByPadding a n xs
+  | length xs >= n = xs
+  | otherwise = xs <> replicate1 (n - length xs) a
 
 -- renderAudioZone :: AudioZone -> Effect Unit
 -- possibly nothing to do now, but soon it will be responsible for sync updates
 
--- deleteAudioZone :: AudioZone -> Effect Unit
--- delete all of the worklets
+
+deleteAudioZone :: AudioZone -> Effect Unit
+deleteAudioZone audioZone = do
+  worklets <- read audioZone.worklets
+  t <- currentTime audioZone.sharedResources.webAudioContext
+  traverse_ (stopMaybeWorklet (t+0.25) 0.1) worklets
+  write Nil audioZone.worklets
+
+stopMaybeWorklet :: Number -> Number -> Maybe AudioWorklet -> Effect Unit
+stopMaybeWorklet _ _ Nothing = pure unit
+stopMaybeWorklet fInStart fInDur (Just w) = stopWorklet w fInStart fInDur
 
