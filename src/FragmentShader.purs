@@ -18,7 +18,7 @@ import Data.DateTime (DateTime)
 import NonEmptyList
 import MultiMode (MultiMode(..))
 import Signal (Signal(..))
-import Action (Action,actionToTimes)
+import Action (Action,actionTimesAsSecondsSinceEval)
 import Output (Output)
 import Output as Output
 import Program (Program)
@@ -706,7 +706,7 @@ appendActions tempo eTime prevOutputExpr mOldAction (Just newAction) = do
   case mNewExpr of 
     Nothing -> pure prevOutputExpr
     Just newExpr -> do
-      let Tuple t0 t1 = actionToTimes tempo eTime newAction
+      let Tuple t0 t1 = actionTimesAsSecondsSinceEval tempo eTime newAction
       newExpr' <- assignForced $ GLSLExpr.product newExpr $ GLSLExpr.fadeIn t0 t1
       case mOldAction of
         Nothing -> appendExpr newAction.output prevOutputExpr newExpr'

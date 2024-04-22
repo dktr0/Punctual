@@ -1,66 +1,95 @@
 module AudioZone where 
 
-import Prelude (Unit,map,bind,(/=),pure,($),discard,otherwise,(+),(<$>),(<>),show,(==),unit,max,(>=),(-))
+import Prelude (Unit,map,bind,(/=),pure,($),discard,otherwise,(+),(<$>),(<>),show,(==),unit,max,(>=),(-),(<<<),(/))
 import Data.Maybe (Maybe(..))
 import Data.List (List(..),zipWith,length)
 import Effect (Effect)
 import Effect.Ref (Ref, new, read, write)
 import Data.Traversable (sequence,traverse,traverse_)
 import Data.Unfoldable1 (replicate1)
+import Data.DateTime (DateTime)
+import Data.Tuple (Tuple(..))
+import Effect.Now (now)
+import Data.DateTime.Instant (unInstant)
+import Data.Newtype (unwrap)
 
 import SharedResources (SharedResources)
 import Program (Program)
 import AudioWorklet (AudioWorklet,runWorklet,stopWorklet)
-import Action (Action)
-import Signal (Signal)
+import Action (Action,actionTimesAsAudioTime)
 import Output (Output(..))
 import WebAudio (resumeWebAudioContext,currentTime)
 
 type AudioZone = {
   sharedResources :: SharedResources,
-  worklets :: Ref (List (Maybe AudioWorklet))
+  worklets :: Ref (List (Maybe AudioWorklet)),
+  clockDiff :: Ref Number
   }
 
 newAudioZone :: SharedResources -> Program -> Effect AudioZone
 newAudioZone sharedResources p = do
-  let signals' = map justAudioSignals p.actions
-  worklets' <- traverse (addOrRemoveWorklet sharedResources Nothing) signals'
+  resumeWebAudioContext sharedResources.webAudioContext
+  clockDiff' <- calculateClockDiff sharedResources
+  let actions' = map justAudioActions p.actions
+  worklets' <- traverse (addOrRemoveWorklet sharedResources p.evalTime clockDiff' Nothing) actions'
   worklets <- new worklets'
-  pure { sharedResources, worklets }
+  clockDiff <- new clockDiff'
+  pure { sharedResources, worklets, clockDiff }
 
-justAudioSignals :: Maybe Action -> Maybe Signal
-justAudioSignals Nothing = Nothing
-justAudioSignals (Just x) 
+justAudioActions :: Maybe Action -> Maybe Action
+justAudioActions Nothing = Nothing
+justAudioActions (Just x) 
   | x.output /= Audio = Nothing
-  | otherwise = Just x.signal
+  | otherwise = Just x
 
-addOrRemoveWorklet :: SharedResources -> Maybe AudioWorklet -> Maybe Signal -> Effect (Maybe AudioWorklet)
-addOrRemoveWorklet _ Nothing Nothing = pure Nothing
-addOrRemoveWorklet sharedResources Nothing (Just sig) = do
+
+addOrRemoveWorklet :: SharedResources -> DateTime -> Number -> Maybe AudioWorklet -> Maybe Action -> Effect (Maybe AudioWorklet)
+addOrRemoveWorklet _ _ _ Nothing Nothing = pure Nothing
+addOrRemoveWorklet sharedResources evalTime clockDiff Nothing (Just action) = do
+  tempo <- read sharedResources.tempo
+  let Tuple t1 t2 = actionTimesAsAudioTime tempo evalTime clockDiff action
   i <- read sharedResources.audioWorkletCount
   write (i+1) sharedResources.audioWorkletCount
-  resumeWebAudioContext sharedResources.webAudioContext
+  Just <$> runWorklet sharedResources.webAudioContext sharedResources.audioOutputNode ("W" <> show i) action.signal t1 (t2-t1)
+addOrRemoveWorklet sharedResources _ _ (Just prevWorklet) Nothing = do
   t <- currentTime sharedResources.webAudioContext
-  Just <$> runWorklet sharedResources.webAudioContext sharedResources.audioOutputNode ("W" <> show i) sig (t+0.5) 5.0 -- fadeIn start and duration are placeholders, obviously...
-addOrRemoveWorklet sharedResources (Just prevWorklet) Nothing = do
-  t <- currentTime sharedResources.webAudioContext
-  stopWorklet prevWorklet (t+0.5) 5.0 -- fadeIn start and duration are placeholders, obviously...
+  stopWorklet prevWorklet (t+0.25) 0.1
   pure Nothing
-addOrRemoveWorklet sharedResources (Just prevWorklet) (Just sig) = do
-  case prevWorklet.signal == sig of
+addOrRemoveWorklet sharedResources evalTime clockDiff (Just prevWorklet) (Just action) = do
+  case prevWorklet.signal == action.signal of
     true -> pure (Just prevWorklet) -- no change in signal, maintain existing worklet
     false -> do
-      _ <- addOrRemoveWorklet sharedResources (Just prevWorklet) Nothing -- remove previous worklet
-      addOrRemoveWorklet sharedResources Nothing (Just sig) -- add new worklet
-
-
+      tempo <- read sharedResources.tempo
+      let Tuple t1 t2 = actionTimesAsAudioTime tempo evalTime clockDiff action
+      stopWorklet prevWorklet t1 (t2-t1)
+      i <- read sharedResources.audioWorkletCount
+      write (i+1) sharedResources.audioWorkletCount
+      Just <$> runWorklet sharedResources.webAudioContext sharedResources.audioOutputNode ("W" <> show i) action.signal t1 (t2-t1)
+      
+   
+-- to convert audio to POSIX, add clockdiff; to convert POSIX to audio, subtract clockdiff
+calculateClockDiff :: SharedResources -> Effect Number
+calculateClockDiff sharedResources = do
+  tAudio <- currentTime sharedResources.webAudioContext
+  tNow <- ((_/1000.0) <<< unwrap <<< unInstant) <$> now -- :: Number (in POSIX 1970 seconds)
+  pure $ tNow - tAudio 
+  
+{- calculateEvalTimeAudio :: SharedResources -> DateTime -> Effect Number
+calculateEvalTimeAudio sharedResources evalTime = do
+  tAudio <- currentTime sharedResources.webAudioContext
+  tNow <- ((_/1000.0) <<< unwrap <<< unInstant) <$> now -- :: Number (in POSIX 1970 seconds)
+  let clockDiff = tNow - tAudio -- to convert audio to POSIX, add clockdiff; to convert POSIX to audio, subtract clockdiff
+  let evalTime' = (unInstant $ fromDateTime evalTime) / 1000.0 -- :: Number (in POSIX 1970 seconds)
+  pure $ evalTime' - clockDiff -}
+  
 redefineAudioZone :: AudioZone -> Program -> Effect Unit
 redefineAudioZone audioZone p = do
   worklets <- read audioZone.worklets
   let n = max (length worklets) (length p.actions)
   let worklets' = extendByPadding Nothing n worklets
   let actions' = extendByPadding Nothing n p.actions 
-  worklets'' <- sequence $ zipWith (addOrRemoveWorklet audioZone.sharedResources) worklets' (map justAudioSignals actions')
+  clockDiff <- read audioZone.clockDiff
+  worklets'' <- sequence $ zipWith (addOrRemoveWorklet audioZone.sharedResources p.evalTime clockDiff) worklets' (map justAudioActions actions')
   write worklets'' audioZone.worklets  
   
 extendByPadding :: forall a. a -> Int -> List a -> List a

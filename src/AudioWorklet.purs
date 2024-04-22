@@ -63,8 +63,8 @@ return [
   { name:'fOutStart', defaultValue:-1.0 },
   { name:'fOutDur', defaultValue:5.0 },
   { name:'cps', defaultValue:1.0 },
-  { name:'origin', defaultValue:0.0 },
-  { name:'evalTimeAudio',defaultValue:0.0 }
+  { name:'originAudio', defaultValue:0.0 },
+  { name:'evalTimeAudio', defaultValue:0.0 }
 ];}
 
 """
@@ -74,16 +74,16 @@ const input = inputs[0];
 const output = outputs[0];
 const blockSize = 128;
 const cps = parameters.cps[0];
-const origin = parameters.origin[0];
+const originAudio = parameters.originAudio[0];
 const evalTimeAudio = parameters.evalTimeAudio[0];
 const fOutDur = parameters.fOutDur[0];
 const fOutEnd = parameters.fOutStart[0] == -1.0 ? -1.0 : parameters.fOutStart[0] + fOutDur;
 const m = this.m;
 for(let n=0; n<blockSize; n++){
 const t = currentTime + (n/sampleRate);
-const time = t - origin;
+const time = t - originAudio;
 const beat = time * cps;
-const eTime = 0.0; // t - evalTimeAudio;
+const eTime = t - evalTimeAudio;
 const eBeat = eTime * cps;
 const fOut = fOutEnd == -1.0 ? 1.0 : clamp(0,1,(fOutEnd-t)/fOutDur);
 """
