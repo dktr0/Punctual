@@ -1,6 +1,6 @@
 module Expr where
 
-import Prelude (class Eq, class Ord, class Show)
+import Prelude (class Eq, class Ord, class Show,($),(<>))
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 
@@ -34,6 +34,47 @@ data Expr =
 instance Channels Expr where
   channels (ConstantFloat _) = 1
   channels (Reference t _) = channels t
+
+_swizzle :: String -> GLSLType -> Expr -> Expr
+_swizzle _ _ (ConstantFloat x) = ConstantFloat x -- swizzling a ConstantFloat is a no-op (not sure about this, but for now...)
+_swizzle m t (Reference _ x) = Reference t $ x <> "." <> m
+
+swizzleX :: Expr -> Expr
+swizzleX = _swizzle "x" Float
+
+swizzleY :: Expr -> Expr
+swizzleY = _swizzle "y" Float
+
+swizzleZ :: Expr -> Expr
+swizzleZ = _swizzle "z" Float
+
+swizzleW :: Expr -> Expr
+swizzleW = _swizzle "w" Float
+
+swizzleXY :: Expr -> Expr
+swizzleXY = _swizzle "xy" Vec2
+
+swizzleYZ :: Expr -> Expr
+swizzleYZ = _swizzle "yz" Vec2
+
+swizzleZW :: Expr -> Expr
+swizzleZW = _swizzle "zw" Vec2
+
+swizzleXYZ :: Expr -> Expr
+swizzleXYZ = _swizzle "xyz" Vec3
+
+swizzleYZW :: Expr -> Expr
+swizzleYZW = _swizzle "yzw" Vec3
+
+swizzleXYY :: Expr -> Expr
+swizzleXYY = _swizzle "xyy" Vec3
+
+swizzleXYYY :: Expr -> Expr
+swizzleXYYY = _swizzle "xyyy" Vec4
+
+swizzleXYZZ :: Expr -> Expr
+swizzleXYZZ = _swizzle "xyzz" Vec4
+
 
 type Exprs = Multi Expr
 
