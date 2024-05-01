@@ -143,6 +143,9 @@ sqrt = namedUnaryFunction "sqrt" Number.sqrt
 tan :: Expr -> Expr
 tan = namedUnaryFunction "tan" Number.tan
 
+fract :: Expr -> Expr
+fract = namedUnaryFunction "fract" (\x -> Prelude.mod x 1.0)
+
 
 -- for +-*/ the arguments (in GLSL) are the same type or either argument can be a float (regardless of the other argument)
 -- this will produce invalid GLSL code (without warning/error) if different non-float GLSL types are mixed
@@ -341,51 +344,46 @@ seq steps y = { string: s, glslType: Float, isSimple: false, deps: fold (map _.d
     middleStepValues = map _.string middleStepExprs
     middleSteps = List.zipWith middleStep middleStepNumbers middleStepValues
     s = intercalate "+" ((firstStep : middleSteps) `List.snoc` lastStep)
+-}
 
-fadeIn :: Number -> Number -> GLSLExpr 
-fadeIn t1 t2 = { string: "clamp((_etime-" <> t1s <> ")/(" <> t2s <> "-" <> t1s <> "),0.,1.)", glslType: Float, isSimple: false, deps: empty }
-  where
-    t1s = show t1
-    t2s = show t2
+fadeIn :: Number -> Number -> Expr 
+fadeIn t1 t2 = Reference Float $ "clamp((_etime-" <> show t1 <> ")/(" <> show t2 <> "-" <> show t1 <> "),0.,1.)"
 
-fadeOut :: Number -> Number -> GLSLExpr
-fadeOut t1 t2 = { string: "clamp((" <> t2s <> "-_etime)/(" <> t2s <> "-" <> t1s <> "),0.,1.)", glslType: Float, isSimple: false, deps: empty }
-  where
-    t1s = show t1
-    t2s = show t2
-    
+fadeOut :: Number -> Number -> Expr
+fadeOut t1 t2 = Reference Float $ "clamp((" <> show t2 <> "-_etime)/(" <> show t2 <> "-" <> show t1 <> "),0.,1.)"
+
+{-    
 prox :: GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 -> Float
 prox a b
   | a.glslType /= Vec2 || b.glslType /= Vec2 = { string: "!! Internal Punctual GLSL generation error in prox", glslType: Float, isSimple: false, deps: a.deps <> b.deps }
   | otherwise = { string: "clamp((2.828427-distance(" <> a.string <> "," <> b.string <> "))/2.828427,0.,1.)", glslType: Float, isSimple: false, deps: a.deps <> b.deps }
+-}
 
-bipolar :: GLSLExpr -> GLSLExpr -- Any -> Any
-bipolar x = { string: "(" <> x.string <> "*2.-1.)", glslType: x.glslType, isSimple: x.isSimple, deps: x.deps }
+bipolar :: Expr -> Expr -- Any -> Any
+bipolar x = difference (product x (ConstantFloat 2.0)) (ConstantFloat 1.0)
 
-unipolar :: GLSLExpr -> GLSLExpr -- Any -> Any
-unipolar x = { string: "(" <> x.string <> "*0.5+0.5)", glslType: x.glslType, isSimple: x.isSimple, deps: x.deps }
+unipolar :: Expr -> Expr -- Any -> Any
+unipolar x = add (product x (ConstantFloat 0.5)) (ConstantFloat 0.5)
 
-tile :: GLSLExpr -> GLSLExpr -> GLSLExpr -- technically Any -> Any, even if Vec2 -> Vec2 is imagined use 
+tile :: Expr -> Expr -> Expr -- technically Any -> Any, even if Vec2 -> Vec2 is imagined use 
 tile fxy ab = bipolar $ fract $ product (unipolar fxy) ab
-  
-fract :: GLSLExpr -> GLSLExpr
-fract x = { string: "fract(" <> x.string <> ")", glslType: x.glslType, isSimple: x.isSimple, deps: x.deps }
 
-pi :: GLSLExpr
-pi = simpleFromString Float "PI"
+pi :: Expr
+pi = Reference Float "PI"
 
-px :: GLSLExpr
-px = simpleFromString Float "(2./res.x)"
+px :: Expr
+px = Reference Float "(2./res.x)"
 
-py :: GLSLExpr
-py = simpleFromString Float "(2./res.y)"
+py :: Expr
+py = Reference Float "(2./res.y)"
 
-pxy :: GLSLExpr
-pxy = simpleFromString Vec2 "(2./res)"
+pxy :: Expr
+pxy = Reference Vec2 "(2./res)"
 
-aspect :: GLSLExpr
-aspect = simpleFromString Float "(res.x/res.y)"
+aspect :: Expr
+aspect = Reference Float "(res.x/res.y)"
 
+{-
 rgbhsv :: GLSLExpr -> GLSLExpr
 rgbhsv x
   | x.glslType /= Vec3 = { string: "!! Internal Punctual GLSL generation error in rgbhsv", glslType: Float, isSimple: false, deps: x.deps }
