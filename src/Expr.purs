@@ -162,7 +162,7 @@ product :: Expr -> Expr -> Expr
 product = arithmeticOperator "*" (*)
 
 division :: Expr -> Expr -> Expr
-division = arithmeticOperator "/" (/) -- TODO/QUESTION: should this be safe division?
+division = arithmeticOperator "/" (/) -- TODO: this should be safe division to match the audio side!
 
 -- arguments are same type or either can be a float, order is irrelevant (unlike in GLSL, where the second argument would have to be a float)
 -- this will produce invalid GLSL code (without warning/error) if different non-float GLSL types are mixed
