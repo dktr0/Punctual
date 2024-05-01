@@ -22,15 +22,18 @@ import Action (Action,actionTimesAsSecondsSinceEval)
 import Output (Output)
 import Output as Output
 import Program (Program)
-import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,one,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels,unsafeSwizzleX,unsafeSwizzleY,coerce,exprChannels)
-import GLSLExpr as GLSLExpr
-import GLSL (GLSL,align,alignNoExtend,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignVec4,alignRGBA,runGLSL,withFxys,extend,zipWithAAA,zipWithAAAA,osc,tri,saw,sqr,withAlteredTime,extendAligned)
+-- import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,one,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels,unsafeSwizzleX,unsafeSwizzleY,coerce,exprChannels)
+-- import GLSLExpr as GLSLExpr
+-- import GLSL (GLSL,align,alignNoExtend,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignVec4,alignRGBA,runGLSL,withFxys,extend,zipWithAAA,zipWithAAAA,osc,tri,saw,sqr,withAlteredTime,extendAligned)
+import Expr
+import G
 
 
-signalToGLSL :: GLSLType -> Signal -> GLSL Exprs
+signalToGLSL :: GLSLType -> Signal -> G Exprs
 
-signalToGLSL _ (Constant x) = pure $ singleton $ GLSLExpr.float x
+signalToGLSL _ (Constant x) = pure $ pure $ ConstantFloat x
 
+{-
 signalToGLSL ah (SignalList xs) = 
   case fromList xs of
     Nothing -> pure $ singleton $ zero
@@ -40,7 +43,20 @@ signalToGLSL ah (SignalList xs) =
         _ -> do
           xs'' <- traverse (\x -> signalToGLSL Vec4 x >>= align Float) xs'
           alignNoExtend ah $ concat $ multi xs''
+-}
+{-
+signalToGLSL ah (SignalList xs) = 
+  case fromList xs of
+    Nothing -> pure $ pure $ ConstantFloat 0.0 
+    Just xs' -> do
+      case length xs' of
+        1 -> signalToGLSL ah (head xs')
+        _ -> do
+          xs'' <- traverse (\x -> signalToGLSL Vec4 x >>= align Float) xs'
+          alignNoExtend ah $ concat $ multi xs''
+-}
 
+{-
 signalToGLSL ah (Append x y) = do
   xs <- signalToGLSL ah x
   ys <- signalToGLSL ah y
@@ -454,9 +470,11 @@ signalToGLSL _ (Seq steps) = do
       b' <- assignForced $ GLSLExpr.fract b
       singleton <$> assignForced (GLSLExpr.seq steps' b')
  
-signalToGLSL _ _ = pure $ singleton $ zero
+-} 
 
+signalToGLSL _ _ = pure $ pure $ ConstantFloat 0.0
 
+{-
 simpleUnaryFunction :: (GLSLExpr -> GLSLExpr) -> Exprs -> GLSL Exprs
 simpleUnaryFunction f = traverse $ \x -> pure $ f x
 
@@ -748,15 +766,16 @@ appendExpr Output.Add (Just prevExpr) x = do
 appendExpr Output.Mul (Just prevExpr) x = do
   let prevRGB = GLSLExpr.coerceVec3 prevExpr -- discards previous alpha channel if there was one
   Just <$> (assignForced $ GLSLExpr.product prevRGB x)
-
+-}
     
 fragmentShader :: Boolean -> Tempo -> Map String Int -> Map String Int -> Program -> Program -> String
-fragmentShader webGl2 tempo imgMap vidMap oldProgram newProgram = header <> assignments <> gl_FragColor <> "}"
+fragmentShader webGl2 tempo imgMap vidMap oldProgram newProgram = "placeholder" {- header <> assignments <> gl_FragColor <> "}"
   where
     (Tuple a st) = runGLSL webGl2 imgMap vidMap $ programsToGLSL tempo oldProgram newProgram
     assignments = fold $ mapWithIndex indexedGLSLExprToString st.exprs
-    gl_FragColor = "gl_FragColor = " <> a.string <> ";\n"
+    gl_FragColor = "gl_FragColor = " <> a.string <> ";\n" -}
 
+{-
 indexedGLSLExprToString :: Int -> GLSLExpr -> String
 indexedGLSLExprToString n x = glslTypeToString x.glslType <> " _" <> show n <> " = " <> x.string <> ";\n"
-
+-}

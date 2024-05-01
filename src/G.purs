@@ -48,7 +48,7 @@ assign :: GLSLType -> String -> G Expr
 assign t x = do
   n <- allocate
   let name = "_" <> show n
-  writeCode $ glslTypeToString t <> " " <> show name <> "=" <> x <> ";\n"
+  writeCode $ show t <> " " <> show name <> "=" <> x <> ";\n"
   pure $ Reference t name
 
 allocate :: G Int

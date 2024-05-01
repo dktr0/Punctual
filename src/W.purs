@@ -2,7 +2,7 @@ module W where
 
 -- A monad and associated functions for generating the code of a WebAudio audio worklet.
 
-import Prelude (Unit, bind, discard, map, pure, show, ($), (*), (+), (-), (/), (/=), (<), (<$>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), (&&))
+import Prelude (Unit, bind, discard, map, pure, show, ($), (*), (+), (-), (/), (/=), (<), (<$>), (<<<), (<=), (<>), (==), (>), (>=), (>>=))
 import Prelude as Prelude
 import Control.Monad.State (State,get,put,runState,modify_)
 import Data.List.NonEmpty (NonEmptyList, fromList, length, zipWith)
@@ -12,7 +12,7 @@ import Data.Traversable (traverse,for,sequence)
 import Data.Tuple (Tuple(..))
 import Data.Maybe (Maybe(..))
 import Data.Unfoldable1 (iterateN)
-import Data.Number as Number
+import Data.Number (acos, asin, atan, ceil, cos, exp, floor, log, pow, round, sign, sin, sqrt, tan, trunc) as Number
 import Data.Ord as Ord
 import Data.Int (toNumber)
 
@@ -20,6 +20,7 @@ import NonEmptyList (zipWithEqualLength)
 import Signal (Signal(..))
 import MultiMode (MultiMode(..))
 import Multi (Multi,flatten,semiFlatten,simplify,zip,rep,combine,combine3,concat,toTuples,fromNonEmptyList)
+import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, division, smoothStep) as Number
 
 
 type W = State WState
@@ -107,27 +108,27 @@ signalToFrame (Osc f) = signalToFrame f >>= traverse osc
 
 signalToFrame (Abs x) = signalToFrame x >>= traverse abs
 signalToFrame (Acos x) = unaryFunction Number.acos "Math.acos" x
-signalToFrame (Acosh x) = unaryFunction acosh "Math.acosh" x
+signalToFrame (Acosh x) = unaryFunction Number.acosh "Math.acosh" x
 signalToFrame (Asin x) = unaryFunction Number.asin "Math.asin" x
-signalToFrame (Asinh x) = unaryFunction asinh "Math.asinh" x
+signalToFrame (Asinh x) = unaryFunction Number.asinh "Math.asinh" x
 signalToFrame (Atan x) = unaryFunction Number.atan "Math.atan" x
-signalToFrame (Atanh x) = unaryFunction atanh "Math.atanh" x
-signalToFrame (Cbrt x) = unaryFunction cbrt "Math.cbrt" x
+signalToFrame (Atanh x) = unaryFunction Number.atanh "Math.atanh" x
+signalToFrame (Cbrt x) = unaryFunction Number.cbrt "Math.cbrt" x
 signalToFrame (Ceil x) = unaryFunction Number.ceil "Math.ceil" x
 signalToFrame (Cos x) = unaryFunction Number.cos "Math.cos" x
-signalToFrame (Cosh x) = unaryFunction cosh "Math.cosh" x
+signalToFrame (Cosh x) = unaryFunction Number.cosh "Math.cosh" x
 signalToFrame (Exp x) = unaryFunction Number.exp "Math.exp" x
 signalToFrame (Floor x) = unaryFunction Number.floor "Math.floor" x
 signalToFrame (Log x) = unaryFunction Number.log "Math.log" x
-signalToFrame (Log2 x) = unaryFunction log2 "Math.log2" x
-signalToFrame (Log10 x) = unaryFunction log10 "Math.log10" x
+signalToFrame (Log2 x) = unaryFunction Number.log2 "Math.log2" x
+signalToFrame (Log10 x) = unaryFunction Number.log10 "Math.log10" x
 signalToFrame (Round x) = unaryFunction Number.round "Math.round" x
 signalToFrame (Sign x) = unaryFunction Number.sign "Math.sign" x
 signalToFrame (Sin x) = unaryFunction Number.sin "Math.sin" x
-signalToFrame (Sinh x) = unaryFunction sinh "Math.sinh" x
+signalToFrame (Sinh x) = unaryFunction Number.sinh "Math.sinh" x
 signalToFrame (Sqrt x) = unaryFunction Number.sqrt "Math.sqrt" x
 signalToFrame (Tan x) = unaryFunction Number.tan "Math.tan" x
-signalToFrame (Tanh x) = unaryFunction tanh "Math.tanh" x
+signalToFrame (Tanh x) = unaryFunction Number.tanh "Math.tanh" x
 signalToFrame (Trunc x) = unaryFunction Number.trunc "Math.trunc" x
 signalToFrame (MidiCps x) = signalToFrame x >>= traverse midicps
 signalToFrame (CpsMidi x) = signalToFrame x >>= traverse cpsmidi
@@ -287,15 +288,12 @@ product x (Left 1.0) = pure x
 product x y = operator (*) "*" x y
 
 division :: Sample -> Sample -> W Sample
-division (Left x) (Left y) = pure $ Left $ _division x y
+division (Left x) (Left y) = pure $ Left $ Number.division x y
 division (Left 0.0) _ = pure $ Left 0.0
 division _ (Left 0.0) = pure $ Left 0.0
 division x (Left 1.0) = pure x
 division x y = assign $ showSample y <> "!=0? " <> showSample x <> "/" <> showSample y <> " : 0"
 
-_division :: Number -> Number -> Number
-_division _ 0.0 = 0.0
-_division x y = x/y
 
 mod :: Sample -> Sample -> W Sample
 mod = operator (Prelude.mod) "%"
@@ -332,34 +330,21 @@ gate (Left x) (Left y) = pure $ Left $ if Ord.abs y >= x then y else 0.0
 gate x y = assign $ "Math.abs(" <> showSample y <> ")>=" <> showSample x <> "?" <> showSample y <> ":0"
 
 clip :: Tuple Sample Sample -> Sample -> W Sample
-clip (Tuple (Left e0) (Left e1)) (Left x) = pure $ Left $ _clip e0 e1 x
+clip (Tuple (Left e0) (Left e1)) (Left x) = pure $ Left $ Number.clip e0 e1 x
 clip (Tuple e0 e1) x = assign $ "Math.max(" <> min' <> ",Math.min(" <> max' <> "," <> showSample x <> "))"
   where
     min' = "Math.min(" <> showSample e0 <> "," <> showSample e1 <> ")"
     max' = "Math.max(" <> showSample e0 <> "," <> showSample e1 <> ")"
     
-_clip :: Number -> Number -> Number -> Number
-_clip e0 e1 x = _uncheckedClip min' max' x
-  where
-    min' = Prelude.min e0 e1
-    max' = Prelude.max e0 e1
-    
-_uncheckedClip :: Number -> Number -> Number -> Number
-_uncheckedClip e0 e1 x = Prelude.max e0 (Prelude.min e1 x)
-
 between :: Tuple Sample Sample -> Sample -> W Sample
-between (Tuple (Left e0) (Left e1)) (Left x) = pure $ Left $ if x >= min' && x <= max' then 1.0 else 0.0
-  where
-    min' = Prelude.min e0 e1
-    max' = Prelude.max e0 e1
+between (Tuple (Left e0) (Left e1)) (Left x) = pure $ Left $ Number.between e0 e1 x
 between (Tuple e0 e1) x = assign $ "(" <> showSample x <> ">=" <> min' <> "&&" <> showSample x <> "<=" <> max' <> ")?1:0"
   where
     min' = "Math.min(" <> showSample e0 <> "," <> showSample e1 <> ")"
     max' = "Math.max(" <> showSample e0 <> "," <> showSample e1 <> ")"
     
 smoothStep :: Tuple Sample Sample -> Sample -> W Sample
-smoothStep (Tuple (Left e0) (Left e1)) (Left x) = pure $ Left $ t * t * (3.0 - (2.0 * t))
-  where t = _uncheckedClip 0.0 1.0 $ _division (x - e0) (e1 - e0)
+smoothStep (Tuple (Left e0) (Left e1)) (Left x) = pure $ Left $ Number.smoothStep e0 e1 x
 smoothStep (Tuple e0 e1) x = do
   let a = "(" <> showSample x <> "-" <> showSample e0 <> ")/(" <> showSample e1 <> "-" <> showSample e0 <> ")"
   t <- assign $ "Math.max(0.0,Math.min(1.0," <> a <> "))"
@@ -386,7 +371,7 @@ mix (Tuple (Left x) (Left y)) (Left a) = pure $ Left $ ((y-x)*a)+x
 mix (Tuple x y) a = difference y x >>= product a >>= add x
 
 linlin :: Tuple Sample Sample -> Tuple Sample Sample -> Sample -> W Sample
-linlin (Tuple (Left r1x) (Left r1y)) (Tuple (Left r2x) (Left r2y)) (Left x) = pure $ Left $ (_division (x - r1x) (r1y - r1x)) * (r2y - r2x) + r2x
+linlin (Tuple (Left r1x) (Left r1y)) (Tuple (Left r2x) (Left r2y)) (Left x) = pure $ Left $ (Number.division (x - r1x) (r1y - r1x)) * (r2y - r2x) + r2x
 linlin (Tuple r1x r1y) (Tuple r2x r2y) x = do
   x' <- difference x r1x
   r2 <- difference r2y r2x
@@ -396,13 +381,3 @@ abs :: Sample -> W Sample
 abs (Left x) = pure $ Left $ Ord.abs x
 abs (Right x) = assign $ "Math.abs(" <> x <> ")"
   
-foreign import acosh :: Number -> Number
-foreign import asinh :: Number -> Number
-foreign import atanh :: Number -> Number
-foreign import cbrt :: Number -> Number
-foreign import cosh :: Number -> Number
-foreign import log2 :: Number -> Number
-foreign import log10 :: Number -> Number
-foreign import sinh :: Number -> Number
-foreign import tanh :: Number -> Number
-
