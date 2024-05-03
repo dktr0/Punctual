@@ -7,23 +7,18 @@ division _ 0.0 = 0.0
 division x y = x/y
 
 clip :: Number -> Number -> Number -> Number
-clip e0 e1 x = uncheckedClip min' max' x
-  where
-    min' = min e0 e1
-    max' = max e0 e1
+clip e0 e1 x = clamp (min e0 e1) (max e0 e1) x
 
-uncheckedClip :: Number -> Number -> Number -> Number
-uncheckedClip e0 e1 x = max e0 (min e1 x)
+-- clamp is an unchecked clip (weird results if min and max edges are in wrong order)
+clamp :: Number -> Number -> Number -> Number
+clamp e0 e1 x = max e0 (min e1 x)
 
 between :: Number -> Number -> Number -> Number
-between e0 e1 x = if x >= min' && x <= max' then 1.0 else 0.0
-  where
-    min' = min e0 e1
-    max' = max e0 e1
+between e0 e1 x = if x >= (min e0 e1) && x <= (max e0 e1) then 1.0 else 0.0
 
 smoothStep :: Number -> Number -> Number -> Number
 smoothStep e0 e1 x = t * t * (3.0 - (2.0 * t))
-  where t = uncheckedClip 0.0 1.0 $ division (x - e0) (e1 - e0)
+  where t = clamp 0.0 1.0 $ division (x - e0) (e1 - e0)
 
 foreign import acosh :: Number -> Number
 foreign import asinh :: Number -> Number

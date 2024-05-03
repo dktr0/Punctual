@@ -21,11 +21,11 @@ type GState = {
   vidMap :: Map String Int,
   allocation :: Int,
   code :: String,
-  fxy :: Expr,
-  time :: Expr,
-  beat :: Expr,
-  etime :: Expr,
-  ebeat :: Expr
+  fxy :: Vec2,
+  time :: Float,
+  beat :: Float,
+  etime :: Float,
+  ebeat :: Float
   }
 
 type G = State GState
@@ -37,19 +37,20 @@ runG webGl2 imgMap vidMap x = runState x {
   vidMap,
   allocation: 0,
   code: "",
-  fxy: Reference Vec2 "((gl_FragCoord.xy/res)*2.-1.)", 
-  time: Reference Float "_time",
-  beat: Reference Float "_beat",
-  etime: Reference Float "_etime",
-  ebeat: Reference Float "_ebeat"
+  fxy: Vec2Expr "((gl_FragCoord.xy/res)*2.-1.)", 
+  time: FloatExpr "_time",
+  beat: FloatExpr "_beat",
+  etime: FloatExpr "_etime",
+  ebeat: FloatExpr "_ebeat"
   }
 
-assign :: GLSLType -> String -> G Expr
-assign t x = do
+
+assign :: forall a. Expr a => a -> G a
+assign x = do 
   n <- allocate
-  let name = "_" <> show n
-  writeCode $ show t <> " " <> show name <> "=" <> x <> ";\n"
-  pure $ Reference t name
+  let name = "_" <> show n      
+  writeCode $ showType x <> " " <> show name <> "=" <> toExpr x <> ";\n"
+  pure $ expr name
 
 allocate :: G Int
 allocate = do
@@ -60,7 +61,7 @@ allocate = do
 writeCode :: String -> G Unit
 writeCode x = modify_ $ \s -> s { code = s.code <> x } 
 
-withFxys :: NonEmptyList Expr -> G Exprs -> G Exprs
+withFxys :: forall a. Expr a => NonEmptyList Vec2 -> G (Multi a) -> G (Multi a)
 withFxys fxys a = do
   cachedFxy <- _.fxy <$> get
   rs <- for fxys $ \fxy -> do
@@ -69,7 +70,7 @@ withFxys fxys a = do
   modify_ $ \s -> s { fxy = cachedFxy }
   pure $ concat rs
 
-withAlteredTime :: NonEmptyList { time :: Expr, beat :: Expr, etime :: Expr, ebeat :: Expr } -> G Exprs -> G Exprs
+withAlteredTime :: forall a. Expr a => NonEmptyList { time :: Float, beat :: Float, etime :: Float, ebeat :: Float } -> G (Multi a) -> G (Multi a)
 withAlteredTime xs a = do
   cached <- get
   rs <- for xs $ \x -> do

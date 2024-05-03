@@ -1,50 +1,116 @@
 module Expr where
 
-import Prelude (class Eq, class Ord, class Show,($),(<>),show,(+),(-),(*),(/),(<<<),flip,(==),(/=),(>),(>=),(<),(<=),map)
+import Prelude (class Eq, class Ord, class Show,($),(<>),show,(+),(-),(*),(/),(<<<),flip,(==),(/=),(>),(>=),(<),(<=),map,identity)
 import Prelude as Prelude
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.Number as Number
 
 import Channels
-import Multi (Multi)
 import Number as Number
 
-data GLSLType = Float | Vec2 | Vec3 | Vec4
 
-derive instance Eq GLSLType
-derive instance Ord GLSLType
-derive instance Generic GLSLType _
+class Expr a where
+  constant :: Number -> a
+  expr :: String -> a
+  isConstant :: a -> Boolean
+  toExpr :: a -> String
+  unaryFunction :: (Number -> Number) -> (String -> String) -> a -> a
+  binaryFunction :: (Number -> Number -> Number) -> (String -> String -> String) -> a -> a -> a
+  showType :: a -> String
 
-instance Channels GLSLType where
-  channels Float = 1
-  channels Vec2 = 2
-  channels Vec3 = 3
-  channels Vec4 = 4
+mapConstant :: forall a. Expr a => (Number -> Number) -> a -> a
+mapConstant f x = unaryFunction f identity x
+
+mapString :: forall a. Expr a => (String -> String) -> a -> a
+mapString f x = unaryFunction identity f x
+
+
+data Float =
+  FloatConstant Number |
+  FloatExpr String
+
+instance Expr Float where
+  constant = FloatConstant
+  expr = FloatExpr
+  isConstant (FloatConstant _) = true
+  isConstant (FloatExpr _) = false
+  toExpr (FloatConstant x) = show x
+  toExpr (FloatExpr x) = x
+  unaryFunction f _ (FloatConstant x) = FloatConstant (f x)
+  unaryFunction _ f (FloatExpr x) = FloatExpr (f x)
+  binaryFunction f _ (FloatConstant x) (FloatConstant y) = FloatConstant (f x y)
+  binaryFunction _ f x y = FloatExpr (f (toExpr x) (toExpr y))
+  showType _ = "float"
   
-instance Show GLSLType where 
-  show Float = "float"
-  show Vec2 = "vec2"
-  show Vec3 = "vec3"
-  show Vec4 = "vec4"
+instance Channels Float where channels _ = 1
 
-data Expr =
-  ConstantFloat Number |
-  Reference GLSLType String
   
-instance Channels Expr where
-  channels (ConstantFloat _) = 1
-  channels (Reference t _) = channels t
-  
-instance Show Expr where
-  show (ConstantFloat x) = show x
-  show (Reference _ x) = x
+data Vec2 =
+  Vec2Constant Number Number |
+  Vec2Expr String
 
+instance Expr Vec2 where
+  constant x = Vec2Constant x x
+  expr = Vec2Expr
+  isConstant (Vec2Constant _ _) = true
+  isConstant (Vec2Expr _) = false
+  toExpr (Vec2Constant x y) = "vec2(" <> show x <> "," <> show y <> ")"
+  toExpr (Vec2Expr x) = x
+  unaryFunction f _ (Vec2Constant x y) = Vec2Constant (f x) (f y)
+  unaryFunction _ f (Vec2Expr x) = Vec2Expr (f x)
+  binaryFunction f _ (Vec2Constant x1 x2) (Vec2Constant y1 y2) = Vec2Constant (f x1 y1) (f x2 y2)
+  binaryFunction _ f x y = Vec2Expr (f (toExpr x) (toExpr y))
+  showType _ = "vec2"
+  
+instance Channels Vec2 where channels _ = 2
+
+  
+data Vec3 =
+  Vec3Constant Number Number Number |
+  Vec3Expr String
+
+instance Expr Vec3 where
+  constant x = Vec3Constant x x x
+  expr = Vec3Expr
+  isConstant (Vec3Constant _ _ _) = true
+  isConstant (Vec3Expr _) = false
+  toExpr (Vec3Constant x y z) = "vec3(" <> show x <> "," <> show y <> "," <> show z <> ")"
+  toExpr (Vec3Expr x) = x
+  unaryFunction f _ (Vec3Constant x y z) = Vec3Constant (f x) (f y) (f z)
+  unaryFunction _ f (Vec3Expr x) = Vec3Expr (f x)
+  binaryFunction f _ (Vec3Constant x1 x2 x3) (Vec3Constant y1 y2 y3) = Vec3Constant (f x1 y1) (f x2 y2) (f x3 y3)
+  binaryFunction _ f x y = Vec3Expr (f (toExpr x) (toExpr y))
+  showType _ = "vec3"
+
+instance Channels Vec3 where channels _ = 3
+
+
+data Vec4 =
+  Vec4Constant Number Number Number Number |
+  Vec4Expr String
+
+instance Expr Vec4 where
+  constant x = Vec4Constant x x x x
+  expr = Vec4Expr
+  isConstant (Vec4Constant _ _ _ _) = true
+  isConstant (Vec4Expr _) = false
+  toExpr (Vec4Constant x y z w) = "vec2(" <> show x <> "," <> show y <> "," <> show z <> "," <> show w <> ")"
+  toExpr (Vec4Expr x) = x
+  unaryFunction f _ (Vec4Constant x y z w) = Vec4Constant (f x) (f y) (f z) (f w)
+  unaryFunction _ f (Vec4Expr x) = Vec4Expr (f x)
+  binaryFunction f _ (Vec4Constant x1 x2 x3 x4) (Vec4Constant y1 y2 y3 y4) = Vec4Constant (f x1 y1) (f x2 y2) (f x3 y3) (f x4 y4)
+  binaryFunction _ f x y = Vec4Expr (f (toExpr x) (toExpr y))
+  showType _ = "vec4"
+
+instance Channels Vec4 where channels _ = 1
+
+{-
 _swizzle :: String -> GLSLType -> Expr -> Expr
-_swizzle _ _ (ConstantFloat x) = ConstantFloat x -- swizzling a ConstantFloat is a no-op (not sure about this, but for now...)
+_swizzle _ _ (constant x) = constant x -- swizzling a constant is a no-op (not sure about this, but for now...)
 _swizzle m t (Reference _ x) = Reference t $ x <> "." <> m
 
-swizzleX :: Expr -> Expr
+swizzleX :: forall a. Expr a => a -> Float
 swizzleX = _swizzle "x" Float
 
 swizzleY :: Expr -> Expr
@@ -79,118 +145,157 @@ swizzleXYYY = _swizzle "xyyy" Vec4
 
 swizzleXYZZ :: Expr -> Expr
 swizzleXYZZ = _swizzle "xyzz" Vec4
+-}
 
 
--- i.e. a named unary function where the type of the input is the type of the output
-namedUnaryFunction :: String -> (Number -> Number) -> Expr -> Expr
-namedUnaryFunction _ f (ConstantFloat x) = ConstantFloat $ f x
-namedUnaryFunction f _ (Reference t x) = Reference t $ f <> "(" <> x <> ")"
+-- convenience functions for constructing functions over the string components of expressions
 
-sin :: Expr -> Expr
-sin = namedUnaryFunction "sin" Number.sin
+function1 :: String -> String -> String
+function1 funcName x = funcName <> "(" <> x <> ")"
 
-cos :: Expr -> Expr
-cos = namedUnaryFunction "cos" Number.cos
+function2 :: String -> String -> String -> String
+function2 funcName x y = funcName <> "(" <> x <> "," <> y <> ")"
 
-abs :: Expr -> Expr
-abs = namedUnaryFunction "abs" Number.abs
-
-acos :: Expr -> Expr
-acos = namedUnaryFunction "acos" Number.acos
-
-ampdb :: Expr -> Expr
-ampdb = (flip division) (ConstantFloat 10.0) <<< product (ConstantFloat 20.0) <<< log
-
-log :: Expr -> Expr
-log = namedUnaryFunction "log" Number.log
-
-log2 :: Expr -> Expr
-log2 = namedUnaryFunction "log2" Number.log2
-
-log10 :: Expr -> Expr
-log10 = namedUnaryFunction "log10" Number.log10
-
-asin :: Expr -> Expr
-asin = namedUnaryFunction "asin" Number.asin
-
-atan :: Expr -> Expr
-atan = namedUnaryFunction "atan" Number.atan
-
-ceil :: Expr -> Expr
-ceil = namedUnaryFunction "ceil" Number.ceil
-
-cpsmidi :: Expr -> Expr
-cpsmidi = add (ConstantFloat 69.0) <<< product (ConstantFloat 12.0) <<< log2 <<< flip division (ConstantFloat 440.0)
-
-dbamp :: Expr -> Expr
-dbamp = pow (ConstantFloat 10.0) <<< flip division (ConstantFloat 20.0)
-
-exp :: Expr -> Expr
-exp = namedUnaryFunction "exp" Number.exp
-
-floor :: Expr -> Expr
-floor = namedUnaryFunction "floor" Number.floor
-
-midicps :: Expr -> Expr
-midicps m = product (pow (division (difference m (ConstantFloat 69.0)) (ConstantFloat 12.0)) (ConstantFloat 2.0)) (ConstantFloat 440.0)
-
-sign :: Expr -> Expr
-sign = namedUnaryFunction "sign" Number.sign
-
-sqrt :: Expr -> Expr
-sqrt = namedUnaryFunction "sqrt" Number.sqrt
-
-tan :: Expr -> Expr
-tan = namedUnaryFunction "tan" Number.tan
-
-fract :: Expr -> Expr
-fract = namedUnaryFunction "fract" (\x -> Prelude.mod x 1.0)
+binOp :: String -> String -> String -> String
+binOp op x y = "(" <> x <> op <> y <> ")"
 
 
--- for +-*/ the arguments (in GLSL) are the same type or either argument can be a float (regardless of the other argument)
--- this will produce invalid GLSL code (without warning/error) if different non-float GLSL types are mixed
-arithmeticOperator :: String -> (Number -> Number -> Number) -> Expr -> Expr -> Expr
-arithmeticOperator _ f (ConstantFloat x) (ConstantFloat y) = ConstantFloat (f x y)
-arithmeticOperator o _ (ConstantFloat x) (Reference yType y) = Reference yType $ "(" <> show x <> o <> y <> ")"
-arithmeticOperator o _ (Reference xType x) (ConstantFloat y) = Reference xType $ "(" <> x <> o <> show y <> ")"
-arithmeticOperator o _ (Reference xType x) (Reference yType y) = Reference (Prelude.max xType yType) $ "(" <> x <> o <> y <> ")"
+-- unary functions 
 
-add :: Expr -> Expr -> Expr
-add = arithmeticOperator "+" (+)
+sin :: forall a. Expr a => a -> a
+sin = unaryFunction Number.sin (function1 "sin")
 
-difference :: Expr -> Expr -> Expr
-difference = arithmeticOperator "-" (-)
+squared :: forall a. Expr a => a -> a
+squared = unaryFunction (\x -> x * x) (\x -> binOp "*" x x)
 
-product :: Expr -> Expr -> Expr
-product = arithmeticOperator "*" (*)
+cos :: forall a. Expr a => a -> a
+cos = unaryFunction Number.cos (function1 "cos")
 
-division :: Expr -> Expr -> Expr
-division = arithmeticOperator "/" (/) -- TODO: this should be safe division to match the audio side!
+abs :: forall a. Expr a => a -> a
+abs = unaryFunction Number.abs (function1 "abs")
 
--- arguments are same type or either can be a float, order is irrelevant (unlike in GLSL, where the second argument would have to be a float)
--- this will produce invalid GLSL code (without warning/error) if different non-float GLSL types are mixed
-minOrMax :: String -> (Number -> Number -> Number) -> Expr -> Expr -> Expr
-minOrMax _ f (ConstantFloat x) (ConstantFloat y) = ConstantFloat $ f x y
-minOrMax f _ (ConstantFloat x) (Reference yType y) = Reference yType $ f <> "(" <> y <> "," <> show x <> ")"
-minOrMax f _ (Reference xType x) (ConstantFloat y) = Reference xType $ f <> "(" <> x <> "," <> show y <> ")"
-minOrMax f _ (Reference Float x) (Reference yType y) = Reference yType $ f <> "(" <> y <> "," <> x <> ")"
-minOrMax f _ (Reference xType x) (Reference _ y) = Reference xType $ f <> "(" <> x <> "," <> y <> ")"
+acos :: forall a. Expr a => a -> a
+acos = unaryFunction Number.acos (function1 "acos")
 
-min :: Expr -> Expr -> Expr
-min = minOrMax "min" Prelude.min
+ampdb :: forall a. Expr a => a -> a
+ampdb = (flip divisionExprFloat) (FloatConstant 10.0) <<< productFloatExpr (FloatConstant 20.0) <<< log
 
-max :: Expr -> Expr -> Expr
-max = minOrMax "max" Prelude.max
+log :: forall a. Expr a => a -> a
+log = unaryFunction Number.log (function1 "log")
 
+log2 :: forall a. Expr a => a -> a
+log2 = unaryFunction Number.log2 (function1 "log2")
+
+log10 :: forall a. Expr a => a -> a
+log10 = unaryFunction Number.log10 (function1 "log10")
+
+asin :: forall a. Expr a => a -> a
+asin = unaryFunction Number.asin (function1 "asin")
+
+atan :: forall a. Expr a => a -> a
+atan = unaryFunction Number.atan (function1 "atan")
+
+ceil :: forall a. Expr a => a -> a
+ceil = unaryFunction Number.ceil (function1 "ceil")
+
+cpsmidi :: forall a. Expr a => a -> a
+cpsmidi = addFloatExpr (constant 69.0) <<< productFloatExpr (constant 12.0) <<< log2 <<< flip divisionExprFloat (constant 440.0)
+
+-- TODO: need to implement powFloatExpr for this to compile
+-- dbamp :: forall a. Expr a => a -> a
+-- dbamp = powFloatExpr (constant 10.0) <<< flip divisionExprFloat (constant 20.0)
+
+exp :: forall a. Expr a => a -> a
+exp = unaryFunction Number.exp (function1 "exp")
+
+floor :: forall a. Expr a => a -> a
+floor = unaryFunction Number.floor (function1 "floor")
+
+-- TODO: need to implement powExprFloat for this to compile
+-- midicps :: forall a. Expr a => a -> a
+-- midicps m = productExprFloat (powExprFloat (divisionExprFloat (differenceExprFloat m (constant 69.0)) (constant 12.0)) (constant 2.0)) (constant 440.0)
+
+sign :: forall a. Expr a => a -> a
+sign = unaryFunction Number.sign (function1 "sign")
+
+sqrt :: forall a. Expr a => a -> a
+sqrt = unaryFunction Number.sqrt (function1 "sqrt")
+
+tan :: forall a. Expr a => a -> a
+tan = unaryFunction Number.tan (function1 "tan")
+
+fract :: forall a. Expr a => a -> a
+fract = unaryFunction (\x -> Prelude.mod x 1.0) (function1 "fract")
+
+
+-- Arithmetic operations
+
+arithmeticOperator :: forall a. Expr a => (Number -> Number -> Number) -> String -> a -> a -> a
+arithmeticOperator f op = binaryFunction f (binOp op)
+
+add :: forall a. Expr a => a -> a -> a
+add = arithmeticOperator (+) "+"
+
+addFloatExpr :: forall b. Expr b => Float -> b -> b
+addFloatExpr (FloatConstant a) b = unaryFunction (\b' -> a + b') (\b' -> binOp "+" (show a) b') b
+addFloatExpr (FloatExpr a) b = expr $ binOp "+" a (toExpr b)
+
+addExprFloat :: forall a. Expr a => a -> Float -> a
+addExprFloat = flip addFloatExpr
+
+difference :: forall a. Expr a => a -> a -> a
+difference = arithmeticOperator (-) "-"
+
+differenceFloatExpr :: forall b. Expr b => Float -> b -> b
+differenceFloatExpr (FloatConstant a) b = unaryFunction (\b' -> a - b') (\b' -> binOp "-" (show a) b') b
+differenceFloatExpr (FloatExpr a) b = expr $ binOp "-" a (toExpr b)
+
+differenceExprFloat :: forall b. Expr b => b -> Float -> b
+differenceExprFloat a (FloatConstant b) = unaryFunction (\a' -> a' - b) (\a' -> binOp "-" a' (show b)) a
+differenceExprFloat a (FloatExpr b) = expr $ binOp "-" (toExpr a) b
+
+product :: forall a. Expr a => a -> a -> a
+product = arithmeticOperator (*) "*"
+
+productFloatExpr :: forall b. Expr b => Float -> b -> b
+productFloatExpr (FloatConstant a) b = unaryFunction (\x -> a * x) (\x -> binOp "*" (show a) x) b
+productFloatExpr (FloatExpr a) b = expr $ binOp "*" a (toExpr b)
+
+productExprFloat :: forall a. Expr a => a -> Float -> a
+productExprFloat = flip productFloatExpr
+
+division :: forall a. Expr a => a -> a -> a
+division = arithmeticOperator (/) "/" -- TODO: this should be safe division to match the audio side!
+
+-- TODO: this should be safe division to match the audio side!
+divisionFloatExpr :: forall b. Expr b => Float -> b -> b
+divisionFloatExpr (FloatConstant a) b = unaryFunction (\b' -> a / b') (\b' -> binOp "/" (show a) b') b
+divisionFloatExpr (FloatExpr a) b = expr $ binOp "/" a (toExpr b)
+
+-- TODO: this should be safe division to match the audio side!
+divisionExprFloat :: forall b. Expr b => b -> Float -> b
+divisionExprFloat a (FloatConstant b) = unaryFunction (\a' -> a' / b) (\a' -> binOp "/" a' (show b)) a
+divisionExprFloat a (FloatExpr b) = expr $ binOp "/" (toExpr a) b
+
+
+min :: forall a. Expr a => a -> a -> a
+min = binaryFunction Prelude.min (function2 "min")
+
+max :: forall a. Expr a => a -> a -> a
+max = binaryFunction Prelude.max (function2 "max")
+
+-- maybe TODO later: make variants for mismatched types where one argument is a float
+
+{-
 
 -- to polyfill pow and mod to the standard model, coerce unmatched float arguments to the other type (will simply be a cast)
 -- this will produce invalid GLSL code (without warning/error) if different non-float GLSL types are mixed
 powOrMod :: String -> (Number -> Number -> Number) -> Expr -> Expr -> Expr
-powOrMod _ f (ConstantFloat x) (ConstantFloat y) = ConstantFloat $ f x y
-powOrMod f _ (ConstantFloat x) (Reference Float y) = Reference Float $ f <> "(" <> show x <> "," <> y <> ")"
-powOrMod f _ (ConstantFloat x) (Reference yType y) = Reference yType $ f <> "(" <> show yType <> "(" <> show x <> ")," <> y <> ")"
-powOrMod f _ (Reference Float x) (ConstantFloat y) = Reference Float $ f <> "(" <> x <> "," <> show y <> ")"
-powOrMod f _ (Reference xType x) (ConstantFloat y) = Reference xType $ f <> "(" <> x <> "," <> show xType <> "(" <> show y <> "))"
+powOrMod _ f (constant x) (constant y) = constant $ f x y
+powOrMod f _ (constant x) (Reference Float y) = Reference Float $ f <> "(" <> show x <> "," <> y <> ")"
+powOrMod f _ (constant x) (Reference yType y) = Reference yType $ f <> "(" <> show yType <> "(" <> show x <> ")," <> y <> ")"
+powOrMod f _ (Reference Float x) (constant y) = Reference Float $ f <> "(" <> x <> "," <> show y <> ")"
+powOrMod f _ (Reference xType x) (constant y) = Reference xType $ f <> "(" <> x <> "," <> show xType <> "(" <> show y <> "))"
 powOrMod f _ (Reference xType x) (Reference _ y) = Reference xType $ f <> "(" <> x <> "," <> y <> ")"
 
 pow :: Expr -> Expr -> Expr
@@ -202,14 +307,14 @@ mod = powOrMod "mod" Prelude.mod
 
 comparisonOperator :: String -> String -> (Number -> Number -> Number) -> Expr -> Expr -> Expr
 -- both arguments floats
-comparisonOperator _ _ f (ConstantFloat x) (ConstantFloat y) = ConstantFloat $ f x y
-comparisonOperator f _ _ (ConstantFloat x) (Reference Float y) = Reference Float $ "float(" <> show x <> f <> y <> ")"
-comparisonOperator f _ _ (Reference Float x) (ConstantFloat y) = Reference Float $ "float(" <> x <> f <> show y <> ")"
+comparisonOperator _ _ f (constant x) (constant y) = constant $ f x y
+comparisonOperator f _ _ (constant x) (Reference Float y) = Reference Float $ "float(" <> show x <> f <> y <> ")"
+comparisonOperator f _ _ (Reference Float x) (constant y) = Reference Float $ "float(" <> x <> f <> show y <> ")"
 comparisonOperator f _ _ (Reference Float x) (Reference Float y) = Reference Float $ "float(" <> x <> f <> y <> ")"
 -- only one argument is a float
-comparisonOperator _ f _ (ConstantFloat x) (Reference yType y) = Reference yType $ show yType <> "(" <> f <> "(" <> show yType <> "(" <> show x <> ")," <> y <> "))"
+comparisonOperator _ f _ (constant x) (Reference yType y) = Reference yType $ show yType <> "(" <> f <> "(" <> show yType <> "(" <> show x <> ")," <> y <> "))"
 comparisonOperator _ f _ (Reference Float x) (Reference yType y) = Reference yType $ show yType <> "(" <> f <> "(" <> show yType <> "(" <> x <> ")," <> y <> "))"
-comparisonOperator _ f _ (Reference xType x) (ConstantFloat y) = Reference xType $ show xType <> "(" <> f <> "(" <> x <> "," <> show xType <> "(" <> show y <> ")))"
+comparisonOperator _ f _ (Reference xType x) (constant y) = Reference xType $ show xType <> "(" <> f <> "(" <> x <> "," <> show xType <> "(" <> show y <> ")))"
 comparisonOperator _ f _ (Reference xType x) (Reference Float y) = Reference xType $ show xType <> "(" <> f <> "(" <> x <> "," <> show xType <> "(" <> y <> ")))"
 -- no arguments are floats
 comparisonOperator _ f _ (Reference xType x) (Reference _ y) = Reference xType $ show xType <> "(" <> f <> "(" <> x <> "," <> y <> "))"
@@ -243,35 +348,38 @@ lessThanEqual = comparisonOperator "<=" "lessThanEqual" (map (map booleanToNumbe
 gate :: Expr -> Expr -> Expr
 gate x y = product (lessThan x y) y
 
--- first two arguments outline the range and if they are not floats (constant or otherwise) invalid GLSL code would be generated
--- first two arguments are multiply used and should be assigned by caller
-clip :: Expr -> Expr -> Expr -> Expr
-clip r1 r2 x = uncheckedClip (min r1 r2) (max r1 r2) x
-
--- first two arguments outline the range and if they are not floats (constant or otherwise) invalid GLSL code would be generated
-uncheckedClip :: Expr -> Expr -> Expr -> Expr
-uncheckedClip (ConstantFloat r1) (ConstantFloat r2) (ConstantFloat x) = ConstantFloat $ Number.uncheckedClip r1 r2 x
-uncheckedClip r1 r2 (ConstantFloat x) = Reference Float $ "clamp(" <> show x <> "," <> show r1 <> "," <> show r2 <> ")"
-uncheckedClip r1 r2 (Reference xType x) = Reference xType $ "clamp(" <> show x <> "," <> show r1 <> "," <> show r2 <> ")"
-
 -- all arguments are multiply used and should be assigned by the caller
 -- expectation is that first two arguments are floats (constant or otherwise), unsure what results would be if this is violated
 between :: Expr -> Expr -> Expr -> Expr
-between r1 r2 x = product (lessThan (min r1 r2) x) (difference (ConstantFloat 1.0) (lessThan (max r1 r2) x))
+between r1 r2 x = product (lessThan (min r1 r2) x) (difference (constant 1.0) (lessThan (max r1 r2) x))
 
 -- expectation is that first two arguments are floats (constant or otherwise), unsure what results would be if this is violated
 -- (no multiple use of arguments)
 smoothStep :: Expr -> Expr -> Expr -> Expr
-smoothStep (ConstantFloat e0) (ConstantFloat e1) (ConstantFloat x) = ConstantFloat $ Number.smoothStep e0 e1 x
-smoothStep e0 e1 (ConstantFloat x) = Reference Float $ "smoothstep(" <> show e0 <> "," <> show e1 <> "," <> show x <> ")"
+smoothStep (constant e0) (constant e1) (constant x) = constant $ Number.smoothStep e0 e1 x
+smoothStep e0 e1 (constant x) = Reference Float $ "smoothstep(" <> show e0 <> "," <> show e1 <> "," <> show x <> ")"
 smoothStep e0 e1 (Reference xType x) = Reference xType $ "smoothstep(" <> show e0 <> "," <> show e1 <> "," <> show x <> ")"
+-}
+
+
+clip :: forall a. Expr a => Float -> Float -> a -> a
+clip e0 e1 x = clamp (min e0 e1) (max e0 e1) x
+
+-- clamp is an "unchecked" clipping operation (weird results if min and max are out of order)
+clamp :: forall a. Expr a => Float -> Float -> a -> a
+clamp e0 e1 x = expr $ "clamp(" <> toExpr x <> "," <> toExpr e0 <> "," <> toExpr e1 <> ")"
 
 {-
-circle :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 Any -> Any (no reuse of any arguments, so no inherent need to pre-assign them)
-circle fxy xy d 
-  | fxy.glslType /= Vec2 || xy.glslType /= Vec2 = { string: "!! Internal Punctual GLSL generation error in circle", glslType: Float, isSimple: false, deps: fxy.deps <> xy.deps <> d.deps }
-  | otherwise = { string: s, glslType: d.glslType, isSimple: false, deps: fxy.deps <> xy.deps <> d.deps }
-      where s = "smoothstep(1.5/(res.x+res.y),0.0,distance(" <> fxy.string <> "," <> xy.string <> ")-(" <> d.string <> "*0.5))"
+circle :: forall a. ConstantOrExpr a => Vec2 -> Vec2 -> a -> a
+circle fxy xy diameter = smoothstep e0 e1 $ distance fxy xy - (diameter * constant 0.5) -- what about potential type mismatch in multiplication?
+  where
+    e0 = Vec2Expr "1.5/(res.x+res.y)"
+    e1 = constant 0.0
+
+distance :: forall a. Expr a => a -> a -> a
+distance a b 
+  | isConstant a && isConstant b = sqrt $ sum $ squared $ simpleBinaryFunction (-) (\_ _ -> "") a b
+  | otherwise = exprConstructor $ "distance(" <> toExpr a <> "," <> toExpr b <> ")"
 
 point :: GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2
 point fxy xy = circle fxy xy d
@@ -346,11 +454,13 @@ seq steps y = { string: s, glslType: Float, isSimple: false, deps: fold (map _.d
     s = intercalate "+" ((firstStep : middleSteps) `List.snoc` lastStep)
 -}
 
-fadeIn :: Number -> Number -> Expr 
-fadeIn t1 t2 = Reference Float $ "clamp((_etime-" <> show t1 <> ")/(" <> show t2 <> "-" <> show t1 <> "),0.,1.)"
 
-fadeOut :: Number -> Number -> Expr
-fadeOut t1 t2 = Reference Float $ "clamp((" <> show t2 <> "-_etime)/(" <> show t2 <> "-" <> show t1 <> "),0.,1.)"
+fadeIn :: Number -> Number -> Float 
+fadeIn t1 t2 = expr $ "clamp((_etime-" <> show t1 <> ")/(" <> show t2 <> "-" <> show t1 <> "),0.,1.)"
+
+fadeOut :: Number -> Number -> Float
+fadeOut t1 t2 = expr $ "clamp((" <> show t2 <> "-_etime)/(" <> show t2 <> "-" <> show t1 <> "),0.,1.)"
+
 
 {-    
 prox :: GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 -> Float
@@ -359,29 +469,30 @@ prox a b
   | otherwise = { string: "clamp((2.828427-distance(" <> a.string <> "," <> b.string <> "))/2.828427,0.,1.)", glslType: Float, isSimple: false, deps: a.deps <> b.deps }
 -}
 
-bipolar :: Expr -> Expr -- Any -> Any
-bipolar x = difference (product x (ConstantFloat 2.0)) (ConstantFloat 1.0)
 
-unipolar :: Expr -> Expr -- Any -> Any
-unipolar x = add (product x (ConstantFloat 0.5)) (ConstantFloat 0.5)
+bipolar :: forall a. Expr a => a -> a
+bipolar x = differenceExprFloat (productExprFloat x (constant 2.0)) (constant 1.0)
 
-tile :: Expr -> Expr -> Expr -- technically Any -> Any, even if Vec2 -> Vec2 is imagined use 
+unipolar :: forall a. Expr a => a -> a
+unipolar x = addExprFloat (productExprFloat x (constant 0.5)) (constant 0.5)
+
+tile :: forall a. Expr a => a -> a -> a
 tile fxy ab = bipolar $ fract $ product (unipolar fxy) ab
 
-pi :: Expr
-pi = Reference Float "PI"
+pi :: Float
+pi = expr "PI"
 
-px :: Expr
-px = Reference Float "(2./res.x)"
+px :: Float
+px = expr "(2./res.x)"
 
-py :: Expr
-py = Reference Float "(2./res.y)"
+py :: Float
+py = expr "(2./res.y)"
 
-pxy :: Expr
-pxy = Reference Vec2 "(2./res)"
+pxy :: Vec2
+pxy = expr "(2./res)"
 
-aspect :: Expr
-aspect = Reference Float "(res.x/res.y)"
+aspect :: Float
+aspect = expr "(res.x/res.y)"
 
 {-
 rgbhsv :: GLSLExpr -> GLSLExpr
@@ -399,7 +510,4 @@ distance x y
   | x.glslType /= y.glslType = { string: "!! Internal Punctual GLSL generation error in distance", glslType: Float, isSimple: false, deps: x.deps <> y.deps }
   | otherwise = { string: "distance(" <> x.string <> "," <> y.string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps }
 -}
-
-
-type Exprs = Multi Expr
 

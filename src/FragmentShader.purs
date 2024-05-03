@@ -22,16 +22,14 @@ import Action (Action,actionTimesAsSecondsSinceEval)
 import Output (Output)
 import Output as Output
 import Program (Program)
--- import GLSLExpr (GLSLExpr,GLSLType(..),simpleFromString,zero,one,dotSum,ternaryFunction,glslTypeToString,Exprs,exprsChannels,unsafeSwizzleX,unsafeSwizzleY,coerce,exprChannels)
--- import GLSLExpr as GLSLExpr
--- import GLSL (GLSL,align,alignNoExtend,assign,assignForced,swizzleX,swizzleY,swizzleZ,swizzleW,alignFloat,texture2D,textureFFT,alignVec2,alignVec3,alignVec4,alignRGBA,runGLSL,withFxys,extend,zipWithAAA,zipWithAAAA,osc,tri,saw,sqr,withAlteredTime,extendAligned)
 import Expr
 import G
+import Multi (Multi)
 
 
-signalToGLSL :: GLSLType -> Signal -> G Exprs
+signalToGLSL :: forall a. Expr a => Signal -> G (Multi a)
 
-signalToGLSL _ (Constant x) = pure $ pure $ ConstantFloat x
+signalToGLSL (Constant x) = pure $ pure $ constant x
 
 {-
 signalToGLSL ah (SignalList xs) = 
@@ -472,7 +470,7 @@ signalToGLSL _ (Seq steps) = do
  
 -} 
 
-signalToGLSL _ _ = pure $ pure $ ConstantFloat 0.0
+signalToGLSL _ = pure $ pure $ constant 0.0
 
 {-
 simpleUnaryFunction :: (GLSLExpr -> GLSLExpr) -> Exprs -> GLSL Exprs
