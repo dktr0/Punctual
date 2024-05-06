@@ -123,7 +123,11 @@ swizzleXYZZ = _swizzle "xyzz" Vec4
 
 -- expression must be Vec2, assumes unipolar coordinates (this facilitates upstream use of larger types, since conversions to unipolar can happen on larger types that are then force-assigned)
 texture2D :: String -> GLSLExpr -> GLSL GLSLExpr
-texture2D texName x = assign { string: "texture2D(" <> texName <> "," <> x.string <> ").xyz", glslType: Vec3, isSimple: false, deps: x.deps }
+texture2D texName x = do
+  s <- get
+  case s.webGl2 of 
+    true -> assign { string: "texture(" <> texName <> "," <> x.string <> ").xyz", glslType: Vec3, isSimple: false, deps: x.deps }
+    false -> assign { string: "texture2D(" <> texName <> "," <> x.string <> ").xyz", glslType: Vec3, isSimple: false, deps: x.deps }
 
 -- variant of texture2D specialized for one-dimensional, single-channel textures, such as those used for fft and ifft
 -- assumes unipolar coordinates (this facilitates upstream use of larger types, since conversions to unipolar can happen on larger types that are then force-assigned)

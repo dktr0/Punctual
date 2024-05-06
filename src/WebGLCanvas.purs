@@ -170,6 +170,21 @@ foreign import _flush :: WebGLContext -> Effect Unit
 
 flush :: WebGLCanvas -> Effect Unit
 flush glc = _flush glc.gl
+  
+getShaderParameterCompileStatus :: WebGLCanvas -> WebGLShader -> Effect Int
+getShaderParameterCompileStatus glc = _getShaderParameterCompileStatus glc.gl 
+
+foreign import _getShaderParameterCompileStatus :: WebGLContext -> WebGLShader -> Effect Int
+
+getShaderInfoLog :: WebGLCanvas -> WebGLShader -> Effect String
+getShaderInfoLog glc = _getShaderInfoLog glc.gl
+
+foreign import _getShaderInfoLog :: WebGLContext -> WebGLShader -> Effect String
+
+getProgramInfoLog :: WebGLCanvas -> WebGLProgram -> Effect String
+getProgramInfoLog glc = _getProgramInfoLog glc.gl
+
+foreign import _getProgramInfoLog :: WebGLContext -> WebGLProgram -> Effect String
 
 foreign import useProgram :: WebGLCanvas -> WebGLProgram -> Effect Unit
 

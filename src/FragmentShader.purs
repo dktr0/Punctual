@@ -662,12 +662,25 @@ rect fxy xy wh = do
   pure $ GLSLExpr.product g h
  
  
-header :: String    
-header = """precision mediump float;
-#define PI 3.1415926535897932384626433832795
-uniform lowp vec2 res;
+header :: Boolean -> String    
+header true = webGL2HeaderPrefix <> commonHeader
+header false = webGL1HeaderPrefix <> commonHeader
+    
+webGL2HeaderPrefix :: String
+webGL2HeaderPrefix = """#version 300 es
+precision mediump float;
+layout(location=0) out vec4 fragColor;
+"""
+
+webGL1HeaderPrefix :: String
+webGL1HeaderPrefix = """precision mediump float;
+"""
+
+commonHeader :: String
+commonHeader = """uniform lowp vec2 res;
 uniform sampler2D f,o,i,w,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15;
 uniform float lo,mid,hi,ilo,imid,ihi,_defaultAlpha,_cps,_time,_etime,_beat,_ebeat;
+#define PI 3.1415926535897932384626433832795
 vec3 hsvrgb(vec3 c) {
   vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
   vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
@@ -767,11 +780,12 @@ appendExpr Output.Mul (Just prevExpr) x = do
 -}
     
 fragmentShader :: Boolean -> Tempo -> Map String Int -> Map String Int -> Program -> Program -> String
-fragmentShader webGl2 tempo imgMap vidMap oldProgram newProgram = "placeholder" {- header <> assignments <> gl_FragColor <> "}"
+fragmentShader webGl2 tempo imgMap vidMap oldProgram newProgram = "placeholder" {- header webGl2 <> assignments <> gl_FragColor <> "}"
   where
     (Tuple a st) = runGLSL webGl2 imgMap vidMap $ programsToGLSL tempo oldProgram newProgram
     assignments = fold $ mapWithIndex indexedGLSLExprToString st.exprs
-    gl_FragColor = "gl_FragColor = " <> a.string <> ";\n" -}
+    fragColorVarName = if webGl2 then "fragColor" else "gl_FragColor"
+    gl_FragColor = fragColorVarName <> " = " <> a.string <> ";\n"
 
 {-
 indexedGLSLExprToString :: Int -> GLSLExpr -> String

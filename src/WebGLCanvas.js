@@ -44,6 +44,12 @@ export const _linkProgram = gl => p => () => gl.linkProgram(p);
 
 export const _flush = gl => () => gl.flush();
 
+export const _getShaderParameterCompileStatus = gl => s => () => gl.getShaderParameter(s,gl.COMPILE_STATUS);
+
+export const _getShaderInfoLog = gl => s => () => gl.getShaderInfoLog(s);
+
+export const _getProgramInfoLog = gl => p => () => gl.getProgramInfoLog(p); 
+
 export const useProgram = glc => p => () => glc.gl.useProgram(p);
 
 export const getAttribLocation = glc => p => n => () => glc.gl.getAttribLocation(p,n);

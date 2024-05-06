@@ -23,7 +23,7 @@ import Data.Monoid.Disj (Disj(..))
 import Signal (SignalInfo)
 import Program (Program,programInfo)
 import FragmentShader (fragmentShader)
-import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLContext, WebGLProgram, WebGLTexture, attachShader, bindBufferArray, bindFrameBuffer, bindTexture, compileShader, configureFrameBufferTextures, createFragmentShader, createProgram, createTexture, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, drawPostProgram, enableVertexAttribArray, flush, getAttribLocation, getCanvasHeight, getCanvasWidth, getFeedbackTexture, getOutputFrameBuffer, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport)
+import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLContext, WebGLProgram, WebGLTexture, attachShader, bindBufferArray, bindFrameBuffer, bindTexture, compileShader, configureFrameBufferTextures, createFragmentShader, createProgram, createTexture, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, drawPostProgram, enableVertexAttribArray, flush, getAttribLocation, getCanvasHeight, getCanvasWidth, getFeedbackTexture, getOutputFrameBuffer, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport, getShaderParameterCompileStatus, getShaderInfoLog, getProgramInfoLog)
 import SharedResources (SharedResources,getTempo,getImage,updateWebcamTexture,Image,Video,getVideo)
 import AudioAnalyser (AnalyserArray)
 
@@ -104,7 +104,10 @@ updateFragmentShader glc tempo imgMap vidMap oldProg newProg = do
   glProg <- createProgram glc
   vShader <- createVertexShader glc
   attachShader glc glProg vShader
-  shaderSource glc vShader "attribute vec4 p; void main() { gl_Position = p; }"
+  let vShaderSrc = case glc.webGL2 of
+                     true -> "#version 300 es\nin vec4 p; void main() { gl_Position = p; }"
+                     false -> "attribute vec4 p; void main() { gl_Position = p; }"
+  shaderSource glc vShader vShaderSrc
   compileShader glc vShader
   fShader <- createFragmentShader glc
   attachShader glc glProg fShader
@@ -112,6 +115,18 @@ updateFragmentShader glc tempo imgMap vidMap oldProg newProg = do
   compileShader glc fShader
   linkProgram glc glProg
   flush glc
+  
+  -- WORKING HERE 
+  vsStatus <- getShaderParameterCompileStatus glc vShader
+  vsLog <- getShaderInfoLog glc vShader
+  log $ " vertex shader status=" <> show vsStatus <> " log: " <> vsLog
+  fsStatus <- getShaderParameterCompileStatus glc fShader
+  fsLog <- getShaderInfoLog glc fShader
+  log $ " fragment shader status=" <> show fsStatus <> " log: " <> fsLog
+  pLog <- getProgramInfoLog glc glProg
+  log $ " program log: " <> pLog
+  --
+  
   pure $ Tuple shaderSrc glProg
 
   
