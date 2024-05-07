@@ -112,7 +112,7 @@ parseExpression (IfThenElse p i t e) = do
   i' <- parseExpression i >>= valueToSignal
   t' <- parseExpression t >>= valueToSignal
   e' <- parseExpression e >>= valueToSignal
-  pure $ ValueSignal p $ Mix Combinatorial i' e' t'
+  pure $ ValueSignal p $ Mix Combinatorial e' t' i'
 
 
 application :: forall m. Applicative m => MonadThrow ParseError m => Value -> Value -> m Value
