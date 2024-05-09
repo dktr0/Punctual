@@ -27,9 +27,21 @@ import G
 import Multi (Multi)
 
 
-signalToGLSL :: forall a. Expr a => Signal -> G (Multi a)
+signalToFloats :: Signal -> G (Multi Float)
+signalToFloats = signalToExpr
 
-signalToGLSL (Constant x) = pure $ pure $ constant x
+signalToVec2s :: Signal -> G (Multi Vec2)
+signalToVec2s = signalToExpr
+
+signalToVec3s :: Signal -> G (Multi Vec3)
+signalToVec3s = signalToExpr
+
+signalToVec4s :: Signal -> G (Multi Vec4)
+signalToVec4s = signalToExpr
+
+signalToExpr :: forall a. Expr a => Signal -> G (Multi a)
+
+signalToExpr (Constant x) = pure $ pure $ constant x
 
 {-
 signalToGLSL ah (SignalList xs) = 
@@ -470,7 +482,7 @@ signalToGLSL _ (Seq steps) = do
  
 -} 
 
-signalToGLSL _ = pure $ pure $ constant 0.0
+signalToExpr _ = pure $ pure $ constant 0.0
 
 {-
 simpleUnaryFunction :: (GLSLExpr -> GLSLExpr) -> Exprs -> GLSL Exprs
