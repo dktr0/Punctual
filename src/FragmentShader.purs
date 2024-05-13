@@ -38,7 +38,6 @@ signalToExprs (SignalList xs) =
       xs'' <- fromNonEmptyListMulti <$> traverse signalToExprs xs' -- :: Multi Float, with list already combinatorially expanded
       pure $ floatsToExprs xs''
 
-    
 signalToExprs (Append x y) = do
   xs <- signalToExprs x
   ys <- signalToExprs y
@@ -58,51 +57,59 @@ signalToGLSL _ (Mono x) = do
   pure $ singleton $ { string: s, glslType: Float, isSimple: false, deps: fold (_.deps <$> xs) }
 
 signalToGLSL ah (Rep n x) = (concat <<< replicate1 n) <$> signalToGLSL ah x
+-}
 
-signalToGLSL _ Pi = pure $ singleton $ GLSLExpr.pi
+signalToExprs Pi = pure $ pure $ fromFloat $ FloatExpr "PI"
 
-signalToGLSL _ Px = pure $ singleton $ GLSLExpr.px
+signalToExprs Px = pure $ pure $ fromFloat $ FloatExpr "(2./res.x)"
 
-signalToGLSL _ Py = pure $ singleton $ GLSLExpr.py
+signalToExprs Py = pure $ pure $ fromFloat $ FloatExpr "(2./res.y)"
 
-signalToGLSL _ Pxy = pure $ singleton $ GLSLExpr.pxy
+{-
+signalToExprs Pxy = pure $ pure $ ... $ Vec2Expr "(2./res)"
+-- has to be realigned somehow
+-}
 
-signalToGLSL _ Aspect = pure $ singleton $ GLSLExpr.aspect
+signalToExprs Aspect = pure $ pure $ fromFloat $ FloatExpr "(res.x/res.y)"
 
-signalToGLSL _ Fx = (singleton <<< unsafeSwizzleX <<< _.fxy) <$> get
+signalToExprs Fx = (pure <<< fromFloat <<< swizzleX <<< _.fxy) <$> get
 
-signalToGLSL _ Fy = (singleton <<< unsafeSwizzleY <<< _.fxy) <$> get
+signalToExprs Fy = (pure <<< fromFloat <<< swizzleY <<< _.fxy) <$> get
 
+{-
 signalToGLSL _ Fxy = (singleton <<< _.fxy) <$> get
+-- has to be realigned from Vec2 to whatever requested type is
+-}
 
-signalToGLSL _ FRt = signalToGLSL Vec2 $ XyRt Fxy
+signalToExprs FRt = signalToExprs $ XyRt Fxy
 
-signalToGLSL _ FR = signalToGLSL Float $ XyR Fxy
+signalToExprs FR = signalToExprs $ XyR Fxy
 
-signalToGLSL _ FT = signalToGLSL Float $ XyT Fxy
+signalToExprs FT = signalToExprs $ XyT Fxy
 
-signalToGLSL _ Lo = pure $ singleton $ simpleFromString Float "lo"
+signalToExprs Lo = pure $ pure $ fromFloat $ FloatExpr "lo"
 
-signalToGLSL _ Mid = pure $ singleton $ simpleFromString Float "mid"
+signalToExprs Mid = pure $ pure $ fromFloat $ FloatExpr "mid"
 
-signalToGLSL _ Hi = pure $ singleton $ simpleFromString Float "hi"
+signalToExprs Hi = pure $ pure $ fromFloat $ FloatExpr "hi"
 
-signalToGLSL _ ILo = pure $ singleton $ simpleFromString Float "ilo"
+signalToExprs ILo = pure $ pure $ fromFloat $ FloatExpr "ilo"
 
-signalToGLSL _ IMid = pure $ singleton $ simpleFromString Float "imid"
+signalToExprs IMid = pure $ pure $ fromFloat $ FloatExpr "imid"
 
-signalToGLSL _ IHi = pure $ singleton $ simpleFromString Float "ihi"
+signalToExprs IHi = pure $ pure $ fromFloat $ FloatExpr "ihi"
 
-signalToGLSL _ Cps = pure $ singleton $ simpleFromString Float "_cps"
+signalToExprs Cps = pure $ pure $ fromFloat $ FloatExpr "_cps"
 
-signalToGLSL _ Time = (singleton <<< _.time) <$> get
+signalToExprs Time = (pure <<< fromFloat <<< _.time) <$> get
 
-signalToGLSL _ Beat = (singleton <<< _.beat) <$> get
+signalToExprs Beat = (pure <<< fromFloat <<< _.beat) <$> get
 
-signalToGLSL _ ETime = (singleton <<< _.etime) <$> get
+signalToExprs ETime = (pure <<< fromFloat <<< _.etime) <$> get
 
-signalToGLSL _ EBeat = (singleton <<< _.ebeat) <$> get
+signalToExprs EBeat = (pure <<< fromFloat <<< _.ebeat) <$> get
 
+{-
 signalToGLSL _ (FFT x) = signalToGLSL Float x >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "o")
 
 signalToGLSL _ (IFFT x) = signalToGLSL Float x >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "i")
@@ -555,11 +562,6 @@ blend a b = do
   alpha <- swizzleW b'
   pure $ ternaryFunction "mix" Vec4 a b' alpha
   
-add :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec3
-add a b = pure $ GLSLExpr.add a b
-  
-mul :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec3
-mul a b = pure $ GLSLExpr.product a b
   
 acosh :: Exprs -> GLSL Exprs
 acosh xs = do
@@ -645,7 +647,7 @@ rect fxy xy wh = do
   g <- swizzleX f
   h <- swizzleY f
   pure $ GLSLExpr.product g h
- 
+-} 
  
 header :: Boolean -> String    
 header true = webGL2HeaderPrefix <> commonHeader
@@ -691,20 +693,20 @@ void main() {
 """
 -- thanks to http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl for the HSV-RGB conversion algorithms above!
 
-
-programsToGLSL :: Tempo -> Program -> Program -> GLSL GLSLExpr
+programsToGLSL :: Tempo -> Program -> Program -> G Vec4
 programsToGLSL tempo oldProgram newProgram = do
-  fxy <- assignForced GLSLExpr.defaultFxy
+  fxy <- (_.fxy <$> get) >>= assign 
   modify_ $ \s -> s { fxy = fxy }
+  pure $ constant 0.0 -- PLACEHOLDER 
+  {-
   mExpr <- foldActions tempo newProgram.evalTime Nothing oldProgram.actions newProgram.actions
   case mExpr of
-    Nothing -> pure $ coerce Vec4 zero
-    Just expr -> do
-      case exprChannels expr of
-        3 -> pure $ GLSLExpr.vec4binary expr one
-        _ -> pure expr
-        
-foldActions :: Tempo -> DateTime -> Maybe GLSLExpr -> List (Maybe Action) -> List (Maybe Action) -> GLSL (Maybe GLSLExpr)
+    Nothing -> pure $ constant 0.0
+    Just (Left v3) -> pure 
+    Just (Right v4) -> pure v4 -}
+
+{-
+foldActions :: Tempo -> DateTime -> Maybe (Either Vec3 Vec4) -> List (Maybe Action) -> List (Maybe Action) -> G (Maybe (Either Vec3 Vec4))
 foldActions _ _ prevOutputExpr _ Nil = pure prevOutputExpr
 foldActions tempo eTime prevOutputExpr Nil (y:ys) = do
   mExpr <- appendActions tempo eTime prevOutputExpr Nothing y 
@@ -713,7 +715,7 @@ foldActions tempo eTime prevOutputExpr (x:xs) (y:ys) = do
   mExpr <- appendActions tempo eTime prevOutputExpr x y
   foldActions tempo eTime mExpr xs ys
      
-appendActions :: Tempo -> DateTime -> Maybe GLSLExpr -> Maybe Action -> Maybe Action -> GLSL (Maybe GLSLExpr)
+appendActions :: Tempo -> DateTime -> Maybe (Either Vec3 Vec4) -> Maybe Action -> Maybe Action -> G (Maybe (Either Vec3 Vec4))
 appendActions _ _ prevOutputExpr _ Nothing = pure prevOutputExpr
 appendActions tempo eTime prevOutputExpr mOldAction (Just newAction) = do
   mNewExpr <- actionToGLSL newAction.output newAction
@@ -732,20 +734,23 @@ appendActions tempo eTime prevOutputExpr mOldAction (Just newAction) = do
               oldExpr' <- assignForced $ GLSLExpr.product oldExpr $ GLSLExpr.fadeOut t0 t1
               expr <- assignForced (GLSLExpr.add newExpr' oldExpr')
               appendExpr newAction.output prevOutputExpr expr
-        
-actionToGLSL :: Output -> Action -> GLSL (Maybe GLSLExpr)
+-}
+
+{-
+actionToGLSL :: Output -> Action -> G (Maybe (Either Vec3 Vec4))
 actionToGLSL Output.Audio _ = pure Nothing
 actionToGLSL Output.Blend a = do
-  xs <- signalToGLSL Vec4 a.signal >>= alignRGBA
-  Just <$> foldM (\x y -> blend x y >>= assignForced) (head xs) (tail xs)
+  xs <- flatten <$> (signalToExprs a.signal :: G Vec4)
+  Just <$> foldM (\x y -> blend x y >>= assign) (head xs) (tail xs)
 actionToGLSL Output.RGBA a = do
-  xs <- signalToGLSL Vec4 a.signal >>= alignRGBA
-  Just <$> foldM (\x y -> blend x y >>= assignForced) (head xs) (tail xs)
+  xs <- flatten <$> (signalToExprs a.signal :: G Vec4)
+  Just <$> foldM (\x y -> blend x y >>= assign) (head xs) (tail xs)
 actionToGLSL _ a = do
-  xs <- signalToGLSL Vec3 a.signal >>= alignVec3
-  Just <$> foldM (\x y -> assignForced $ GLSLExpr.add x y) (head xs) (tail xs)
+  xs <- flatten <$> (signalToExprs a.signal :: G Vec3)
+  Just <$> foldM (\x y -> assign $ add x y) (head xs) (tail xs)
+-}
 
-   
+{-   
 appendExpr :: Output -> Maybe GLSLExpr -> GLSLExpr -> GLSL (Maybe GLSLExpr)
 appendExpr Output.Audio x _ = pure x
 appendExpr _ Nothing x = pure $ Just x
@@ -765,14 +770,8 @@ appendExpr Output.Mul (Just prevExpr) x = do
 -}
     
 fragmentShader :: Boolean -> Tempo -> Map String Int -> Map String Int -> Program -> Program -> String
-fragmentShader webGl2 tempo imgMap vidMap oldProgram newProgram = "placeholder" {- header webGl2 <> assignments <> gl_FragColor <> "}"
+fragmentShader webGl2 tempo imgMap vidMap oldProgram newProgram = header webGl2 <> st.code <> gl_FragColor <> "}"
   where
-    (Tuple a st) = runGLSL webGl2 imgMap vidMap $ programsToGLSL tempo oldProgram newProgram
-    assignments = fold $ mapWithIndex indexedGLSLExprToString st.exprs
+    (Tuple v4 st) = runG webGl2 imgMap vidMap $ programsToGLSL tempo oldProgram newProgram
     fragColorVarName = if webGl2 then "fragColor" else "gl_FragColor"
-    gl_FragColor = fragColorVarName <> " = " <> a.string <> ";\n"
-
-{-
-indexedGLSLExprToString :: Int -> GLSLExpr -> String
-indexedGLSLExprToString n x = glslTypeToString x.glslType <> " _" <> show n <> " = " <> x.string <> ";\n"
--}
+    gl_FragColor = fragColorVarName <> " = " <> toExpr v4 <> ";\n"

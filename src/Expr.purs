@@ -32,6 +32,8 @@ mapString :: forall a. Expr a => (String -> String) -> a -> a
 mapString f x = unaryFunction identity f x
 
 
+
+
 data Float =
   FloatConstant Number |
   FloatExpr String
@@ -122,7 +124,6 @@ instance Expr Vec4 where
 
 instance Channels Vec4 where channels _ = 1
 
-
 floatsToExprs :: forall a. Expr a => Multi Float -> Multi a
 floatsToExprs = mapRows (unfoldr1 unconsFloats)
 
@@ -180,26 +181,63 @@ floatFloatFloatFloatToVec4 :: Float -> Float -> Float -> Float -> Vec4
 floatFloatFloatFloatToVec4 (FloatConstant w) (FloatConstant x) (FloatConstant y) (FloatConstant z) = Vec4Constant w x y z
 floatFloatFloatFloatToVec4 w x y z = Vec4Expr $ "vec4(" <> toExpr w <> "," <> toExpr x <> "," <> toExpr y <> "," <> toExpr z <> ")"
 
+
+class SwizzleX a where
+  swizzleX :: a -> Float
+
+instance SwizzleX Float where
+  swizzleX = identity
+
+instance SwizzleX Vec2 where
+  swizzleX (Vec2Constant x _) = FloatConstant x
+  swizzleX (Vec2Expr x) = FloatExpr $ x <> ".x"
+
+instance SwizzleX Vec3 where
+  swizzleX (Vec3Constant x _ _) = FloatConstant x
+  swizzleX (Vec3Expr x) = FloatExpr $ x <> ".x"
+
+instance SwizzleX Vec4 where
+  swizzleX (Vec4Constant x _ _ _) = FloatConstant x
+  swizzleX (Vec4Expr x) = FloatExpr $ x <> ".x"
+
+class SwizzleY a where
+  swizzleY :: a -> Float
+
+instance SwizzleY Vec2 where
+  swizzleY (Vec2Constant _ y) = FloatConstant y
+  swizzleY (Vec2Expr e) = FloatExpr $ e <> ".y"
+
+instance SwizzleY Vec3 where
+  swizzleY (Vec3Constant _ y _) = FloatConstant y
+  swizzleY (Vec3Expr e) = FloatExpr $ e <> ".y"
+
+instance SwizzleY Vec4 where
+  swizzleY (Vec4Constant _ y _ _) = FloatConstant y
+  swizzleY (Vec4Expr e) = FloatExpr $ e <> ".y"
+
 {-
-_swizzle :: String -> GLSLType -> Expr -> Expr
-_swizzle _ _ (constant x) = constant x -- swizzling a constant is a no-op (not sure about this, but for now...)
-_swizzle m t (Reference _ x) = Reference t $ x <> "." <> m
-
-swizzleX :: forall a. Expr a => a -> Float
-swizzleX = _swizzle "x" Float
-
-swizzleY :: Expr -> Expr
-swizzleY = _swizzle "y" Float
-
 swizzleZ :: Expr -> Expr
 swizzleZ = _swizzle "z" Float
 
 swizzleW :: Expr -> Expr
 swizzleW = _swizzle "w" Float
+-}
 
-swizzleXY :: Expr -> Expr
-swizzleXY = _swizzle "xy" Vec2
+class SwizzleXY a where
+  swizzleXY :: a -> Vec2
 
+instance SwizzleXY Vec2 where
+  swizzleXY = identity
+
+instance SwizzleXY Vec3 where
+  swizzleXY (Vec3Constant x y _) = Vec2Constant x y
+  swizzleXY (Vec3Expr e) = Vec2Expr $ e <> ".xy"
+
+instance SwizzleXY Vec4 where
+  swizzleXY (Vec4Constant x y _ _) = Vec2Constant x y
+  swizzleXY (Vec4Expr e) = Vec2Expr $ e <> ".xy"
+
+{-
 swizzleYZ :: Expr -> Expr
 swizzleYZ = _swizzle "yz" Vec2
 
