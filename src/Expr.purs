@@ -5,10 +5,14 @@ import Prelude as Prelude
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.Number as Number
+import Data.List.NonEmpty (NonEmptyList,head,tail,fromList)
+import Data.Tuple (Tuple(..))
+import Data.Maybe (Maybe(..))
+import Data.Unfoldable1 (unfoldr1)
 
 import Channels
 import Number as Number
-
+import Multi (mapRows,Multi)
 
 class Expr a where
   constant :: Number -> a
@@ -18,6 +22,8 @@ class Expr a where
   unaryFunction :: (Number -> Number) -> (String -> String) -> a -> a
   binaryFunction :: (Number -> Number -> Number) -> (String -> String -> String) -> a -> a -> a
   showType :: a -> String
+  unconsFloats :: NonEmptyList Float -> Tuple a (Maybe (NonEmptyList Float))
+  fromFloat :: Float -> a
 
 mapConstant :: forall a. Expr a => (Number -> Number) -> a -> a
 mapConstant f x = unaryFunction f identity x
@@ -42,6 +48,8 @@ instance Expr Float where
   binaryFunction f _ (FloatConstant x) (FloatConstant y) = FloatConstant (f x y)
   binaryFunction _ f x y = FloatExpr (f (toExpr x) (toExpr y))
   showType _ = "float"
+  unconsFloats = unconsFloatsFloat
+  fromFloat x = x
   
 instance Channels Float where channels _ = 1
 
@@ -62,10 +70,13 @@ instance Expr Vec2 where
   binaryFunction f _ (Vec2Constant x1 x2) (Vec2Constant y1 y2) = Vec2Constant (f x1 y1) (f x2 y2)
   binaryFunction _ f x y = Vec2Expr (f (toExpr x) (toExpr y))
   showType _ = "vec2"
-  
+  unconsFloats = unconsFloatsVec2
+  fromFloat (FloatConstant x) = Vec2Constant x x
+  fromFloat (FloatExpr x) = Vec2Expr $ "vec2(" <> x <> ")"
+
 instance Channels Vec2 where channels _ = 2
 
-  
+
 data Vec3 =
   Vec3Constant Number Number Number |
   Vec3Expr String
@@ -82,6 +93,9 @@ instance Expr Vec3 where
   binaryFunction f _ (Vec3Constant x1 x2 x3) (Vec3Constant y1 y2 y3) = Vec3Constant (f x1 y1) (f x2 y2) (f x3 y3)
   binaryFunction _ f x y = Vec3Expr (f (toExpr x) (toExpr y))
   showType _ = "vec3"
+  unconsFloats = unconsFloatsVec3
+  fromFloat (FloatConstant x) = Vec3Constant x x x
+  fromFloat (FloatExpr x) = Vec3Expr $ "vec3(" <> x <> ")"
 
 instance Channels Vec3 where channels _ = 3
 
@@ -102,8 +116,69 @@ instance Expr Vec4 where
   binaryFunction f _ (Vec4Constant x1 x2 x3 x4) (Vec4Constant y1 y2 y3 y4) = Vec4Constant (f x1 y1) (f x2 y2) (f x3 y3) (f x4 y4)
   binaryFunction _ f x y = Vec4Expr (f (toExpr x) (toExpr y))
   showType _ = "vec4"
+  unconsFloats = unconsFloatsVec4
+  fromFloat (FloatConstant x) = Vec4Constant x x x x
+  fromFloat (FloatExpr x) = Vec4Expr $ "vec4(" <> x <> ")"
 
 instance Channels Vec4 where channels _ = 1
+
+
+floatsToExprs :: forall a. Expr a => Multi Float -> Multi a
+floatsToExprs = mapRows (unfoldr1 unconsFloats)
+
+unconsFloatsFloat :: NonEmptyList Float -> Tuple Float (Maybe (NonEmptyList Float))
+unconsFloatsFloat xs = Tuple (head xs) (fromList $ tail xs)
+
+unconsFloatsVec2 :: NonEmptyList Float -> Tuple Vec2 (Maybe (NonEmptyList Float))
+unconsFloatsVec2 xs = 
+  case fromList (tail xs) of
+    Nothing -> Tuple (fromFloat $ head xs) Nothing
+    Just xs' -> Tuple (floatFloatToVec2 (head xs) (head xs')) (fromList $ tail xs')
+    
+floatFloatToVec2 :: Float -> Float -> Vec2
+floatFloatToVec2 (FloatConstant x) (FloatConstant y) = Vec2Constant x y
+floatFloatToVec2 x y = Vec2Expr $ "vec2(" <> toExpr x <> "," <> toExpr y <> ")"
+    
+unconsFloatsVec3 :: NonEmptyList Float -> Tuple Vec3 (Maybe (NonEmptyList Float))
+unconsFloatsVec3 xs =
+  case fromList (tail xs) of
+    Nothing -> Tuple (fromFloat $ head xs) Nothing
+    Just xs' -> 
+      case fromList (tail xs') of
+        Nothing -> Tuple (floatFloatToVec3 (head xs) (head xs')) Nothing
+        Just xs'' -> Tuple (floatFloatFloatToVec3 (head xs) (head xs') (head xs'')) (fromList $ tail xs'')
+        
+floatFloatToVec3 :: Float -> Float -> Vec3
+floatFloatToVec3 (FloatConstant x) (FloatConstant y) = Vec3Constant x y y
+floatFloatToVec3 x y = Vec3Expr $ "vec3(" <> toExpr x <> ",vec2(" <> toExpr y <> "))"
+
+floatFloatFloatToVec3 :: Float -> Float -> Float -> Vec3
+floatFloatFloatToVec3 (FloatConstant x) (FloatConstant y) (FloatConstant z) = Vec3Constant x y z
+floatFloatFloatToVec3 x y z = Vec3Expr $ "vec3(" <> toExpr x <> "," <> toExpr y <> "," <> toExpr z <> ")"
+
+unconsFloatsVec4 :: NonEmptyList Float -> Tuple Vec4 (Maybe (NonEmptyList Float))
+unconsFloatsVec4 xs =
+  case fromList (tail xs) of
+    Nothing -> Tuple (fromFloat $ head xs) Nothing
+    Just xs' -> 
+      case fromList (tail xs') of
+        Nothing -> Tuple (floatFloatToVec4 (head xs) (head xs')) Nothing
+        Just xs'' ->
+          case fromList (tail xs'') of
+            Nothing -> Tuple (floatFloatFloatToVec4 (head xs) (head xs') (head xs'')) Nothing
+            Just xs''' -> Tuple (floatFloatFloatFloatToVec4 (head xs) (head xs') (head xs'') (head xs''')) (fromList $ tail xs''')
+
+floatFloatToVec4 :: Float -> Float -> Vec4
+floatFloatToVec4 (FloatConstant x) (FloatConstant y) = Vec4Constant x y y y
+floatFloatToVec4 x y = Vec4Expr $ "vec4(" <> toExpr x <> ",vec3(" <> toExpr y <> "))"
+
+floatFloatFloatToVec4 :: Float -> Float -> Float -> Vec4
+floatFloatFloatToVec4 (FloatConstant x) (FloatConstant y) (FloatConstant z) = Vec4Constant x y z z
+floatFloatFloatToVec4 x y z = Vec4Expr $ "vec4(" <> toExpr x <> "," <> toExpr y <> ",vec2(" <> toExpr z <> "))"
+
+floatFloatFloatFloatToVec4 :: Float -> Float -> Float -> Float -> Vec4
+floatFloatFloatFloatToVec4 (FloatConstant w) (FloatConstant x) (FloatConstant y) (FloatConstant z) = Vec4Constant w x y z
+floatFloatFloatFloatToVec4 w x y z = Vec4Expr $ "vec4(" <> toExpr w <> "," <> toExpr x <> "," <> toExpr y <> "," <> toExpr z <> ")"
 
 {-
 _swizzle :: String -> GLSLType -> Expr -> Expr

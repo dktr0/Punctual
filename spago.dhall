@@ -22,6 +22,7 @@ to generate this file without the comments in this block.
   , "identity"
   , "integers"
   , "lists"
+  , "matrices"
   , "maybe"
   , "newtype"
   , "now"

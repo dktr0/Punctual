@@ -24,54 +24,27 @@ import Output as Output
 import Program (Program)
 import Expr
 import G
-import Multi (Multi)
+import Multi (Multi,fromNonEmptyListMulti)
 
 
-signalToFloats :: Signal -> G (Multi Float)
-signalToFloats = signalToExpr
+signalToExprs :: forall a. Expr a => Signal -> G (Multi a)
 
-signalToVec2s :: Signal -> G (Multi Vec2)
-signalToVec2s = signalToExpr
+signalToExprs (Constant x) = pure $ pure $ constant x
 
-signalToVec3s :: Signal -> G (Multi Vec3)
-signalToVec3s = signalToExpr
-
-signalToVec4s :: Signal -> G (Multi Vec4)
-signalToVec4s = signalToExpr
-
-signalToExpr :: forall a. Expr a => Signal -> G (Multi a)
-
-signalToExpr (Constant x) = pure $ pure $ constant x
-
-{-
-signalToGLSL ah (SignalList xs) = 
+signalToExprs (SignalList xs) = 
   case fromList xs of
-    Nothing -> pure $ singleton $ zero
+    Nothing -> pure $ pure $ constant 0.0
     Just xs' -> do
-      case length xs' of
-        1 -> signalToGLSL ah (head xs')
-        _ -> do
-          xs'' <- traverse (\x -> signalToGLSL Vec4 x >>= align Float) xs'
-          alignNoExtend ah $ concat $ multi xs''
--}
-{-
-signalToGLSL ah (SignalList xs) = 
-  case fromList xs of
-    Nothing -> pure $ pure $ ConstantFloat 0.0 
-    Just xs' -> do
-      case length xs' of
-        1 -> signalToGLSL ah (head xs')
-        _ -> do
-          xs'' <- traverse (\x -> signalToGLSL Vec4 x >>= align Float) xs'
-          alignNoExtend ah $ concat $ multi xs''
--}
+      xs'' <- fromNonEmptyListMulti <$> traverse signalToExprs xs' -- :: Multi Float, with list already combinatorially expanded
+      pure $ floatsToExprs xs''
 
-{-
-signalToGLSL ah (Append x y) = do
-  xs <- signalToGLSL ah x
-  ys <- signalToGLSL ah y
+    
+signalToExprs (Append x y) = do
+  xs <- signalToExprs x
+  ys <- signalToExprs y
   pure $ xs <> ys
 
+{-
 signalToGLSL ah (Zip x y) = do
   xs <- signalToGLSL ah x >>= alignFloat
   ys <- signalToGLSL ah y >>= alignFloat
@@ -482,7 +455,7 @@ signalToGLSL _ (Seq steps) = do
  
 -} 
 
-signalToExpr _ = pure $ pure $ constant 0.0
+signalToExprs _ = pure $ pure $ constant 0.0
 
 {-
 simpleUnaryFunction :: (GLSLExpr -> GLSLExpr) -> Exprs -> GLSL Exprs
