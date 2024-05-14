@@ -24,7 +24,7 @@ import Output as Output
 import Program (Program)
 import Expr
 import G
-import Multi (Multi,fromNonEmptyListMulti)
+import Multi (Multi,fromNonEmptyListMulti,mapRows)
 
 
 signalToExprs :: forall a. Expr a => Signal -> G (Multi a)
@@ -36,7 +36,7 @@ signalToExprs (SignalList xs) =
     Nothing -> pure $ pure $ constant 0.0
     Just xs' -> do
       xs'' <- fromNonEmptyListMulti <$> traverse signalToExprs xs' -- :: Multi Float, with list already combinatorially expanded
-      pure $ floatsToExprs xs''
+      pure $ mapRows fromFloats xs''
 
 signalToExprs (Append x y) = do
   xs <- signalToExprs x
