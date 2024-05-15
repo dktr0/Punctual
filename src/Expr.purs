@@ -108,7 +108,7 @@ instance Expr Vec3 where
   fromFloats = concat <<< unfoldr1 unconsFloatsToVec3s
   fromVec2s = concat <<< unfoldr1 unconsVec2sToVec3s
   fromVec3s = identity
-  fromVec4s _ = singleton (constant 0.0) -- PLACEHOLDER/TODO
+  fromVec4s = concat <<< unfoldr1 unconsVec4sToVec3s
 
 instance Channels Vec3 where channels _ = 3
 
@@ -209,6 +209,24 @@ unconsVec2sToVec3s xs =
               b = floatVec2ToVec3 (swizzleY (head xs')) (head xs'')
           in Tuple (a `cons` singleton b) (fromList $ tail xs'')
 
+unconsVec4sToVec3s :: NonEmptyList Vec4 -> Tuple (NonEmptyList Vec3) (Maybe (NonEmptyList Vec4))
+unconsVec4sToVec3s xs =
+  case fromList (tail xs) of
+    -- one vec4 makes two vec3s
+    Nothing -> Tuple (swizzleXYZ (head xs) `cons` singleton (swizzleWWW $ head xs)) Nothing
+    Just xs' ->
+      case fromList (tail xs') of
+        Nothing -> -- two vec4s makes three vec3s
+          let a = swizzleXYZ (head xs)
+              b = floatVec2ToVec3 (swizzleW $ head xs) (swizzleXY $ head xs')
+              c = swizzleZWW $ head xs'
+          in Tuple (a `cons` (b `cons` singleton c)) Nothing
+        Just xs'' -> -- three vec4s makes four vec3s evenly
+          let a = swizzleXYZ (head xs) 
+              b = floatVec2ToVec3 (swizzleW $ head xs) (swizzleXY $ head xs') 
+              c = vec2FloatToVec3 (swizzleZW $ head xs') (swizzleX $ head xs'')
+              d = swizzleYZW $ head xs''
+          in Tuple (a `cons` (b `cons` (c `cons` singleton d))) (fromList $ tail xs'')
 
 unconsFloatsToVec3s :: NonEmptyList Float -> Tuple (NonEmptyList Vec3) (Maybe (NonEmptyList Float))
 unconsFloatsToVec3s xs =
@@ -294,6 +312,7 @@ class SwizzleZ a where
   swizzleZ :: a -> Float
   swizzleYZ :: a -> Vec2
   swizzleZZ :: a -> Vec2
+  swizzleXYZ :: a -> Vec3
 
 instance SwizzleZ Vec3 where
   swizzleZ (Vec3Constant _ _ z) = FloatConstant z
@@ -302,6 +321,7 @@ instance SwizzleZ Vec3 where
   swizzleYZ (Vec3Expr e) = Vec2Expr $ e <> ".yz"
   swizzleZZ (Vec3Constant _ _ z) = Vec2Constant z z
   swizzleZZ (Vec3Expr e) = Vec2Expr $ e <> ".zz"
+  swizzleXYZ = identity
 
 instance SwizzleZ Vec4 where
   swizzleZ (Vec4Constant _ _ z _) = FloatConstant z
@@ -310,40 +330,29 @@ instance SwizzleZ Vec4 where
   swizzleYZ (Vec4Expr e) = Vec2Expr $ e <> ".yz"
   swizzleZZ (Vec4Constant _ _ z _) = Vec2Constant z z
   swizzleZZ (Vec4Expr e) = Vec2Expr $ e <> ".zz"
+  swizzleXYZ (Vec4Constant x y z _) = Vec3Constant x y z
+  swizzleXYZ (Vec4Expr e) = Vec3Expr $ e <> ".xyz"
 
-class SwizzleW a where
-  swizzleW :: a -> Float
-  swizzleZW :: a -> Vec2
+-- any swizzle with a W only works on Vec4, so no typeclass
+swizzleW :: Vec4 -> Float
+swizzleW (Vec4Constant _ _ _ w) = FloatConstant w
+swizzleW (Vec4Expr e) = FloatExpr $ e <> ".w"
 
-instance SwizzleW Vec4 where
-  swizzleW (Vec4Constant _ _ _ w) = FloatConstant w
-  swizzleW (Vec4Expr e) = FloatExpr $ e <> ".w"
-  swizzleZW (Vec4Constant _ _ z w) = Vec2Constant z w
-  swizzleZW (Vec4Expr e) = Vec2Expr $ e <> ".zw"
+swizzleZW :: Vec4 -> Vec2
+swizzleZW (Vec4Constant _ _ z w) = Vec2Constant z w
+swizzleZW (Vec4Expr e) = Vec2Expr $ e <> ".zw"
 
-{-
-swizzleYZ :: Expr -> Expr
-swizzleYZ = _swizzle "yz" Vec2
+swizzleWWW :: Vec4 -> Vec3
+swizzleWWW (Vec4Constant _ _ _ w) = Vec3Constant w w w
+swizzleWWW (Vec4Expr e) = Vec3Expr $ e <> ".www"
 
-swizzleZW :: Expr -> Expr
-swizzleZW = _swizzle "zw" Vec2
+swizzleZWW :: Vec4 -> Vec3
+swizzleZWW (Vec4Constant _ _ z w) = Vec3Constant z w w
+swizzleZWW (Vec4Expr e) = Vec3Expr $ e <> ".zww"
 
-swizzleXYZ :: Expr -> Expr
-swizzleXYZ = _swizzle "xyz" Vec3
-
-swizzleYZW :: Expr -> Expr
-swizzleYZW = _swizzle "yzw" Vec3
-
-swizzleXYY :: Expr -> Expr
-swizzleXYY = _swizzle "xyy" Vec3
-
-swizzleXYYY :: Expr -> Expr
-swizzleXYYY = _swizzle "xyyy" Vec4
-
-swizzleXYZZ :: Expr -> Expr
-swizzleXYZZ = _swizzle "xyzz" Vec4
--}
-
+swizzleYZW :: Vec4 -> Vec3
+swizzleYZW (Vec4Constant _ y z w) = Vec3Constant y z w
+swizzleYZW (Vec4Expr e) = Vec3Expr $ e <> ".yzw"
 
 -- convenience functions for constructing functions over the string components of expressions
 
