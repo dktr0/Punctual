@@ -65,14 +65,7 @@ signalToExprs Px = pure $ pure $ fromFloat $ FloatExpr "(2./res.x)"
 
 signalToExprs Py = pure $ pure $ fromFloat $ FloatExpr "(2./res.y)"
 
-{-
-signalToExprs Pxy = pure $ pure $ ... $ Vec2Expr "(2./res)"
--- has to be realigned somehow
-
-
-
-
--}
+signalToExprs Pxy = pure $ fromNonEmptyList $ fromVec2s $ singleton $ Vec2Expr "(2./res)"
 
 signalToExprs Aspect = pure $ pure $ fromFloat $ FloatExpr "(res.x/res.y)"
 
@@ -80,10 +73,7 @@ signalToExprs Fx = (pure <<< fromFloat <<< swizzleX <<< _.fxy) <$> get
 
 signalToExprs Fy = (pure <<< fromFloat <<< swizzleY <<< _.fxy) <$> get
 
-{-
-signalToGLSL _ Fxy = (singleton <<< _.fxy) <$> get
--- has to be realigned from Vec2 to whatever requested type is
--}
+signalToExprs Fxy = (fromNonEmptyList <<< fromVec2s <<< singleton <<< _.fxy) <$> get
 
 signalToExprs FRt = signalToExprs $ XyRt Fxy
 
