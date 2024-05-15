@@ -12,7 +12,6 @@ import Data.Unfoldable1 (unfoldr1)
 
 import Channels
 import Number as Number
-import Multi (mapRows,Multi)
 
 class Expr a where
   constant :: Number -> a
@@ -132,8 +131,8 @@ instance Expr Vec4 where
   fromFloat (FloatConstant x) = Vec4Constant x x x x
   fromFloat (FloatExpr x) = Vec4Expr $ "vec4(" <> x <> ")"
   fromFloats = concat <<< unfoldr1 unconsFloatsToVec4s
-  fromVec2s _ = singleton (constant 0.0) -- PLACEHOLDER/TODO
-  fromVec3s _ = singleton (constant 0.0) -- PLACEHOLDER/TODO
+  fromVec2s = concat <<< unfoldr1 unconsVec2sToVec4s
+  fromVec3s = concat <<< unfoldr1 unconsVec3sToVec4s
   fromVec4s = identity
 
 instance Channels Vec4 where channels _ = 1
@@ -148,7 +147,6 @@ floatFloatToVec2 x y = Vec2Expr $ "vec2(" <> toExpr x <> "," <> toExpr y <> ")"
 floatFloatToVec3 :: Float -> Float -> Vec3
 floatFloatToVec3 (FloatConstant x) (FloatConstant y) = Vec3Constant x y y
 floatFloatToVec3 x y = Vec3Expr $ "vec3(" <> toExpr x <> ",vec2(" <> toExpr y <> "))"
-
 
 vec2FloatToVec3 :: Vec2 -> Float -> Vec3
 vec2FloatToVec3 (Vec2Constant x y) (FloatConstant z) = Vec3Constant x y z
@@ -173,6 +171,18 @@ floatFloatFloatToVec4 x y z = Vec4Expr $ "vec4(" <> toExpr x <> "," <> toExpr y 
 floatFloatFloatFloatToVec4 :: Float -> Float -> Float -> Float -> Vec4
 floatFloatFloatFloatToVec4 (FloatConstant w) (FloatConstant x) (FloatConstant y) (FloatConstant z) = Vec4Constant w x y z
 floatFloatFloatFloatToVec4 w x y z = Vec4Expr $ "vec4(" <> toExpr w <> "," <> toExpr x <> "," <> toExpr y <> "," <> toExpr z <> ")"
+
+vec2Vec2ToVec4 :: Vec2 -> Vec2 -> Vec4
+vec2Vec2ToVec4 (Vec2Constant x y) (Vec2Constant z w) = Vec4Constant x y z w
+vec2Vec2ToVec4 x y = Vec4Expr $ "vec4(" <> toExpr x <> "," <> toExpr y <> ")"
+
+vec3FloatToVec4 :: Vec3 -> Float -> Vec4
+vec3FloatToVec4 (Vec3Constant x y z) (FloatConstant w) = Vec4Constant x y z w
+vec3FloatToVec4 x y = Vec4Expr $ "vec4(" <> toExpr x <> "," <> toExpr y <> ")"
+
+floatVec3ToVec4 :: Float -> Vec3 -> Vec4
+floatVec3ToVec4 (FloatConstant x) (Vec3Constant y z w) = Vec4Constant x y z w
+floatVec3ToVec4 x y = Vec4Expr $ "vec4(" <> toExpr x <> "," <> toExpr y <> ")"
 
 
 -- Construction of Expr types by uncons-ing lists of other Expr types
@@ -249,7 +259,38 @@ unconsFloatsToVec4s xs =
             Nothing -> Tuple (singleton $ floatFloatFloatToVec4 (head xs) (head xs') (head xs'')) Nothing
             Just xs''' -> Tuple (singleton $ floatFloatFloatFloatToVec4 (head xs) (head xs') (head xs'') (head xs''')) (fromList $ tail xs''')
 
+unconsVec2sToVec4s :: NonEmptyList Vec2 -> Tuple (NonEmptyList Vec4) (Maybe (NonEmptyList Vec2))
+unconsVec2sToVec4s xs = 
+  case fromList (tail xs) of
+    Nothing -> Tuple (singleton $ swizzleXYYY $ head xs) Nothing
+    Just xs' -> 
+      let x = vec2Vec2ToVec4 (head xs) (head xs')
+      in Tuple (singleton x) (fromList $ tail xs')
 
+unconsVec3sToVec4s :: NonEmptyList Vec3 -> Tuple (NonEmptyList Vec4) (Maybe (NonEmptyList Vec3))
+unconsVec3sToVec4s xs =
+  case fromList (tail xs) of
+    Nothing -> Tuple (singleton $ swizzleXYZZ $ head xs) Nothing
+    Just xs' ->
+      case fromList (tail xs') of
+        Nothing ->
+          let a = vec3FloatToVec4 (head xs) (swizzleX $ head xs') 
+              b = swizzleYZZZ (head xs')
+          in Tuple (a `cons` singleton b) Nothing
+        Just xs'' ->
+          case fromList (tail xs'') of
+            Nothing ->
+              let a = vec3FloatToVec4 (head xs) (swizzleX $ head xs')
+                  b = vec2Vec2ToVec4 (swizzleYZ $ head xs') (swizzleXY $ head xs'')
+                  c = swizzleZZZZ (head xs'')
+              in Tuple (a `cons` (b `cons` singleton c)) Nothing
+            Just xs''' ->
+              let a = vec3FloatToVec4 (head xs) (swizzleX $ head xs')
+                  b = vec2Vec2ToVec4 (swizzleYZ $ head xs') (swizzleXY $ head xs'')
+                  c = floatVec3ToVec4 (swizzleZ $ head xs'') (head xs''')
+              in Tuple (a `cons` (b `cons` singleton c)) (fromList $ tail xs''')
+
+        
 -- Swizzling
 
 _swizzleExpr :: forall a. Expr a => forall b. Expr b => String -> a -> b 
@@ -278,6 +319,7 @@ class SwizzleY a where
   swizzleXY :: a -> Vec2
   swizzleXYY :: a -> Vec3
   swizzleYYY :: a -> Vec3
+  swizzleXYYY :: a -> Vec4
 
 instance SwizzleY Vec2 where
   swizzleY (Vec2Constant _ y) = FloatConstant y
@@ -287,6 +329,8 @@ instance SwizzleY Vec2 where
   swizzleXYY e = _swizzleExpr "xyy" e
   swizzleYYY (Vec2Constant _ y) = Vec3Constant y y y
   swizzleYYY e = _swizzleExpr "yyy" e
+  swizzleXYYY (Vec2Constant x y) = Vec4Constant x y y y
+  swizzleXYYY e = _swizzleExpr "xyyy" e
 
 instance SwizzleY Vec3 where
   swizzleY (Vec3Constant _ y _) = FloatConstant y
@@ -297,6 +341,8 @@ instance SwizzleY Vec3 where
   swizzleXYY e = _swizzleExpr "xyy" e
   swizzleYYY (Vec3Constant _ y _) = Vec3Constant y y y
   swizzleYYY e = _swizzleExpr "yyy" e
+  swizzleXYYY (Vec3Constant x y _) = Vec4Constant x y y y
+  swizzleXYYY e = _swizzleExpr "xyyy" e
 
 instance SwizzleY Vec4 where
   swizzleY (Vec4Constant _ y _ _) = FloatConstant y
@@ -307,31 +353,48 @@ instance SwizzleY Vec4 where
   swizzleXYY e = _swizzleExpr "xyy" e
   swizzleYYY (Vec4Constant _ y _ _) = Vec3Constant y y y
   swizzleYYY e = _swizzleExpr "yyy" e
+  swizzleXYYY (Vec4Constant x y _ _) = Vec4Constant x y y y
+  swizzleXYYY e = _swizzleExpr "xyyy" e
 
 class SwizzleZ a where
   swizzleZ :: a -> Float
   swizzleYZ :: a -> Vec2
   swizzleZZ :: a -> Vec2
   swizzleXYZ :: a -> Vec3
+  swizzleXYZZ :: a -> Vec4
+  swizzleYZZZ :: a -> Vec4
+  swizzleZZZZ :: a -> Vec4
 
 instance SwizzleZ Vec3 where
   swizzleZ (Vec3Constant _ _ z) = FloatConstant z
-  swizzleZ (Vec3Expr e) = FloatExpr $ e <> ".z"
+  swizzleZ e = _swizzleExpr "z" e
   swizzleYZ (Vec3Constant _ y z) = Vec2Constant y z
-  swizzleYZ (Vec3Expr e) = Vec2Expr $ e <> ".yz"
+  swizzleYZ e = _swizzleExpr "z" e
   swizzleZZ (Vec3Constant _ _ z) = Vec2Constant z z
-  swizzleZZ (Vec3Expr e) = Vec2Expr $ e <> ".zz"
+  swizzleZZ e = _swizzleExpr "zz" e
   swizzleXYZ = identity
+  swizzleXYZZ (Vec3Constant x y z) = Vec4Constant x y z z
+  swizzleXYZZ e = _swizzleExpr "xyzz" e
+  swizzleYZZZ (Vec3Constant _ y z) = Vec4Constant y z z z
+  swizzleYZZZ e = _swizzleExpr "yzzz" e
+  swizzleZZZZ (Vec3Constant _ _ z) = Vec4Constant z z z z
+  swizzleZZZZ e = _swizzleExpr "zzzz" e
 
 instance SwizzleZ Vec4 where
   swizzleZ (Vec4Constant _ _ z _) = FloatConstant z
-  swizzleZ (Vec4Expr e) = FloatExpr $ e <> ".z"
+  swizzleZ e = _swizzleExpr "z" e
   swizzleYZ (Vec4Constant _ y z _) = Vec2Constant y z
-  swizzleYZ (Vec4Expr e) = Vec2Expr $ e <> ".yz"
+  swizzleYZ e = _swizzleExpr "yz" e
   swizzleZZ (Vec4Constant _ _ z _) = Vec2Constant z z
-  swizzleZZ (Vec4Expr e) = Vec2Expr $ e <> ".zz"
+  swizzleZZ e = _swizzleExpr "zz" e
   swizzleXYZ (Vec4Constant x y z _) = Vec3Constant x y z
-  swizzleXYZ (Vec4Expr e) = Vec3Expr $ e <> ".xyz"
+  swizzleXYZ e = _swizzleExpr "xyz" e
+  swizzleXYZZ (Vec4Constant x y z _) = Vec4Constant x y z z
+  swizzleXYZZ e = _swizzleExpr "xyzz" e
+  swizzleYZZZ (Vec4Constant _ y z _) = Vec4Constant y z z z
+  swizzleYZZZ e = _swizzleExpr "yzzz" e
+  swizzleZZZZ (Vec4Constant _ _ z _) = Vec4Constant z z z z
+  swizzleZZZZ e = _swizzleExpr "zzzz" e
 
 -- any swizzle with a W only works on Vec4, so no typeclass
 swizzleW :: Vec4 -> Float
