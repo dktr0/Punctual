@@ -24,7 +24,7 @@ import Output as Output
 import Program (Program)
 import Expr
 import G
-import Multi (Multi,fromNonEmptyListMulti,mapRows)
+import Multi (Multi,fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList)
 
 
 signalToExprs :: forall a. Expr a => Signal -> G (Multi a)
@@ -43,13 +43,13 @@ signalToExprs (Append x y) = do
   ys <- signalToExprs y
   pure $ xs <> ys
 
-{-
-signalToGLSL ah (Zip x y) = do
-  xs <- signalToGLSL ah x >>= alignFloat
-  ys <- signalToGLSL ah y >>= alignFloat
-  let (Tuple xs' ys') = extendToEqualLength xs ys
-  pure $ concat $ zipWith (\anX anY -> anX `cons` singleton anY ) xs' ys'
+signalToExprs (Zip x y) = do
+  xs <- flatten <$> (signalToExprs x :: G (Multi Float))
+  ys <- flatten <$> (signalToExprs x :: G (Multi Float))
+  let v2s = fromNonEmptyList $ zipWithEqualLength floatFloatToVec2 xs ys
+  pure $ mapRows fromVec2s v2s
 
+{-
 signalToGLSL _ (Mono x) = do
   xs <- signalToGLSL Vec4 x
   let xs' = dotSum <$> xs
@@ -68,6 +68,10 @@ signalToExprs Py = pure $ pure $ fromFloat $ FloatExpr "(2./res.y)"
 {-
 signalToExprs Pxy = pure $ pure $ ... $ Vec2Expr "(2./res)"
 -- has to be realigned somehow
+
+
+
+
 -}
 
 signalToExprs Aspect = pure $ pure $ fromFloat $ FloatExpr "(res.x/res.y)"
