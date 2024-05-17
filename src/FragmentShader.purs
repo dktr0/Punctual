@@ -49,13 +49,13 @@ signalToExprs (Zip x y) = do
   let v2s = fromNonEmptyList $ zipWithEqualLength floatFloatToVec2 xs ys
   pure $ mapRows fromVec2s v2s
 
-{-
-signalToGLSL _ (Mono x) = do
-  xs <- signalToGLSL Vec4 x
-  let xs' = dotSum <$> xs
-  let s = "(" <> intercalate " + " (_.string <$> xs') <> ")"
-  pure $ singleton $ { string: s, glslType: Float, isSimple: false, deps: fold (_.deps <$> xs) }
+signalToExprs (Mono x) = do
+  xs <- (signalToExprs x :: G (Multi Vec3)) -- MAYBE LATER: determine an optimal type for realization of x based on its number of channels or the nature of the underlying signal (eg. whether it naturally produces vec2s 3s or 4s)
+  let f = sum (dotSum <$> flatten xs)
+  pure $ pure $ fromFloat f
+  
 
+{-
 signalToGLSL ah (Rep n x) = (concat <<< replicate1 n) <$> signalToGLSL ah x
 -}
 
