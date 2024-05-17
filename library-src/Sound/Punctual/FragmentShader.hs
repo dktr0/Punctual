@@ -83,7 +83,8 @@ graphToGLSL _ env (Mono x) = do
     [] -> return [constantFloat 0]
     _ -> do
       xs <- align GLFloat x'
-      return [ Foldable.foldr1 (+) xs ]
+      x <- assign $ Foldable.foldr1 (+) xs 
+      return [ x ]
 
 graphToGLSL ah env (Rep n x) = do
   x' <- mapM (graphToGLSL Nothing env) $ replicate n x
@@ -439,7 +440,8 @@ unaryPositionTransform f t ah (m,fxys) a b = do
   zss <- forM fxys $ \fxy -> do
     a' <- graphToGLSL (Just t) (m,[fxy]) a >>= align t
     fxy' <- mapM assign $ fmap (f fxy) a'
-    graphToGLSL ah (m,fxy') b
+    zss' <- forM fxy' $ \fxy'' -> graphToGLSL ah (m,[fxy'']) b
+    alignHint ah $ concat zss'
   alignHint ah $ concat zss
 
 binaryMatchedGraphs :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> AlignHint -> GraphEnv -> Graph -> Graph -> GLSL [GLSLExpr]

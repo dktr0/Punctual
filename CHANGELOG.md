@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.4.9.3:
+
+-another bugfix affecting geometry transformations (spin, zoom, move, etc...)
+
 0.4.9.2:
 
 -bugfix affecting combinatorial geometry transformations (i.e. spin [x,y,z] $ tile [x,y] w)
