@@ -24,7 +24,7 @@ import Output as Output
 import Program (Program)
 import Expr
 import G
-import Multi (Multi,fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList)
+import Multi (Multi,fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep)
 
 
 signalToExprs :: forall a. Expr a => Signal -> G (Multi a)
@@ -54,10 +54,7 @@ signalToExprs (Mono x) = do
   let f = sum (dotSum <$> flatten xs)
   pure $ pure $ fromFloat f
   
-
-{-
-signalToGLSL ah (Rep n x) = (concat <<< replicate1 n) <$> signalToGLSL ah x
--}
+signalToExprs (Rep n x) = rep n <$> signalToExprs x
 
 signalToExprs Pi = pure $ pure $ fromFloat $ FloatExpr "PI"
 
