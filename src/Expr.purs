@@ -27,6 +27,10 @@ class Expr a where
   fromVec2s :: NonEmptyList Vec2 -> NonEmptyList a
   fromVec3s :: NonEmptyList Vec3 -> NonEmptyList a
   fromVec4s :: NonEmptyList Vec4 -> NonEmptyList a
+  toFloats :: NonEmptyList a -> NonEmptyList Float
+  toVec2s :: NonEmptyList a -> NonEmptyList Vec2
+  toVec3s :: NonEmptyList a -> NonEmptyList Vec3
+  toVec4s :: NonEmptyList a -> NonEmptyList Vec4  
   dotSum :: a -> Float
 
 zero :: forall a. Expr a => a
@@ -57,11 +61,15 @@ instance Expr Float where
   showType _ = "float"
   fromFloat = identity
   fromFloats = identity
-  fromVec2s = concat <<< map (\a -> swizzleX a `cons` singleton (swizzleY a))
-  fromVec3s = concat <<< map (\a -> swizzleX a `cons` (swizzleY a `cons` singleton (swizzleZ a)))
-  fromVec4s = concat <<< map (\a -> swizzleX a `cons` (swizzleY a `cons` (swizzleZ a `cons` singleton (swizzleZ a))))
+  fromVec2s = vec2sToFloats
+  fromVec3s = vec3sToFloats
+  fromVec4s = vec4sToFloats
+  toFloats = identity
+  toVec2s = floatsToVec2s
+  toVec3s = floatsToVec3s
+  toVec4s = floatsToVec4s
   dotSum = identity
-
+  
 instance Channels Float where channels _ = 1
 
   
@@ -83,10 +91,14 @@ instance Expr Vec2 where
   showType _ = "vec2"
   fromFloat (FloatConstant x) = Vec2Constant x x
   fromFloat (FloatExpr x) = Vec2Expr $ "vec2(" <> x <> ")"
-  fromFloats = concat <<< unfoldr1 unconsFloatsToVec2s
+  fromFloats = floatsToVec2s -- concat <<< unfoldr1 unconsFloatsToVec2s
   fromVec2s = identity
-  fromVec3s = concat <<< unfoldr1 unconsVec3sToVec2s
-  fromVec4s = concat <<< map (\a -> swizzleXY a `cons` singleton (swizzleZW a))
+  fromVec3s = vec3sToVec2s
+  fromVec4s = vec4sToVec2s
+  toFloats = vec2sToFloats
+  toVec2s = identity
+  toVec3s = vec2sToVec3s
+  toVec4s = vec2sToVec4s
   dotSum (Vec2Constant x y) = FloatConstant (x+y)
   dotSum x = FloatExpr $ "dot(" <> toExpr x <> ",vec2(1.))"
   
@@ -111,10 +123,14 @@ instance Expr Vec3 where
   showType _ = "vec3"
   fromFloat (FloatConstant x) = Vec3Constant x x x
   fromFloat (FloatExpr x) = Vec3Expr $ "vec3(" <> x <> ")"
-  fromFloats = concat <<< unfoldr1 unconsFloatsToVec3s
-  fromVec2s = concat <<< unfoldr1 unconsVec2sToVec3s
+  fromFloats = floatsToVec3s
+  fromVec2s = vec2sToVec3s
   fromVec3s = identity
-  fromVec4s = concat <<< unfoldr1 unconsVec4sToVec3s
+  fromVec4s = vec4sToVec3s
+  toFloats = vec3sToFloats
+  toVec2s = vec3sToVec2s
+  toVec3s = identity
+  toVec4s = vec3sToVec4s
   dotSum (Vec3Constant x y z) = FloatConstant (x+y+z)
   dotSum x = FloatExpr $ "dot(" <> toExpr x <> ",vec3(1.))"
 
@@ -139,14 +155,54 @@ instance Expr Vec4 where
   showType _ = "vec4"
   fromFloat (FloatConstant x) = Vec4Constant x x x x
   fromFloat (FloatExpr x) = Vec4Expr $ "vec4(" <> x <> ")"
-  fromFloats = concat <<< unfoldr1 unconsFloatsToVec4s
-  fromVec2s = concat <<< unfoldr1 unconsVec2sToVec4s
-  fromVec3s = concat <<< unfoldr1 unconsVec3sToVec4s
+  fromFloats = floatsToVec4s -- concat <<< unfoldr1 unconsFloatsToVec4s
+  fromVec2s = vec2sToVec4s -- concat <<< unfoldr1 unconsVec2sToVec4s
+  fromVec3s = vec3sToVec4s -- concat <<< unfoldr1 unconsVec3sToVec4s
   fromVec4s = identity
+  toFloats = vec4sToFloats
+  toVec2s = vec4sToVec2s
+  toVec3s = vec4sToVec3s
+  toVec4s = identity
   dotSum (Vec4Constant x y z w) = FloatConstant (x+y+z+w)
   dotSum x = FloatExpr $ "dot(" <> toExpr x <> ",vec4(1.))"
 
 instance Channels Vec4 where channels _ = 1
+
+floatsToVec2s :: NonEmptyList Float -> NonEmptyList Vec2
+floatsToVec2s = concat <<< unfoldr1 unconsFloatsToVec2s
+
+floatsToVec3s :: NonEmptyList Float -> NonEmptyList Vec3
+floatsToVec3s = concat <<< unfoldr1 unconsFloatsToVec3s
+
+floatsToVec4s :: NonEmptyList Float -> NonEmptyList Vec4
+floatsToVec4s = concat <<< unfoldr1 unconsFloatsToVec4s
+
+vec2sToFloats :: NonEmptyList Vec2 -> NonEmptyList Float
+vec2sToFloats = concat <<< map (\a -> swizzleX a `cons` singleton (swizzleY a))
+
+vec2sToVec3s :: NonEmptyList Vec2 -> NonEmptyList Vec3
+vec2sToVec3s = concat <<< unfoldr1 unconsVec2sToVec3s
+
+vec2sToVec4s :: NonEmptyList Vec2 -> NonEmptyList Vec4
+vec2sToVec4s = concat <<< unfoldr1 unconsVec2sToVec4s
+
+vec3sToFloats :: NonEmptyList Vec3 -> NonEmptyList Float
+vec3sToFloats = concat <<< map (\a -> swizzleX a `cons` (swizzleY a `cons` singleton (swizzleZ a)))
+
+vec3sToVec2s :: NonEmptyList Vec3 -> NonEmptyList Vec2
+vec3sToVec2s = concat <<< unfoldr1 unconsVec3sToVec2s
+
+vec3sToVec4s :: NonEmptyList Vec3 -> NonEmptyList Vec4
+vec3sToVec4s = concat <<< unfoldr1 unconsVec3sToVec4s
+
+vec4sToFloats :: NonEmptyList Vec4 -> NonEmptyList Float
+vec4sToFloats = concat <<< map (\a -> swizzleX a `cons` (swizzleY a `cons` (swizzleZ a `cons` singleton (swizzleZ a))))
+
+vec4sToVec2s :: NonEmptyList Vec4 -> NonEmptyList Vec2
+vec4sToVec2s = concat <<< map (\a -> swizzleXY a `cons` singleton (swizzleZW a))
+
+vec4sToVec3s :: NonEmptyList Vec4 -> NonEmptyList Vec3
+vec4sToVec3s = concat <<< unfoldr1 unconsVec4sToVec3s
 
 
 -- Construction of Expr types by composition of smaller types
@@ -787,4 +843,6 @@ distance x y
 sum :: forall f. Foldable1 f => forall a. Expr a => f a -> a
 sum = foldl1 add 
 
+textureFFT :: String -> Float -> Float
+textureFFT texName x = FloatExpr $ "texture2D(" <> texName <> ",vec2(" <> toExpr x <> ",0.)).x"
 

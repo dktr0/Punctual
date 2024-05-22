@@ -100,11 +100,11 @@ signalToExprs ETime = (pure <<< fromFloat <<< _.etime) <$> get
 
 signalToExprs EBeat = (pure <<< fromFloat <<< _.ebeat) <$> get
 
+signalToExprs (FFT x) = signalToExprs x >>= splitFloatsApplyReassemble (pure <<< textureFFT "o" <<< unipolar) >>= traverse assign
+
+signalToExprs (IFFT x) = signalToExprs x >>= splitFloatsApplyReassemble (pure <<< textureFFT "i" <<< unipolar) >>= traverse assign
+    
 {-
-signalToGLSL _ (FFT x) = signalToGLSL Float x >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "o")
-
-signalToGLSL _ (IFFT x) = signalToGLSL Float x >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignFloat >>= traverse (textureFFT "i")
-
 signalToGLSL _ (Fb xy) = signalToGLSL Vec2 xy >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignVec2 >>= traverse (texture2D "f")
 
 signalToGLSL _ Cam = do
@@ -454,6 +454,13 @@ signalToGLSL _ (Seq steps) = do
 -} 
 
 signalToExprs _ = pure $ pure $ constant 0.0
+
+-- for preserving alignment requests through intermediate calculations that are Float -> G Float
+splitFloatsApplyReassemble :: forall a. Expr a => (Float -> G Float) -> Multi a -> G (Multi a)
+splitFloatsApplyReassemble f xs = do
+  xs'' <- traverse f $ mapRows toFloats xs 
+  pure $ mapRows fromFloats xs''
+
 
 {-
 simpleUnaryFunction :: (GLSLExpr -> GLSLExpr) -> Exprs -> GLSL Exprs
