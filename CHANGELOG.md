@@ -3,8 +3,7 @@
 
 draft changes in 0.5 rewrite:
 
--fb ifft and fft no longer take a position an argument (fb uses the current fragment position as its position, fft and ifft use the x axis of the current fragment position)
-
+-all texture access functions(img vid cam ifft fft fb) don't take position arguments (if they did before), all instead stretch their results over the range of the unit square (in the case of fft and ifft, results are stretched over the x axis), and all are masked by the unit square (0 values outside of the coordinates lower than -1 or greater than 1)
 
 
 0.4.9.3:

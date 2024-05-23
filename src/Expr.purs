@@ -1,6 +1,6 @@
 module Expr where
 
-import Prelude (class Eq, class Ord, class Show,($),(<>),show,(+),(-),(*),(/),(<<<),flip,(==),(/=),(>),(>=),(<),(<=),map,identity)
+import Prelude (class Eq, class Ord, class Show,($),(<>),show,(+),(-),(*),(/),(<<<),flip,(==),(/=),(>),(>=),(<),(<=),map,identity,otherwise)
 import Prelude as Prelude
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
@@ -14,7 +14,7 @@ import Data.Semigroup.Foldable (class Foldable1,foldl1)
 import Channels
 import Number as Number
 
-class Expr a where
+class Channels a <= Expr a where
   constant :: Number -> a
   expr :: String -> a
   isConstant :: a -> Boolean
@@ -633,7 +633,18 @@ pow = powOrMod "pow" Number.pow
 mod :: Expr -> Expr -> Expr
 mod = powOrMod "mod" Prelude.mod
 
+-}
 
+comparisonOperator :: forall a. Expr a => (Number -> Number -> Boolean) -> String -> String -> a -> a -> a
+comparisonOperator f funcName op x y 
+  | channels x == 1 = binaryFunction (\a b -> booleanToNumber $ f a b) (\a b -> function1 (showType x) $ binOp op a b) x y
+  | otherwise = binaryFunction (\a b -> booleanToNumber $ f a b) (\a b -> function1 (showType x) $ function2 funcName a b) x y
+
+booleanToNumber :: Boolean -> Number
+booleanToNumber true = 1.0
+booleanToNumber false = 0.0
+
+{-
 comparisonOperator :: String -> String -> (Number -> Number -> Number) -> Expr -> Expr -> Expr
 -- both arguments floats
 comparisonOperator _ _ f (constant x) (constant y) = constant $ f x y
@@ -647,29 +658,28 @@ comparisonOperator _ f _ (Reference xType x) (constant y) = Reference xType $ sh
 comparisonOperator _ f _ (Reference xType x) (Reference Float y) = Reference xType $ show xType <> "(" <> f <> "(" <> x <> "," <> show xType <> "(" <> y <> ")))"
 -- no arguments are floats
 comparisonOperator _ f _ (Reference xType x) (Reference _ y) = Reference xType $ show xType <> "(" <> f <> "(" <> x <> "," <> y <> "))"
+-}
 
-booleanToNumber :: Boolean -> Number
-booleanToNumber true = 1.0
-booleanToNumber false = 0.0
+equal :: forall a. Expr a => a -> a -> a
+equal = comparisonOperator (==) "equal" "==" 
 
-equal :: Expr -> Expr -> Expr
-equal = comparisonOperator "==" "equal" (map (map booleanToNumber) (==))
+notEqual :: forall a. Expr a => a -> a -> a
+notEqual = comparisonOperator (/=) "notEqual" "!="
 
-notEqual :: Expr -> Expr -> Expr
-notEqual = comparisonOperator "!=" "notEqual" (map (map booleanToNumber) (/=))
+greaterThan :: forall a. Expr a => a -> a -> a
+greaterThan = comparisonOperator (>) "greaterThan" ">"
 
-greaterThan :: Expr -> Expr -> Expr
-greaterThan = comparisonOperator ">" "greaterThan" (map (map booleanToNumber) (>))
+greaterThanEqual :: forall a. Expr a => a -> a -> a
+greaterThanEqual = comparisonOperator (>=) "greaterThanEqual" ">=" 
 
-greaterThanEqual :: Expr -> Expr -> Expr
-greaterThanEqual = comparisonOperator ">=" "greaterThanEqual" (map (map booleanToNumber) (>=))
+lessThan :: forall a. Expr a => a -> a -> a
+lessThan = comparisonOperator (<) "lessThan" "<"
 
-lessThan :: Expr -> Expr -> Expr
-lessThan = comparisonOperator "<" "lessThan" (map (map booleanToNumber) (<))
+lessThanEqual ::forall a. Expr a => a -> a -> a
+lessThanEqual = comparisonOperator (<=) "lessThanEqual" "<="
 
-lessThanEqual ::Expr -> Expr -> Expr
-lessThanEqual = comparisonOperator "<=" "lessThanEqual" (map (map booleanToNumber) (<=))
 
+{-
 
 -- miscellaneous functions over Expr:
 
@@ -848,4 +858,7 @@ textureFFT texName xy = FloatExpr $ "texture2D(" <> texName <> ",vec2(" <> toExp
 
 texture2D :: String -> Vec2 -> Vec3
 texture2D texName xy = Vec3Expr $ "texture2D(" <> texName <> "," <> toExpr xy <> ").xyz"
+
+blend :: Vec4 -> Vec4 -> Vec4
+blend a b = Vec4Expr $ "mix(" <> toExpr a <> "," <> toExpr b <> "," <> toExpr (swizzleW b) <> ")"
 

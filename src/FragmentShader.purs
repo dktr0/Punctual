@@ -1,6 +1,6 @@
 module FragmentShader where
 
-import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max,(>>>))
+import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max,(>>>),(<*>))
 import Data.Functor (mapFlipped)
 import Data.Maybe (Maybe(..))
 import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length)
@@ -38,10 +38,7 @@ signalToExprs (SignalList xs) =
       xs'' <- fromNonEmptyListMulti <$> traverse signalToExprs xs' -- :: Multi Float, with list already combinatorially expanded
       pure $ mapRows fromFloats xs''
 
-signalToExprs (Append x y) = do
-  xs <- signalToExprs x
-  ys <- signalToExprs y
-  pure $ xs <> ys
+signalToExprs (Append x y) = (<>) <$> signalToExprs x <*> signalToExprs y
 
 signalToExprs (Zip x y) = do
   xs <- flatten <$> (signalToExprs x :: G (Multi Float))
@@ -100,61 +97,46 @@ signalToExprs ETime = (pure <<< fromFloat <<< _.etime) <$> get
 
 signalToExprs EBeat = (pure <<< fromFloat <<< _.ebeat) <$> get
 
-signalToExprs FFT = (_.fxy <$> get) >>= (unipolar >>> textureFFT "o" >>> fromFloat >>> assign) >>= (pure >>> pure)
+signalToExprs FFT = get >>= (_.fxy >>> unipolar >>> textureFFT "o" >>> fromFloat >>> pure >>> maskUnitSquare)
 
--- signalToExprs x >>= splitFloatsApplyReassemble (pure <<< textureFFT "o" <<< unipolar) >>= traverse assign
+signalToExprs IFFT = get >>= (_.fxy >>> unipolar >>> textureFFT "i" >>> fromFloat >>> pure >>> maskUnitSquare)
 
-signalToExprs IFFT = (_.fxy <$> get) >>= (unipolar >>> textureFFT "i" >>> fromFloat >>> assign) >>= (pure >>> pure)
+signalToExprs Fb = get >>= (_.fxy >>> unipolar >>> texture2D "f" >>> singleton >>> fromVec3s >>> fromNonEmptyList >>> maskUnitSquare)
 
--- signalToExprs x >>= splitFloatsApplyReassemble (pure <<< textureFFT "i" <<< unipolar) >>= traverse assign
-    
-signalToExprs Fb = (_.fxy <$> get) >>= (unipolar >>> texture2D "f" >>> singleton >>> fromVec3s >>> fromNonEmptyList >>> pure)
+signalToExprs Cam = get >>= (_.fxy >>> unipolar >>> texture2D "w" >>> singleton >>> fromVec3s >>> fromNonEmptyList >>> maskUnitSquare)
 
--- signalToGLSL Vec2 xy >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignVec2 >>= traverse (texture2D "f")
-
-{-
-signalToGLSL _ Cam = do
-  s <- get
-  t <- texture2D "w" (GLSLExpr.unipolar s.fxy)
-  r <- assignForced $ GLSLExpr.lessThanEqual (GLSLExpr.abs s.fxy) (GLSLExpr.float 1.0)  
-  pure $ singleton $ GLSLExpr.product t (GLSLExpr.product (unsafeSwizzleX r) (unsafeSwizzleY r))
-
-signalToGLSL _ (Img url) = do
+signalToExprs (Img url) = do
   s <- get
   case lookup url s.imgMap of
     Just n -> do
-      t <- texture2D ("t" <> show n) (GLSLExpr.unipolar s.fxy)
-      r <- assignForced $ GLSLExpr.lessThanEqual (GLSLExpr.abs s.fxy) (GLSLExpr.float 1.0)
-      pure $ singleton $ GLSLExpr.product t (GLSLExpr.product (unsafeSwizzleX r) (unsafeSwizzleY r))
-    Nothing -> pure $ singleton $ zero
+      t <- assign $ texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
+      maskUnitSquare $ fromNonEmptyList $ fromVec3s $ singleton t
+    Nothing -> pure $ pure $ zero
 
-signalToGLSL _ (Vid url) = do
+signalToExprs (Vid url) = do
   s <- get
   case lookup url s.vidMap of
     Just n -> do
-      t <- texture2D ("t" <> show n) (GLSLExpr.unipolar s.fxy)
-      r <- assignForced $ GLSLExpr.lessThanEqual (GLSLExpr.abs s.fxy) (GLSLExpr.float 1.0)
-      pure $ singleton $ GLSLExpr.product t (GLSLExpr.product (unsafeSwizzleX r) (unsafeSwizzleY r))
-    Nothing -> pure $ singleton $ zero
+      t <- assign $ texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
+      maskUnitSquare $ fromNonEmptyList $ fromVec3s $ singleton t
+    Nothing -> pure $ pure $ zero
 
-signalToGLSL _ (Blend x) = do
-  xs <- signalToGLSL Vec4 x >>= alignRGBA
-  case fromList (tail xs) of
-    Nothing -> pure $ singleton $ head xs
-    Just t -> singleton <$> foldM blend (head xs) t
-    
-signalToGLSL _ (Add x) = do
-  xs <- signalToGLSL Vec3 x >>= alignVec3
-  case fromList (tail xs) of
-    Nothing -> pure $ singleton $ head xs
-    Just t -> singleton <$> foldM add (head xs) t
-    
-signalToGLSL _ (Mul x) = do
-  xs <- signalToGLSL Vec3 x >>= alignVec3
-  case fromList (tail xs) of
-    Nothing -> pure $ singleton $ head xs
-    Just t -> singleton <$> foldM mul (head xs) t
+signalToExprs (Blend x) = do
+  xs <- flatten <$> (signalToExprs x :: G (Multi Vec4))
+  y <- (foldM (\a b -> assign $ blend a b) (head xs) (tail xs) :: G Vec4)
+  pure $ fromNonEmptyList $ fromVec4s $ singleton y
 
+signalToExprs (Add x) = do
+  xs <- flatten <$> (signalToExprs x :: G (Multi Vec3))
+  y <- (foldM (\a b -> assign $ add a b) (head xs) (tail xs) :: G Vec3)
+  pure $ fromNonEmptyList $ fromVec3s $ singleton y
+
+signalToExprs (Mul x) = do
+  xs <- flatten <$> (signalToExprs x :: G (Multi Vec3))
+  y <- (foldM (\a b -> assign $ product a b) (head xs) (tail xs) :: G Vec3)
+  pure $ fromNonEmptyList $ fromVec3s $ singleton y
+  
+{-
 signalToGLSL _ (RgbHsv x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv
 signalToGLSL _ (HsvRgb x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb
 signalToGLSL _ (HsvH x) = signalToGLSL Vec3 x >>= alignVec3 >>= traverse swizzleX
@@ -467,6 +449,12 @@ splitFloatsApplyReassemble f xs = do
   xs'' <- traverse f $ mapRows toFloats xs 
   pure $ mapRows fromFloats xs''
 
+maskUnitSquare :: forall a. Expr a => Multi a -> G (Multi a)
+maskUnitSquare xs = do
+  fxy <- _.fxy <$> get
+  mask <- assign $ lessThanEqual (abs fxy) (constant 1.0) -- :: Vec2
+  mask' <- assign $ product (swizzleX mask) (swizzleY mask) -- :: Float
+  traverse (assign <<< productFloatExpr mask') xs
 
 {-
 simpleUnaryFunction :: (GLSLExpr -> GLSLExpr) -> Exprs -> GLSL Exprs
@@ -558,15 +546,9 @@ clipEtcFunction ah mm f r x = do
           let rs' = extendByRepetition n rs -- extend rs so that it has n *elements*
           xs' <- extend n xs >>= alignFloat -- extend xs so that it has n *channels*, and align to floats so that each channel pairs with an element from rs'
           sequence $ zipWith (\rr xx -> assignForced $ GLSLExpr.smoothstep rr xx) rs' xs'
-
-
-blend :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- all Vec4
-blend a b = do
-  b' <- assign b
-  alpha <- swizzleW b'
-  pure $ ternaryFunction "mix" Vec4 a b' alpha
+-}
   
-  
+{-
 acosh :: Exprs -> GLSL Exprs
 acosh xs = do
   s <- get
