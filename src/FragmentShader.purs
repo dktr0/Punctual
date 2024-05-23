@@ -1,6 +1,6 @@
 module FragmentShader where
 
-import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max)
+import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max,(>>>))
 import Data.Functor (mapFlipped)
 import Data.Maybe (Maybe(..))
 import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length)
@@ -100,13 +100,19 @@ signalToExprs ETime = (pure <<< fromFloat <<< _.etime) <$> get
 
 signalToExprs EBeat = (pure <<< fromFloat <<< _.ebeat) <$> get
 
-signalToExprs (FFT x) = signalToExprs x >>= splitFloatsApplyReassemble (pure <<< textureFFT "o" <<< unipolar) >>= traverse assign
+signalToExprs FFT = (_.fxy <$> get) >>= (unipolar >>> textureFFT "o" >>> fromFloat >>> assign) >>= (pure >>> pure)
 
-signalToExprs (IFFT x) = signalToExprs x >>= splitFloatsApplyReassemble (pure <<< textureFFT "i" <<< unipolar) >>= traverse assign
+-- signalToExprs x >>= splitFloatsApplyReassemble (pure <<< textureFFT "o" <<< unipolar) >>= traverse assign
+
+signalToExprs IFFT = (_.fxy <$> get) >>= (unipolar >>> textureFFT "i" >>> fromFloat >>> assign) >>= (pure >>> pure)
+
+-- signalToExprs x >>= splitFloatsApplyReassemble (pure <<< textureFFT "i" <<< unipolar) >>= traverse assign
     
-{-
-signalToGLSL _ (Fb xy) = signalToGLSL Vec2 xy >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignVec2 >>= traverse (texture2D "f")
+signalToExprs Fb = (_.fxy <$> get) >>= (unipolar >>> texture2D "f" >>> singleton >>> fromVec3s >>> fromNonEmptyList >>> pure)
 
+-- signalToGLSL Vec2 xy >>= simpleUnaryFunction GLSLExpr.unipolar >>= traverse assignForced >>= alignVec2 >>= traverse (texture2D "f")
+
+{-
 signalToGLSL _ Cam = do
   s <- get
   t <- texture2D "w" (GLSLExpr.unipolar s.fxy)

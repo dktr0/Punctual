@@ -35,13 +35,12 @@ functionsWithNoArgumentsDef :: Array String
 functionsWithNoArgumentsDef = [
   "pi","audioin","cps","time","beat","etime","ebeat","rnd",
   "fx","fy","fxy","px","py","pxy","frt","fr","ft","aspect",
-  "lo","mid","hi","ilo","imid","ihi"
+  "lo","mid","hi","ilo","imid","ihi","fft","ifft","fb","cam"
   ]
   
 functionsWithArgumentsDef :: Array String
 functionsWithArgumentsDef = [
   "blend","add","mul",
-  "fft","ifft",
   "abs","acos","acosh","asin","asinh","atan","atanh","cbrt","ceil","cos",
   "cosh","exp","fract","floor","log","log2","log10","round","sign","sin","sinh",
   "sqrt","tan","tanh","trunc",
@@ -53,7 +52,6 @@ functionsWithArgumentsDef = [
   "dist","prox",
   "point","hline","hlinep","vline","vlinep","circle","circlep","rect","rectp","iline","ilinep","line","linep",
   "chain","chainp","lines","linesp","ilines","ilinesp","mesh","meshp",
-  "fb",
   "zip",
   "fit","min","max","minp","maxp",
   "clip","clipp","between","betweenp","smoothstep","smoothstepp","gate","gatep","when","seq",
@@ -62,7 +60,7 @@ functionsWithArgumentsDef = [
   "lpf","lpfp","hpf","hpfp","bpf","bpfp","delay",
   "linlin","linlinp",
   "rep",
-  "img","vid","cam",
+  "img","vid",
   "mix","mixp"
   ]
 

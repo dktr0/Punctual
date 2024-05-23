@@ -843,6 +843,9 @@ distance x y
 sum :: forall f. Foldable1 f => forall a. Expr a => f a -> a
 sum = foldl1 add 
 
-textureFFT :: String -> Float -> Float
-textureFFT texName x = FloatExpr $ "texture2D(" <> texName <> ",vec2(" <> toExpr x <> ",0.)).x"
+textureFFT :: String -> Vec2 -> Float
+textureFFT texName xy = FloatExpr $ "texture2D(" <> texName <> ",vec2(" <> toExpr xy <> ".x,0.)).x"
+
+texture2D :: String -> Vec2 -> Vec3
+texture2D texName xy = Vec3Expr $ "texture2D(" <> texName <> "," <> toExpr xy <> ").xyz"
 

@@ -25,9 +25,9 @@ data Signal =
   Cps | Time | Beat | EBeat | ETime |
   Rnd |
   AudioIn |
-  FFT Signal |
-  IFFT Signal |
-  Fb Signal |
+  FFT |
+  IFFT |
+  Fb |
   Cam |
   Img String |
   Vid String |
@@ -185,11 +185,11 @@ signalInfo Cam = emptySignalInfo { webcam = pure true }
 signalInfo ILo = emptySignalInfo { ilo = pure true }
 signalInfo IMid = emptySignalInfo { imid = pure true }
 signalInfo IHi = emptySignalInfo { ihi = pure true }
-signalInfo (IFFT x) = emptySignalInfo { ifft = pure true } <> signalInfo x
+signalInfo IFFT = emptySignalInfo { ifft = pure true }
 signalInfo Lo = emptySignalInfo { lo = pure true }
 signalInfo Mid = emptySignalInfo { mid = pure true }
 signalInfo Hi = emptySignalInfo { hi = pure true }
-signalInfo (FFT x) = emptySignalInfo { fft = pure true } <> signalInfo x
+signalInfo FFT = emptySignalInfo { fft = pure true }
 signalInfo (Img x) = emptySignalInfo { imgURLs = singleton x }
 signalInfo (Vid x) = emptySignalInfo { vidURLs = singleton x }
 signalInfo x = foldMap signalInfo $ subSignals x
@@ -200,13 +200,10 @@ subSignals :: Signal -> List Signal
 subSignals (SignalList xs) = xs
 subSignals (Append x y) = x:y:Nil
 subSignals (Zip x y) = x:y:Nil
-subSignals (FFT x) = x:Nil
-subSignals (IFFT x) = x:Nil
 subSignals (Mono x) = x:Nil
 subSignals (Rep _ x) = x:Nil
 subSignals (Bipolar x) = x:Nil
 subSignals (Unipolar x) = x:Nil
-subSignals (Fb x) = x:Nil
 subSignals (Blend x) = x:Nil
 subSignals (Add x) = x:Nil
 subSignals (Mul x) = x:Nil

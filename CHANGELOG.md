@@ -1,5 +1,12 @@
 # ChangeLog
 
+
+draft changes in 0.5 rewrite:
+
+-fb ifft and fft no longer take a position an argument (fb uses the current fragment position as its position, fft and ifft use the x axis of the current fragment position)
+
+
+
 0.4.9.3:
 
 -another bugfix affecting geometry transformations (spin, zoom, move, etc...)
