@@ -530,9 +530,8 @@ ceil = unaryFunction Number.ceil (function1 "ceil")
 cpsmidi :: forall a. Expr a => a -> a
 cpsmidi = addFloatExpr (constant 69.0) <<< productFloatExpr (constant 12.0) <<< log2 <<< flip divisionExprFloat (constant 440.0)
 
--- TODO: need to implement powFloatExpr for this to compile
--- dbamp :: forall a. Expr a => a -> a
--- dbamp = powFloatExpr (constant 10.0) <<< flip divisionExprFloat (constant 20.0)
+dbamp :: forall a. Expr a => a -> a
+dbamp = pow (constant 10.0) <<< flip divisionExprFloat (constant 20.0)
 
 exp :: forall a. Expr a => a -> a
 exp = unaryFunction Number.exp (function1 "exp")
@@ -540,9 +539,8 @@ exp = unaryFunction Number.exp (function1 "exp")
 floor :: forall a. Expr a => a -> a
 floor = unaryFunction Number.floor (function1 "floor")
 
--- TODO: need to implement powExprFloat for this to compile
--- midicps :: forall a. Expr a => a -> a
--- midicps m = productExprFloat (powExprFloat (divisionExprFloat (differenceExprFloat m (constant 69.0)) (constant 12.0)) (constant 2.0)) (constant 440.0)
+midicps :: forall a. Expr a => a -> a
+midicps m = product (pow (division (difference m (constant 69.0)) (constant 12.0)) (constant 2.0)) (constant 440.0)
 
 sign :: forall a. Expr a => a -> a
 sign = unaryFunction Number.sign (function1 "sign")
@@ -613,27 +611,15 @@ min = binaryFunction Prelude.min (function2 "min")
 max :: forall a. Expr a => a -> a -> a
 max = binaryFunction Prelude.max (function2 "max")
 
--- maybe TODO later: make variants for mismatched types where one argument is a float
+-- maybe TODO later if some advantage to it appears: make variants for mismatched types where one argument is a float
 
-{-
 
--- to polyfill pow and mod to the standard model, coerce unmatched float arguments to the other type (will simply be a cast)
--- this will produce invalid GLSL code (without warning/error) if different non-float GLSL types are mixed
-powOrMod :: String -> (Number -> Number -> Number) -> Expr -> Expr -> Expr
-powOrMod _ f (constant x) (constant y) = constant $ f x y
-powOrMod f _ (constant x) (Reference Float y) = Reference Float $ f <> "(" <> show x <> "," <> y <> ")"
-powOrMod f _ (constant x) (Reference yType y) = Reference yType $ f <> "(" <> show yType <> "(" <> show x <> ")," <> y <> ")"
-powOrMod f _ (Reference Float x) (constant y) = Reference Float $ f <> "(" <> x <> "," <> show y <> ")"
-powOrMod f _ (Reference xType x) (constant y) = Reference xType $ f <> "(" <> x <> "," <> show xType <> "(" <> show y <> "))"
-powOrMod f _ (Reference xType x) (Reference _ y) = Reference xType $ f <> "(" <> x <> "," <> y <> ")"
+pow :: forall a. Expr a => a -> a -> a
+pow = binaryFunction Number.pow (function2 "pow")
 
-pow :: Expr -> Expr -> Expr
-pow = powOrMod "pow" Number.pow
+mod :: forall a. Expr a => a -> a -> a
+mod = binaryFunction Prelude.mod (function2 "mod")
 
-mod :: Expr -> Expr -> Expr
-mod = powOrMod "mod" Prelude.mod
-
--}
 
 comparisonOperator :: forall a. Expr a => (Number -> Number -> Boolean) -> String -> String -> a -> a -> a
 comparisonOperator f funcName op x y 
@@ -643,22 +629,6 @@ comparisonOperator f funcName op x y
 booleanToNumber :: Boolean -> Number
 booleanToNumber true = 1.0
 booleanToNumber false = 0.0
-
-{-
-comparisonOperator :: String -> String -> (Number -> Number -> Number) -> Expr -> Expr -> Expr
--- both arguments floats
-comparisonOperator _ _ f (constant x) (constant y) = constant $ f x y
-comparisonOperator f _ _ (constant x) (Reference Float y) = Reference Float $ "float(" <> show x <> f <> y <> ")"
-comparisonOperator f _ _ (Reference Float x) (constant y) = Reference Float $ "float(" <> x <> f <> show y <> ")"
-comparisonOperator f _ _ (Reference Float x) (Reference Float y) = Reference Float $ "float(" <> x <> f <> y <> ")"
--- only one argument is a float
-comparisonOperator _ f _ (constant x) (Reference yType y) = Reference yType $ show yType <> "(" <> f <> "(" <> show yType <> "(" <> show x <> ")," <> y <> "))"
-comparisonOperator _ f _ (Reference Float x) (Reference yType y) = Reference yType $ show yType <> "(" <> f <> "(" <> show yType <> "(" <> x <> ")," <> y <> "))"
-comparisonOperator _ f _ (Reference xType x) (constant y) = Reference xType $ show xType <> "(" <> f <> "(" <> x <> "," <> show xType <> "(" <> show y <> ")))"
-comparisonOperator _ f _ (Reference xType x) (Reference Float y) = Reference xType $ show xType <> "(" <> f <> "(" <> x <> "," <> show xType <> "(" <> y <> ")))"
--- no arguments are floats
-comparisonOperator _ f _ (Reference xType x) (Reference _ y) = Reference xType $ show xType <> "(" <> f <> "(" <> x <> "," <> y <> "))"
--}
 
 equal :: forall a. Expr a => a -> a -> a
 equal = comparisonOperator (==) "equal" "==" 
@@ -857,4 +827,8 @@ rgbhsv x = Vec3Expr $ "rgbhsv(" <> toExpr x <> ")"
 
 hsvrgb :: Vec3 -> Vec3
 hsvrgb x = Vec3Expr $ "hsvrgb(" <> toExpr x <> ")"
+
+cbrt :: forall a. Expr a => a -> a
+cbrt = unaryFunction Number.cbrt f
+  where f x = "(exp(log(abs(" <> x <> "))/3.)*sign(" <> x <> "))"
 

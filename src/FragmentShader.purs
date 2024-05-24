@@ -1,6 +1,6 @@
 module FragmentShader where
 
-import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max,(>>>),(<*>),flip)
+import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max,(>>>),(<*>),flip,negate)
 import Data.Functor (mapFlipped)
 import Data.Maybe (Maybe(..))
 import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length)
@@ -14,6 +14,7 @@ import Data.Map (Map,lookup)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Tempo (Tempo)
 import Data.DateTime (DateTime)
+import Data.Number (acos, asin, atan, ceil, cos, exp, floor, log, pow, round, sign, sin, sqrt, tan, trunc) as Number
 
 import NonEmptyList
 import MultiMode (MultiMode(..))
@@ -25,6 +26,7 @@ import Program (Program)
 import Expr
 import G
 import Multi (Multi,fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep)
+import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, division, smoothStep) as Number
 
 
 signalToExprs :: forall a. Expr a => Signal -> G (Multi a)
@@ -156,39 +158,39 @@ signalToExprs (LFTri x) = signalToExprs x >>= traverse tri
 signalToExprs (LFSaw x) = signalToExprs x >>= traverse saw
 signalToExprs (LFSqr x) = signalToExprs x >>= traverse sqr
 
-{-
-signalToGLSL ah (Abs x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.abs
-signalToGLSL ah (Acos x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.acos
-signalToGLSL ah (Acosh x) = signalToGLSL ah x >>= acosh
-signalToGLSL ah (AmpDb x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.ampdb
-signalToGLSL ah (Asin x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.asin
-signalToGLSL ah (Asinh x) = signalToGLSL ah x >>= asinh
-signalToGLSL ah (Atan x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.atan
-signalToGLSL ah (Atanh x) = signalToGLSL ah x >>= atanh
-signalToGLSL ah (Bipolar x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.bipolar
-signalToGLSL ah (Cbrt x) = signalToGLSL ah x >>= cbrt
-signalToGLSL ah (Ceil x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.ceil
-signalToGLSL ah (Cos x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.cos
-signalToGLSL ah (Cosh x) = signalToGLSL ah x >>= cosh
-signalToGLSL ah (CpsMidi x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.cpsmidi
-signalToGLSL ah (DbAmp x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.dbamp
-signalToGLSL ah (Exp x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.exp
-signalToGLSL ah (Floor x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.floor
-signalToGLSL ah (Fract x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.fract
-signalToGLSL ah (Log x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.log
-signalToGLSL ah (Log2 x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.log2
-signalToGLSL ah (Log10 x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.log10 
-signalToGLSL ah (MidiCps x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.midicps
-signalToGLSL ah (Round x) = signalToGLSL ah x >>= round
-signalToGLSL ah (Sign x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.sign
-signalToGLSL ah (Sin x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.sin
-signalToGLSL ah (Sinh x) = signalToGLSL ah x >>= sinh
-signalToGLSL ah (Sqrt x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.sqrt
-signalToGLSL ah (Tan x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.tan
-signalToGLSL ah (Tanh x) = signalToGLSL ah x >>= tanh
-signalToGLSL ah (Trunc x) = signalToGLSL ah x >>= trunc
-signalToGLSL ah (Unipolar x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.unipolar
+signalToExprs (Abs x) = signalToExprs x >>= map abs >>> traverse assign
+signalToExprs (Acos x) = signalToExprs x >>= map acos >>> traverse assign
+signalToExprs (Acosh x) = signalToExprs x >>= traverse acosh
+signalToExprs (AmpDb x) = signalToExprs x >>= map ampdb >>> traverse assign
+signalToExprs (Asin x) = signalToExprs x >>= map asin >>> traverse assign
+signalToExprs (Asinh x) = signalToExprs x >>= traverse asinh
+signalToExprs (Atan x) = signalToExprs x >>= map atan >>> traverse assign
+signalToExprs (Atanh x) = signalToExprs x >>= traverse atanh
+signalToExprs (Bipolar x) = signalToExprs x >>= map bipolar >>> traverse assign
+signalToExprs (Cbrt x) = signalToExprs x >>= map cbrt >>> traverse assign
+signalToExprs (Ceil x) = signalToExprs x >>= map ceil >>> traverse assign
+signalToExprs (Cos x) = signalToExprs x >>= map cos >>> traverse assign
+signalToExprs (Cosh x) = signalToExprs x >>= traverse cosh
+signalToExprs (CpsMidi x) = signalToExprs x >>= map cpsmidi >>> traverse assign
+signalToExprs (DbAmp x) = signalToExprs x >>= map dbamp >>> traverse assign
+signalToExprs (Exp x) = signalToExprs x >>= map exp >>> traverse assign
+signalToExprs (Floor x) = signalToExprs x >>= map floor >>> traverse assign
+signalToExprs (Fract x) = signalToExprs x >>= map fract >>> traverse assign
+signalToExprs (Log x) = signalToExprs x >>= map log >>> traverse assign
+signalToExprs (Log2 x) = signalToExprs x >>= map log2 >>> traverse assign
+signalToExprs (Log10 x) = signalToExprs x >>= map log10 >>> traverse assign
+signalToExprs (MidiCps x) = signalToExprs x >>= map midicps >>> traverse assign
+signalToExprs (Round x) = signalToExprs x >>= traverse round
+signalToExprs (Sign x) = signalToExprs x >>= map sign >>> traverse assign
+signalToExprs (Sin x) = signalToExprs x >>= map sin >>> traverse assign
+signalToExprs (Sinh x) = signalToExprs x >>= traverse sinh
+signalToExprs (Sqrt x) = signalToExprs x >>= map sqrt >>> traverse assign
+signalToExprs (Tan x) = signalToExprs x >>= map tan >>> traverse assign
+signalToExprs (Tanh x) = signalToExprs x >>= traverse tanh
+signalToExprs (Trunc x) = signalToExprs x >>= traverse trunc
+signalToExprs (Unipolar x) = signalToExprs x >>= map unipolar >>> traverse assign
 
+{-
 signalToGLSL _ (RtXy rt) = do
   rts <- signalToGLSL Vec2 rt >>= alignVec2
   rs <- traverse swizzleX rts
@@ -468,7 +470,6 @@ phasor f = do
 
 tri :: forall a. Expr a => a -> G a
 tri f = phasor f >>= flip difference (constant 0.5) >>> abs >>> product (constant 4.0) >>> difference (constant 1.0) >>> assign
---  pure $ { string: "(1.-(4.*abs(" <> p.string <> "-0.5)))", glslType: f.glslType, isSimple: f.isSimple, deps: f.deps }
 
 saw :: forall a. Expr a => a -> G a
 saw f = phasor f >>= bipolar >>> assign
@@ -569,70 +570,63 @@ clipEtcFunction ah mm f r x = do
           sequence $ zipWith (\rr xx -> assignForced $ GLSLExpr.smoothstep rr xx) rs' xs'
 -}
   
-{-
-acosh :: Exprs -> GLSL Exprs
-acosh xs = do
+acosh :: forall a. Expr a => a -> G a
+acosh x = do
   s <- get
   case s.webGl2 of
-    true -> pure $ map (GLSLExpr.simpleUnaryFunctionPure "acosh") xs
-    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "log(" <> x <> "+sqrt(" <> x <> "*" <> x <> "-1.))")
+    true -> assign $ unaryFunction Number.acosh (function1 "acosh") x
+    false -> assign $ log $ add x $ sqrt $ difference (product x x) (constant (1.0))
 
-asinh :: Exprs -> GLSL Exprs
-asinh xs = do
+asinh :: forall a. Expr a => a -> G a
+asinh x = do
   s <- get
   case s.webGl2 of
-    true -> pure $ map (GLSLExpr.simpleUnaryFunctionPure "asinh") xs
-    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "log(" <> x <> "+sqrt(" <> x <> "*" <> x <> "+1.))")
+    true -> assign $ unaryFunction Number.asinh (function1 "asinh") x
+    false -> assign $ log $ add x $ sqrt $ add (product x x) (constant (1.0))
 
-atanh :: Exprs -> GLSL Exprs
-atanh xs = do
+atanh :: forall a. Expr a => a -> G a
+atanh x = do
   s <- get
   case s.webGl2 of
-    true -> pure $ map (GLSLExpr.simpleUnaryFunctionPure "atanh") xs
-    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "(log((1.+" <> x <> ")/(" <> "1.-" <> x <> "))/2.)")
-
-cosh :: Exprs -> GLSL Exprs
-cosh xs = do
-  s <- get
-  case s.webGl2 of
-    true -> pure $ map (GLSLExpr.simpleUnaryFunctionPure "cosh") xs
-    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "((exp(" <> x <> ")+exp(" <> x <> "*-1.))/2.)")
-
-sinh :: Exprs -> GLSL Exprs
-sinh xs = do
-  s <- get
-  case s.webGl2 of
-    true -> pure $ map (GLSLExpr.simpleUnaryFunctionPure "sinh") xs
-    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "((exp(" <> x <> ")-exp(" <> x <> "*-1.))/2.)")
-
-tanh :: Exprs -> GLSL Exprs
-tanh xs = do
-  s <- get
-  case s.webGl2 of
-    true -> pure $ map (GLSLExpr.simpleUnaryFunctionPure "tanh") xs
-    false -> do
-      xs' <- traverse assign xs
-      sinhs <- sinh xs'
-      coshs <- cosh xs'
-      zipBinaryExpression (\x y -> "(" <> x <> "/" <> y <> ")") sinhs coshs
-
-trunc :: Exprs -> GLSL Exprs
-trunc xs = do
-  s <- get
-  case s.webGl2 of
-    true -> pure $ map (GLSLExpr.simpleUnaryFunctionPure "trunc") xs
-    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "(floor(abs(" <> x <> "))*sign(" <> x <> "))")
-
-round :: Exprs -> GLSL Exprs
-round xs = do
-  s <- get
-  case s.webGl2 of
-    true -> pure $ map (GLSLExpr.simpleUnaryFunctionPure "round") xs
-    false -> traverse assign xs >>= simpleUnaryExpression (\x -> "(floor(" <> x <> ")+0.5)")
+    true -> assign $ unaryFunction Number.atanh (function1 "atanh") x
+    false -> assign $ flip division (constant 2.0) $ log $ division (add (constant 1.0) x) (difference (constant 1.0) x)
     
-cbrt :: Exprs -> GLSL Exprs
-cbrt xs = traverse assign xs >>= simpleUnaryExpression (\x -> "(exp(log(abs(" <> x <> "))/3.)*sign(" <> x <> "))")
-  
+cosh :: forall a. Expr a => a -> G a
+cosh x = do
+  s <- get
+  case s.webGl2 of
+    true -> assign $ unaryFunction Number.cosh (function1 "cosh") x
+    false -> assign $ flip division (constant 2.0) $ add (exp x) (exp (product x (constant (-1.0))))
+
+sinh :: forall a. Expr a => a -> G a
+sinh x = do
+  s <- get
+  case s.webGl2 of
+    true -> assign $ unaryFunction Number.sinh (function1 "sinh") x
+    false -> assign $ flip division (constant 2.0) $ difference (exp x) (exp (product x (constant (-1.0))))
+
+tanh :: forall a. Expr a => a -> G a
+tanh x = do
+  s <- get
+  case s.webGl2 of
+    true -> assign $ unaryFunction Number.tanh (function1 "tanh") x
+    false -> (division <$> sinh x <*> cosh x) >>= assign
+   
+trunc :: forall a. Expr a => a -> G a
+trunc x = do
+  s <- get
+  case s.webGl2 of
+    true -> assign $ unaryFunction Number.trunc (function1 "trunc") x
+    false -> assign $ product (sign x) (floor (abs x))
+ 
+round :: forall a. Expr a => a -> G a
+round x = do
+  s <- get
+  case s.webGl2 of
+    true -> assign $ unaryFunction Number.round (function1 "round") x
+    false -> assign $ add (floor x) (constant 0.5)
+
+{-    
 spin :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr
 spin fxy a = do
   aPi <- assignForced $ GLSLExpr.product a GLSLExpr.pi
