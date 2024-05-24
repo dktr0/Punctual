@@ -1,6 +1,6 @@
 module FragmentShader where
 
-import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max,(>>>),(<*>))
+import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max,(>>>),(<*>),flip)
 import Data.Functor (mapFlipped)
 import Data.Maybe (Maybe(..))
 import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length)
@@ -148,15 +148,15 @@ signalToExprs (RgbH x) = signalToExprs x >>= map rgbhsv >>> map swizzleX >>> map
 signalToExprs (RgbS x) = signalToExprs x >>= map rgbhsv >>> map swizzleY >>> mapRows fromFloats >>> traverse assign
 signalToExprs (RgbV x) = signalToExprs x >>= map rgbhsv >>> map swizzleZ >>> mapRows fromFloats >>> traverse assign
 
-{-
-signalToGLSL ah (Osc x) = signalToGLSL ah x >>= traverse osc
-signalToGLSL ah (Tri x) = signalToGLSL ah x >>= traverse tri
-signalToGLSL ah (Saw x) = signalToGLSL ah x >>= traverse saw
-signalToGLSL ah (Sqr x) = signalToGLSL ah x >>= traverse sqr
-signalToGLSL ah (LFTri x) = signalToGLSL ah x >>= traverse tri
-signalToGLSL ah (LFSaw x) = signalToGLSL ah x >>= traverse saw
-signalToGLSL ah (LFSqr x) = signalToGLSL ah x >>= traverse sqr
+signalToExprs (Osc x) = signalToExprs x >>= traverse osc
+signalToExprs (Tri x) = signalToExprs x >>= traverse tri
+signalToExprs (Saw x) = signalToExprs x >>= traverse saw
+signalToExprs (Sqr x) = signalToExprs x >>= traverse sqr
+signalToExprs (LFTri x) = signalToExprs x >>= traverse tri
+signalToExprs (LFSaw x) = signalToExprs x >>= traverse saw
+signalToExprs (LFSqr x) = signalToExprs x >>= traverse sqr
 
+{-
 signalToGLSL ah (Abs x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.abs
 signalToGLSL ah (Acos x) = signalToGLSL ah x >>= simpleUnaryFunction GLSLExpr.acos
 signalToGLSL ah (Acosh x) = signalToGLSL ah x >>= acosh
@@ -440,11 +440,14 @@ signalToGLSL _ (Seq steps) = do
 
 signalToExprs _ = pure $ pure $ constant 0.0
 
+{-
 -- for preserving alignment requests through intermediate calculations that are Float -> G Float
+-- created during matrix refactor but currently unused???
 splitFloatsApplyReassemble :: forall a. Expr a => (Float -> G Float) -> Multi a -> G (Multi a)
 splitFloatsApplyReassemble f xs = do
   xs'' <- traverse f $ mapRows toFloats xs 
   pure $ mapRows fromFloats xs''
+-}
 
 maskUnitSquare :: forall a. Expr a => Multi a -> G (Multi a)
 maskUnitSquare xs = do
@@ -452,6 +455,27 @@ maskUnitSquare xs = do
   mask <- assign $ lessThanEqual (abs fxy) (constant 1.0) -- :: Vec2
   mask' <- assign $ product (swizzleX mask) (swizzleY mask) -- :: Float
   traverse (assign <<< productFloatExpr mask') xs
+
+osc :: forall a. Expr a => a -> G a
+osc f = do
+  t <- _.time <$> get
+  assign $ sin $ productFloatExpr (product (product pi (constant 2.0)) t) f
+  
+phasor :: forall a. Expr a => a -> G a
+phasor f = do
+  t <- _.time <$> get
+  pure $ fract $ productFloatExpr t f 
+
+tri :: forall a. Expr a => a -> G a
+tri f = phasor f >>= flip difference (constant 0.5) >>> abs >>> product (constant 4.0) >>> difference (constant 1.0) >>> assign
+--  pure $ { string: "(1.-(4.*abs(" <> p.string <> "-0.5)))", glslType: f.glslType, isSimple: f.isSimple, deps: f.deps }
+
+saw :: forall a. Expr a => a -> G a
+saw f = phasor f >>= bipolar >>> assign
+
+sqr :: forall a. Expr a => a -> G a
+sqr f = phasor f >>= bipolar >>> greaterThanEqual (constant 0.5) >>> assign
+
 
 {-
 simpleUnaryFunction :: (GLSLExpr -> GLSLExpr) -> Exprs -> GLSL Exprs

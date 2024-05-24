@@ -44,7 +44,6 @@ runG webGl2 imgMap vidMap x = runState x {
   ebeat: FloatExpr "_ebeat"
   }
 
-
 assign :: forall a. Expr a => a -> G a
 assign x = do 
   n <- allocate
