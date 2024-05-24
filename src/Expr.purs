@@ -834,16 +834,6 @@ aspect :: Float
 aspect = expr "(res.x/res.y)"
 
 {-
-rgbhsv :: GLSLExpr -> GLSLExpr
-rgbhsv x
-  | x.glslType /= Vec3 = { string: "!! Internal Punctual GLSL generation error in rgbhsv", glslType: Float, isSimple: false, deps: x.deps }
-  | otherwise = { string: "rgbhsv(" <> x.string <> ")", glslType: Vec3, isSimple: false, deps: x.deps }
-  
-hsvrgb :: GLSLExpr -> GLSLExpr
-hsvrgb x
-  | x.glslType /= Vec3 = { string: "!! Internal Punctual GLSL generation error in hsvrgb", glslType: Float, isSimple: false, deps: x.deps }
-  | otherwise = { string: "hsvrgb(" <> x.string <> ")", glslType: Vec3, isSimple: false, deps: x.deps }
-  
 distance :: GLSLExpr -> GLSLExpr -> GLSLExpr
 distance x y
   | x.glslType /= y.glslType = { string: "!! Internal Punctual GLSL generation error in distance", glslType: Float, isSimple: false, deps: x.deps <> y.deps }
@@ -861,4 +851,10 @@ texture2D texName xy = Vec3Expr $ "texture2D(" <> texName <> "," <> toExpr xy <>
 
 blend :: Vec4 -> Vec4 -> Vec4
 blend a b = Vec4Expr $ "mix(" <> toExpr a <> "," <> toExpr b <> "," <> toExpr (swizzleW b) <> ")"
+
+rgbhsv :: Vec3 -> Vec3
+rgbhsv x = Vec3Expr $ "rgbhsv(" <> toExpr x <> ")"
+
+hsvrgb :: Vec3 -> Vec3
+hsvrgb x = Vec3Expr $ "hsvrgb(" <> toExpr x <> ")"
 

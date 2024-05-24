@@ -136,22 +136,19 @@ signalToExprs (Mul x) = do
   y <- (foldM (\a b -> assign $ product a b) (head xs) (tail xs) :: G Vec3)
   pure $ fromNonEmptyList $ fromVec3s $ singleton y
   
-{-
-signalToGLSL _ (RgbHsv x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv
-signalToGLSL _ (HsvRgb x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb
-signalToGLSL _ (HsvH x) = signalToGLSL Vec3 x >>= alignVec3 >>= traverse swizzleX
-signalToGLSL _ (HsvS x) = signalToGLSL Vec3 x >>= alignVec3 >>= traverse swizzleY
-signalToGLSL _ (HsvV x) = signalToGLSL Vec3 x >>= alignVec3 >>= traverse swizzleZ
-signalToGLSL _ (HsvR x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb >>= traverse swizzleX
-signalToGLSL _ (HsvG x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb >>= traverse swizzleY
-signalToGLSL _ (HsvB x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.hsvrgb >>= traverse swizzleZ
-signalToGLSL _ (RgbR x) = signalToGLSL Vec3 x >>= alignVec3 >>= traverse swizzleX
-signalToGLSL _ (RgbG x) = signalToGLSL Vec3 x >>= alignVec3 >>= traverse swizzleY
-signalToGLSL _ (RgbB x) = signalToGLSL Vec3 x >>= alignVec3 >>= traverse swizzleZ
-signalToGLSL _ (RgbH x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv >>= traverse swizzleX
-signalToGLSL _ (RgbS x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv >>= traverse swizzleY
-signalToGLSL _ (RgbV x) = signalToGLSL Vec3 x >>= alignVec3 >>= simpleUnaryFunction GLSLExpr.rgbhsv >>= traverse swizzleZ
+signalToExprs (RgbHsv x) = signalToExprs x >>= map rgbhsv >>> mapRows fromVec3s >>> traverse assign
+signalToExprs (HsvRgb x) = signalToExprs x >>= map hsvrgb >>> mapRows fromVec3s >>> traverse assign
+signalToExprs (HsvR x) = signalToExprs x >>= map hsvrgb >>> map swizzleX >>> mapRows fromFloats >>> traverse assign
+signalToExprs (HsvG x) = signalToExprs x >>= map hsvrgb >>> map swizzleY >>> mapRows fromFloats >>> traverse assign
+signalToExprs (HsvB x) = signalToExprs x >>= map hsvrgb >>> map swizzleZ >>> mapRows fromFloats >>> traverse assign
+signalToExprs (RgbR x) = (signalToExprs x :: G (Multi Vec3)) >>= map swizzleX >>> mapRows fromFloats >>> pure
+signalToExprs (RgbG x) = (signalToExprs x :: G (Multi Vec3)) >>= map swizzleY >>> mapRows fromFloats >>> pure
+signalToExprs (RgbB x) = (signalToExprs x :: G (Multi Vec3)) >>= map swizzleZ >>> mapRows fromFloats >>> pure
+signalToExprs (RgbH x) = signalToExprs x >>= map rgbhsv >>> map swizzleX >>> mapRows fromFloats >>> traverse assign
+signalToExprs (RgbS x) = signalToExprs x >>= map rgbhsv >>> map swizzleY >>> mapRows fromFloats >>> traverse assign
+signalToExprs (RgbV x) = signalToExprs x >>= map rgbhsv >>> map swizzleZ >>> mapRows fromFloats >>> traverse assign
 
+{-
 signalToGLSL ah (Osc x) = signalToGLSL ah x >>= traverse osc
 signalToGLSL ah (Tri x) = signalToGLSL ah x >>= traverse tri
 signalToGLSL ah (Saw x) = signalToGLSL ah x >>= traverse saw

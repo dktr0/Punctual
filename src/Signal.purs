@@ -34,9 +34,7 @@ data Signal =
   Bipolar Signal |
   Unipolar Signal |
   Blend Signal | Add Signal | Mul Signal |
-  RgbHsv Signal | HsvRgb Signal |
-  HsvH Signal | HsvS Signal | HsvV Signal | HsvR Signal | HsvG Signal | HsvB Signal |
-  RgbH Signal | RgbS Signal | RgbV Signal | RgbR Signal | RgbG Signal | RgbB Signal |
+  RgbHsv Signal | HsvRgb Signal | HsvR Signal | HsvG Signal | HsvB Signal | RgbH Signal | RgbS Signal | RgbV Signal | RgbR Signal | RgbG Signal | RgbB Signal |
   -- oscillators
   Osc Signal | Tri Signal | Saw Signal | Sqr Signal | LFTri Signal | LFSaw Signal | LFSqr Signal |
   -- unary Math functions based on (or emulating) JavaScript Math unary functions
@@ -209,9 +207,6 @@ subSignals (Add x) = x:Nil
 subSignals (Mul x) = x:Nil
 subSignals (RgbHsv x) = x:Nil
 subSignals (HsvRgb x) = x:Nil
-subSignals (HsvH x) = x:Nil
-subSignals (HsvS x) = x:Nil
-subSignals (HsvV x) = x:Nil
 subSignals (HsvR x) = x:Nil
 subSignals (HsvG x) = x:Nil
 subSignals (HsvB x) = x:Nil
