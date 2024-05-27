@@ -686,48 +686,34 @@ distance a b
 prox :: Vec2 -> Vec2 -> Float
 prox a b = clamp (constant 0.0) (constant 1.0) $ division (difference (constant 2.828427) (distance a b)) (constant 2.828427)
 
-{-
-circle :: forall a. ConstantOrExpr a => Vec2 -> Vec2 -> a -> a
-circle fxy xy diameter = smoothstep e0 e1 $ distance fxy xy - (diameter * constant 0.5) -- what about potential type mismatch in multiplication?
+circle :: forall a. Expr a => Vec2 -> Vec2 -> a -> a
+circle fxy xy diameter = smoothStep r $ differenceFloatExpr (distance fxy xy) (product diameter (constant 0.5))
   where
-    e0 = Vec2Expr "1.5/(res.x+res.y)"
-    e1 = constant 0.0
+    r = floatFloatToVec2 (expr "1.5/(res.x+res.y)") (constant 0.0)
 
-point :: GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2
+point :: Vec2 -> Vec2 -> Float 
 point fxy xy = circle fxy xy d
-  where d = { string: "((1./res.x)+(1./res.y))", glslType: Float, isSimple: false, deps: empty }
- 
-      
-vline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Float/Any Float/Any -> Float/Any (Float/Any arguments follow standard pattern, either matched or one is float)
-vline fxy x w 
-  | x.glslType /= Float && w.glslType /= Float && x.glslType /= w.glslType = { string: "!! Internal Punctual GLSL generation error in vline", glslType: Float, isSimple: false, deps: fxy.deps <> x.deps <> w.deps }
-  | otherwise = { string: s, glslType: Prelude.max x.glslType w.glslType, isSimple: false, deps: fxy.deps <> x.deps <> w.deps }
-      where
-        a = "abs(" <> fxy.string <> ".x-" <> x.string <> ")-" <> w.string
-        edge0 = explicitlyTypedZero w.glslType
-        edge1 = "min(" <> w.string <> ",3./res.x)"
-        s = "(1.-smoothstep(" <> edge0.string <> "," <> edge1 <> "," <> a <> "))"
+  where d = expr "((1./res.x)+(1./res.y))"
 
-hline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Float/Any Float/Any -> Float/Any (Float/Any arguments follow standard pattern, either matched or one is float)
-hline fxy y w 
-  | y.glslType /= Float && w.glslType /= Float && y.glslType /= w.glslType = { string: "!! Internal Punctual GLSL generation error in hline", glslType: Float, isSimple: false, deps: fxy.deps <> y.deps <> w.deps }
-  | otherwise = { string: s, glslType: Prelude.max y.glslType w.glslType, isSimple: false, deps: fxy.deps <> y.deps <> w.deps }
-      where
-        a = "abs(" <> fxy.string <> ".y-" <> y.string <> ")-" <> w.string
-        edge0 = explicitlyTypedZero w.glslType
-        edge1 = "min(" <> w.string <> ",3./res.y)"
-        s = "(1.-smoothstep(" <> edge0.string <> "," <> edge1 <> "," <> a <> "))"
+-- third argument (width) is multiply used and should be pre-assigned by caller
+vline :: forall a. Expr a => Vec2 -> a -> Float -> a
+vline fxy x w = smoothStep es $ differenceExprFloat (abs (differenceFloatExpr (swizzleX fxy) x)) w
+  where
+    es = floatFloatToVec2 (constant 0.0) (min w (expr "3./res.x"))
 
-line :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 Vec2 Float -> Float (no reuse of any arguments)
-line fxy xy1 xy2 w
-  | fxy.glslType /= Vec2 || xy1.glslType /= Vec2 || xy2.glslType /= Vec2 || w.glslType /= Float = { string: "!! Internal Punctual GLSL generation error in line", glslType: Float, isSimple: false, deps: fxy.deps <> xy1.deps <> xy2.deps <> w.deps }
-  | otherwise = { string: "line(" <> xy1.string <> "," <> xy2.string <> "," <> w.string <> "," <> fxy.string <> ")", glslType: Float, isSimple: false, deps: fxy.deps <> xy1.deps <> xy2.deps <> w.deps }
+-- third argument (height) is multiply used and should be pre-assigned by caller  
+hline :: forall a. Expr a => Vec2 -> a -> Float -> a
+hline fxy y h = smoothStep es $ differenceExprFloat (abs (differenceFloatExpr (swizzleY fxy) y)) h
+  where
+    es = floatFloatToVec2 (constant 0.0) (min h (expr "3./res.y"))
 
-iline :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 Vec2 Float -> Float (no reuse of any arguments)
-iline fxy xy1 xy2 w
-  | fxy.glslType /= Vec2 || xy1.glslType /= Vec2 || xy2.glslType /= Vec2 || w.glslType /= Float = { string: "!! Internal Punctual GLSL generation error in line", glslType: Float, isSimple: false, deps: fxy.deps <> xy1.deps <> xy2.deps <> w.deps }
-  | otherwise = { string: "iline(" <> xy1.string <> "," <> xy2.string <> "," <> w.string <> "," <> fxy.string <> ")", glslType: Float, isSimple: false, deps: fxy.deps <> xy1.deps <> xy2.deps <> w.deps }
+line :: Vec2 -> Vec2 -> Vec2 -> Float -> Float
+line fxy xy1 xy2 w = expr $ "line(" <> toExpr xy1 <> "," <> toExpr xy2 <> "," <> toExpr w <> "," <> toExpr fxy <> ")" 
 
+iline :: Vec2 -> Vec2 -> Vec2 -> Float -> Float
+iline fxy xy1 xy2 w = expr $ "iline(" <> toExpr xy1 <> "," <> toExpr xy2 <> "," <> toExpr w <> "," <> toExpr fxy <> ")" 
+
+{-
 -- \float linlin(vec2 r1, vec2 r2, float x) { return r2.x+((r2.y-r2.x)*(x-r1.x)/(r1.y-r1.x));}\
 
 linlin :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 Any -> Any, vec2 range arguments are re-used and should be pre-assigned

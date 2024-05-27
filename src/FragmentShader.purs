@@ -16,7 +16,7 @@ import Data.Tempo (Tempo)
 import Data.DateTime (DateTime)
 import Data.Number (acos, asin, atan, ceil, cos, exp, floor, log, pow, round, sign, sin, sqrt, tan, trunc) as Number
 
-import NonEmptyList (zipWithEqualLength)
+import NonEmptyList (zipWithEqualLength,everyPair,everyAdjacentPair)
 import MultiMode (MultiMode(..))
 import Signal (Signal(..))
 import Action (Action,actionTimesAsSecondsSinceEval)
@@ -25,7 +25,7 @@ import Output as Output
 import Program (Program)
 import Expr
 import G
-import Multi (Multi,fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine)
+import Multi (Multi,fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3)
 import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, division, smoothStep) as Number
 
 
@@ -340,83 +340,81 @@ signalToExprs (SmoothStep mm r x) = do
   xs <- signalToExprs x
   traverse assign $ combine smoothStep mm rs xs
 
+signalToExprs (Circle mm xy d) = do
+  fxy <- _.fxy <$> get
+  xys <- signalToExprs xy
+  ds <- signalToExprs d
+  traverse assign $ combine (circle fxy) mm xys ds
+
+signalToExprs (Rect mm xy wh) = do
+  fxy <- _.fxy <$> get
+  xys <- signalToExprs xy
+  whs <- signalToExprs wh
+  rs <- sequence $ combine (rect fxy) mm xys whs
+  pure $ mapRows fromFloats rs
+
+signalToExprs (VLine mm x w) = do
+  fxy <- _.fxy <$> get
+  xs <- signalToExprs x
+  ws <- signalToExprs w >>= traverse assign
+  traverse assign $ combine (vline fxy) mm xs ws
+
+signalToExprs (HLine mm y h) = do
+  fxy <- _.fxy <$> get
+  ys <- signalToExprs y
+  hs <- signalToExprs h >>= traverse assign
+  traverse assign $ combine (hline fxy) mm ys hs
+
+signalToExprs (Chain mm xy w) = do
+  fxy <- _.fxy <$> get
+  xys <- signalToExprs xy
+  ws <- signalToExprs w
+  let xys' = fromNonEmptyList $ everyAdjacentPair $ flatten xys -- Multi (Tuple Vec2 Vec2)
+  let f xyTuple theW = line fxy (fst xyTuple) (snd xyTuple) theW
+  traverse assign $ mapRows fromFloats $ combine f mm xys' ws
+
+signalToExprs (Lines mm xy w) = do
+  fxy <- _.fxy <$> get
+  xysVec4 <- signalToExprs xy >>= traverse assign
+  ws <- signalToExprs w 
+  let f v4 theW = line fxy (swizzleXY v4) (swizzleZW v4) theW
+  traverse assign $ mapRows fromFloats $ combine f mm xysVec4 ws
+
+signalToExprs (ILines mm xy w) = do
+  fxy <- _.fxy <$> get
+  xysVec4 <- signalToExprs xy >>= traverse assign
+  ws <- signalToExprs w 
+  let f v4 theW = iline fxy (swizzleXY v4) (swizzleZW v4) theW
+  traverse assign $ mapRows fromFloats $ combine f mm xysVec4 ws
+
+signalToExprs (Mesh mm xy w) = do
+  fxy <- _.fxy <$> get
+  xys <- flatten <$> signalToExprs xy
+  ws <- signalToExprs w
+  let xys' = fromNonEmptyList $ everyPair $ xys -- Multi (Tuple Vec2 Vec2)
+  let f xyTuple theW = line fxy (fst xyTuple) (snd xyTuple) theW
+  traverse assign $ mapRows fromFloats $ combine f mm xys' ws
+
+signalToExprs (ILine mm xy1 xy2 w) = do
+  fxy <- _.fxy <$> get
+  xy1s <- signalToExprs xy1
+  xy2s <- signalToExprs xy2
+  ws <- signalToExprs w
+  traverse assign $ mapRows fromFloats $ combine3 (iline fxy) mm xy1s xy2s ws
+
+signalToExprs (Line mm xy1 xy2 w) = do
+  fxy <- _.fxy <$> get
+  xy1s <- signalToExprs xy1
+  xy2s <- signalToExprs xy2
+  ws <- signalToExprs w
+  traverse assign $ mapRows fromFloats $ combine3 (line fxy) mm xy1s xy2s ws
+
+signalToExprs (Point xy) = do
+  fxy <- _.fxy <$> get
+  xys <- signalToExprs xy
+  traverse assign $ mapRows fromFloats $ map (point fxy) xys
+  
 {-
-signalToGLSL ah (Circle mm xy d) = do
-  fxy <- _.fxy <$> get
-  xys <- signalToGLSL Vec2 xy >>= alignVec2
-  ds <- case mm of
-          Combinatorial -> signalToGLSL ah d
-          Pairwise -> signalToGLSL Float d >>= alignFloat
-  traverse assign $ combine mm (GLSLExpr.circle fxy) xys ds
-
-signalToGLSL _ (Rect mm xy wh) = do
-  fxy <- _.fxy <$> get
-  xys <- signalToGLSL Vec2 xy >>= alignVec2
-  whs <- signalToGLSL Vec2 wh >>= alignVec2
-  rs <- sequence $ combine mm (rect fxy) xys whs
-  traverse assign rs
-
-signalToGLSL ah (VLine mm x w) = do
-  fxy <- _.fxy <$> get
-  xs <- signalToGLSL ah x
-  ws <- signalToGLSL ah w
-  combineChannels mm (GLSLExpr.vline fxy) xs ws >>= traverse assign
-
-signalToGLSL ah (HLine mm x w) = do
-  fxy <- _.fxy <$> get
-  xs <- signalToGLSL ah x
-  ws <- signalToGLSL ah w
-  combineChannels mm (GLSLExpr.hline fxy) xs ws >>= traverse assign
-
-signalToGLSL _ (Chain mm xy w) = do
-  fxy <- _.fxy <$> get
-  xys <- signalToGLSL Vec2 xy >>= alignVec2
-  ws <- signalToGLSL Vec4 w >>= alignFloat -- for now, have to align float because of monomorphic line function in shader, later maybe optimize
-  let xys' = everyAdjacentPair xys -- NonEmptyList (Tuple GLSLExpr GLSLExpr) where GLSLExprs are all Vec2
-  let f xyTuple theW = GLSLExpr.line fxy (fst xyTuple) (snd xyTuple) theW
-  traverse assign $ combine mm f xys' ws
-
-signalToGLSL _ (Lines mm xy w) = do
-  fxy <- _.fxy <$> get
-  xysVec4 <- signalToGLSL Vec4 xy >>= alignVec4
-  ws <- signalToGLSL Vec4 w >>= alignFloat
-  let f v4 theW = GLSLExpr.line fxy (GLSLExpr.unsafeSwizzleXY v4) (GLSLExpr.unsafeSwizzleZW v4) theW
-  traverse assign $ combine mm f xysVec4 ws
-
-signalToGLSL _ (ILines mm xy w) = do
-  fxy <- _.fxy <$> get
-  xysVec4 <- signalToGLSL Vec4 xy >>= alignVec4
-  ws <- signalToGLSL Vec4 w >>= alignFloat
-  let f v4 theW = GLSLExpr.iline fxy (GLSLExpr.unsafeSwizzleXY v4) (GLSLExpr.unsafeSwizzleZW v4) theW
-  traverse assign $ combine mm f xysVec4 ws
-
-signalToGLSL _ (Mesh mm xy w) = do
-  fxy <- _.fxy <$> get
-  xys <- signalToGLSL Vec2 xy >>= alignVec2
-  ws <- signalToGLSL Vec4 w >>= alignFloat
-  let xys' = everyPair xys -- NonEmptyList (Tuple GLSLExpr GLSLExpr) where GLSLExprs are all Vec2
-  let f xyTuple theW = GLSLExpr.line fxy (fst xyTuple) (snd xyTuple) theW
-  traverse assign $ combine mm f xys' ws
-
-signalToGLSL _ (ILine mm xy1 xy2 w) = do
-  fxy <- _.fxy <$> get
-  xy1s <- signalToGLSL Vec2 xy1 >>= alignVec2
-  xy2s <- signalToGLSL Vec2 xy2 >>= alignVec2
-  ws <- signalToGLSL Vec4 w >>= alignFloat
-  traverse assign $ combine3 mm (GLSLExpr.iline fxy) xy1s xy2s ws
-
-signalToGLSL _ (Line mm xy1 xy2 w) = do
-  fxy <- _.fxy <$> get
-  xy1s <- signalToGLSL Vec2 xy1 >>= alignVec2
-  xy2s <- signalToGLSL Vec2 xy2 >>= alignVec2
-  ws <- signalToGLSL Vec4 w >>= alignFloat
-  traverse assign $ combine3 mm (GLSLExpr.line fxy) xy1s xy2s ws
-
-signalToGLSL _ (Point xy) = do
-  fxy <- _.fxy <$> get
-  xys <- signalToGLSL Vec2 xy >>= alignVec2
-  traverse assign $ map (GLSLExpr.point fxy) xys
-
 signalToGLSL ah (LinLin mm r1 r2 x) = do
   r1s <- signalToGLSL Vec2 r1 >>= alignVec2
   r2s <- signalToGLSL Vec2 r2 >>= alignVec2
@@ -494,25 +492,6 @@ binaryFunctionToExprs :: forall a. Expr a => MultiMode -> (a -> a -> a) -> Signa
 binaryFunctionToExprs Combinatorial f x y = combine f Combinatorial <$> (map fromFloat <$> signalToExprs x) <*> signalToExprs y
 binaryFunctionToExprs Pairwise f x y = combine f Pairwise <$> signalToExprs x <*> signalToExprs y
 
-{-    
-clipEtcFunction :: GLSLType -> MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Signal -> Signal -> GLSL Exprs
-clipEtcFunction ah mm f r x = do
-  rs <- signalToGLSL Vec2 r >>= alignVec2 >>= traverse assign
-  xs <- signalToGLSL ah x
-  case mm of
-    Combinatorial -> pure $ do -- in NonEmptyList monad
-      r' <- rs
-      x' <- xs
-      pure $ f r' x'
-    Pairwise -> do
-      case length rs == 1 of
-        true -> pure $ map (f (head rs)) xs
-        false -> do
-          let n = max (length rs) (exprsChannels xs)
-          let rs' = extendByRepetition n rs -- extend rs so that it has n *elements*
-          xs' <- extend n xs >>= alignFloat -- extend xs so that it has n *channels*, and align to floats so that each channel pairs with an element from rs'
-          sequence $ zipWith (\rr xx -> assignForced $ GLSLExpr.smoothstep rr xx) rs' xs'
--}
   
 acosh :: forall a. Expr a => a -> G a
 acosh x = do
@@ -579,19 +558,16 @@ spin fxy a = do
   let y = add (product (swizzleY fxy) ct) (product (swizzleX fxy) st)
   assign $ floatFloatToVec2 x y
 
-{-
-rect :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- Vec2 Vec2 Vec2 -> Float
+rect :: Vec2 -> Vec2 -> Vec2 -> G Float
 rect fxy xy wh = do
-  let a = GLSLExpr.product GLSLExpr.pxy (GLSLExpr.float 1.5)
-  let b = GLSLExpr.abs $ GLSLExpr.difference fxy xy 
-  let c = GLSLExpr.abs $ GLSLExpr.product wh (GLSLExpr.float 0.5)
-  let d = GLSLExpr.difference b c
-  let e = { string: "smoothstep(vec2(0.)," <> a.string <> "," <> d.string <> ")", glslType: Vec2, isSimple: false, deps: fxy.deps <> xy.deps <> wh.deps }
-  f <- assign $ GLSLExpr.difference (GLSLExpr.float 1.0) e
-  g <- swizzleX f
-  h <- swizzleY f
-  pure $ GLSLExpr.product g h
--} 
+  let a = product pxy (constant 1.5)
+  let b = abs (difference fxy xy)
+  let c = abs (product wh (constant 0.5))
+  let d = difference b c
+  let e = (expr $ "smoothstep(vec2(0.)," <> toExpr a <> "," <> toExpr d <> ")") :: Vec2
+  f <- assign $ difference (constant 1.0) e
+  assign $ product (swizzleX f) (swizzleY f)
+   
  
 header :: Boolean -> String    
 header true = webGL2HeaderPrefix <> commonHeader
