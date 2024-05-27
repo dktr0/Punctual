@@ -78,7 +78,10 @@ data Signal =
   AmpDb Signal |
   Fract Signal |
   SetFx Signal Signal | SetFy Signal Signal | SetFxy Signal Signal |
-  Zoom Signal Signal | Move Signal Signal | Tile Signal Signal | Spin Signal Signal |
+  Zoom Signal Signal | ZoomXy Signal Signal | ZoomX Signal Signal | ZoomY Signal Signal |
+  Move Signal Signal |
+  Tile Signal Signal | TileXy Signal Signal | TileX Signal Signal | TileY Signal Signal |
+  Spin Signal Signal |
   Early Signal Signal | Slow Signal Signal |
   Addition MultiMode Signal Signal |
   Difference MultiMode Signal Signal |
@@ -264,7 +267,9 @@ subSignals (Fract x) = x:Nil
 subSignals (SetFx x y) = x:y:Nil
 subSignals (SetFy x y) = x:y:Nil
 subSignals (SetFxy x y) = x:y:Nil
-subSignals (Zoom x y) = x:y:Nil
+subSignals (Zoom q z) = q:z:Nil
+subSignals (ZoomX q z) = q:z:Nil
+subSignals (ZoomY q z) = q:z:Nil
 subSignals (Move x y) = x:y:Nil
 subSignals (Tile x y) = x:y:Nil
 subSignals (Spin x y) = x:y:Nil

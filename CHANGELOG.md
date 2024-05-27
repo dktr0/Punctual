@@ -5,6 +5,9 @@ draft changes in 0.5 rewrite:
 
 -all texture access functions(img vid cam ifft fft fb) don't take position arguments (if they did before), all instead stretch their results over the range of the unit square (in the case of fft and ifft, results are stretched over the x axis), and all are masked by the unit square (0 values outside of the coordinates lower than -1 or greater than 1)
 
+-zoom now uses each channel of its first argument to scale both x and y dimensions; zoomxy, zoomx, and zoomy (new) can be used to zoom x and y axes independently
+
+-tile now uses each channel of its first argument to modify both x and y dimensions; tilexy, tilex, and tiley (new) can be used to tile x and y axes independently
 
 0.4.9.3:
 

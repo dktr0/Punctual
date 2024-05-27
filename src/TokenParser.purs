@@ -55,7 +55,7 @@ functionsWithArgumentsDef = [
   "zip",
   "fit","min","max","minp","maxp",
   "clip","clipp","between","betweenp","smoothstep","smoothstepp","gate","gatep","when","seq",
-  "setfx","setfy","setfxy","zoom","move","tile","spin",
+  "setfx","setfy","setfxy","zoom","zoomxy","zoomx","zoomy","move","tile","tilexy","tilex","tiley","spin",
   "early","late","slow","fast",
   "lpf","lpfp","hpf","hpfp","bpf","bpfp","delay",
   "linlin","linlinp",

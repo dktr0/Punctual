@@ -863,3 +863,11 @@ xyt xy = atan (division y x)
     x = swizzleX xy
     y = swizzleY xy
 
+setX :: Vec2 -> Float -> Vec2
+setX (Vec2Constant _ y) (FloatConstant x) = Vec2Constant x y
+setX xy x = expr $ "vec2(" <> toExpr x <> "," <> toExpr (swizzleY xy) <> ")"
+
+setY :: Vec2 -> Float -> Vec2
+setY (Vec2Constant x _) (FloatConstant y) = Vec2Constant x y
+setY xy y = expr $ "vec2(" <> toExpr (swizzleX xy) <> "," <> toExpr y <> ")" 
+

@@ -207,50 +207,83 @@ signalToExprs (Prox xy) = do
   xys <- signalToExprs xy
   traverse assign $ mapRows fromFloats $ map (prox fxy) xys
   
+signalToExprs (SetFxy xy z) = do
+  fxys <- signalToExprs xy >>= traverse assign
+  withFxys (flatten fxys) $ signalToExprs z
+  
+signalToExprs (SetFx x z) = do
+  fxy <- _.fxy <$> get
+  xs <- signalToExprs x
+  fxys <- traverse assign $ map (setX fxy) $ flatten xs
+  withFxys fxys $ signalToExprs z
+
+signalToExprs (SetFy y z) = do
+  fxy <- _.fxy <$> get
+  ys <- signalToExprs y
+  fxys <- traverse assign $ map (setY fxy) $ flatten ys
+  withFxys fxys $ signalToExprs z
+
+signalToExprs (Zoom q z) = do
+  fxy <- _.fxy <$> get
+  qs <- signalToExprs q -- :: G (Multi Float)
+  fxys <- traverse assign $ map (divisionExprFloat fxy) $ flatten qs
+  withFxys fxys $ signalToExprs z
+
+signalToExprs (ZoomXy q z) = do
+  fxy <- _.fxy <$> get
+  qs <- signalToExprs q -- :: G (Multi Vec2)
+  fxys <- traverse assign $ map (division fxy) $ flatten qs
+  withFxys fxys $ signalToExprs z
+
+signalToExprs (ZoomX q z) = do
+  fxy <- _.fxy <$> get
+  qs <- signalToExprs q -- :: G (Multi Float)
+  fxys <- traverse assign $ map (setX fxy <<< division (swizzleX fxy)) $ flatten qs
+  withFxys fxys $ signalToExprs z
+
+signalToExprs (ZoomY q z) = do
+  fxy <- _.fxy <$> get
+  qs <- signalToExprs q -- :: G (Multi Float)
+  fxys <- traverse assign $ map (setY fxy <<< division (swizzleY fxy)) $ flatten qs
+  withFxys fxys $ signalToExprs z
+ 
+signalToExprs (Move q z) = do
+  fxy <- _.fxy <$> get
+  qs <- signalToExprs q -- :: G (Multi Vec2)
+  fxys <- traverse assign $ map (difference fxy) $ flatten qs
+  withFxys fxys $ signalToExprs z
+
+signalToExprs (Tile q z) = do
+  fxy <- _.fxy <$> get
+  qs <- signalToExprs q -- :: G (Multi Float)
+  fxys <- traverse assign $ map (tile fxy <<< fromFloat) $ flatten qs
+  withFxys fxys $ signalToExprs z
+  
+signalToExprs (TileXy q z) = do
+  fxy <- _.fxy <$> get
+  qs <- signalToExprs q -- :: G (Multi Vec2)
+  fxys <- traverse assign $ map (tile fxy) $ flatten qs
+  withFxys fxys $ signalToExprs z
+
+signalToExprs (TileX q z) = do
+  fxy <- _.fxy <$> get
+  qs <- signalToExprs q -- :: G (Multi Float)
+  fxys <- traverse assign $ map (setX fxy <<< tile (swizzleX fxy)) $ flatten qs
+  withFxys fxys $ signalToExprs z
+
+signalToExprs (TileY q z) = do
+  fxy <- _.fxy <$> get
+  qs <- signalToExprs q -- :: G (Multi Float)
+  fxys <- traverse assign $ map (setY fxy <<< tile (swizzleY fxy)) $ flatten qs
+  withFxys fxys $ signalToExprs z
+
+signalToExprs (Spin q z) = do
+  fxy <- _.fxy <$> get
+  qs <- signalToExprs q -- :: G (Multi Float)
+  fxys <- traverse (spin fxy) $ flatten qs
+  withFxys fxys $ signalToExprs z
+
 {-
-
-signalToGLSL ah (SetFxy xy z) = do
-  fxys <- signalToGLSL Vec2 xy >>= alignVec2 >>= traverse assignForced
-  withFxys fxys $ signalToGLSL ah z
-
-signalToGLSL ah (SetFx x z) = do
-  fxy <- _.fxy <$> get
-  xs <- signalToGLSL Vec4 x >>= alignFloat
-  let f x' = GLSLExpr.vec2binary x' (unsafeSwizzleY fxy)
-  fxys <- traverse assignForced $ map f xs
-  withFxys fxys $ signalToGLSL ah z
-
-signalToGLSL ah (SetFy y z) = do
-  fxy <- _.fxy <$> get
-  ys <- signalToGLSL Vec4 y >>= alignFloat
-  let f y' = GLSLExpr.vec2binary (unsafeSwizzleX fxy) y'
-  fxys <- traverse assignForced $ map f ys
-  withFxys fxys $ signalToGLSL ah z
-
-signalToGLSL ah (Zoom xy z) = do
-  fxy <- _.fxy <$> get
-  xys <- signalToGLSL Vec2 xy >>= alignVec2
-  fxys <- traverse assignForced $ map (GLSLExpr.division fxy) xys
-  withFxys fxys $ signalToGLSL ah z
-
-signalToGLSL ah (Move xy z) = do
-  fxy <- _.fxy <$> get
-  xys <- signalToGLSL Vec2 xy >>= alignVec2
-  fxys <- traverse assignForced $ map (GLSLExpr.difference fxy) xys
-  withFxys fxys $ signalToGLSL ah z
-
-signalToGLSL ah (Tile xy z) = do
-  fxy <- _.fxy <$> get
-  xys <- signalToGLSL Vec2 xy >>= alignVec2
-  fxys <- traverse assignForced $ map (GLSLExpr.tile fxy) xys
-  withFxys fxys $ signalToGLSL ah z
-
-signalToGLSL ah (Spin x z) = do
-  fxy <- _.fxy <$> get
-  xs <- signalToGLSL Vec4 x >>= alignFloat
-  fxys <- traverse (spin fxy) xs >>= traverse assignForced
-  withFxys fxys $ signalToGLSL ah z
-
 signalToGLSL ah (Early x z) = do
   xs <- signalToGLSL Float x >>= alignFloat
   s <- get  
@@ -594,17 +627,16 @@ round x = do
     true -> assign $ unaryFunction Number.round (function1 "round") x
     false -> assign $ add (floor x) (constant 0.5)
 
-{-    
-spin :: GLSLExpr -> GLSLExpr -> GLSL GLSLExpr
+spin :: Vec2 -> Float -> G Vec2
 spin fxy a = do
-  aPi <- assignForced $ GLSLExpr.product a GLSLExpr.pi
-  ct <- assignForced $ GLSLExpr.cos aPi
-  st <- assignForced $ GLSLExpr.sin aPi
-  let x = GLSLExpr.difference (GLSLExpr.product (unsafeSwizzleX fxy) ct) (GLSLExpr.product (unsafeSwizzleY fxy) st)
-  let y = GLSLExpr.add (GLSLExpr.product (unsafeSwizzleY fxy) ct) (GLSLExpr.product (unsafeSwizzleX fxy) st)
-  assignForced $ GLSLExpr.vec2binary x y
-  
-  
+  aPi <- assign $ product a pi
+  ct <- assign $ cos aPi
+  st <- assign $ sin aPi
+  let x = difference (product (swizzleX fxy) ct) (product (swizzleY fxy) st)
+  let y = add (product (swizzleY fxy) ct) (product (swizzleX fxy) st)
+  assign $ floatFloatToVec2 x y
+
+{-
 rect :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSL GLSLExpr -- Vec2 Vec2 Vec2 -> Float
 rect fxy xy wh = do
   let a = GLSLExpr.product GLSLExpr.pxy (GLSLExpr.float 1.5)
