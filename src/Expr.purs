@@ -1,6 +1,6 @@
 module Expr where
 
-import Prelude (class Eq, class Ord, class Show,($),(<>),show,(+),(-),(*),(/),(<<<),flip,(==),(/=),(>),(>=),(<),(<=),map,identity,otherwise)
+import Prelude (class Eq, class Ord, class Show,($),(<>),show,(+),(-),(*),(/),(<<<),flip,(==),(/=),(>),(>=),(<),(<=),map,identity,otherwise,(&&))
 import Prelude as Prelude
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
@@ -684,12 +684,17 @@ circle fxy xy diameter = smoothstep e0 e1 $ distance fxy xy - (diameter * consta
   where
     e0 = Vec2Expr "1.5/(res.x+res.y)"
     e1 = constant 0.0
+-}
 
-distance :: forall a. Expr a => a -> a -> a
-distance a b 
-  | isConstant a && isConstant b = sqrt $ sum $ squared $ simpleBinaryFunction (-) (\_ _ -> "") a b
-  | otherwise = exprConstructor $ "distance(" <> toExpr a <> "," <> toExpr b <> ")"
+distance :: forall a. Expr a => a -> a -> Float
+distance a b
+  | isConstant a && isConstant b = sqrt $ dotSum $ squared $ difference a b
+  | otherwise = expr $ "distance(" <> toExpr a <> "," <> toExpr b <> ")"
+  
+prox :: Vec2 -> Vec2 -> Float
+prox a b = clamp (constant 0.0) (constant 1.0) $ division (difference (constant 2.828427) (distance a b)) (constant 2.828427)
 
+{-
 point :: GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2
 point fxy xy = circle fxy xy d
   where d = { string: "((1./res.x)+(1./res.y))", glslType: Float, isSimple: false, deps: empty }
@@ -771,14 +776,6 @@ fadeOut :: Number -> Number -> Float
 fadeOut t1 t2 = expr $ "clamp((" <> show t2 <> "-_etime)/(" <> show t2 <> "-" <> show t1 <> "),0.,1.)"
 
 
-{-    
-prox :: GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 -> Float
-prox a b
-  | a.glslType /= Vec2 || b.glslType /= Vec2 = { string: "!! Internal Punctual GLSL generation error in prox", glslType: Float, isSimple: false, deps: a.deps <> b.deps }
-  | otherwise = { string: "clamp((2.828427-distance(" <> a.string <> "," <> b.string <> "))/2.828427,0.,1.)", glslType: Float, isSimple: false, deps: a.deps <> b.deps }
--}
-
-
 bipolar :: forall a. Expr a => a -> a
 bipolar x = differenceExprFloat (productExprFloat x (constant 2.0)) (constant 1.0)
 
@@ -803,12 +800,6 @@ pxy = expr "(2./res)"
 aspect :: Float
 aspect = expr "(res.x/res.y)"
 
-{-
-distance :: GLSLExpr -> GLSLExpr -> GLSLExpr
-distance x y
-  | x.glslType /= y.glslType = { string: "!! Internal Punctual GLSL generation error in distance", glslType: Float, isSimple: false, deps: x.deps <> y.deps }
-  | otherwise = { string: "distance(" <> x.string <> "," <> y.string <> ")", glslType: x.glslType, isSimple: false, deps: x.deps <> y.deps }
--}
 
 sum :: forall f. Foldable1 f => forall a. Expr a => f a -> a
 sum = foldl1 add 

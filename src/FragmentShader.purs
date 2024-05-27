@@ -197,37 +197,17 @@ signalToExprs (XyRt xy) = signalToExprs xy >>= traverse assign >>= map xyrt >>> 
 signalToExprs (XyR xy) = signalToExprs xy >>= traverse assign >>= map xyr >>> traverse assign >>= mapRows fromFloats >>> pure
 signalToExprs (XyT xy) = signalToExprs xy >>= traverse assign >>= map xyt >>> traverse assign >>= mapRows fromFloats >>> pure
   
+signalToExprs (Distance xy) = do
+  fxy <- _.fxy <$> get
+  xys <- signalToExprs xy
+  traverse assign $ mapRows fromFloats $ map (distance fxy) xys
+
+signalToExprs (Prox xy) = do
+  fxy <- _.fxy <$> get
+  xys <- signalToExprs xy
+  traverse assign $ mapRows fromFloats $ map (prox fxy) xys
+  
 {-
-
-signalToGLSL _ (XyRt xy) = do
-  xys <- signalToGLSL Vec2 xy >>= alignVec2
-  xs <- traverse swizzleX xys
-  ys <- traverse swizzleY xys
-  rs <- zipBinaryExpression (\x y -> "sqrt((" <> x <> "*" <> x <> ")+(" <> y <> "*" <> y <> "))") xs ys
-  ts <- zipBinaryExpression (\x y -> "atan(" <> y <> "," <> x <> ")") xs ys
-  pure $ concat $ zipWith (\x y -> x `cons` singleton y) rs ts
-
-signalToGLSL _ (XyR xy) = do
-  xys <- signalToGLSL Vec2 xy >>= alignVec2
-  xs <- traverse swizzleX xys
-  ys <- traverse swizzleY xys
-  zipBinaryExpression (\x y -> "sqrt((" <> x <> "*" <> x <> ")+(" <> y <> "*" <> y <> "))") xs ys
-
-signalToGLSL _ (XyT xy) = do
-  xys <- signalToGLSL Vec2 xy >>= alignVec2
-  xs <- traverse swizzleX xys
-  ys <- traverse swizzleY xys
-  zipBinaryExpression (\x y -> "atan(" <> y <> "," <> x <> ")") xs ys
-
-signalToGLSL _ (Distance xy) = do
-  fxy <- _.fxy <$> get
-  xys <- signalToGLSL Vec2 xy >>= alignVec2
-  pure $ map (GLSLExpr.distance fxy) xys
-
-signalToGLSL _ (Prox xy) = do
-  fxy <- _.fxy <$> get
-  xys <- signalToGLSL Vec2 xy >>= alignVec2
-  pure $ map (GLSLExpr.prox fxy) xys
 
 signalToGLSL ah (SetFxy xy z) = do
   fxys <- signalToGLSL Vec2 xy >>= alignVec2 >>= traverse assignForced
