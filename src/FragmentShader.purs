@@ -1,6 +1,6 @@
 module FragmentShader where
 
-import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,max,(>>>),(<*>),flip,negate)
+import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,(>>>),(<*>),flip,negate)
 import Data.Functor (mapFlipped)
 import Data.Maybe (Maybe(..))
 import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length)
@@ -16,7 +16,7 @@ import Data.Tempo (Tempo)
 import Data.DateTime (DateTime)
 import Data.Number (acos, asin, atan, ceil, cos, exp, floor, log, pow, round, sign, sin, sqrt, tan, trunc) as Number
 
-import NonEmptyList
+import NonEmptyList (zipWithEqualLength)
 import MultiMode (MultiMode(..))
 import Signal (Signal(..))
 import Action (Action,actionTimesAsSecondsSinceEval)
@@ -25,7 +25,7 @@ import Output as Output
 import Program (Program)
 import Expr
 import G
-import Multi (Multi,fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep)
+import Multi (Multi,fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine)
 import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, division, smoothStep) as Number
 
 
@@ -305,23 +305,22 @@ signalToExprs (Slow q z) = do
     }
   withAlteredTime qs' $ signalToExprs z
   
+signalToExprs (Addition mm x y) = binaryFunction mm add x y
+signalToExprs (Difference mm x y) = binaryFunction mm difference x y
+signalToExprs (Product mm x y) = binaryFunction mm product x y
+signalToExprs (Division mm x y) = binaryFunction mm division x y
+signalToExprs (Mod mm x y) = binaryFunction mm mod x y
+signalToExprs (Pow mm x y) = binaryFunction mm pow x y
+signalToExprs (Equal mm x y) = binaryFunction mm equal x y
+signalToExprs (NotEqual mm x y) = binaryFunction mm notEqual x y
+signalToExprs (GreaterThan mm x y) = binaryFunction mm greaterThan x y
+signalToExprs (GreaterThanEqual mm x y) = binaryFunction mm greaterThanEqual x y
+signalToExprs (LessThan mm x y) = binaryFunction mm lessThan x y
+signalToExprs (LessThanEqual mm x y) = binaryFunction mm lessThanEqual x y
+signalToExprs (Max mm x y) = binaryFunction mm max x y
+signalToExprs (Min mm x y) = binaryFunction mm min x y
+
 {-
-
-signalToGLSL ah (Addition mm x y) = binaryFunction ah mm GLSLExpr.add x y
-signalToGLSL ah (Difference mm x y) = binaryFunction ah mm GLSLExpr.difference x y
-signalToGLSL ah (Product mm x y) = binaryFunction ah mm GLSLExpr.product x y
-signalToGLSL ah (Division mm x y) = binaryFunction ah mm GLSLExpr.division x y
-signalToGLSL ah (Mod mm x y) = binaryFunction ah mm GLSLExpr.mod x y
-signalToGLSL ah (Pow mm x y) = binaryFunction ah mm GLSLExpr.pow x y
-signalToGLSL ah (Equal mm x y) = binaryFunction ah mm GLSLExpr.equal x y
-signalToGLSL ah (NotEqual mm x y) = binaryFunction ah mm GLSLExpr.notEqual x y
-signalToGLSL ah (GreaterThan mm x y) = binaryFunction ah mm GLSLExpr.greaterThan x y
-signalToGLSL ah (GreaterThanEqual mm x y) = binaryFunction ah mm GLSLExpr.greaterThanEqual x y
-signalToGLSL ah (LessThan mm x y) = binaryFunction ah mm GLSLExpr.lessThan x y
-signalToGLSL ah (LessThanEqual mm x y) = binaryFunction ah mm GLSLExpr.lessThanEqual x y
-signalToGLSL ah (Max mm x y) = binaryFunction ah mm GLSLExpr.max x y
-signalToGLSL ah (Min mm x y) = binaryFunction ah mm GLSLExpr.min x y
-
 signalToGLSL ah (Gate mm x y) = do
   xs <- signalToGLSL ah x
   ys <- signalToGLSL ah y >>= traverse assign
@@ -480,20 +479,11 @@ sqr :: forall a. Expr a => a -> G a
 sqr f = phasor f >>= bipolar >>> greaterThanEqual (constant 0.5) >>> assign
 
 
+binaryFunction :: forall a. Expr a => MultiMode -> (a -> a -> a) -> Signal -> Signal -> G (Multi a)
+binaryFunction Combinatorial f x y = combine f Combinatorial <$> (map fromFloat <$> signalToExprs x) <*> signalToExprs y
+binaryFunction Pairwise f x y = combine f Pairwise <$> signalToExprs x <*> signalToExprs y
+
 {-
-simpleUnaryFunction :: (GLSLExpr -> GLSLExpr) -> Exprs -> GLSL Exprs
-simpleUnaryFunction f = traverse $ \x -> pure $ f x
-
-simpleUnaryExpression :: (String -> String) -> Exprs -> GLSL Exprs
-simpleUnaryExpression f = traverse $ \x -> pure { string: f x.string, glslType: x.glslType, isSimple: x.isSimple, deps: x.deps }
-
-unaryExpression :: (String -> String) -> Exprs -> GLSL Exprs
-unaryExpression f = traverse $ \x -> pure { string: f x.string, glslType: x.glslType, isSimple: false, deps: x.deps }
-
--- deduces type from type of first of each pair (which is assumed to match second of each pair)
-zipBinaryExpression :: (String -> String -> String) -> Exprs -> Exprs -> GLSL Exprs
-zipBinaryExpression f xs ys = pure $ zipWith (\x y -> { string: f x.string y.string, glslType:x.glslType, isSimple: false, deps: x.deps <> y.deps }) xs ys
-
 binaryFunction :: GLSLType -> MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Signal -> Signal -> GLSL Exprs
 binaryFunction ah mm f x y = do
   xs <- signalToGLSL ah x >>= traverse assignForced
