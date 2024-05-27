@@ -190,26 +190,14 @@ signalToExprs (Tanh x) = signalToExprs x >>= traverse tanh
 signalToExprs (Trunc x) = signalToExprs x >>= traverse trunc
 signalToExprs (Unipolar x) = signalToExprs x >>= map unipolar >>> traverse assign
 
+signalToExprs (RtXy rt) = signalToExprs rt >>= traverse assign >>= map rtxy >>> traverse assign >>= mapRows fromVec2s >>> pure
+signalToExprs (RtX rt) = signalToExprs rt >>= traverse assign >>= map rtx >>> traverse assign >>= mapRows fromFloats >>> pure
+signalToExprs (RtY rt) = signalToExprs rt >>= traverse assign >>= map rty >>> traverse assign >>= mapRows fromFloats >>> pure
+signalToExprs (XyRt xy) = signalToExprs xy >>= traverse assign >>= map xyrt >>> traverse assign >>= mapRows fromVec2s >>> pure
+signalToExprs (XyR xy) = signalToExprs xy >>= traverse assign >>= map xyr >>> traverse assign >>= mapRows fromFloats >>> pure
+signalToExprs (XyT xy) = signalToExprs xy >>= traverse assign >>= map xyt >>> traverse assign >>= mapRows fromFloats >>> pure
+  
 {-
-signalToGLSL _ (RtXy rt) = do
-  rts <- signalToGLSL Vec2 rt >>= alignVec2
-  rs <- traverse swizzleX rts
-  ts <- traverse swizzleY rts
-  xs <- zipBinaryExpression (\r t -> "(" <> r <> "*cos(" <> t <> "))") rs ts
-  ys <- zipBinaryExpression (\r t -> "(" <> r <> "*sin(" <> t <> "))") rs ts
-  pure $ concat $ zipWith (\x y -> x `cons` singleton y) xs ys
-
-signalToGLSL _ (RtX rt) = do
-  rts <- signalToGLSL Vec2 rt >>= alignVec2
-  rs <- traverse swizzleX rts
-  ts <- traverse swizzleY rts
-  zipBinaryExpression (\r t -> "(" <> r <> "*cos(" <> t <> "))") rs ts
-
-signalToGLSL _ (RtY rt) = do
-  rts <- signalToGLSL Vec2 rt >>= alignVec2
-  rs <- traverse swizzleX rts
-  ts <- traverse swizzleY rts
-  zipBinaryExpression (\r t -> "(" <> r <> "*sin(" <> t <> "))") rs ts
 
 signalToGLSL _ (XyRt xy) = do
   xys <- signalToGLSL Vec2 xy >>= alignVec2

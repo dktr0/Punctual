@@ -832,3 +832,43 @@ cbrt :: forall a. Expr a => a -> a
 cbrt = unaryFunction Number.cbrt f
   where f x = "(exp(log(abs(" <> x <> "))/3.)*sign(" <> x <> "))"
 
+rtxy :: Vec2 -> Vec2
+rtxy rt = floatFloatToVec2 x y   
+  where
+    r = swizzleX rt
+    t = swizzleY rt
+    x = product r (cos t)
+    y = product r (sin t)
+
+rtx :: Vec2 -> Float
+rtx rt = product r (cos t) 
+  where
+    r = swizzleX rt
+    t = swizzleY rt
+
+rty :: Vec2 -> Float
+rty rt = product r (sin t)
+  where
+    r = swizzleX rt
+    t = swizzleY rt
+
+xyrt :: Vec2 -> Vec2
+xyrt xy = floatFloatToVec2 r t
+  where
+    x = swizzleX xy
+    y = swizzleY xy
+    r = sqrt (add (product x x) (product y y))
+    t = atan (division y x)
+
+xyr :: Vec2 -> Float
+xyr xy = sqrt (add (product x x) (product y y)) 
+  where
+    x = swizzleX xy
+    y = swizzleY xy
+
+xyt :: Vec2 -> Float
+xyt xy = atan (division y x)
+  where
+    x = swizzleX xy
+    y = swizzleY xy
+
