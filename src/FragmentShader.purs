@@ -414,31 +414,21 @@ signalToExprs (Point xy) = do
   xys <- signalToExprs xy
   traverse assign $ mapRows fromFloats $ map (point fxy) xys
   
-{-
-signalToGLSL ah (LinLin mm r1 r2 x) = do
-  r1s <- signalToGLSL Vec2 r1 >>= alignVec2
-  r2s <- signalToGLSL Vec2 r2 >>= alignVec2
-  xs <- signalToGLSL ah x
-  case mm of 
-    Combinatorial -> pure $ do -- in NonEmptyList monad
-      r1' <- r1s
-      r2' <- r2s
-      x' <- xs
-      pure $ GLSLExpr.linlin r1' r2' x'
-    Pairwise -> do
-      case (length r1s == 1 && length r2s == 1) of
-        true -> pure $ map (GLSLExpr.linlin (head r1s) (head r2s)) xs -- only one set of ranges so map onto xs as they are
-        false -> do
-          xs' <- alignFloat xs
-          pure $ combine3Pairwise GLSLExpr.linlin r1s r2s xs'
+signalToExprs (LinLin mm r1 r2 x) = do
+  r1s <- signalToExprs r1
+  r2s <- signalToExprs r2
+  xs <- signalToExprs x
+  traverse assign $ combine3 linlin mm r1s r2s xs
   
-signalToGLSL ah (Mix mm x y a) = do
-  x' <- signalToGLSL ah x
-  y' <- signalToGLSL ah y
-  xys <- extendAligned x' y' -- :: NonEmptyList (Tuple GLSLExpr GLSLExpr)
-  a' <- signalToGLSL ah a >>= alignFloat
-  sequence $ combine mm (\(Tuple xx yy) aa -> pure $ GLSLExpr.mix xx yy aa) xys a'
-            
+signalToExprs (Mix mm x y a) = do
+  x' <- signalToExprs x
+  y' <- signalToExprs y
+  let xys = fromNonEmptyList $ zipWithEqualLength Tuple (flatten x') (flatten y')
+  a' <- signalToExprs a
+  let f (Tuple xx yy) aa = mix xx yy aa
+  traverse assign $ combine f mm xys a'
+  
+{-          
 signalToGLSL _ (Seq steps) = do
   steps' <- signalToGLSL Float steps >>= alignFloat
   case length steps' of

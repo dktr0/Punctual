@@ -713,28 +713,18 @@ line fxy xy1 xy2 w = expr $ "line(" <> toExpr xy1 <> "," <> toExpr xy2 <> "," <>
 iline :: Vec2 -> Vec2 -> Vec2 -> Float -> Float
 iline fxy xy1 xy2 w = expr $ "iline(" <> toExpr xy1 <> "," <> toExpr xy2 <> "," <> toExpr w <> "," <> toExpr fxy <> ")" 
 
+linlin :: forall a. Expr a => Vec2 -> Vec2 -> a -> a
+linlin r1 r2 x = addExprFloat x'' (swizzleX r2)
+  where
+    r1size = difference (swizzleY r1) (swizzleX r1)
+    x' = divisionExprFloat (differenceExprFloat x (swizzleX r1)) r1size
+    r2size = difference (swizzleY r2) (swizzleX r2)
+    x'' = productExprFloat x' r2size
+    
+mix :: forall a. Expr a => a -> a -> Float -> a
+mix x y a = expr $ "mix(" <> toExpr x <> "," <> toExpr y <> "," <> toExpr a <> ")"
+
 {-
--- \float linlin(vec2 r1, vec2 r2, float x) { return r2.x+((r2.y-r2.x)*(x-r1.x)/(r1.y-r1.x));}\
-
-linlin :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2 Any -> Any, vec2 range arguments are re-used and should be pre-assigned
-linlin r1 r2 x 
-  | r1.glslType /= Vec2 || r2.glslType /= Vec2 = { string: "!! Internal Punctual GLSL generation error in linlin", glslType: Float, isSimple: false, deps: r1.deps <> r2.deps <> x.deps }
-  | otherwise = { string: s, glslType: x.glslType, isSimple: false, deps: r1.deps <> r2.deps <> x.deps }
-      where
-        x' = "(" <> x.string <> "-" <> r1.string <> ".x)"
-        r1size = "(" <> r1.string <> ".y-" <> r1.string <> ".x)"
-        r2size = "(" <> r2.string <> ".y-" <> r2.string <> ".x)"
-        s = "(" <> r2.string <> ".x+(" <> r2size <> "*" <> x' <> "/" <> r1size <> "))"
-
-mix :: GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr
-mix x y a
-  | x.glslType /= y.glslType = { string: "!! Internal Punctual GLSL generation error in mix", glslType: Float, isSimple: false, deps: x.deps <> y.deps <> a.deps }
-  | x.glslType /= a.glslType && a.glslType /= Float = { string: "!! Internal Punctual GLSL generation error in mix", glslType: Float, isSimple: false, deps: x.deps <> y.deps <> a.deps }
-  | otherwise = { string: s, glslType: t, isSimple: false, deps: x.deps <> y.deps <> a.deps }
-      where
-        s = "mix(" <> x.string <> "," <> y.string <> "," <> a.string <> ")"
-        t = Prelude.max x.glslType a.glslType
-
 seq :: NonEmptyList GLSLExpr -> GLSLExpr -> GLSLExpr -- all arguments are Float and return value is Float
 seq steps y = { string: s, glslType: Float, isSimple: false, deps: fold (map _.deps steps) <> y.deps }
   where
