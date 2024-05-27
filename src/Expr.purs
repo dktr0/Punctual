@@ -649,42 +649,34 @@ lessThanEqual ::forall a. Expr a => a -> a -> a
 lessThanEqual = comparisonOperator (<=) "lessThanEqual" "<="
 
 
-{-
-
--- miscellaneous functions over Expr:
-
--- caller should assign second argument because of multiple use in this definition
-gate :: Expr -> Expr -> Expr
-gate x y = product (lessThan x y) y
+-- second argument is multiply used and should be assigned by caller
+gate :: forall a. Expr a => Float -> a -> a
+gate x y = product (lessThan (fromFloat x) y) y
 
 -- all arguments are multiply used and should be assigned by the caller
--- expectation is that first two arguments are floats (constant or otherwise), unsure what results would be if this is violated
-between :: Expr -> Expr -> Expr -> Expr
-between r1 r2 x = product (lessThan (min r1 r2) x) (difference (constant 1.0) (lessThan (max r1 r2) x))
+between :: forall a. Expr a => Vec2 -> a -> a
+between r x = product (lessThan trueMin x) (difference (constant 1.0) (lessThan trueMax x))
+  where
+    r1 = swizzleX r
+    r2 = swizzleY r
+    trueMin = fromFloat (min r1 r2)
+    trueMax = fromFloat (max r1 r2)
 
--- expectation is that first two arguments are floats (constant or otherwise), unsure what results would be if this is violated
--- (no multiple use of arguments)
-smoothStep :: Expr -> Expr -> Expr -> Expr
-smoothStep (constant e0) (constant e1) (constant x) = constant $ Number.smoothStep e0 e1 x
-smoothStep e0 e1 (constant x) = Reference Float $ "smoothstep(" <> show e0 <> "," <> show e1 <> "," <> show x <> ")"
-smoothStep e0 e1 (Reference xType x) = Reference xType $ "smoothstep(" <> show e0 <> "," <> show e1 <> "," <> show x <> ")"
--}
+-- first argument is multiply used and should be assigned by the caller
+clip :: forall a. Expr a => Vec2 -> a -> a
+clip r x = clamp (min e0 e1) (max e0 e1) x
+  where
+    e0 = swizzleX r
+    e1 = swizzleY r
 
-
-clip :: forall a. Expr a => Float -> Float -> a -> a
-clip e0 e1 x = clamp (min e0 e1) (max e0 e1) x
-
--- clamp is an "unchecked" clipping operation (weird results if min and max are out of order)
+-- clamp is an "unchecked" clipping operation (ie. weird results if min and max are out of order)
 clamp :: forall a. Expr a => Float -> Float -> a -> a
 clamp e0 e1 x = expr $ "clamp(" <> toExpr x <> "," <> toExpr e0 <> "," <> toExpr e1 <> ")"
 
-{-
-circle :: forall a. ConstantOrExpr a => Vec2 -> Vec2 -> a -> a
-circle fxy xy diameter = smoothstep e0 e1 $ distance fxy xy - (diameter * constant 0.5) -- what about potential type mismatch in multiplication?
-  where
-    e0 = Vec2Expr "1.5/(res.x+res.y)"
-    e1 = constant 0.0
--}
+-- first argument is multiply used and should be assigned by the caller
+smoothStep :: forall a. Expr a => Vec2 -> a -> a
+smoothStep r x = expr $ "smoothstep(" <> toExpr (swizzleX r) <> "," <> toExpr (swizzleY r) <> "," <> toExpr x <> ")"
+
 
 distance :: forall a. Expr a => a -> a -> Float
 distance a b
@@ -695,6 +687,12 @@ prox :: Vec2 -> Vec2 -> Float
 prox a b = clamp (constant 0.0) (constant 1.0) $ division (difference (constant 2.828427) (distance a b)) (constant 2.828427)
 
 {-
+circle :: forall a. ConstantOrExpr a => Vec2 -> Vec2 -> a -> a
+circle fxy xy diameter = smoothstep e0 e1 $ distance fxy xy - (diameter * constant 0.5) -- what about potential type mismatch in multiplication?
+  where
+    e0 = Vec2Expr "1.5/(res.x+res.y)"
+    e1 = constant 0.0
+
 point :: GLSLExpr -> GLSLExpr -> GLSLExpr -- Vec2 Vec2
 point fxy xy = circle fxy xy d
   where d = { string: "((1./res.x)+(1./res.y))", glslType: Float, isSimple: false, deps: empty }

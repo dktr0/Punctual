@@ -305,31 +305,42 @@ signalToExprs (Slow q z) = do
     }
   withAlteredTime qs' $ signalToExprs z
   
-signalToExprs (Addition mm x y) = binaryFunction mm add x y
-signalToExprs (Difference mm x y) = binaryFunction mm difference x y
-signalToExprs (Product mm x y) = binaryFunction mm product x y
-signalToExprs (Division mm x y) = binaryFunction mm division x y
-signalToExprs (Mod mm x y) = binaryFunction mm mod x y
-signalToExprs (Pow mm x y) = binaryFunction mm pow x y
-signalToExprs (Equal mm x y) = binaryFunction mm equal x y
-signalToExprs (NotEqual mm x y) = binaryFunction mm notEqual x y
-signalToExprs (GreaterThan mm x y) = binaryFunction mm greaterThan x y
-signalToExprs (GreaterThanEqual mm x y) = binaryFunction mm greaterThanEqual x y
-signalToExprs (LessThan mm x y) = binaryFunction mm lessThan x y
-signalToExprs (LessThanEqual mm x y) = binaryFunction mm lessThanEqual x y
-signalToExprs (Max mm x y) = binaryFunction mm max x y
-signalToExprs (Min mm x y) = binaryFunction mm min x y
+signalToExprs (Addition mm x y) = binaryFunctionToExprs mm add x y
+signalToExprs (Difference mm x y) = binaryFunctionToExprs mm difference x y
+signalToExprs (Product mm x y) = binaryFunctionToExprs mm product x y
+signalToExprs (Division mm x y) = binaryFunctionToExprs mm division x y
+signalToExprs (Mod mm x y) = binaryFunctionToExprs mm mod x y
+signalToExprs (Pow mm x y) = binaryFunctionToExprs mm pow x y
+signalToExprs (Equal mm x y) = binaryFunctionToExprs mm equal x y
+signalToExprs (NotEqual mm x y) = binaryFunctionToExprs mm notEqual x y
+signalToExprs (GreaterThan mm x y) = binaryFunctionToExprs mm greaterThan x y
+signalToExprs (GreaterThanEqual mm x y) = binaryFunctionToExprs mm greaterThanEqual x y
+signalToExprs (LessThan mm x y) = binaryFunctionToExprs mm lessThan x y
+signalToExprs (LessThanEqual mm x y) = binaryFunctionToExprs mm lessThanEqual x y
+signalToExprs (Max mm x y) = binaryFunctionToExprs mm max x y
+signalToExprs (Min mm x y) = binaryFunctionToExprs mm min x y
+
+signalToExprs (Gate mm x y) = do
+  xs <- signalToExprs x
+  ys <- signalToExprs y >>= traverse assign
+  traverse assign $ combine gate mm xs ys
+
+signalToExprs (Clip mm r x) = do
+  rs <- signalToExprs r >>= traverse assign
+  xs <- signalToExprs x
+  traverse assign $ combine clip mm rs xs
+
+signalToExprs (Between mm r x) = do
+  rs <- signalToExprs r >>= traverse assign
+  xs <- signalToExprs x >>= traverse assign
+  traverse assign $ combine between mm rs xs
+
+signalToExprs (SmoothStep mm r x) = do
+  rs <- signalToExprs r >>= traverse assign
+  xs <- signalToExprs x
+  traverse assign $ combine smoothStep mm rs xs
 
 {-
-signalToGLSL ah (Gate mm x y) = do
-  xs <- signalToGLSL ah x
-  ys <- signalToGLSL ah y >>= traverse assign
-  combineChannels mm GLSLExpr.gate xs ys
-
-signalToGLSL ah (Clip mm r x) = clipEtcFunction ah mm GLSLExpr.clip r x
-signalToGLSL ah (Between mm r x) = clipEtcFunction ah mm GLSLExpr.between r x
-signalToGLSL ah (SmoothStep mm r x) = clipEtcFunction ah mm GLSLExpr.smoothstep r x
-
 signalToGLSL ah (Circle mm xy d) = do
   fxy <- _.fxy <$> get
   xys <- signalToGLSL Vec2 xy >>= alignVec2
@@ -479,70 +490,11 @@ sqr :: forall a. Expr a => a -> G a
 sqr f = phasor f >>= bipolar >>> greaterThanEqual (constant 0.5) >>> assign
 
 
-binaryFunction :: forall a. Expr a => MultiMode -> (a -> a -> a) -> Signal -> Signal -> G (Multi a)
-binaryFunction Combinatorial f x y = combine f Combinatorial <$> (map fromFloat <$> signalToExprs x) <*> signalToExprs y
-binaryFunction Pairwise f x y = combine f Pairwise <$> signalToExprs x <*> signalToExprs y
+binaryFunctionToExprs :: forall a. Expr a => MultiMode -> (a -> a -> a) -> Signal -> Signal -> G (Multi a)
+binaryFunctionToExprs Combinatorial f x y = combine f Combinatorial <$> (map fromFloat <$> signalToExprs x) <*> signalToExprs y
+binaryFunctionToExprs Pairwise f x y = combine f Pairwise <$> signalToExprs x <*> signalToExprs y
 
-{-
-binaryFunction :: GLSLType -> MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Signal -> Signal -> GLSL Exprs
-binaryFunction ah mm f x y = do
-  xs <- signalToGLSL ah x >>= traverse assignForced
-  ys <- signalToGLSL ah y >>= traverse assignForced
-  combineChannels mm f xs ys
-    
-combineChannels :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
-combineChannels Combinatorial = combineChannelsCombinatorial
-combineChannels Pairwise = combineChannelsPairwise
-
-combineChannelsPairwise :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
-combineChannelsPairwise f xs ys
-  -- no need to extend if either of the inputs is a single Float...
-  | length xs == 1 && (head xs).glslType == Float = pure $ map (f (head xs)) ys
-  | length ys == 1 && (head ys).glslType == Float = pure $ map (\x -> f x (head ys)) xs
-  | otherwise = do
-      -- extend xs and ys to equal length in channels
-      let n = max (exprsChannels xs) (exprsChannels ys)
-      xs' <- extend n xs
-      ys' <- extend n ys
-      zipWithAAA f xs' ys'
-
-combineChannelsCombinatorial :: (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> GLSL Exprs
-combineChannelsCombinatorial f xs ys = do
-  xs' <- alignFloat xs
-  pure $ do -- in NonEmptyList monad
-    x <- xs'
-    y <- ys
-    pure $ f x y
-
-combineChannels3 :: MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> Exprs -> GLSL Exprs
-combineChannels3 Combinatorial = combineChannelsCombinatorial3
-combineChannels3 Pairwise = combineChannelsPairwise3
-
-combineChannelsPairwise3 :: (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> Exprs -> GLSL Exprs
-combineChannelsPairwise3 f xs ys zs
-  | length xs == 1 && (head xs).glslType == Float && length ys == 1 && (head ys).glslType == Float = pure $ map (f (head xs) (head ys)) zs
-  | length xs == 1 && (head xs).glslType == Float && length zs == 1 && (head zs).glslType == Float = pure $ map (\y -> f (head xs) y (head zs)) ys
-  | length ys == 1 && (head ys).glslType == Float && length zs == 1 && (head zs).glslType == Float = pure $ map (\x -> f x (head ys) (head zs)) xs
-  | length xs == 1 && (head xs).glslType == Float = combineChannelsPairwise (f (head xs)) ys zs
-  | length ys == 1 && (head ys).glslType == Float = combineChannelsPairwise (\x z -> f x (head ys) z) xs zs
-  | length zs == 1 && (head zs).glslType == Float = combineChannelsPairwise (\x y -> f x y (head zs)) xs ys
-  | otherwise = do
-      let n = max (max (exprsChannels xs) (exprsChannels ys)) (exprsChannels zs)
-      xs' <- extend n xs
-      ys' <- extend n ys
-      zs' <- extend n zs
-      zipWithAAAA f xs' ys' zs'
-
-combineChannelsCombinatorial3 :: (GLSLExpr -> GLSLExpr -> GLSLExpr -> GLSLExpr) -> Exprs -> Exprs -> Exprs -> GLSL Exprs
-combineChannelsCombinatorial3 f xs ys zs = do
-  xs' <- alignFloat xs
-  ys' <- alignFloat ys
-  pure $ do -- in NonEmptyList monad
-    x <- xs'
-    y <- ys'
-    z <- zs
-    pure $ f x y z
-    
+{-    
 clipEtcFunction :: GLSLType -> MultiMode -> (GLSLExpr -> GLSLExpr -> GLSLExpr) -> Signal -> Signal -> GLSL Exprs
 clipEtcFunction ah mm f r x = do
   rs <- signalToGLSL Vec2 r >>= alignVec2 >>= traverse assign
