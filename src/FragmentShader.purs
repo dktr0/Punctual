@@ -283,28 +283,29 @@ signalToExprs (Spin q z) = do
   fxys <- traverse (spin fxy) $ flatten qs
   withFxys fxys $ signalToExprs z
 
-{-
-signalToGLSL ah (Early x z) = do
-  xs <- signalToGLSL Float x >>= alignFloat
+signalToExprs (Early q z) = do
+  qs <- flatten <$> signalToExprs q -- :: NonEmptyList Float
   s <- get  
-  let xs' = mapFlipped xs $ \y -> {
-    time: GLSLExpr.add s.time y,
-    beat: GLSLExpr.add s.beat $ GLSLExpr.product y $ simpleFromString Float "_cps",
-    etime: GLSLExpr.add s.etime y,
-    ebeat: GLSLExpr.add s.ebeat $ GLSLExpr.product y $ simpleFromString Float "_cps"
+  let qs' = mapFlipped qs $ \y -> {
+    time: add s.time y,
+    beat: add s.beat $ product y (expr "_cps"),
+    etime: add s.etime y,
+    ebeat: add s.ebeat $ product y (expr "_cps")
     }
-  withAlteredTime xs' $ signalToGLSL ah z
-  
-signalToGLSL ah (Slow x z) = do
-  xs <- signalToGLSL Float x >>= alignFloat
+  withAlteredTime qs' $ signalToExprs z
+
+signalToExprs (Slow q z) = do
+  qs <- flatten <$> signalToExprs q -- :: NonEmptyList Float
   s <- get
-  let xs' = mapFlipped xs $ \y -> {
-    time: GLSLExpr.division s.time y,
-    beat: GLSLExpr.division s.beat y,
-    etime: GLSLExpr.division s.etime y,
-    ebeat: GLSLExpr.division s.ebeat y
+  let qs' = mapFlipped qs $ \y -> {
+    time: division s.time y,
+    beat: division s.beat y,
+    etime: division s.etime y,
+    ebeat: division s.ebeat y
     }
-  withAlteredTime xs' $ signalToGLSL ah z
+  withAlteredTime qs' $ signalToExprs z
+  
+{-
 
 signalToGLSL ah (Addition mm x y) = binaryFunction ah mm GLSLExpr.add x y
 signalToGLSL ah (Difference mm x y) = binaryFunction ah mm GLSLExpr.difference x y
