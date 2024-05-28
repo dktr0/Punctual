@@ -5,10 +5,11 @@ import Prelude as Prelude
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.Number as Number
-import Data.List.NonEmpty (NonEmptyList,head,tail,fromList,concat,cons,singleton)
+import Data.Int (toNumber)
+import Data.List.NonEmpty (NonEmptyList,head,tail,fromList,concat,cons,singleton,length,zipWith)
 import Data.Tuple (Tuple(..))
 import Data.Maybe (Maybe(..))
-import Data.Unfoldable1 (unfoldr1)
+import Data.Unfoldable1 (unfoldr1,range)
 import Data.Semigroup.Foldable (class Foldable1,foldl1)
 
 import Channels
@@ -723,6 +724,18 @@ linlin r1 r2 x = addExprFloat x'' (swizzleX r2)
     
 mix :: forall a. Expr a => a -> a -> Float -> a
 mix x y a = expr $ "mix(" <> toExpr x <> "," <> toExpr y <> "," <> toExpr a <> ")"
+
+seq :: Float -> NonEmptyList Float -> Float
+seq y steps = sum allSteps
+  where
+    nSteps = length steps
+    stepSize = FloatConstant $ 1.0 / toNumber nSteps
+    step a b = expr $ "step(" <> toExpr a <> "," <> toExpr b <> ")"
+    -- headStep = product (step y stepSize) (head steps)
+    -- lastStep = product (step (difference (constant 1.0) stepSize) y) (last steps)
+    stepF n r = product (difference (step (product stepSize n) y) (step (add (product stepSize n) stepSize) y)) r
+    stepNumbers = map (FloatConstant <<< toNumber) $ range 0 (nSteps - 1) :: NonEmptyList Float
+    allSteps = zipWith stepF stepNumbers steps
 
 {-
 seq :: NonEmptyList GLSLExpr -> GLSLExpr -> GLSLExpr -- all arguments are Float and return value is Float

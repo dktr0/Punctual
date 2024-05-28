@@ -25,7 +25,7 @@ import Output as Output
 import Program (Program)
 import Expr
 import G
-import Multi (Multi,fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3)
+import Multi (Multi,fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3,semiFlatten)
 import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, division, smoothStep) as Number
 
 
@@ -428,19 +428,14 @@ signalToExprs (Mix mm x y a) = do
   let f (Tuple xx yy) aa = mix xx yy aa
   traverse assign $ combine f mm xys a'
   
-{-          
-signalToGLSL _ (Seq steps) = do
-  steps' <- signalToGLSL Float steps >>= alignFloat
-  case length steps' of
-    1 -> pure steps'
-    _ -> do
-      b <- _.beat <$> get
-      b' <- assignForced $ GLSLExpr.fract b
-      singleton <$> assignForced (GLSLExpr.seq steps' b')
- 
--} 
+signalToExprs (Seq steps) = do
+  steps' <- semiFlatten <$> signalToExprs steps -- :: NonEmptyList (NonEmptyList Float)
+  b <- get >>= _.beat >>> fract >>> pure
+  chs <- traverse assign $ map (seq b) steps' -- :: NonEmptyList Float  ; seq :: Float -> NonEmptyList Float -> Float
+  traverse assign $ fromNonEmptyList $ fromFloats chs
 
 signalToExprs _ = pure $ pure $ constant 0.0
+
 
 {-
 -- for preserving alignment requests through intermediate calculations that are Float -> G Float
