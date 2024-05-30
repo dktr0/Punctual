@@ -48,7 +48,7 @@ assign :: forall a. Expr a => a -> G a
 assign x = do 
   n <- allocate
   let name = "_" <> show n      
-  writeCode $ showType x <> " " <> show name <> "=" <> toExpr x <> ";\n"
+  writeCode $ showType x <> " " <> name <> "=" <> toExpr x <> ";\n"
   pure $ expr name
 
 allocate :: G Int

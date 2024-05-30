@@ -147,7 +147,7 @@ instance Expr Vec4 where
   expr = Vec4Expr
   isConstant (Vec4Constant _ _ _ _) = true
   isConstant (Vec4Expr _) = false
-  toExpr (Vec4Constant x y z w) = "vec2(" <> show x <> "," <> show y <> "," <> show z <> "," <> show w <> ")"
+  toExpr (Vec4Constant x y z w) = "vec4(" <> show x <> "," <> show y <> "," <> show z <> "," <> show w <> ")"
   toExpr (Vec4Expr x) = x
   unaryFunction f _ (Vec4Constant x y z w) = Vec4Constant (f x) (f y) (f z) (f w)
   unaryFunction _ f (Vec4Expr x) = Vec4Expr (f x)
@@ -857,4 +857,8 @@ setX xy x = expr $ "vec2(" <> toExpr x <> "," <> toExpr (swizzleY xy) <> ")"
 setY :: Vec2 -> Float -> Vec2
 setY (Vec2Constant x _) (FloatConstant y) = Vec2Constant x y
 setY xy y = expr $ "vec2(" <> toExpr (swizzleX xy) <> "," <> toExpr y <> ")" 
+
+-- for each vec4 in a blend, xyz stay what they are, alpha is multiplied by provided fade expression
+rgbaFade :: Float -> Vec4 -> Vec4
+rgbaFade f v4 = vec3FloatToVec4 (swizzleXYZ v4) (product (swizzleW v4) f)
 

@@ -1,6 +1,7 @@
 module FragmentShader where
 
-import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,(>>>),(<*>),flip,negate)
+import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,(>>>),(<*>),flip,negate,(>))
+import Prelude as Prelude
 import Data.Functor (mapFlipped)
 import Data.Maybe (Maybe(..))
 import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length)
@@ -15,6 +16,9 @@ import Data.FunctorWithIndex (mapWithIndex)
 import Data.Tempo (Tempo)
 import Data.DateTime (DateTime)
 import Data.Number (acos, asin, atan, ceil, cos, exp, floor, log, pow, round, sign, sin, sqrt, tan, trunc) as Number
+import Data.Either (Either(..))
+import Data.List.NonEmpty (NonEmptyList,drop)
+import Data.List (zip)
 
 import NonEmptyList (zipWithEqualLength,everyPair,everyAdjacentPair)
 import MultiMode (MultiMode(..))
@@ -44,7 +48,7 @@ signalToExprs (Append x y) = (<>) <$> signalToExprs x <*> signalToExprs y
 
 signalToExprs (Zip x y) = do
   xs <- flatten <$> (signalToExprs x :: G (Multi Float))
-  ys <- flatten <$> (signalToExprs x :: G (Multi Float))
+  ys <- flatten <$> (signalToExprs y :: G (Multi Float))
   let v2s = fromNonEmptyList $ zipWithEqualLength floatFloatToVec2 xs ys
   pure $ mapRows fromVec2s v2s
 
@@ -598,81 +602,71 @@ void main() {
 """
 -- thanks to http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl for the HSV-RGB conversion algorithms above!
 
+
 programsToGLSL :: Tempo -> Program -> Program -> G Vec4
 programsToGLSL tempo oldProgram newProgram = do
   fxy <- (_.fxy <$> get) >>= assign 
   modify_ $ \s -> s { fxy = fxy }
-  pure $ constant 0.0 -- PLACEHOLDER 
-  {-
-  mExpr <- foldActions tempo newProgram.evalTime Nothing oldProgram.actions newProgram.actions
+  mExpr <- do
+    let oldActions = oldProgram.actions -- PLACEHOLDER!!! TODO ...pad xs to make it as long as ys...
+    foldM (appendActions tempo newProgram.evalTime) Nothing (zip oldActions newProgram.actions) 
   case mExpr of
     Nothing -> pure $ constant 0.0
-    Just (Left v3) -> pure 
-    Just (Right v4) -> pure v4 -}
+    Just v4 -> pure v4
 
-{-
-foldActions :: Tempo -> DateTime -> Maybe (Either Vec3 Vec4) -> List (Maybe Action) -> List (Maybe Action) -> G (Maybe (Either Vec3 Vec4))
-foldActions _ _ prevOutputExpr _ Nil = pure prevOutputExpr
-foldActions tempo eTime prevOutputExpr Nil (y:ys) = do
-  mExpr <- appendActions tempo eTime prevOutputExpr Nothing y 
-  foldActions tempo eTime mExpr Nil ys
-foldActions tempo eTime prevOutputExpr (x:xs) (y:ys) = do
-  mExpr <- appendActions tempo eTime prevOutputExpr x y
-  foldActions tempo eTime mExpr xs ys
      
-appendActions :: Tempo -> DateTime -> Maybe (Either Vec3 Vec4) -> Maybe Action -> Maybe Action -> G (Maybe (Either Vec3 Vec4))
-appendActions _ _ prevOutputExpr _ Nothing = pure prevOutputExpr
-appendActions tempo eTime prevOutputExpr mOldAction (Just newAction) = do
-  mNewExpr <- actionToGLSL newAction.output newAction
-  case mNewExpr of 
-    Nothing -> pure prevOutputExpr
-    Just newExpr -> do
-      let Tuple t0 t1 = actionTimesAsSecondsSinceEval tempo eTime newAction
-      newExpr' <- assignForced $ GLSLExpr.product newExpr $ GLSLExpr.fadeIn t0 t1
-      case mOldAction of
-        Nothing -> appendExpr newAction.output prevOutputExpr newExpr'
-        Just oldAction -> do
-          mOldExpr <- actionToGLSL newAction.output oldAction
-          case mOldExpr of
-            Nothing -> appendExpr newAction.output prevOutputExpr newExpr'
-            Just oldExpr -> do
-              oldExpr' <- assignForced $ GLSLExpr.product oldExpr $ GLSLExpr.fadeOut t0 t1
-              expr <- assignForced (GLSLExpr.add newExpr' oldExpr')
-              appendExpr newAction.output prevOutputExpr expr
--}
+appendActions :: Tempo -> DateTime -> Maybe Vec4 -> Tuple (Maybe Action) (Maybe Action) -> G (Maybe Vec4)
+appendActions _ _ mPrevOutput (Tuple _ Nothing) = pure mPrevOutput
+appendActions tempo eTime mPrevOutput (Tuple mPrevAction (Just newAction)) = do
+  let Tuple t0 t1 = actionTimesAsSecondsSinceEval tempo eTime newAction
+  appendSignals newAction.output t0 t1 mPrevOutput (_.signal <$> mPrevAction) newAction.signal
+  
+  
+appendSignals :: Output -> Number -> Number -> Maybe Vec4 -> Maybe Signal -> Signal -> G (Maybe Vec4)
 
+appendSignals Output.Blend t0 t1 mPrevOutput mPrevSignal newSignal = do
+  newRGBAs <- flatten <$> signalToExprs newSignal
+  rgbas <- case mPrevSignal of
+           Just prevSignal -> do
+             prevRGBAs <- flatten <$> signalToExprs prevSignal 
+             crossFadeRGBAs t0 t1 prevRGBAs newRGBAs             
+           Nothing -> do
+             fIn <- assign $ fadeIn t0 t1
+             traverse (assign <<< rgbaFade fIn) newRGBAs
+  case mPrevOutput of
+    Nothing -> Just <$> foldM (\x y -> assign $ blend x y) (head rgbas) (tail rgbas)
+    Just prevOutput -> Just <$> foldM (\x y -> assign $ blend x y) prevOutput rgbas
+  
 {-
-actionToGLSL :: Output -> Action -> G (Maybe (Either Vec3 Vec4))
-actionToGLSL Output.Audio _ = pure Nothing
-actionToGLSL Output.Blend a = do
-  xs <- flatten <$> (signalToExprs a.signal :: G Vec4)
-  Just <$> foldM (\x y -> blend x y >>= assign) (head xs) (tail xs)
-actionToGLSL Output.RGBA a = do
-  xs <- flatten <$> (signalToExprs a.signal :: G Vec4)
-  Just <$> foldM (\x y -> blend x y >>= assign) (head xs) (tail xs)
-actionToGLSL _ a = do
-  xs <- flatten <$> (signalToExprs a.signal :: G Vec3)
-  Just <$> foldM (\x y -> assign $ add x y) (head xs) (tail xs)
+appendSignals Output.RGBA t0 t1 _ mPrevSignal newSignal = do
+-- note: maybe this is not quite the same as blend because of the way only "last" signals count when there is more than one vec4
+
+appendSignals Output.Add t0 t1 mPrevOutput mPrevSignal newSignal = do
+
+appendSignals Output.Mul t0 t1 mPrevOutput mPrevSignal newSignal = do
+
+appendSignals Output.RGB t0 t1 mPrevOutput mPrevSignal newSignal = do
 -}
 
-{-   
-appendExpr :: Output -> Maybe GLSLExpr -> GLSLExpr -> GLSL (Maybe GLSLExpr)
-appendExpr Output.Audio x _ = pure x
-appendExpr _ Nothing x = pure $ Just x
-appendExpr Output.RGBA (Just _) x = pure $ Just x
-appendExpr Output.RGB (Just _) x = pure $ Just x
-appendExpr Output.Blend (Just prevExpr) x = do
-  let prevRGBA = case GLSLExpr.exprChannels prevExpr of
-                   3 -> GLSLExpr.vec4binary prevExpr (GLSLExpr.float 1.0)
-                   _ -> prevExpr
-  Just <$> (blend prevRGBA x >>= assignForced)
-appendExpr Output.Add (Just prevExpr) x = do
-  let prevRGB = GLSLExpr.coerceVec3 prevExpr -- discards previous alpha channel if there was one
-  Just <$> (assignForced $ GLSLExpr.add prevRGB x)
-appendExpr Output.Mul (Just prevExpr) x = do
-  let prevRGB = GLSLExpr.coerceVec3 prevExpr -- discards previous alpha channel if there was one
-  Just <$> (assignForced $ GLSLExpr.product prevRGB x)
--}
+appendSignals _ _ _ mPrevOutput _ _ = pure mPrevOutput
+  
+    
+crossFadeRGBAs :: Number -> Number -> NonEmptyList Vec4 -> NonEmptyList Vec4 -> G (NonEmptyList Vec4)
+crossFadeRGBAs t0 t1 prevRGBAs newRGBAs = do
+  fIn <- assign $ fadeIn t0 t1
+  rgbasInCommon <- sequence $ zipWith (\x y -> assign $ mix x y fIn) prevRGBAs newRGBAs -- when we have both a previous and a new signal, rgba goes from prevSignal to newSignal over course of fade time
+  let nInCommon = Prelude.min (length prevRGBAs) (length newRGBAs)
+  additionalRGBAs <- case length prevRGBAs > length newRGBAs of
+    true -> do
+      fOut <- assign $ fadeOut t0 t1
+      traverse (assign <<< rgbaFade fOut) $ drop nInCommon prevRGBAs -- when we have an old signal but no previous signal, a goes from (a*1) to 0 over course of fade time           
+    false -> traverse (assign <<< rgbaFade fIn) $ drop nInCommon newRGBAs  -- when we have a new signal but no previous signal, a goes from 0 to (a*1) over course of fade time
+  case fromList additionalRGBAs of
+    Just xs -> pure $ rgbasInCommon <> xs
+    Nothing -> pure $ rgbasInCommon
+      
+      
+    
     
 fragmentShader :: Boolean -> Tempo -> Map String Int -> Map String Int -> Program -> Program -> String
 fragmentShader webGl2 tempo imgMap vidMap oldProgram newProgram = header webGl2 <> st.code <> gl_FragColor <> "}"
