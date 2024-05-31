@@ -1,14 +1,15 @@
 module FragmentShader where
 
-import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,(>>>),(<*>),flip,negate,(>))
+import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,(>>>),(<*>),flip,negate,(>),(-))
 import Prelude as Prelude
 import Data.Functor (mapFlipped)
 import Data.Maybe (Maybe(..))
-import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length)
+import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length,NonEmptyList,drop)
 import Data.List (List(..),(:))
 import Data.Traversable (traverse,sequence)
 import Data.Tuple (Tuple(..),fst,snd)
 import Data.Foldable (fold,intercalate,foldM)
+import Data.Unfoldable (replicate)
 import Data.Unfoldable1 (replicate1)
 import Control.Monad.State (get,modify_)
 import Data.Map (Map,lookup)
@@ -17,8 +18,7 @@ import Data.Tempo (Tempo)
 import Data.DateTime (DateTime)
 import Data.Number (acos, asin, atan, ceil, cos, exp, floor, log, pow, round, sign, sin, sqrt, tan, trunc) as Number
 import Data.Either (Either(..))
-import Data.List.NonEmpty (NonEmptyList,drop)
-import Data.List (zip)
+import Data.List as List
 
 import NonEmptyList (zipWithEqualLength,everyPair,everyAdjacentPair)
 import MultiMode (MultiMode(..))
@@ -608,8 +608,9 @@ programsToGLSL tempo oldProgram newProgram = do
   fxy <- (_.fxy <$> get) >>= assign 
   modify_ $ \s -> s { fxy = fxy }
   mExpr <- do
-    let oldActions = oldProgram.actions -- PLACEHOLDER!!! TODO ...pad xs to make it as long as ys...
-    foldM (appendActions tempo newProgram.evalTime) Nothing (zip oldActions newProgram.actions) 
+    let n = Prelude.max 0 (Prelude.max (List.length oldProgram.actions) (List.length newProgram.actions) - List.length oldProgram.actions)
+    let oldActions = oldProgram.actions <> replicate n Nothing 
+    foldM (appendActions tempo newProgram.evalTime) Nothing (List.zip oldActions newProgram.actions) 
   case mExpr of
     Nothing -> pure $ constant 0.0
     Just v4 -> pure v4
@@ -628,8 +629,11 @@ appendSignals Output.Blend t0 t1 mPrevOutput mPrevSignal newSignal = do
   newRGBAs <- flatten <$> signalToExprs newSignal
   rgbas <- case mPrevSignal of
            Just prevSignal -> do
-             prevRGBAs <- flatten <$> signalToExprs prevSignal 
-             crossFadeRGBAs t0 t1 prevRGBAs newRGBAs             
+             case prevSignal == newSignal of
+               true -> traverse assign newRGBAs
+               false -> do 
+                 prevRGBAs <- flatten <$> signalToExprs prevSignal 
+                 crossFadeRGBAs t0 t1 prevRGBAs newRGBAs             
            Nothing -> do
              fIn <- assign $ fadeIn t0 t1
              traverse (assign <<< rgbaFade fIn) newRGBAs
