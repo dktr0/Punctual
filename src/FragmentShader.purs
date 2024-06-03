@@ -4,7 +4,7 @@ import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),o
 import Prelude as Prelude
 import Data.Functor (mapFlipped)
 import Data.Maybe (Maybe(..))
-import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length,NonEmptyList,drop)
+import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length,NonEmptyList,drop,last)
 import Data.List (List(..),(:))
 import Data.Traversable (traverse,sequence)
 import Data.Tuple (Tuple(..),fst,snd)
@@ -641,10 +641,19 @@ appendSignals Output.Blend t0 t1 mPrevOutput mPrevSignal newSignal = do
     Nothing -> Just <$> foldM (\x y -> assign $ blend x y) (head rgbas) (tail rgbas)
     Just prevOutput -> Just <$> foldM (\x y -> assign $ blend x y) prevOutput rgbas
   
-{-
 appendSignals Output.RGBA t0 t1 _ mPrevSignal newSignal = do
--- note: maybe this is not quite the same as blend because of the way only "last" signals count when there is more than one vec4
-
+  newRGBA <- (last <<< flatten) <$> signalToExprs newSignal
+  case mPrevSignal of
+    Just prevSignal -> do
+      case prevSignal == newSignal of
+        true -> Just <$> assign newRGBA
+        false -> do
+          prevRGBA <- (last <<< flatten) <$> signalToExprs prevSignal
+          fIn <- assign $ fadeIn t0 t1
+          Just <$> (assign $ mix prevRGBA newRGBA fIn)
+    Nothing -> Just <$> assign newRGBA
+         
+{-
 appendSignals Output.Add t0 t1 mPrevOutput mPrevSignal newSignal = do
 
 appendSignals Output.Mul t0 t1 mPrevOutput mPrevSignal newSignal = do
@@ -677,4 +686,5 @@ fragmentShader webGl2 tempo imgMap vidMap oldProgram newProgram = header webGl2 
   where
     (Tuple v4 st) = runG webGl2 imgMap vidMap $ programsToGLSL tempo oldProgram newProgram
     fragColorVarName = if webGl2 then "fragColor" else "gl_FragColor"
-    gl_FragColor = fragColorVarName <> " = " <> toExpr v4 <> ";\n"
+    preMulAlpha = vec3FloatToVec4 (productExprFloat (swizzleXYZ v4) (swizzleW v4)) (swizzleW v4)
+    gl_FragColor = fragColorVarName <> " = " <> toExpr preMulAlpha <> ";\n"
