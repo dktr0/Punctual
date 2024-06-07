@@ -653,9 +653,26 @@ appendSignals Output.RGBA t0 t1 _ mPrevSignal newSignal = do
           Just <$> (assign $ mix prevRGBA newRGBA fIn)
     Nothing -> Just <$> assign newRGBA
          
-{-
 appendSignals Output.Add t0 t1 mPrevOutput mPrevSignal newSignal = do
+  newRGBs <- flatten <$> signalToExprs newSignal
+  rgbs <- case mPrevSignal of
+    Just prevSignal -> do
+      case prevSignal == newSignal of
+        true -> traverse assign newRGBs
+        false -> do
+          prevRGBs <- flatten <$> signalToExprs prevSignal
+          crossFadeRGBs t0 t1 prevRGBs newRGBs
+    Nothing -> do
+      fIn <- assign $ fadeIn t0 t1
+      traverse (assign <<< productFloatExpr fIn) newRGBs
+  case mPrevOutput of
+    Nothing -> (Just <<< flip vec3FloatToVec4 (constant 1.0)) <$> foldM (\x y -> assign $ add x y) (head rgbs) (tail rgbs)
+    Just prevOutput -> (Just <<< flip vec3FloatToVec4 (constant 1.0)) <$> foldM (\x y -> assign $ add x y) (swizzleXYZ prevOutput) rgbs
+  
+  
 
+
+{-
 appendSignals Output.Mul t0 t1 mPrevOutput mPrevSignal newSignal = do
 
 appendSignals Output.RGB t0 t1 mPrevOutput mPrevSignal newSignal = do
@@ -678,7 +695,19 @@ crossFadeRGBAs t0 t1 prevRGBAs newRGBAs = do
     Just xs -> pure $ rgbasInCommon <> xs
     Nothing -> pure $ rgbasInCommon
       
-      
+crossFadeRGBs :: Number -> Number -> NonEmptyList Vec3 -> NonEmptyList Vec3 -> G (NonEmptyList Vec3)
+crossFadeRGBs t0 t1 prevRGBs newRGBs = do
+  fIn <- assign $ fadeIn t0 t1
+  rgbsInCommon <- sequence $ zipWith (\x y -> assign $ mix x y fIn) prevRGBs newRGBs
+  let nInCommon = Prelude.min (length prevRGBs) (length newRGBs)
+  additionalRGBs <- case length prevRGBs > length newRGBs of
+    true -> do
+      fOut <- assign $ fadeOut t0 t1
+      traverse (assign <<< productFloatExpr fOut) $ drop nInCommon prevRGBs
+    false -> traverse (assign <<< productFloatExpr fIn) $ drop nInCommon newRGBs
+  case fromList additionalRGBs of
+    Just xs -> pure $ rgbsInCommon <> xs
+    Nothing -> pure rgbsInCommon
     
     
 fragmentShader :: Boolean -> Tempo -> Map String Int -> Map String Int -> Program -> Program -> String
