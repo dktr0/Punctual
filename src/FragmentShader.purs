@@ -685,9 +685,17 @@ appendSignals Output.Mul t0 t1 mPrevOutput mPrevSignal newSignal = do
     Nothing -> (Just <<< flip vec3FloatToVec4 (constant 1.0)) <$> foldM (\x y -> assign $ product x y) (head rgbs) (tail rgbs)
     Just prevOutput -> (Just <<< flip vec3FloatToVec4 (constant 1.0)) <$> foldM (\x y -> assign $ product x y) (swizzleXYZ prevOutput) rgbs
     
-{-
 appendSignals Output.RGB t0 t1 mPrevOutput mPrevSignal newSignal = do
--}
+  newRGB <- (last <<< flatten) <$> signalToExprs newSignal
+  case mPrevSignal of
+    Just prevSignal -> do
+      case prevSignal == newSignal of
+        true -> Just <$> assign (vec3FloatToVec4 newRGB (constant 1.0))
+        false -> do
+          prevRGB <- (last <<< flatten) <$> signalToExprs prevSignal
+          fIn <- assign $ fadeIn t0 t1
+          Just <$> (assign $ vec3FloatToVec4 (mix prevRGB newRGB fIn) (constant 1.0))
+    Nothing -> Just <$> assign (vec3FloatToVec4 newRGB (constant 1.0))
 
 appendSignals _ _ _ mPrevOutput _ _ = pure mPrevOutput
   
