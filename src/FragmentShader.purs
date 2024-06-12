@@ -1,23 +1,19 @@
 module FragmentShader where
 
-import Prelude(($),pure,show,bind,discard,(<>),(>>=),(<$>),(<<<),map,(==),(&&),otherwise,(>>>),(<*>),flip,negate,(>),(-))
+import Prelude (bind, discard, flip, map, negate, pure, show, ($), (-), (<$>), (<*>), (<<<), (<>), (==), (>), (>>=), (>>>))
 import Prelude as Prelude
 import Data.Functor (mapFlipped)
 import Data.Maybe (Maybe(..))
-import Data.List.NonEmpty (singleton,concat,fromList,zipWith,cons,head,tail,length,NonEmptyList,drop,last)
-import Data.List (List(..),(:))
+import Data.List.NonEmpty (NonEmptyList, drop, fromList, head, last, length, singleton, tail, zipWith)
 import Data.Traversable (traverse,sequence)
 import Data.Tuple (Tuple(..),fst,snd)
-import Data.Foldable (fold,intercalate,foldM)
+import Data.Foldable (foldM)
 import Data.Unfoldable (replicate)
-import Data.Unfoldable1 (replicate1)
 import Control.Monad.State (get,modify_)
 import Data.Map (Map,lookup)
-import Data.FunctorWithIndex (mapWithIndex)
 import Data.Tempo (Tempo)
 import Data.DateTime (DateTime)
-import Data.Number (acos, asin, atan, ceil, cos, exp, floor, log, pow, round, sign, sin, sqrt, tan, trunc) as Number
-import Data.Either (Either(..))
+import Data.Number (round, trunc) as Number
 import Data.List as List
 
 import NonEmptyList (zipWithEqualLength,everyPair,everyAdjacentPair)
@@ -27,10 +23,10 @@ import Action (Action,actionTimesAsSecondsSinceEval)
 import Output (Output)
 import Output as Output
 import Program (Program)
-import Expr
-import G
+import Expr (class Expr, Float(..), Vec2(..), Vec3, Vec4, abs, acos, add, ampdb, asin, atan, between, bipolar, blend, cbrt, ceil, circle, clip, constant, cos, cpsmidi, dbamp, difference, distance, division, divisionExprFloat, dotSum, equal, exp, expr, fadeIn, fadeOut, floatFloatToVec2, floor, fract, fromFloat, fromFloats, fromVec2s, fromVec3s, fromVec4s, function1, gate, greaterThan, greaterThanEqual, hline, hsvrgb, iline, lessThan, lessThanEqual, line, linlin, log, log10, log2, max, midicps, min, mix, mod, notEqual, pi, point, pow, product, productExprFloat, productFloatExpr, prox, pxy, rgbaFade, rgbhsv, rtx, rtxy, rty, seq, setX, setY, sign, sin, smoothStep, sqrt, sum, swizzleW, swizzleX, swizzleXY, swizzleXYZ, swizzleY, swizzleZ, swizzleZW, tan, tile, toExpr, unaryFunction, unipolar, vec3FloatToVec4, vline, xyr, xyrt, xyt, zero)
+import G (G, assign, runG, texture2D, textureFFT, withAlteredTime, withFxys)
 import Multi (Multi,fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3,semiFlatten)
-import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, division, smoothStep) as Number
+import Number (acosh, asinh, atanh, cosh, sinh, tanh) as Number
 
 
 signalToExprs :: forall a. Expr a => Signal -> G (Multi a)
@@ -103,19 +99,19 @@ signalToExprs ETime = (pure <<< fromFloat <<< _.etime) <$> get
 
 signalToExprs EBeat = (pure <<< fromFloat <<< _.ebeat) <$> get
 
-signalToExprs FFT = get >>= (_.fxy >>> unipolar >>> textureFFT "o" >>> fromFloat >>> pure >>> maskUnitSquare)
+signalToExprs FFT = get >>= _.fxy >>> unipolar >>> swizzleX >>> textureFFT "o" >>= fromFloat >>> pure >>> maskUnitSquare
 
-signalToExprs IFFT = get >>= (_.fxy >>> unipolar >>> textureFFT "i" >>> fromFloat >>> pure >>> maskUnitSquare)
+signalToExprs IFFT = get >>= _.fxy >>> unipolar >>> swizzleX >>> textureFFT "i" >>= fromFloat >>> pure >>> maskUnitSquare
 
-signalToExprs Fb = get >>= (_.fxy >>> unipolar >>> texture2D "f" >>> singleton >>> fromVec3s >>> fromNonEmptyList >>> maskUnitSquare)
+signalToExprs Fb = get >>= _.fxy >>> unipolar >>> texture2D "f" >>= singleton >>> fromVec3s >>> fromNonEmptyList >>> maskUnitSquare
 
-signalToExprs Cam = get >>= (_.fxy >>> unipolar >>> texture2D "w" >>> singleton >>> fromVec3s >>> fromNonEmptyList >>> maskUnitSquare)
+signalToExprs Cam = get >>= _.fxy >>> unipolar >>> texture2D "w" >>= singleton >>> fromVec3s >>> fromNonEmptyList >>> maskUnitSquare
 
 signalToExprs (Img url) = do
   s <- get
   case lookup url s.imgMap of
     Just n -> do
-      t <- assign $ texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
+      t <- texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
       maskUnitSquare $ fromNonEmptyList $ fromVec3s $ singleton t
     Nothing -> pure $ pure $ zero
 
@@ -123,7 +119,7 @@ signalToExprs (Vid url) = do
   s <- get
   case lookup url s.vidMap of
     Just n -> do
-      t <- assign $ texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
+      t <- texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
       maskUnitSquare $ fromNonEmptyList $ fromVec3s $ singleton t
     Nothing -> pure $ pure $ zero
 
@@ -685,7 +681,7 @@ appendSignals Output.Mul t0 t1 mPrevOutput mPrevSignal newSignal = do
     Nothing -> (Just <<< flip vec3FloatToVec4 (constant 1.0)) <$> foldM (\x y -> assign $ product x y) (head rgbs) (tail rgbs)
     Just prevOutput -> (Just <<< flip vec3FloatToVec4 (constant 1.0)) <$> foldM (\x y -> assign $ product x y) (swizzleXYZ prevOutput) rgbs
     
-appendSignals Output.RGB t0 t1 mPrevOutput mPrevSignal newSignal = do
+appendSignals Output.RGB t0 t1 _ mPrevSignal newSignal = do
   newRGB <- (last <<< flatten) <$> signalToExprs newSignal
   case mPrevSignal of
     Just prevSignal -> do

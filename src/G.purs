@@ -78,3 +78,17 @@ withAlteredTime xs a = do
   modify_ $ \s -> s { time = cached.time, beat = cached.beat, etime = cached.etime, ebeat = cached.ebeat }
   pure $ concat rs
 
+textureFFT :: String -> Float -> G Float
+textureFFT texName x = do
+  s <- get
+  case s.webGl2 of
+    true -> assign $ FloatExpr $ "texture(" <> texName <> ",vec2(" <> toExpr x <> ",0.)).x"
+    false -> assign $ FloatExpr $ "texture2D(" <> texName <> ",vec2(" <> toExpr x <> ",0.)).x" 
+
+texture2D :: String -> Vec2 -> G Vec3
+texture2D texName xy = do
+  s <- get
+  case s.webGl2 of
+    true -> assign $ Vec3Expr $ "texture(" <> texName <> "," <> toExpr xy <> ").xyz"
+    false -> assign $ Vec3Expr $ "texture2D(" <> texName <> "," <> toExpr xy <> ").xyz"
+

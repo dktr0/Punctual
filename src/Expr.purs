@@ -20,6 +20,7 @@ class Channels a <= Expr a where
   expr :: String -> a
   isConstant :: a -> Boolean
   toExpr :: a -> String
+  toExprSafe :: a -> String -- will ensure constants are wrapped in brackets as necessary for free combination in expressions
   unaryFunction :: (Number -> Number) -> (String -> String) -> a -> a
   binaryFunction :: (Number -> Number -> Number) -> (String -> String -> String) -> a -> a -> a
   showType :: a -> String
@@ -32,7 +33,7 @@ class Channels a <= Expr a where
   toVec2s :: NonEmptyList a -> NonEmptyList Vec2
   toVec3s :: NonEmptyList a -> NonEmptyList Vec3
   toVec4s :: NonEmptyList a -> NonEmptyList Vec4  
-  dotSum :: a -> Float
+  dotSum :: a -> Float  
 
 zero :: forall a. Expr a => a
 zero = constant 0.0
@@ -55,6 +56,8 @@ instance Expr Float where
   isConstant (FloatExpr _) = false
   toExpr (FloatConstant x) = show x
   toExpr (FloatExpr x) = x
+  toExprSafe (FloatConstant x) = showNumber x
+  toExprSafe (FloatExpr x) = x
   unaryFunction f _ (FloatConstant x) = FloatConstant (f x)
   unaryFunction _ f (FloatExpr x) = FloatExpr (f x)
   binaryFunction f _ (FloatConstant x) (FloatConstant y) = FloatConstant (f x y)
@@ -85,6 +88,7 @@ instance Expr Vec2 where
   isConstant (Vec2Expr _) = false
   toExpr (Vec2Constant x y) = "vec2(" <> show x <> "," <> show y <> ")"
   toExpr (Vec2Expr x) = x
+  toExprSafe x = toExpr x
   unaryFunction f _ (Vec2Constant x y) = Vec2Constant (f x) (f y)
   unaryFunction _ f (Vec2Expr x) = Vec2Expr (f x)
   binaryFunction f _ (Vec2Constant x1 x2) (Vec2Constant y1 y2) = Vec2Constant (f x1 y1) (f x2 y2)
@@ -117,6 +121,7 @@ instance Expr Vec3 where
   isConstant (Vec3Expr _) = false
   toExpr (Vec3Constant x y z) = "vec3(" <> show x <> "," <> show y <> "," <> show z <> ")"
   toExpr (Vec3Expr x) = x
+  toExprSafe x = toExpr x
   unaryFunction f _ (Vec3Constant x y z) = Vec3Constant (f x) (f y) (f z)
   unaryFunction _ f (Vec3Expr x) = Vec3Expr (f x)
   binaryFunction f _ (Vec3Constant x1 x2 x3) (Vec3Constant y1 y2 y3) = Vec3Constant (f x1 y1) (f x2 y2) (f x3 y3)
@@ -149,6 +154,7 @@ instance Expr Vec4 where
   isConstant (Vec4Expr _) = false
   toExpr (Vec4Constant x y z w) = "vec4(" <> show x <> "," <> show y <> "," <> show z <> "," <> show w <> ")"
   toExpr (Vec4Expr x) = x
+  toExprSafe x = toExpr x
   unaryFunction f _ (Vec4Constant x y z w) = Vec4Constant (f x) (f y) (f z) (f w)
   unaryFunction _ f (Vec4Expr x) = Vec4Expr (f x)
   binaryFunction f _ (Vec4Constant x1 x2 x3 x4) (Vec4Constant y1 y2 y3 y4) = Vec4Constant (f x1 y1) (f x2 y2) (f x3 y3) (f x4 y4)
@@ -168,6 +174,14 @@ instance Expr Vec4 where
   dotSum x = FloatExpr $ "dot(" <> toExpr x <> ",vec4(1.))"
 
 instance Channels Vec4 where channels _ = 1
+
+
+-- wraps negative numbers in brackets, to be used where necessary
+showNumber :: Number -> String
+showNumber x
+  | x < 0.0 = "(" <> show x <> ")"
+  | otherwise = show x
+
 
 floatsToVec2s :: NonEmptyList Float -> NonEmptyList Vec2
 floatsToVec2s = concat <<< unfoldr1 unconsFloatsToVec2s
@@ -558,6 +572,14 @@ fract = unaryFunction (\x -> Prelude.mod x 1.0) (function1 "fract")
 
 -- Arithmetic operations
 
+operatorFloatExpr :: forall a. Expr a => (Number -> Number -> Number) -> String -> Float -> a -> a
+operatorFloatExpr f op (FloatConstant x) y = unaryFunction (f x) (\y' -> "(" <> showNumber x <> op <> y' <> ")") y
+operatorFloatExpr f op (FloatExpr x) y = expr $ "(" <> x <> op <> toExprSafe y <> ")"
+  
+operatorExprFloat :: forall a. Expr a => (Number -> Number -> Number) -> String -> a -> Float -> a
+operatorExprFloat f op x (FloatConstant y) = unaryFunction (flip f y) (\x' -> "(" <> x' <> op <> showNumber y <> ")") x
+operatorExprFloat f op x (FloatExpr y) = expr $ "(" <> toExprSafe x <> op <> y <> ")"
+
 arithmeticOperator :: forall a. Expr a => (Number -> Number -> Number) -> String -> a -> a -> a
 arithmeticOperator f op = binaryFunction f (binOp op)
 
@@ -565,45 +587,52 @@ add :: forall a. Expr a => a -> a -> a
 add = arithmeticOperator (+) "+"
 
 addFloatExpr :: forall b. Expr b => Float -> b -> b
-addFloatExpr (FloatConstant a) b = unaryFunction (\b' -> a + b') (\b' -> binOp "+" (show a) b') b
-addFloatExpr (FloatExpr a) b = expr $ binOp "+" a (toExpr b)
+addFloatExpr = operatorFloatExpr (+) "+"
+-- addFloatExpr (FloatConstant a) b = unaryFunction (\b' -> a + b') (\b' -> binOp "+" (show a) b') b
+-- addFloatExpr (FloatExpr a) b = expr $ binOp "+" a (toExpr b)
 
 addExprFloat :: forall a. Expr a => a -> Float -> a
-addExprFloat = flip addFloatExpr
+addExprFloat = operatorExprFloat (+) "+"
+--addExprFloat = flip addFloatExpr
 
 difference :: forall a. Expr a => a -> a -> a
 difference = arithmeticOperator (-) "-"
 
 differenceFloatExpr :: forall b. Expr b => Float -> b -> b
-differenceFloatExpr (FloatConstant a) b = unaryFunction (\b' -> a - b') (\b' -> binOp "-" (show a) b') b
-differenceFloatExpr (FloatExpr a) b = expr $ binOp "-" a (toExpr b)
+differenceFloatExpr = operatorFloatExpr (-) "-"
+-- differenceFloatExpr (FloatConstant a) b = unaryFunction (\b' -> a - b') (\b' -> binOp "-" (show a) b') b
+-- differenceFloatExpr (FloatExpr a) b = expr $ binOp "-" a (toExpr b)
 
 differenceExprFloat :: forall b. Expr b => b -> Float -> b
-differenceExprFloat a (FloatConstant b) = unaryFunction (\a' -> a' - b) (\a' -> binOp "-" a' (show b)) a
-differenceExprFloat a (FloatExpr b) = expr $ binOp "-" (toExpr a) b
+differenceExprFloat = operatorExprFloat (-) "-"
+-- differenceExprFloat a (FloatConstant b) = unaryFunction (\a' -> a' - b) (\a' -> binOp "-" a' (show b)) a
+-- differenceExprFloat a (FloatExpr b) = expr $ binOp "-" (toExpr a) b
 
 product :: forall a. Expr a => a -> a -> a
 product = arithmeticOperator (*) "*"
 
 productFloatExpr :: forall b. Expr b => Float -> b -> b
-productFloatExpr (FloatConstant a) b = unaryFunction (\x -> a * x) (\x -> binOp "*" (show a) x) b
-productFloatExpr (FloatExpr a) b = expr $ binOp "*" a (toExpr b)
+productFloatExpr = operatorFloatExpr (*) "*"
+-- productFloatExpr (FloatConstant a) b = unaryFunction (\x -> a * x) (\x -> binOp "*" (show a) x) b
+-- productFloatExpr (FloatExpr a) b = expr $ binOp "*" a (toExpr b)
 
 productExprFloat :: forall a. Expr a => a -> Float -> a
-productExprFloat = flip productFloatExpr
+productExprFloat = operatorExprFloat (*) "*"
+-- productExprFloat = flip productFloatExpr
 
 division :: forall a. Expr a => a -> a -> a
 division = arithmeticOperator (/) "/" -- TODO: this should be safe division to match the audio side!
 
--- TODO: this should be safe division to match the audio side!
 divisionFloatExpr :: forall b. Expr b => Float -> b -> b
-divisionFloatExpr (FloatConstant a) b = unaryFunction (\b' -> a / b') (\b' -> binOp "/" (show a) b') b
-divisionFloatExpr (FloatExpr a) b = expr $ binOp "/" a (toExpr b)
+divisionFloatExpr = operatorFloatExpr (/) "/" -- TODO: this should be safe division to match the audio side!
+-- divisionFloatExpr (FloatConstant a) b = unaryFunction (\b' -> a / b') (\b' -> binOp "/" (show a) b') b
+-- divisionFloatExpr (FloatExpr a) b = expr $ binOp "/" a (toExpr b)
 
 -- TODO: this should be safe division to match the audio side!
 divisionExprFloat :: forall b. Expr b => b -> Float -> b
-divisionExprFloat a (FloatConstant b) = unaryFunction (\a' -> a' / b) (\a' -> binOp "/" a' (show b)) a
-divisionExprFloat a (FloatExpr b) = expr $ binOp "/" (toExpr a) b
+divisionExprFloat = operatorExprFloat (/) "/" -- TODO: this should be safe division to match the audio side!
+-- divisionExprFloat a (FloatConstant b) = unaryFunction (\a' -> a' / b) (\a' -> binOp "/" a' (show b)) a
+-- divisionExprFloat a (FloatExpr b) = expr $ binOp "/" (toExpr a) b
 
 
 min :: forall a. Expr a => a -> a -> a
@@ -737,31 +766,11 @@ seq y steps = sum allSteps
     stepNumbers = map (FloatConstant <<< toNumber) $ range 0 (nSteps - 1) :: NonEmptyList Float
     allSteps = zipWith stepF stepNumbers steps
 
-{-
-seq :: NonEmptyList GLSLExpr -> GLSLExpr -> GLSLExpr -- all arguments are Float and return value is Float
-seq steps y = { string: s, glslType: Float, isSimple: false, deps: fold (map _.deps steps) <> y.deps }
-  where
-    nSteps = length steps
-    stepSize = 1.0 / toNumber nSteps
-    firstStep = "(step(" <> y.string <> "," <> show stepSize <> ")*" <> (head steps).string <> ")"
-    lastStep = "(step(" <> show (1.0-stepSize) <> "," <> y.string <> ")*" <> (last steps).string <> ")"
-    middleStep n r = "((step(" <> show (stepSize*toNumber n) <> "," <> y.string <> ")-step(" <> show (stepSize*toNumber n + stepSize) <> "," <> y.string  <> "))*" <> r <> ")"
-    middleStepExprs = case List.init (tail steps) of
-                        Just xs -> xs
-                        _ -> List.Nil
-    middleStepNumbers = toList $ range 1 (nSteps - 2)
-    middleStepValues = map _.string middleStepExprs
-    middleSteps = List.zipWith middleStep middleStepNumbers middleStepValues
-    s = intercalate "+" ((firstStep : middleSteps) `List.snoc` lastStep)
--}
-
-
 fadeIn :: Number -> Number -> Float 
 fadeIn t1 t2 = expr $ "clamp((_etime-" <> show t1 <> ")/(" <> show t2 <> "-" <> show t1 <> "),0.,1.)"
 
 fadeOut :: Number -> Number -> Float
 fadeOut t1 t2 = expr $ "clamp((" <> show t2 <> "-_etime)/(" <> show t2 <> "-" <> show t1 <> "),0.,1.)"
-
 
 bipolar :: forall a. Expr a => a -> a
 bipolar x = differenceExprFloat (productExprFloat x (constant 2.0)) (constant 1.0)
@@ -787,15 +796,8 @@ pxy = expr "(2./res)"
 aspect :: Float
 aspect = expr "(res.x/res.y)"
 
-
 sum :: forall f. Foldable1 f => forall a. Expr a => f a -> a
 sum = foldl1 add 
-
-textureFFT :: String -> Vec2 -> Float
-textureFFT texName xy = FloatExpr $ "texture2D(" <> texName <> ",vec2(" <> toExpr xy <> ".x,0.)).x"
-
-texture2D :: String -> Vec2 -> Vec3
-texture2D texName xy = Vec3Expr $ "texture2D(" <> texName <> "," <> toExpr xy <> ").xyz"
 
 blend :: Vec4 -> Vec4 -> Vec4
 blend a b = Vec4Expr $ "mix(" <> toExpr a <> "," <> toExpr b <> "," <> toExpr (swizzleW b) <> ")"
