@@ -16,12 +16,18 @@ import Data.Monoid.Disj (Disj)
 import WebGLCanvas (WebGLCanvas, WebGLContext, WebGLTexture)
 import WebAudio
 import AudioAnalyser (AudioAnalyser,newInputAnalyser,newOutputAnalyser,updateAnalyser)
+import Value (Value)
+
+type URL = String
+
+type Library = Map String Value
 
 type SharedResources = {
   tempo :: Ref Tempo,
   mWebcamElementRef :: Ref (Maybe WebcamElement),
-  images :: Ref (Map String Image),
-  videos :: Ref (Map String Video),
+  images :: Ref (Map URL Image),
+  videos :: Ref (Map URL Video),
+  libraries :: Ref (Map URL Library),
   webAudioContext :: WebAudioContext,
   audioOutputNode :: WebAudioNode,
   inputAnalyser :: AudioAnalyser,
@@ -36,6 +42,7 @@ newSharedResources mWebAudioContext = do
   mWebcamElementRef <- new Nothing
   images <- new empty
   videos <- new empty
+  libraries <- new empty
   webAudioContext <- case mWebAudioContext of
                        Nothing -> defaultWebAudioContext
                        Just x -> pure x
@@ -49,6 +56,7 @@ newSharedResources mWebAudioContext = do
     mWebcamElementRef,
     images,
     videos,
+    libraries,
     webAudioContext,
     audioOutputNode,
     inputAnalyser,

@@ -13,6 +13,8 @@ import Control.Monad.Error.Class (class MonadThrow,throwError)
 import Parsing (ParseError(..),Position,runParser)
 import Data.Map as Map
 import Data.DateTime (DateTime)
+import Effect (Effect)
+import Effect.Ref (read,write)
 
 import AST (AST,Expression(..),Statement,expression1,statement,parseAST)
 import Program (Program)
@@ -22,12 +24,11 @@ import Value (Value(..),valuePosition,listValueToValueSignal,valueToSignal,class
 import Action (Action,signalToAction,setOutput,setCrossFade)
 import Output (Output)
 import Output as Output
+import SharedResources
 
-type PState = Map.Map String Value
+type P a = StateT Library (Either ParseError) a
 
-type P a = StateT PState (Either ParseError) a
-
-runP :: forall a. Map.Map String Value -> P a -> Either ParseError (Tuple a PState)
+runP :: forall a. Map.Map String Value -> P a -> Either ParseError (Tuple a Library)
 runP d p = runStateT p d
 
 parsePunctual :: String -> DateTime -> Either ParseError Program
@@ -54,12 +55,12 @@ testAST txt = do
   Tuple xs _ <- runP Map.empty $ astToListMaybeAction ast
   pure { actions: xs }
 
-testStatement :: String -> Either ParseError (Tuple (Maybe Action) PState)
+testStatement :: String -> Either ParseError (Tuple (Maybe Action) Library)
 testStatement txt = do
   stmt <- runParser txt statement
   runP Map.empty $ parseMaybeStatement stmt
 
-testExpression :: String -> Either ParseError (Tuple Value PState)
+testExpression :: String -> Either ParseError (Tuple Value Library)
 testExpression txt = do
   exp <- runParser txt expression1
   runP Map.empty $ parseExpression exp
@@ -388,3 +389,31 @@ embedLambdas _ Nil e = parseExpression e
 embedLambdas p (x:xs) e = do
   s <- get
   pure $ ValueFunction p (\v -> evalStateT (embedLambdas (valuePosition v) xs e) (Map.insert x v s))
+  
+
+loadLibrary :: SharedResources -> Position -> URL -> Effect (Either ParseError Library)
+loadLibrary sharedResources p url = do
+  libraries <- read sharedResources.libraries
+  case Map.lookup url libraries of
+    Just r -> pure (Right r)
+    Nothing -> do
+      eErrTxt <- loadTextFile url
+      case eErrTxt of
+        Left err -> pure $ Left $ ParseError err p
+        Right txt -> do
+          let eErrLib = parseLibrary txt
+          case eErrLib of
+            Left err -> pure $ Left $ err
+            Right lib -> do
+              write (Map.insert url lib libraries) sharedResources.libraries
+              pure $ Right $ lib
+
+loadTextFile :: URL -> Effect (Either String String)
+loadTextFile _ = pure $ Left $ "placeholder: loading of text files for libraries not implemented yet" -- PLACEHOLDER
+
+parseLibrary :: String -> Either ParseError Library
+parseLibrary txt = do
+  ast <- parseAST txt
+  Tuple _ lib <- runP Map.empty $ astToListMaybeAction ast -- TODO: replace astToListMaybeAction with a parser that throws errors on actions, although this probably will work in the meantime
+  pure lib
+
