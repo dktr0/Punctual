@@ -16,11 +16,9 @@ import Data.Monoid.Disj (Disj)
 import WebGLCanvas (WebGLCanvas, WebGLContext, WebGLTexture)
 import WebAudio
 import AudioAnalyser (AudioAnalyser,newInputAnalyser,newOutputAnalyser,updateAnalyser)
-import Value (Value)
+import Value (Library) 
 
 type URL = String
-
-type Library = Map String Value
 
 type SharedResources = {
   tempo :: Ref Tempo,

@@ -3,7 +3,6 @@ module Main where
 import Prelude
 
 import Effect (Effect)
-import Effect.Console (log)
 import Effect.Now (nowDateTime)
 import Data.Time.Duration (Milliseconds)
 import Data.DateTime (diff)
@@ -14,10 +13,13 @@ import Data.Maybe (Maybe(..))
 import Data.Tempo (ForeignTempo, fromForeignTempo)
 import Data.Foldable (fold)
 import Data.Newtype (unwrap)
+import Control.Promise (fromAff,Promise)
+import Effect.Class.Console (log)
+import Effect.Class (liftEffect)
 
 import Signal (SignalInfo,emptySignalInfo)
 import Program (Program,emptyProgram,programHasVisualOutput,programHasAudioOutput,programInfo)
-import Parser (parsePunctual)
+import Parser (parseProgram)
 import DateTime (numberToDateTime)
 import SharedResources (SharedResources)
 import SharedResources as SharedResources
@@ -50,19 +52,20 @@ launch = do
   pure { sharedResources, programs, previousPrograms, programInfos, previousProgramInfos, combinedProgramInfo, webGLs, audioZones }
 
 
-define :: Punctual -> { zone :: Int, time :: Number, text :: String } -> Effect { success :: Boolean, info :: String, error :: String }
-define punctual args = do
+define :: Punctual -> { zone :: Int, time :: Number, text :: String } -> Effect (Promise { success :: Boolean, info :: String, error :: String })
+define punctual args = fromAff $ do
   log $ "define: " <> show args
-  t0 <- nowDateTime
-  let pr = parsePunctual args.text (numberToDateTime args.time)
-  t1 <- nowDateTime
+  t0 <- liftEffect $ nowDateTime
+  pr <- parseProgram args.text (numberToDateTime args.time)
+  t1 <- liftEffect $ nowDateTime
   log $ " parse time = " <> show (diff t1 t0 :: Milliseconds)
   case pr of
     Left err -> do
       log $ "error: " <> show err
       pure { success: false, info: "", error: show err }
-    Right newProgram -> _newProgramInZone punctual args.zone newProgram
-      
+    Right newProgram -> liftEffect $ _newProgramInZone punctual args.zone newProgram
+
+    
 _newProgramInZone :: Punctual -> Int -> Program -> Effect { success :: Boolean, info :: String, error :: String }
 _newProgramInZone punctual zone newProgram = do
   programs <- read punctual.programs

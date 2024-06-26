@@ -1,6 +1,7 @@
 module Parser where
 
-import Prelude (($),pure,bind,(<>),(>>=),(<<<),(<$>),class Applicative,discard)
+import Prelude (($),pure,bind,(<>),(>>=),(<<<),(<$>),class Applicative,discard,unit)
+import Control.Monad (class Monad)
 import Data.Int (toNumber)
 import Data.Tuple (Tuple(..))
 import Data.Either (Either(..))
@@ -8,14 +9,16 @@ import Data.Maybe (Maybe(..))
 import Data.List (range,List(..),(:),head)
 import Data.Traversable (traverse)
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.State.Trans (StateT,evalStateT,runStateT,get,modify_)
+import Control.Monad.State.Trans (StateT,evalStateT,runStateT,get,put,modify_)
 import Control.Monad.Error.Class (class MonadThrow,throwError)
+import Control.Monad.Except.Trans (ExceptT,runExceptT)
 import Parsing (ParseError(..),Position,runParser)
 import Data.Map as Map
 import Data.DateTime (DateTime)
 import Effect (Effect)
 import Effect.Ref (read,write)
 import Effect.Aff (Aff)
+import Effect.Aff.Class (liftAff)
 import Effect.Class (liftEffect)
 import Fetch
 import Effect.Class.Console (log)
@@ -24,24 +27,35 @@ import AST (AST,Expression(..),Statement,expression1,statement,parseAST)
 import Program (Program)
 import MultiMode (MultiMode(..))
 import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus,fit,fast,late)
-import Value (Value(..),valuePosition,listValueToValueSignal,valueToSignal,class ToValue, class FromValue, toValue, fromValue, valueToAction, valueToFunction)
+import Value (Value(..),valuePosition,listValueToValueSignal,valueToSignal,class ToValue, class FromValue, toValue, fromValue, valueToAction, valueToFunction, P, Library, runP, valueToString)
 import Action (Action,signalToAction,setOutput,setCrossFade)
 import Output (Output)
 import Output as Output
 import SharedResources
 
-type P a = StateT Library (Either ParseError) a
+parseProgram :: String -> DateTime -> Aff (Either ParseError Program)
+parseProgram txt eTime = do
+  case parseAST txt of
+    Left err -> pure (Left err)
+    Right ast -> do
+      eErrTup <- runP Map.empty (astToListMaybeAction ast)
+      case eErrTup of
+        Left err -> pure (Left err)
+        Right (Tuple xs _) -> pure $ Right { actions: xs, evalTime: eTime }
 
-runP :: forall a. Map.Map String Value -> P a -> Either ParseError (Tuple a Library)
-runP d p = runStateT p d
-
-parsePunctual :: String -> DateTime -> Either ParseError Program
-parsePunctual txt eTime = do
-  ast <- parseAST txt
-  Tuple xs _ <- runP Map.empty $ astToListMaybeAction ast
-  pure { actions: xs, evalTime: eTime }
-
+parseLibrary :: String -> Aff (Either ParseError Library)
+parseLibrary txt = do
+  case parseAST txt of
+    Left err -> pure (Left err)
+    Right ast -> do
+      eErrTup <- runP Map.empty (astToListMaybeAction ast) -- TODO: replace astToListMaybeAction with a parser that throws errors on actions, although this probably will work in the meantime
+      case eErrTup of
+        Left err -> pure (Left err)
+        Right (Tuple _ lib) -> pure $ Right lib
+        
+        
 -- just for testing
+{-
 parseSignal :: String -> Either ParseError Signal
 parseSignal txt = do
   ast <- parseAST txt
@@ -67,10 +81,13 @@ testStatement txt = do
 testExpression :: String -> Either ParseError (Tuple Value Library)
 testExpression txt = do
   exp <- runParser txt expression1
-  runP Map.empty $ parseExpression exp
+  runP Map.empty $ parseExpression exp  
+-}
 
 astToListMaybeAction :: AST -> P (List (Maybe Action))
-astToListMaybeAction = traverse parseMaybeStatement
+astToListMaybeAction = do
+  _ <- pure unit
+  traverse parseMaybeStatement
 
 parseMaybeStatement :: Maybe Statement -> P (Maybe Action)
 parseMaybeStatement Nothing = pure Nothing
@@ -120,12 +137,14 @@ parseExpression (IfThenElse p i t e) = do
   pure $ ValueSignal p $ Mix Combinatorial e' t' i'
 
 
-application :: forall m. Applicative m => MonadThrow ParseError m => Value -> Value -> m Value
+-- application :: forall m. Applicative m => MonadThrow ParseError m => Value -> Value -> m Value
+application :: Value -> Value -> P Value
 application f x = do
   f' <- valueToFunction f
-  case f' x of
-    Right a -> pure a
-    Left err -> throwError err
+  f' x
+{-  case f' x of
+    Right a -> pure (Right a)
+    Left err -> pure (Left err) -}
 
   
 
@@ -293,6 +312,7 @@ parseReserved p "rgba" = pure $ ValueOutput p Output.RGBA -- TODO: rework Fragme
 parseReserved p "add" = pure $ ValuePolymorphic p (ValueOutput p Output.Add : signalSignal p Add : Nil)
 parseReserved p "mul" = pure $ ValuePolymorphic p (ValueOutput p Output.Mul : signalSignal p Mul : Nil)
 parseReserved p "rgb" = pure $ ValueOutput p Output.RGB -- TODO: rework FragmentShader.purs with support for RGB as a Signal that accesses previous output
+parseReserved p "import" = pure $ ValueFunction p (importLibrary p)
 parseReserved p x = throwError $ ParseError ("internal error in Punctual: parseReserved called with unknown reserved word " <> x) p
 
 parseOperator :: Position -> String -> P Value
@@ -345,55 +365,74 @@ signalSignal :: Position -> (Signal -> Signal) -> Value
 signalSignal = ab 
 
 -- TODO: replace stringSignal calls with direct calls to ab
-stringSignal :: Position -> (String -> Signal) -> Either ParseError Value
+stringSignal :: forall m. Monad m => Position -> (String -> Signal) -> m Value
 stringSignal p f = pure $ ab p f
 
 aAction :: forall a. FromValue a => Position -> (a -> Action) -> Value
 aAction p f = ValueFunction p (\v -> fromValue v >>= (pure <<< ValueAction p <<< f))
 
 -- TODO: replace outputAction calls with direct calls to aAction
-outputAction :: Position -> (Output -> Action) -> Either ParseError Value
+outputAction :: forall m. Monad m => Position -> (Output -> Action) -> m Value
 outputAction p f = pure $ aAction p f
 
 -- TODO: replace numberAction calls with direct calls to aAction
-numberAction :: Position -> (Number -> Action) -> Either ParseError Value
+numberAction :: forall m. Monad m => Position -> (Number -> Action) -> m Value
 numberAction p f = pure $ aAction p f
 
 
 -- TODO: replace signalSignalSignal calls with direct calls to abc
-signalSignalSignal :: Position -> (Signal -> Signal -> Signal) -> Either ParseError Value
+signalSignalSignal :: forall m. Monad m => Position -> (Signal -> Signal -> Signal) -> m Value
 signalSignalSignal p f = pure $ abc p f
 
 -- TODO: replace intSignalSignal calls with direct calls to abc
-intSignalSignal :: Position -> (Int -> Signal -> Signal) -> Either ParseError Value
+intSignalSignal :: forall m. Monad m => Position -> (Int -> Signal -> Signal) -> m Value
 intSignalSignal p f = pure $ abc p f
 
 actionAAction :: forall a. FromValue a => Position -> (Action -> a -> Action) -> Value
 actionAAction p f = ValueFunction p (\v -> valueToAction v >>= (pure <<< aAction p <<< f))
 
 -- TODO: replace actionOutputAction calls with direct calls to actionAAction
-actionOutputAction :: Position -> (Action -> Output -> Action) -> Either ParseError Value
+actionOutputAction :: forall m. Monad m => Position -> (Action -> Output -> Action) -> m Value
 actionOutputAction p f = pure $ actionAAction p f 
 
 -- TODO: replace actionNumberAction calls with direct calls to actionAAction
-actionNumberAction :: Position -> (Action -> Number -> Action) -> Either ParseError Value
+actionNumberAction :: forall m. Monad m => Position -> (Action -> Number -> Action) -> m Value
 actionNumberAction p f = pure $ actionAAction p f
 
 -- TODO: replace signalSignalSignalSignal calls with direct calls to abcd
-signalSignalSignalSignal :: Position -> (Signal -> Signal -> Signal -> Signal) -> Either ParseError Value
+signalSignalSignalSignal :: forall m. Monad m => Position -> (Signal -> Signal -> Signal -> Signal) -> m Value
 signalSignalSignalSignal p f = pure $ abcd p f
 
 -- TODO: replace numberSignalSignalSignal calls with direct calls to abcd
-numberSignalSignalSignal :: Position -> (Number -> Signal -> Signal -> Signal) -> Either ParseError Value
+numberSignalSignalSignal :: forall m. Monad m => Position -> (Number -> Signal -> Signal -> Signal) -> m Value
 numberSignalSignalSignal p f = pure $ abcd p f
 
 
 embedLambdas :: Position -> List String -> Expression -> P Value
 embedLambdas _ Nil e = parseExpression e
-embedLambdas p (x:xs) e = do
-  s <- get
-  pure $ ValueFunction p (\v -> evalStateT (embedLambdas (valuePosition v) xs e) (Map.insert x v s))
-  
+embedLambdas p (x:xs) e = pure $ ValueFunction p (\v -> embedLambda x v (embedLambdas (valuePosition v) xs e))
+  -- runExceptT $ evalStateT (embedLambdas (valuePosition v) xs e) (Map.insert x v s))
+
+embedLambda :: forall a. String -> Value -> P a -> P a
+embedLambda k v p = do
+  cachedS <- get
+  put $ Map.insert k v cachedS
+  a <- p
+  put cachedS
+  pure a
+
+importLibrary :: Position -> Value -> P Value
+importLibrary p v = do
+  -- sr <- sharedResources... -- sharedResources need to be in state or environment somehow
+  url <- valueToString v
+  eErrLib <- liftAff $ loadLibraryTemp p url
+  case eErrLib of
+   Left err -> throwError err
+   Right lib -> do
+     modify_ $ \s -> Map.union lib s
+     pure $ ValueInt p 0
+   
+   
 loadLibrary :: SharedResources -> Position -> URL -> Aff (Either ParseError Library)
 loadLibrary sharedResources p url = do
   libraries <- liftEffect $ read sharedResources.libraries
@@ -404,23 +443,30 @@ loadLibrary sharedResources p url = do
       case eErrTxt of
         Left err -> pure $ Left $ ParseError err p
         Right txt -> do
-          let eErrLib = parseLibrary txt
+          eErrLib <- parseLibrary txt
           case eErrLib of
             Left err -> pure $ Left $ err
             Right lib -> do
               liftEffect $ write (Map.insert url lib libraries) sharedResources.libraries
               pure $ Right $ lib
 
+-- just as a temporary placeholder, a version of loadLibrary that does no caching of loaded libraries
+loadLibraryTemp :: Position -> URL -> Aff (Either ParseError Library)
+loadLibraryTemp p url = do
+  log $ "loadLibraryTemp " <> url
+  eErrTxt <- loadTextFile url
+  case eErrTxt of
+    Left err -> pure $ Left $ ParseError err p
+    Right txt -> do
+      eErrLib <- parseLibrary txt
+      case eErrLib of
+        Left err -> pure $ Left $ err
+        Right lib -> pure $ Right $ lib
+
 loadTextFile :: URL -> Aff (Either String String)
-loadTextFile url = do -- pure $ Left $ "placeholder: loading of text files for libraries not implemented yet" -- PLACEHOLDER
+loadTextFile url = do
   { text } <- fetch url {} -- { headers: {} }
   text' <- text
   log $ "loaded text file: " <> text'
   pure $ Right text'
-
-parseLibrary :: String -> Either ParseError Library
-parseLibrary txt = do
-  ast <- parseAST txt
-  Tuple _ lib <- runP Map.empty $ astToListMaybeAction ast -- TODO: replace astToListMaybeAction with a parser that throws errors on actions, although this probably will work in the meantime
-  pure lib
 

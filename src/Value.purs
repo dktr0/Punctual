@@ -6,22 +6,36 @@ module Value where
 import Prelude ((<$>),pure,(>>=),($),(<<<),class Applicative,class Show,show,(<>))
 import Data.Either (Either)
 import Parsing (ParseError(..),Position)
-import Control.Monad.Error.Class (class MonadThrow,throwError)
 import Data.List (List,find)
 import Data.Traversable (traverse)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..))
+import Control.Monad.State.Trans (StateT, runStateT)
+import Control.Monad.Error.Class (class MonadThrow,throwError)
+import Control.Monad.Except.Trans (ExceptT,runExceptT)
+import Data.Map as Map
+import Effect.Aff (Aff)
+import Data.Tuple (Tuple)
 
 import Signal (Signal(..))
 import Action (Action,signalToAction)
 import Output (Output)
+
+
+type Library = Map.Map String Value
+
+type P a = StateT Library (ExceptT ParseError Aff) a
+
+runP :: forall a. Map.Map String Value -> P a -> Aff (Either ParseError (Tuple a Library))
+runP lib p = runExceptT $ runStateT p lib
+
 
 data Value =
   ValueSignal Position Signal |
   ValueString Position String |
   ValueInt Position Int |
   ValueNumber Position Number |
-  ValueFunction Position (Value -> Either ParseError Value) |
+  ValueFunction Position (Value -> P Value) |
   ValueOutput Position Output |
   ValueAction Position Action |
   ValuePolymorphic Position (List Value) -- audio can be an Output or a Signal, blend can be an Output or a Function, etc
@@ -98,7 +112,7 @@ isOutput :: Value -> Boolean
 isOutput (ValueOutput _ _) = true
 isOutput _ = false
 
-valueToFunction :: forall m. Applicative m => MonadThrow ParseError m => Value -> m (Value -> Either ParseError Value)
+valueToFunction :: forall m. Applicative m => MonadThrow ParseError m => Value -> m (Value -> P Value)
 valueToFunction (ValueFunction _ x) = pure x
 valueToFunction (ValuePolymorphic p vs) = do
   case find isFunction vs of

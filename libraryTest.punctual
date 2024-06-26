@@ -1,0 +1,4 @@
+mysynth x = (osc $ midicps $ x + [0,0.01]) * 0.1;
+myshader x = osc ([fx,fy,fx*fy]*x)
+
+

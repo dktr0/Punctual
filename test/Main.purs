@@ -18,7 +18,7 @@ import Data.Newtype (unwrap)
 import Data.Monoid.Disj (Disj)
 import Data.HeytingAlgebra (ff,tt)
 
-import Parser (testAST)
+-- import Parser
 import Signal (Signal(..))
 import Program (programInfo)
 

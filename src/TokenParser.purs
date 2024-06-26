@@ -61,14 +61,14 @@ functionsWithArgumentsDef = [
   "linlin","linlinp",
   "rep",
   "img","vid",
-  "mix","mixp"
+  "mix","mixp",
+  "import"
   ]
 
 otherReservedNamesDef :: Array String
 otherReservedNamesDef = [
   "if","then","else",
-  "audio","blend","rgba","add","mul","rgb",
-  "import"
+  "audio","blend","rgba","add","mul","rgb"
   ]
 
 reservedNamesDef :: Array String

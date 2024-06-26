@@ -22,30 +22,12 @@
     window.punctual.render({canDraw: true, zone:0, nowTime: now});
     window.punctual.postRender({canDraw: true, nowTime: now});
   }
-  async function promiseTest(args) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({ error: "async error" });
-      },2000);
-      });
-  }
-  window.doEval = async function () {
+  window.doEval = function () {
     var t = document.getElementById("editorArea").value;
-    var r = window.punctual.define({zone:0,text:t,time: Date.now()/1000.0});
-    // var r = promiseTest({zone:0,text:t,time: Date.now()/1000.0});
-    var s;
-    if (r instanceof Promise) {
-      console.log("r is a promise");
-      r.then( (actualR) => {
-        console.log(actualR);
-        document.getElementById('errors').textContent = actualR.error;    
-        });
-    }
-    else {
-      console.log("r is NOT a promise");
+    window.punctual.define({zone:0,text:t,time: Date.now()/1000.0}).then( r => {
       console.log(r);
-      document.getElementById('errors').textContent = r.error;
-    }
+      document.getElementById('errors').textContent = r.error;    
+      });
   }
   window.addEventListener('keydown', function (e) {
     e = e || window.event;
