@@ -15,6 +15,10 @@ import Data.Map as Map
 import Data.DateTime (DateTime)
 import Effect (Effect)
 import Effect.Ref (read,write)
+import Effect.Aff (Aff)
+import Effect.Class (liftEffect)
+import Fetch
+import Effect.Class.Console (log)
 
 import AST (AST,Expression(..),Statement,expression1,statement,parseAST)
 import Program (Program)
@@ -390,10 +394,9 @@ embedLambdas p (x:xs) e = do
   s <- get
   pure $ ValueFunction p (\v -> evalStateT (embedLambdas (valuePosition v) xs e) (Map.insert x v s))
   
-
-loadLibrary :: SharedResources -> Position -> URL -> Effect (Either ParseError Library)
+loadLibrary :: SharedResources -> Position -> URL -> Aff (Either ParseError Library)
 loadLibrary sharedResources p url = do
-  libraries <- read sharedResources.libraries
+  libraries <- liftEffect $ read sharedResources.libraries
   case Map.lookup url libraries of
     Just r -> pure (Right r)
     Nothing -> do
@@ -405,11 +408,15 @@ loadLibrary sharedResources p url = do
           case eErrLib of
             Left err -> pure $ Left $ err
             Right lib -> do
-              write (Map.insert url lib libraries) sharedResources.libraries
+              liftEffect $ write (Map.insert url lib libraries) sharedResources.libraries
               pure $ Right $ lib
 
-loadTextFile :: URL -> Effect (Either String String)
-loadTextFile _ = pure $ Left $ "placeholder: loading of text files for libraries not implemented yet" -- PLACEHOLDER
+loadTextFile :: URL -> Aff (Either String String)
+loadTextFile url = do -- pure $ Left $ "placeholder: loading of text files for libraries not implemented yet" -- PLACEHOLDER
+  { text } <- fetch url {} -- { headers: {} }
+  text' <- text
+  log $ "loaded text file: " <> text'
+  pure $ Right text'
 
 parseLibrary :: String -> Either ParseError Library
 parseLibrary txt = do
