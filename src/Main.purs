@@ -56,7 +56,7 @@ define :: Punctual -> { zone :: Int, time :: Number, text :: String } -> Effect 
 define punctual args = fromAff $ do
   log $ "define: " <> show args
   t0 <- liftEffect $ nowDateTime
-  pr <- parseProgram args.text (numberToDateTime args.time)
+  pr <- parseProgram punctual.sharedResources.libraries args.text (numberToDateTime args.time)
   t1 <- liftEffect $ nowDateTime
   log $ " parse time = " <> show (diff t1 t0 :: Milliseconds)
   case pr of

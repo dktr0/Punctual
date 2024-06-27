@@ -16,7 +16,7 @@ import Data.Monoid.Disj (Disj)
 import WebGLCanvas (WebGLCanvas, WebGLContext, WebGLTexture)
 import WebAudio
 import AudioAnalyser (AudioAnalyser,newInputAnalyser,newOutputAnalyser,updateAnalyser)
-import Value (Library) 
+import Value (Library,LibraryCache) 
 
 type URL = String
 
@@ -25,7 +25,7 @@ type SharedResources = {
   mWebcamElementRef :: Ref (Maybe WebcamElement),
   images :: Ref (Map URL Image),
   videos :: Ref (Map URL Video),
-  libraries :: Ref (Map URL Library),
+  libraries :: LibraryCache,
   webAudioContext :: WebAudioContext,
   audioOutputNode :: WebAudioNode,
   inputAnalyser :: AudioAnalyser,

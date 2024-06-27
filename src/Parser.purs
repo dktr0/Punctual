@@ -12,6 +12,7 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.State.Trans (StateT,evalStateT,runStateT,get,put,modify_)
 import Control.Monad.Error.Class (class MonadThrow,throwError)
 import Control.Monad.Except.Trans (ExceptT,runExceptT)
+import Control.Monad.Reader (ask)
 import Parsing (ParseError(..),Position,runParser)
 import Data.Map as Map
 import Data.DateTime (DateTime)
@@ -27,28 +28,28 @@ import AST (AST,Expression(..),Statement,expression1,statement,parseAST)
 import Program (Program)
 import MultiMode (MultiMode(..))
 import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus,fit,fast,late)
-import Value (Value(..),valuePosition,listValueToValueSignal,valueToSignal,class ToValue, class FromValue, toValue, fromValue, valueToAction, valueToFunction, P, Library, runP, valueToString)
+import Value (Value(..),valuePosition,listValueToValueSignal,valueToSignal,class ToValue, class FromValue, toValue, fromValue, valueToAction, valueToFunction, P, Library, runP, valueToString, LibraryCache)
 import Action (Action,signalToAction,setOutput,setCrossFade)
 import Output (Output)
 import Output as Output
 import SharedResources
 
-parseProgram :: String -> DateTime -> Aff (Either ParseError Program)
-parseProgram txt eTime = do
+parseProgram :: LibraryCache -> String -> DateTime -> Aff (Either ParseError Program)
+parseProgram libCache txt eTime = do
   case parseAST txt of
     Left err -> pure (Left err)
     Right ast -> do
-      eErrTup <- runP Map.empty (astToListMaybeAction ast)
+      eErrTup <- runP libCache Map.empty (astToListMaybeAction ast)
       case eErrTup of
         Left err -> pure (Left err)
         Right (Tuple xs _) -> pure $ Right { actions: xs, evalTime: eTime }
 
-parseLibrary :: String -> Aff (Either ParseError Library)
-parseLibrary txt = do
+parseLibrary :: LibraryCache -> String -> Aff (Either ParseError Library)
+parseLibrary libCache txt = do
   case parseAST txt of
     Left err -> pure (Left err)
     Right ast -> do
-      eErrTup <- runP Map.empty (astToListMaybeAction ast) -- TODO: replace astToListMaybeAction with a parser that throws errors on actions, although this probably will work in the meantime
+      eErrTup <- runP libCache Map.empty (astToListMaybeAction ast) -- TODO: replace astToListMaybeAction with a parser that throws errors on actions, although this probably will work in the meantime
       case eErrTup of
         Left err -> pure (Left err)
         Right (Tuple _ lib) -> pure $ Right lib
@@ -142,10 +143,6 @@ application :: Value -> Value -> P Value
 application f x = do
   f' <- valueToFunction f
   f' x
-{-  case f' x of
-    Right a -> pure (Right a)
-    Left err -> pure (Left err) -}
-
   
 
 parseReserved :: Position -> String -> P Value
@@ -411,7 +408,6 @@ numberSignalSignalSignal p f = pure $ abcd p f
 embedLambdas :: Position -> List String -> Expression -> P Value
 embedLambdas _ Nil e = parseExpression e
 embedLambdas p (x:xs) e = pure $ ValueFunction p (\v -> embedLambda x v (embedLambdas (valuePosition v) xs e))
-  -- runExceptT $ evalStateT (embedLambdas (valuePosition v) xs e) (Map.insert x v s))
 
 embedLambda :: forall a. String -> Value -> P a -> P a
 embedLambda k v p = do
@@ -423,9 +419,9 @@ embedLambda k v p = do
 
 importLibrary :: Position -> Value -> P Value
 importLibrary p v = do
-  -- sr <- sharedResources... -- sharedResources need to be in state or environment somehow
   url <- valueToString v
-  eErrLib <- liftAff $ loadLibraryTemp p url
+  libCache <- ask
+  eErrLib <- liftAff $ loadLibrary libCache p url
   case eErrLib of
    Left err -> throwError err
    Right lib -> do
@@ -433,35 +429,28 @@ importLibrary p v = do
      pure $ ValueInt p 0
    
    
-loadLibrary :: SharedResources -> Position -> URL -> Aff (Either ParseError Library)
-loadLibrary sharedResources p url = do
-  libraries <- liftEffect $ read sharedResources.libraries
+loadLibrary :: LibraryCache -> Position -> URL -> Aff (Either ParseError Library)
+loadLibrary libCache p url = do
+  libraries <- liftEffect $ read libCache
   case Map.lookup url libraries of
-    Just r -> pure (Right r)
+    Just r -> do
+      log $ "using cached library " <> url
+      pure (Right r)
     Nothing -> do
+      log $ "loading library " <> url <> "..."
       eErrTxt <- loadTextFile url
       case eErrTxt of
         Left err -> pure $ Left $ ParseError err p
         Right txt -> do
-          eErrLib <- parseLibrary txt
+          log $ "parsing library " <> url <> "..."
+          eErrLib <- parseLibrary libCache txt
           case eErrLib of
             Left err -> pure $ Left $ err
             Right lib -> do
-              liftEffect $ write (Map.insert url lib libraries) sharedResources.libraries
+              log $ "successfully parsed library " <> url
+              liftEffect $ write (Map.insert url lib libraries) libCache
               pure $ Right $ lib
 
--- just as a temporary placeholder, a version of loadLibrary that does no caching of loaded libraries
-loadLibraryTemp :: Position -> URL -> Aff (Either ParseError Library)
-loadLibraryTemp p url = do
-  log $ "loadLibraryTemp " <> url
-  eErrTxt <- loadTextFile url
-  case eErrTxt of
-    Left err -> pure $ Left $ ParseError err p
-    Right txt -> do
-      eErrLib <- parseLibrary txt
-      case eErrLib of
-        Left err -> pure $ Left $ err
-        Right lib -> pure $ Right $ lib
 
 loadTextFile :: URL -> Aff (Either String String)
 loadTextFile url = do

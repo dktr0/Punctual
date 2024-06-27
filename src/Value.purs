@@ -13,9 +13,12 @@ import Data.Maybe (Maybe(..))
 import Control.Monad.State.Trans (StateT, runStateT)
 import Control.Monad.Error.Class (class MonadThrow,throwError)
 import Control.Monad.Except.Trans (ExceptT,runExceptT)
+import Control.Monad.Reader (ReaderT,runReaderT)
 import Data.Map as Map
 import Effect.Aff (Aff)
 import Data.Tuple (Tuple)
+import Effect.Ref (Ref)
+import Data.Map (Map)
 
 import Signal (Signal(..))
 import Action (Action,signalToAction)
@@ -24,10 +27,12 @@ import Output (Output)
 
 type Library = Map.Map String Value
 
-type P a = StateT Library (ExceptT ParseError Aff) a
+type LibraryCache = Ref (Map String Library)
 
-runP :: forall a. Map.Map String Value -> P a -> Aff (Either ParseError (Tuple a Library))
-runP lib p = runExceptT $ runStateT p lib
+type P a = StateT Library (ReaderT LibraryCache (ExceptT ParseError Aff)) a
+
+runP :: forall a. LibraryCache -> Map.Map String Value -> P a -> Aff (Either ParseError (Tuple a Library))
+runP libCache lib p = runExceptT $ runReaderT (runStateT p lib) libCache 
 
 
 data Value =
