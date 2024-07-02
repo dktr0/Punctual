@@ -34,10 +34,17 @@ class Channels a <= Expr a where
   toVec3s :: NonEmptyList a -> NonEmptyList Vec3
   toVec4s :: NonEmptyList a -> NonEmptyList Vec4  
   dotSum :: a -> Float  
-
+  
 zero :: forall a. Expr a => a
 zero = constant 0.0
-  
+
+castExprs :: forall a b. Expr a => Expr b => NonEmptyList a -> NonEmptyList b
+castExprs xs
+  | channels (head xs) == 1 = fromFloats (toFloats xs)
+  | channels (head xs) == 2 = fromVec2s (toVec2s xs)
+  | channels (head xs) == 3 = fromVec3s (toVec3s xs)
+  | otherwise = fromVec4s (toVec4s xs)
+
 mapConstant :: forall a. Expr a => (Number -> Number) -> a -> a
 mapConstant f x = unaryFunction f identity x
 
