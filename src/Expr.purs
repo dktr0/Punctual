@@ -581,11 +581,11 @@ fract = unaryFunction (\x -> Prelude.mod x 1.0) (function1 "fract")
 
 operatorFloatExpr :: forall a. Expr a => (Number -> Number -> Number) -> String -> Float -> a -> a
 operatorFloatExpr f op (FloatConstant x) y = unaryFunction (f x) (\y' -> "(" <> showNumber x <> op <> y' <> ")") y
-operatorFloatExpr f op (FloatExpr x) y = expr $ "(" <> x <> op <> toExprSafe y <> ")"
+operatorFloatExpr _ op (FloatExpr x) y = expr $ "(" <> x <> op <> toExprSafe y <> ")"
   
 operatorExprFloat :: forall a. Expr a => (Number -> Number -> Number) -> String -> a -> Float -> a
 operatorExprFloat f op x (FloatConstant y) = unaryFunction (flip f y) (\x' -> "(" <> x' <> op <> showNumber y <> ")") x
-operatorExprFloat f op x (FloatExpr y) = expr $ "(" <> toExprSafe x <> op <> y <> ")"
+operatorExprFloat _ op x (FloatExpr y) = expr $ "(" <> toExprSafe x <> op <> y <> ")"
 
 arithmeticOperator :: forall a. Expr a => (Number -> Number -> Number) -> String -> a -> a -> a
 arithmeticOperator f op = binaryFunction f (binOp op)
@@ -758,8 +758,11 @@ linlin r1 r2 x = addExprFloat x'' (swizzleX r2)
     r2size = difference (swizzleY r2) (swizzleX r2)
     x'' = productExprFloat x' r2size
     
-mix :: forall a. Expr a => a -> a -> Float -> a
+mix :: forall a. Expr a => a -> a -> a -> a
 mix x y a = expr $ "mix(" <> toExpr x <> "," <> toExpr y <> "," <> toExpr a <> ")"
+
+mixFloat :: forall a. Expr a => a -> a -> Float -> a
+mixFloat x y a = expr $ "mix(" <> toExpr x <> "," <> toExpr y <> "," <> toExpr a <> ")"
 
 seq :: Float -> NonEmptyList Float -> Float
 seq y steps = sum allSteps

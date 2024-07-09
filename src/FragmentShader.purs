@@ -23,7 +23,7 @@ import Action (Action,actionTimesAsSecondsSinceEval)
 import Output (Output)
 import Output as Output
 import Program (Program)
-import Expr (class Expr, Float(..), Vec2(..), Vec3, Vec4, abs, acos, add, ampdb, asin, atan, between, bipolar, blend, cbrt, ceil, circle, clip, constant, cos, cpsmidi, dbamp, difference, distance, division, divisionExprFloat, dotSum, equal, exp, expr, fadeIn, fadeOut, floatFloatToVec2, floor, fract, fromFloat, fromFloats, fromVec2s, fromVec3s, fromVec4s, function1, gate, greaterThan, greaterThanEqual, hline, hsvrgb, iline, lessThan, lessThanEqual, line, linlin, log, log10, log2, max, midicps, min, mix, mod, notEqual, pi, point, pow, product, productExprFloat, productFloatExpr, prox, pxy, rgbaFade, rgbhsv, rtx, rtxy, rty, seq, setX, setY, sign, sin, smoothStep, sqrt, sum, swizzleW, swizzleX, swizzleXY, swizzleXYZ, swizzleY, swizzleZ, swizzleZW, tan, tile, toExpr, unaryFunction, unipolar, vec3FloatToVec4, vline, xyr, xyrt, xyt, zero)
+import Expr (class Expr, Float(..), Vec2(..), Vec3, Vec4, abs, acos, add, ampdb, asin, atan, between, bipolar, blend, cbrt, ceil, circle, clip, constant, cos, cpsmidi, dbamp, difference, distance, division, divisionExprFloat, dotSum, equal, exp, expr, fadeIn, fadeOut, floatFloatToVec2, floor, fract, fromFloat, fromFloats, fromVec2s, fromVec3s, fromVec4s, function1, gate, greaterThan, greaterThanEqual, hline, hsvrgb, iline, lessThan, lessThanEqual, line, linlin, log, log10, log2, max, midicps, min, mix, mixFloat, mod, notEqual, pi, point, pow, product, productExprFloat, productFloatExpr, prox, pxy, rgbaFade, rgbhsv, rtx, rtxy, rty, seq, setX, setY, sign, sin, smoothStep, sqrt, sum, swizzleW, swizzleX, swizzleXY, swizzleXYZ, swizzleY, swizzleZ, swizzleZW, tan, tile, toExpr, unaryFunction, unipolar, vec3FloatToVec4, vline, xyr, xyrt, xyt, zero)
 import G (G, assign, runG, texture2D, textureFFT, withAlteredTime, withFxys)
 import Matrix (Matrix,fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3,semiFlatten)
 import Number (acosh, asinh, atanh, cosh, sinh, tanh) as Number
@@ -49,7 +49,7 @@ signalToExprs (Zip x y) = do
   pure $ mapRows fromVec2s v2s
 
 signalToExprs (Mono x) = do
-  xs <- (signalToExprs x :: G (Matrix Vec3)) -- MAYBE LATER: determine an optimal type for realization of x based on its number of channels or the nature of the underlying signal (eg. whether it naturally produces vec2s 3s or 4s)
+  xs <- (signalToExprs x :: G (Matrix Float)) -- MAYBE LATER: determine an optimal type for realization of x based on its number of channels or the nature of the underlying signal (eg. whether it naturally produces vec2s 3s or 4s)
   let f = sum (dotSum <$> flatten xs)
   pure $ pure $ fromFloat f
   
@@ -305,20 +305,20 @@ signalToExprs (Slow q z) = do
     }
   withAlteredTime qs' $ signalToExprs z
   
-signalToExprs (Addition mm x y) = binaryFunctionToExprs mm add x y
-signalToExprs (Difference mm x y) = binaryFunctionToExprs mm difference x y
-signalToExprs (Product mm x y) = binaryFunctionToExprs mm product x y
-signalToExprs (Division mm x y) = binaryFunctionToExprs mm division x y
-signalToExprs (Mod mm x y) = binaryFunctionToExprs mm mod x y
-signalToExprs (Pow mm x y) = binaryFunctionToExprs mm pow x y
-signalToExprs (Equal mm x y) = binaryFunctionToExprs mm equal x y
-signalToExprs (NotEqual mm x y) = binaryFunctionToExprs mm notEqual x y
-signalToExprs (GreaterThan mm x y) = binaryFunctionToExprs mm greaterThan x y
-signalToExprs (GreaterThanEqual mm x y) = binaryFunctionToExprs mm greaterThanEqual x y
-signalToExprs (LessThan mm x y) = binaryFunctionToExprs mm lessThan x y
-signalToExprs (LessThanEqual mm x y) = binaryFunctionToExprs mm lessThanEqual x y
-signalToExprs (Max mm x y) = binaryFunctionToExprs mm max x y
-signalToExprs (Min mm x y) = binaryFunctionToExprs mm min x y
+signalToExprs (Addition mm x y) = binaryFunctionToExprs mm add add x y
+signalToExprs (Difference mm x y) = binaryFunctionToExprs mm difference difference x y
+signalToExprs (Product mm x y) = binaryFunctionToExprs mm product product x y
+signalToExprs (Division mm x y) = binaryFunctionToExprs mm division division x y
+signalToExprs (Mod mm x y) = binaryFunctionToExprs mm mod mod x y
+signalToExprs (Pow mm x y) = binaryFunctionToExprs mm pow pow x y
+signalToExprs (Equal mm x y) = binaryFunctionToExprs mm equal equal x y
+signalToExprs (NotEqual mm x y) = binaryFunctionToExprs mm notEqual notEqual x y
+signalToExprs (GreaterThan mm x y) = binaryFunctionToExprs mm greaterThan greaterThan x y
+signalToExprs (GreaterThanEqual mm x y) = binaryFunctionToExprs mm greaterThanEqual greaterThanEqual x y
+signalToExprs (LessThan mm x y) = binaryFunctionToExprs mm lessThan lessThan x y
+signalToExprs (LessThanEqual mm x y) = binaryFunctionToExprs mm lessThanEqual lessThanEqual x y
+signalToExprs (Max mm x y) = binaryFunctionToExprs mm max max x y
+signalToExprs (Min mm x y) = binaryFunctionToExprs mm min min x y
 
 signalToExprs (Gate mm x y) = do
   xs <- signalToExprs x
@@ -421,14 +421,22 @@ signalToExprs (LinLin mm r1 r2 x) = do
   xs <- signalToExprs x
   traverse assign $ combine3 linlin mm r1s r2s xs
   
-signalToExprs (Mix mm x y a) = do
-  x' <- signalToExprs x
-  y' <- signalToExprs y
-  let xys = fromNonEmptyList $ zipWithEqualLength Tuple (flatten x') (flatten y')
-  a' <- signalToExprs a
+signalToExprs (Mix Pairwise x y a) = do
+  xs <- signalToExprs x
+  ys <- signalToExprs y
+  let xys = fromNonEmptyList $ zipWithEqualLength Tuple (flatten xs) (flatten ys)
+  a' <- signalToExprs a 
   let f (Tuple xx yy) aa = mix xx yy aa
-  traverse assign $ combine f mm xys a'
-  
+  traverse assign $ combine f Pairwise xys a'
+
+signalToExprs (Mix Combinatorial x y a) = do
+  xs <- signalToExprs x
+  ys <- signalToExprs y
+  let xys = fromNonEmptyList $ zipWithEqualLength Tuple (flatten xs) (flatten ys)
+  a' <- signalToExprs a -- :: Matrix Float
+  let f (Tuple xx yy) aa = mixFloat xx yy aa
+  traverse assign $ combine f Combinatorial xys a'
+    
 signalToExprs (Seq steps) = do
   steps' <- semiFlatten <$> signalToExprs steps -- :: NonEmptyList (NonEmptyList Float)
   b <- get >>= _.beat >>> fract >>> pure
@@ -474,9 +482,14 @@ sqr :: forall a. Expr a => a -> G a
 sqr f = phasor f >>= bipolar >>> greaterThanEqual (constant 0.5) >>> assign
 
 
-binaryFunctionToExprs :: forall a. Expr a => MultiMode -> (a -> a -> a) -> Signal -> Signal -> G (Matrix a)
-binaryFunctionToExprs Combinatorial f x y = combine f Combinatorial <$> (map fromFloat <$> signalToExprs x) <*> signalToExprs y
-binaryFunctionToExprs Pairwise f x y = combine f Pairwise <$> signalToExprs x <*> signalToExprs y
+-- TODO later: optimize this so that Combinatorial pathway can use larger underlying types instead of just Float when possible
+binaryFunctionToExprs :: forall a. Expr a => MultiMode -> (a -> a -> a) -> (Float -> Float -> Float) -> Signal -> Signal -> G (Matrix a)
+binaryFunctionToExprs Combinatorial _ fFloat x y = do -- combine f Combinatorial <$> (map fromFloat <$> signalToExprs x) <*> signalToExprs y
+  xs <- signalToExprs x :: G (Matrix Float)
+  ys <- signalToExprs y :: G (Matrix Float)
+  zs <- traverse assign $ combine fFloat Combinatorial xs ys
+  traverse assign $ mapRows fromFloats zs  
+binaryFunctionToExprs Pairwise f _ x y = combine f Pairwise <$> signalToExprs x <*> signalToExprs y
 
   
 acosh :: forall a. Expr a => a -> G a
@@ -647,7 +660,7 @@ appendSignals Output.RGBA t0 t1 _ mPrevSignal newSignal = do
         false -> do
           prevRGBA <- (last <<< flatten) <$> signalToExprs prevSignal
           fIn <- assign $ fadeIn t0 t1
-          Just <$> (assign $ mix prevRGBA newRGBA fIn)
+          Just <$> (assign $ mixFloat prevRGBA newRGBA fIn)
     Nothing -> Just <$> assign newRGBA
          
 appendSignals Output.Add t0 t1 mPrevOutput mPrevSignal newSignal = do
@@ -677,7 +690,7 @@ appendSignals Output.Mul t0 t1 mPrevOutput mPrevSignal newSignal = do
           crossFadeRGBsMul t0 t1 prevRGBs newRGBs
     Nothing -> do
       fIn <- assign $ fadeIn t0 t1
-      traverse (\x -> assign $ mix (constant 1.0) x fIn) newRGBs
+      traverse (\x -> assign $ mixFloat (constant 1.0) x fIn) newRGBs
   case mPrevOutput of
     Nothing -> (Just <<< flip vec3FloatToVec4 (constant 1.0)) <$> foldM (\x y -> assign $ product x y) (head rgbs) (tail rgbs)
     Just prevOutput -> (Just <<< flip vec3FloatToVec4 (constant 1.0)) <$> foldM (\x y -> assign $ product x y) (swizzleXYZ prevOutput) rgbs
@@ -691,7 +704,7 @@ appendSignals Output.RGB t0 t1 _ mPrevSignal newSignal = do
         false -> do
           prevRGB <- (last <<< flatten) <$> signalToExprs prevSignal
           fIn <- assign $ fadeIn t0 t1
-          Just <$> (assign $ vec3FloatToVec4 (mix prevRGB newRGB fIn) (constant 1.0))
+          Just <$> (assign $ vec3FloatToVec4 (mixFloat prevRGB newRGB fIn) (constant 1.0))
     Nothing -> Just <$> assign (vec3FloatToVec4 newRGB (constant 1.0))
 
 appendSignals _ _ _ mPrevOutput _ _ = pure mPrevOutput
@@ -700,7 +713,7 @@ appendSignals _ _ _ mPrevOutput _ _ = pure mPrevOutput
 crossFadeRGBAsBlend :: Number -> Number -> NonEmptyList Vec4 -> NonEmptyList Vec4 -> G (NonEmptyList Vec4)
 crossFadeRGBAsBlend t0 t1 prevRGBAs newRGBAs = do
   fIn <- assign $ fadeIn t0 t1
-  rgbasInCommon <- sequence $ zipWith (\x y -> assign $ mix x y fIn) prevRGBAs newRGBAs -- when we have both a previous and a new signal, rgba goes from prevSignal to newSignal over course of fade time
+  rgbasInCommon <- sequence $ zipWith (\x y -> assign $ mixFloat x y fIn) prevRGBAs newRGBAs -- when we have both a previous and a new signal, rgba goes from prevSignal to newSignal over course of fade time
   let nInCommon = Prelude.min (length prevRGBAs) (length newRGBAs)
   additionalRGBAs <- case length prevRGBAs > length newRGBAs of
     true -> do
@@ -714,11 +727,11 @@ crossFadeRGBAsBlend t0 t1 prevRGBAs newRGBAs = do
 crossFadeRGBsAdd :: Number -> Number -> NonEmptyList Vec3 -> NonEmptyList Vec3 -> G (NonEmptyList Vec3)
 crossFadeRGBsAdd t0 t1 prevRGBs newRGBs = do
   fIn <- assign $ fadeIn t0 t1
-  rgbsInCommon <- sequence $ zipWith (\x y -> assign $ mix x y fIn) prevRGBs newRGBs
+  rgbsInCommon <- sequence $ zipWith (\x y -> assign $ mixFloat x y fIn) prevRGBs newRGBs
   let nInCommon = Prelude.min (length prevRGBs) (length newRGBs)
   additionalRGBs <- case length prevRGBs > length newRGBs of
-    true -> traverse (\x -> assign $ mix x (constant 0.0) fIn) $ drop nInCommon prevRGBs
-    false -> traverse (\x -> assign $ mix (constant 0.0) x fIn) $ drop nInCommon newRGBs
+    true -> traverse (\x -> assign $ mixFloat x (constant 0.0) fIn) $ drop nInCommon prevRGBs
+    false -> traverse (\x -> assign $ mixFloat (constant 0.0) x fIn) $ drop nInCommon newRGBs
   case fromList additionalRGBs of
     Just xs -> pure $ rgbsInCommon <> xs
     Nothing -> pure rgbsInCommon
@@ -726,11 +739,11 @@ crossFadeRGBsAdd t0 t1 prevRGBs newRGBs = do
 crossFadeRGBsMul :: Number -> Number -> NonEmptyList Vec3 -> NonEmptyList Vec3 -> G (NonEmptyList Vec3)
 crossFadeRGBsMul t0 t1 prevRGBs newRGBs = do
   fIn <- assign $ fadeIn t0 t1
-  rgbsInCommon <- sequence $ zipWith (\x y -> assign $ mix x y fIn) prevRGBs newRGBs
+  rgbsInCommon <- sequence $ zipWith (\x y -> assign $ mixFloat x y fIn) prevRGBs newRGBs
   let nInCommon = Prelude.min (length prevRGBs) (length newRGBs)
   additionalRGBs <- case length prevRGBs > length newRGBs of
-    true -> traverse (\x -> assign $ mix x (constant 1.0) fIn) $ drop nInCommon prevRGBs
-    false -> traverse (\x -> assign $ mix (constant 1.0) x fIn) $ drop nInCommon newRGBs
+    true -> traverse (\x -> assign $ mixFloat x (constant 1.0) fIn) $ drop nInCommon prevRGBs
+    false -> traverse (\x -> assign $ mixFloat (constant 1.0) x fIn) $ drop nInCommon newRGBs
   case fromList additionalRGBs of
     Just xs -> pure $ rgbsInCommon <> xs
     Nothing -> pure rgbsInCommon
