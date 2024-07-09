@@ -1,8 +1,8 @@
 module Matrix where
 
-import Prelude (class Applicative, class Apply, class Eq, class Functor, class Show, map, pure, show, ($), (<>), (==), (<$>), (<<<))
+import Prelude (class Applicative, class Apply, class Eq, class Functor, class Show, map, pure, show, ($), (<>), (==), (<$>), (<<<), (&&), otherwise)
 import Data.Semigroup (class Semigroup, append)
-import Data.List.NonEmpty (NonEmptyList, cons, intercalate, singleton)
+import Data.List.NonEmpty (NonEmptyList, cons, intercalate, singleton, length, head)
 import Data.List.NonEmpty as L
 import Control.Apply (lift2,lift3)
 import Data.Foldable (class Foldable, foldMapDefaultL, foldl, foldr)
@@ -15,6 +15,12 @@ import NonEmptyList (multi,zipWithEqualLength,unconsTuple)
 import MultiMode (MultiMode(..))
 
 newtype Matrix a = Matrix (NonEmptyList (NonEmptyList a)) -- outer dimension is rows, inner dimension is columns
+
+isSingleton :: forall a. Matrix a -> Boolean
+isSingleton (Matrix xs) = length xs == 1 && length (head xs) == 1
+
+matrixHead :: forall a. Matrix a -> a
+matrixHead (Matrix xs) = head (head xs)
 
 flatten :: forall a. Matrix a -> NonEmptyList a
 flatten (Matrix xs) = L.concat xs
@@ -43,9 +49,12 @@ instance Functor Matrix where
 mapRows :: forall a b. (NonEmptyList a -> NonEmptyList b) -> Matrix a -> Matrix b
 mapRows f (Matrix xs) = Matrix $ map f xs
 
+-- a challenge for later: can this be implemented without flattening (at least under some circumstances)?
 instance Apply Matrix where
-  apply fs xs = Matrix $ map (\x -> map (\f -> f x) (flatten fs)) (flatten xs)
-  -- i.e. xs are "latest" combinatorial addition, so they are the rows of the result
+  apply fs xs
+    | isSingleton fs = map (matrixHead fs) xs -- if fs is singleton, structure of xs is retained
+    | isSingleton xs = map (\f -> f (matrixHead xs)) fs -- if xs is singleton, structure of fs is retained
+    | otherwise = Matrix $ map (\f -> map f (flatten xs)) (flatten fs) -- if neither are singletons, rows reflect flattened fs and columns reflect flattened xs
   
 applyPairwise :: forall a b. Matrix (a -> b) -> Matrix a -> Matrix b
 applyPairwise fs xs = fromNonEmptyList $ zipWithEqualLength ($) (flatten fs) (flatten xs)
