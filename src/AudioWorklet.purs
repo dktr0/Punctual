@@ -13,7 +13,7 @@ import Signal (Signal)
 import WebAudio (WebAudioContext,WebAudioNode)
 import W
 import AudioPanning (splay)
-import Multi (flatten)
+import Matrix (flatten)
 
 type AudioWorklet = {
   name :: String,

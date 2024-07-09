@@ -1,4 +1,4 @@
-module Multi where
+module Matrix where
 
 import Prelude (class Applicative, class Apply, class Eq, class Functor, class Show, map, pure, show, ($), (<>), (==), (<$>), (<<<))
 import Data.Semigroup (class Semigroup, append)
@@ -14,87 +14,87 @@ import Data.Maybe (Maybe(..))
 import NonEmptyList (multi,zipWithEqualLength,unconsTuple)
 import MultiMode (MultiMode(..))
 
-newtype Multi a = Multi (NonEmptyList (NonEmptyList a)) -- outer dimension is rows, inner dimension is columns
+newtype Matrix a = Matrix (NonEmptyList (NonEmptyList a)) -- outer dimension is rows, inner dimension is columns
 
-flatten :: forall a. Multi a -> NonEmptyList a
-flatten (Multi xs) = L.concat xs
+flatten :: forall a. Matrix a -> NonEmptyList a
+flatten (Matrix xs) = L.concat xs
 
-fromNonEmptyList :: forall a. NonEmptyList a -> Multi a
-fromNonEmptyList = Multi <<< pure
+fromNonEmptyList :: forall a. NonEmptyList a -> Matrix a
+fromNonEmptyList = Matrix <<< pure
 
 -- to be used, for example, in implementation of SignalList
-fromNonEmptyListMulti :: forall a. NonEmptyList (Multi a) -> Multi a
-fromNonEmptyListMulti xs = Multi $ multi $ map flatten xs -- NonEmptyList (NonEmptyList a)
+fromNonEmptyListMulti :: forall a. NonEmptyList (Matrix a) -> Matrix a
+fromNonEmptyListMulti xs = Matrix $ multi $ map flatten xs -- NonEmptyList (NonEmptyList a)
 
 -- to be used, for example, in implementation of Seq
-semiFlatten :: forall a. Multi a -> NonEmptyList (NonEmptyList a)
-semiFlatten (Multi xs) = xs
+semiFlatten :: forall a. Matrix a -> NonEmptyList (NonEmptyList a)
+semiFlatten (Matrix xs) = xs
 
-instance Eq a => Eq (Multi a) where
-  eq (Multi xs) (Multi ys) = xs == ys
+instance Eq a => Eq (Matrix a) where
+  eq (Matrix xs) (Matrix ys) = xs == ys
 
-instance Show a => Show (Multi a) where
-  show (Multi xs) = "Multi (" <> show xs <> ")"
+instance Show a => Show (Matrix a) where
+  show (Matrix xs) = "Matrix (" <> show xs <> ")"
 
-instance Functor Multi where
-  map f (Multi xs) = Multi $ map (map f) xs
+instance Functor Matrix where
+  map f (Matrix xs) = Matrix $ map (map f) xs
 
 -- note: provided function is expected to guarantee that size of resulting rows is a deterministic function of size argument rows
-mapRows :: forall a b. (NonEmptyList a -> NonEmptyList b) -> Multi a -> Multi b
-mapRows f (Multi xs) = Multi $ map f xs
+mapRows :: forall a b. (NonEmptyList a -> NonEmptyList b) -> Matrix a -> Matrix b
+mapRows f (Matrix xs) = Matrix $ map f xs
 
-instance Apply Multi where
-  apply fs xs = Multi $ map (\x -> map (\f -> f x) (flatten fs)) (flatten xs)
+instance Apply Matrix where
+  apply fs xs = Matrix $ map (\x -> map (\f -> f x) (flatten fs)) (flatten xs)
   -- i.e. xs are "latest" combinatorial addition, so they are the rows of the result
   
-applyPairwise :: forall a b. Multi (a -> b) -> Multi a -> Multi b
+applyPairwise :: forall a b. Matrix (a -> b) -> Matrix a -> Matrix b
 applyPairwise fs xs = fromNonEmptyList $ zipWithEqualLength ($) (flatten fs) (flatten xs)
 
-instance Applicative Multi where
-  pure = Multi <<< pure <<< pure 
+instance Applicative Matrix where
+  pure = Matrix <<< pure <<< pure 
 
-instance Semigroup (Multi a) where
-  append xs ys = Multi $ pure $ flatten xs <> flatten ys
+instance Semigroup (Matrix a) where
+  append xs ys = Matrix $ pure $ flatten xs <> flatten ys
   
-instance Foldable Multi where
+instance Foldable Matrix where
   foldl f b xs = foldl f b $ flatten xs 
   foldr f b xs = foldr f b $ flatten xs
   foldMap = foldMapDefaultL 
 
-instance Traversable Multi where
-  traverse f (Multi xs) = Multi <$> traverse (traverse f) xs
+instance Traversable Matrix where
+  traverse f (Matrix xs) = Matrix <$> traverse (traverse f) xs
   sequence = sequenceDefault
 
-instance Unfoldable1 Multi where
+instance Unfoldable1 Matrix where
   unfoldr1 f b = case f b of
                    Tuple a Nothing -> pure a
                    Tuple a (Just r) -> pure a <> unfoldr1 f r
   
 -- to be used, for example, in implementation of Zip
-zip :: forall a. Multi a -> Multi a -> Multi a
-zip xs ys = Multi $ zipWithEqualLength (\x y -> x `cons` singleton y) (flatten xs) (flatten ys)
+zip :: forall a. Matrix a -> Matrix a -> Matrix a
+zip xs ys = Matrix $ zipWithEqualLength (\x y -> x `cons` singleton y) (flatten xs) (flatten ys)
 
 -- note: the provided Multis should have the same dimensions, or else all hell breaks loose
-concat :: forall a. NonEmptyList (Multi a) -> Multi a
-concat xs = Multi $ map flatten xs
+concat :: forall a. NonEmptyList (Matrix a) -> Matrix a
+concat xs = Matrix $ map flatten xs
 
 -- to be used, for example, in implementation of Rep
-rep :: forall a. Int -> Multi a -> Multi a
-rep n x = Multi $ replicate1 n (flatten x)
+rep :: forall a. Int -> Matrix a -> Matrix a
+rep n x = Matrix $ replicate1 n (flatten x)
 
-combine :: forall a b c. (a -> b -> c) -> MultiMode -> Multi a -> Multi b -> Multi c
+combine :: forall a b c. (a -> b -> c) -> MultiMode -> Matrix a -> Matrix b -> Matrix c
 combine f Combinatorial = lift2 f
 combine f Pairwise = combinePairwise f
 
-combine3 :: forall a b c d. (a -> b -> c -> d) -> MultiMode -> Multi a -> Multi b -> Multi c -> Multi d
+combine3 :: forall a b c d. (a -> b -> c -> d) -> MultiMode -> Matrix a -> Matrix b -> Matrix c -> Matrix d
 combine3 f Combinatorial a b c = lift3 f a b c
 combine3 f Pairwise a b c = combinePairwise ($) (combinePairwise f a b) c
 
-combinePairwise :: forall a b c. (a -> b -> c) -> Multi a -> Multi b -> Multi c
+combinePairwise :: forall a b c. (a -> b -> c) -> Matrix a -> Matrix b -> Matrix c
 combinePairwise f xs ys = fromNonEmptyList $ zipWithEqualLength f (flatten xs) (flatten ys)
 
-toTuples :: forall a. Multi a -> Multi (Tuple a a)
+toTuples :: forall a. Matrix a -> Matrix (Tuple a a)
 toTuples xs = unfoldr1 unconsTuple (flatten xs)
 
-pp :: forall a. Show a => Multi a -> String
-pp (Multi xss) = "[" <> intercalate "," (map (\xs -> "[" <> intercalate "," (map show xs) <> "]" ) xss) <> "]"
+pp :: forall a. Show a => Matrix a -> String
+pp (Matrix xss) = "[" <> intercalate "," (map (\xs -> "[" <> intercalate "," (map show xs) <> "]" ) xss) <> "]"

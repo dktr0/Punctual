@@ -12,7 +12,7 @@ import Data.Set as Set
 import Data.Tuple (Tuple(..))
 import Data.Unfoldable1 (replicate1)
 
-import Multi
+import Matrix
 import Expr
 
 type GState = {
@@ -60,7 +60,7 @@ allocate = do
 writeCode :: String -> G Unit
 writeCode x = modify_ $ \s -> s { code = s.code <> x } 
 
-withFxys :: forall a. Expr a => NonEmptyList Vec2 -> G (Multi a) -> G (Multi a)
+withFxys :: forall a. Expr a => NonEmptyList Vec2 -> G (Matrix a) -> G (Matrix a)
 withFxys fxys a = do
   cachedFxy <- _.fxy <$> get
   rs <- for fxys $ \fxy -> do
@@ -69,7 +69,7 @@ withFxys fxys a = do
   modify_ $ \s -> s { fxy = cachedFxy }
   pure $ concat rs
 
-withAlteredTime :: forall a. Expr a => NonEmptyList { time :: Float, beat :: Float, etime :: Float, ebeat :: Float } -> G (Multi a) -> G (Multi a)
+withAlteredTime :: forall a. Expr a => NonEmptyList { time :: Float, beat :: Float, etime :: Float, ebeat :: Float } -> G (Matrix a) -> G (Matrix a)
 withAlteredTime xs a = do
   cached <- get
   rs <- for xs $ \x -> do

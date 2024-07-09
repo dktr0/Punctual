@@ -12,7 +12,7 @@ import Data.Tuple (Tuple(..))
 
 import W (W,Sample,Frame,assign,product,sumChannels)
 import W as W
-import Multi (fromNonEmptyList,flatten)
+import Matrix (fromNonEmptyList,flatten)
 
 splay :: Int -> Frame -> W Frame
 splay nOutputChnls xs

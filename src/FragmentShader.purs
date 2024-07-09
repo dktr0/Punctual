@@ -25,11 +25,11 @@ import Output as Output
 import Program (Program)
 import Expr (class Expr, Float(..), Vec2(..), Vec3, Vec4, abs, acos, add, ampdb, asin, atan, between, bipolar, blend, cbrt, ceil, circle, clip, constant, cos, cpsmidi, dbamp, difference, distance, division, divisionExprFloat, dotSum, equal, exp, expr, fadeIn, fadeOut, floatFloatToVec2, floor, fract, fromFloat, fromFloats, fromVec2s, fromVec3s, fromVec4s, function1, gate, greaterThan, greaterThanEqual, hline, hsvrgb, iline, lessThan, lessThanEqual, line, linlin, log, log10, log2, max, midicps, min, mix, mod, notEqual, pi, point, pow, product, productExprFloat, productFloatExpr, prox, pxy, rgbaFade, rgbhsv, rtx, rtxy, rty, seq, setX, setY, sign, sin, smoothStep, sqrt, sum, swizzleW, swizzleX, swizzleXY, swizzleXYZ, swizzleY, swizzleZ, swizzleZW, tan, tile, toExpr, unaryFunction, unipolar, vec3FloatToVec4, vline, xyr, xyrt, xyt, zero)
 import G (G, assign, runG, texture2D, textureFFT, withAlteredTime, withFxys)
-import Multi (Multi,fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3,semiFlatten)
+import Matrix (Matrix,fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3,semiFlatten)
 import Number (acosh, asinh, atanh, cosh, sinh, tanh) as Number
 
 
-signalToExprs :: forall a. Expr a => Signal -> G (Multi a)
+signalToExprs :: forall a. Expr a => Signal -> G (Matrix a)
 
 signalToExprs (Constant x) = pure $ pure $ constant x
 
@@ -37,19 +37,19 @@ signalToExprs (SignalList xs) =
   case fromList xs of
     Nothing -> pure $ pure $ constant 0.0
     Just xs' -> do
-      xs'' <- fromNonEmptyListMulti <$> traverse signalToExprs xs' -- :: Multi Float, with list already combinatorially expanded
+      xs'' <- fromNonEmptyListMulti <$> traverse signalToExprs xs' -- :: Matrix Float, with list already combinatorially expanded
       pure $ mapRows fromFloats xs''
 
 signalToExprs (Append x y) = (<>) <$> signalToExprs x <*> signalToExprs y
 
 signalToExprs (Zip x y) = do
-  xs <- flatten <$> (signalToExprs x :: G (Multi Float))
-  ys <- flatten <$> (signalToExprs y :: G (Multi Float))
+  xs <- flatten <$> (signalToExprs x :: G (Matrix Float))
+  ys <- flatten <$> (signalToExprs y :: G (Matrix Float))
   let v2s = fromNonEmptyList $ zipWithEqualLength floatFloatToVec2 xs ys
   pure $ mapRows fromVec2s v2s
 
 signalToExprs (Mono x) = do
-  xs <- (signalToExprs x :: G (Multi Vec3)) -- MAYBE LATER: determine an optimal type for realization of x based on its number of channels or the nature of the underlying signal (eg. whether it naturally produces vec2s 3s or 4s)
+  xs <- (signalToExprs x :: G (Matrix Vec3)) -- MAYBE LATER: determine an optimal type for realization of x based on its number of channels or the nature of the underlying signal (eg. whether it naturally produces vec2s 3s or 4s)
   let f = sum (dotSum <$> flatten xs)
   pure $ pure $ fromFloat f
   
@@ -124,17 +124,17 @@ signalToExprs (Vid url) = do
     Nothing -> pure $ pure $ zero
 
 signalToExprs (Blend x) = do
-  xs <- flatten <$> (signalToExprs x :: G (Multi Vec4))
+  xs <- flatten <$> (signalToExprs x :: G (Matrix Vec4))
   y <- (foldM (\a b -> assign $ blend a b) (head xs) (tail xs) :: G Vec4)
   pure $ fromNonEmptyList $ fromVec4s $ singleton y
 
 signalToExprs (Add x) = do
-  xs <- flatten <$> (signalToExprs x :: G (Multi Vec3))
+  xs <- flatten <$> (signalToExprs x :: G (Matrix Vec3))
   y <- (foldM (\a b -> assign $ add a b) (head xs) (tail xs) :: G Vec3)
   pure $ fromNonEmptyList $ fromVec3s $ singleton y
 
 signalToExprs (Mul x) = do
-  xs <- flatten <$> (signalToExprs x :: G (Multi Vec3))
+  xs <- flatten <$> (signalToExprs x :: G (Matrix Vec3))
   y <- (foldM (\a b -> assign $ product a b) (head xs) (tail xs) :: G Vec3)
   pure $ fromNonEmptyList $ fromVec3s $ singleton y
   
@@ -143,9 +143,9 @@ signalToExprs (HsvRgb x) = signalToExprs x >>= map hsvrgb >>> mapRows fromVec3s 
 signalToExprs (HsvR x) = signalToExprs x >>= map hsvrgb >>> map swizzleX >>> mapRows fromFloats >>> traverse assign
 signalToExprs (HsvG x) = signalToExprs x >>= map hsvrgb >>> map swizzleY >>> mapRows fromFloats >>> traverse assign
 signalToExprs (HsvB x) = signalToExprs x >>= map hsvrgb >>> map swizzleZ >>> mapRows fromFloats >>> traverse assign
-signalToExprs (RgbR x) = (signalToExprs x :: G (Multi Vec3)) >>= map swizzleX >>> mapRows fromFloats >>> pure
-signalToExprs (RgbG x) = (signalToExprs x :: G (Multi Vec3)) >>= map swizzleY >>> mapRows fromFloats >>> pure
-signalToExprs (RgbB x) = (signalToExprs x :: G (Multi Vec3)) >>= map swizzleZ >>> mapRows fromFloats >>> pure
+signalToExprs (RgbR x) = (signalToExprs x :: G (Matrix Vec3)) >>= map swizzleX >>> mapRows fromFloats >>> pure
+signalToExprs (RgbG x) = (signalToExprs x :: G (Matrix Vec3)) >>= map swizzleY >>> mapRows fromFloats >>> pure
+signalToExprs (RgbB x) = (signalToExprs x :: G (Matrix Vec3)) >>= map swizzleZ >>> mapRows fromFloats >>> pure
 signalToExprs (RgbH x) = signalToExprs x >>= map rgbhsv >>> map swizzleX >>> mapRows fromFloats >>> traverse assign
 signalToExprs (RgbS x) = signalToExprs x >>= map rgbhsv >>> map swizzleY >>> mapRows fromFloats >>> traverse assign
 signalToExprs (RgbV x) = signalToExprs x >>= map rgbhsv >>> map swizzleZ >>> mapRows fromFloats >>> traverse assign
@@ -225,61 +225,61 @@ signalToExprs (SetFy y z) = do
 
 signalToExprs (Zoom q z) = do
   fxy <- _.fxy <$> get
-  qs <- signalToExprs q -- :: G (Multi Float)
+  qs <- signalToExprs q -- :: G (Matrix Float)
   fxys <- traverse assign $ map (divisionExprFloat fxy) $ flatten qs
   withFxys fxys $ signalToExprs z
 
 signalToExprs (ZoomXy q z) = do
   fxy <- _.fxy <$> get
-  qs <- signalToExprs q -- :: G (Multi Vec2)
+  qs <- signalToExprs q -- :: G (Matrix Vec2)
   fxys <- traverse assign $ map (division fxy) $ flatten qs
   withFxys fxys $ signalToExprs z
 
 signalToExprs (ZoomX q z) = do
   fxy <- _.fxy <$> get
-  qs <- signalToExprs q -- :: G (Multi Float)
+  qs <- signalToExprs q -- :: G (Matrix Float)
   fxys <- traverse assign $ map (setX fxy <<< division (swizzleX fxy)) $ flatten qs
   withFxys fxys $ signalToExprs z
 
 signalToExprs (ZoomY q z) = do
   fxy <- _.fxy <$> get
-  qs <- signalToExprs q -- :: G (Multi Float)
+  qs <- signalToExprs q -- :: G (Matrix Float)
   fxys <- traverse assign $ map (setY fxy <<< division (swizzleY fxy)) $ flatten qs
   withFxys fxys $ signalToExprs z
  
 signalToExprs (Move q z) = do
   fxy <- _.fxy <$> get
-  qs <- signalToExprs q -- :: G (Multi Vec2)
+  qs <- signalToExprs q -- :: G (Matrix Vec2)
   fxys <- traverse assign $ map (difference fxy) $ flatten qs
   withFxys fxys $ signalToExprs z
 
 signalToExprs (Tile q z) = do
   fxy <- _.fxy <$> get
-  qs <- signalToExprs q -- :: G (Multi Float)
+  qs <- signalToExprs q -- :: G (Matrix Float)
   fxys <- traverse assign $ map (tile fxy <<< fromFloat) $ flatten qs
   withFxys fxys $ signalToExprs z
   
 signalToExprs (TileXy q z) = do
   fxy <- _.fxy <$> get
-  qs <- signalToExprs q -- :: G (Multi Vec2)
+  qs <- signalToExprs q -- :: G (Matrix Vec2)
   fxys <- traverse assign $ map (tile fxy) $ flatten qs
   withFxys fxys $ signalToExprs z
 
 signalToExprs (TileX q z) = do
   fxy <- _.fxy <$> get
-  qs <- signalToExprs q -- :: G (Multi Float)
+  qs <- signalToExprs q -- :: G (Matrix Float)
   fxys <- traverse assign $ map (setX fxy <<< tile (swizzleX fxy)) $ flatten qs
   withFxys fxys $ signalToExprs z
 
 signalToExprs (TileY q z) = do
   fxy <- _.fxy <$> get
-  qs <- signalToExprs q -- :: G (Multi Float)
+  qs <- signalToExprs q -- :: G (Matrix Float)
   fxys <- traverse assign $ map (setY fxy <<< tile (swizzleY fxy)) $ flatten qs
   withFxys fxys $ signalToExprs z
 
 signalToExprs (Spin q z) = do
   fxy <- _.fxy <$> get
-  qs <- signalToExprs q -- :: G (Multi Float)
+  qs <- signalToExprs q -- :: G (Matrix Float)
   fxys <- traverse (spin fxy) $ flatten qs
   withFxys fxys $ signalToExprs z
 
@@ -343,7 +343,7 @@ signalToExprs (SmoothStep mm r x) = do
 signalToExprs (Circle mm xy d) = do
   fxy <- _.fxy <$> get
   xys <- signalToExprs xy
-  ds <- signalToExprs d :: G (Multi Float)
+  ds <- signalToExprs d :: G (Matrix Float)
   rs <- traverse assign $ combine (circle fxy) mm xys ds
   traverse assign $ mapRows fromFloats rs
 
@@ -370,7 +370,7 @@ signalToExprs (Chain mm xy w) = do
   fxy <- _.fxy <$> get
   xys <- signalToExprs xy
   ws <- signalToExprs w
-  let xys' = fromNonEmptyList $ everyAdjacentPair $ flatten xys -- Multi (Tuple Vec2 Vec2)
+  let xys' = fromNonEmptyList $ everyAdjacentPair $ flatten xys -- Matrix (Tuple Vec2 Vec2)
   let f xyTuple theW = line fxy (fst xyTuple) (snd xyTuple) theW
   traverse assign $ mapRows fromFloats $ combine f mm xys' ws
 
@@ -392,7 +392,7 @@ signalToExprs (Mesh mm xy w) = do
   fxy <- _.fxy <$> get
   xys <- flatten <$> signalToExprs xy
   ws <- signalToExprs w
-  let xys' = fromNonEmptyList $ everyPair $ xys -- Multi (Tuple Vec2 Vec2)
+  let xys' = fromNonEmptyList $ everyPair $ xys -- Matrix (Tuple Vec2 Vec2)
   let f xyTuple theW = line fxy (fst xyTuple) (snd xyTuple) theW
   traverse assign $ mapRows fromFloats $ combine f mm xys' ws
 
@@ -441,13 +441,13 @@ signalToExprs _ = pure $ pure $ constant 0.0
 {-
 -- for preserving alignment requests through intermediate calculations that are Float -> G Float
 -- created during matrix refactor but currently unused???
-splitFloatsApplyReassemble :: forall a. Expr a => (Float -> G Float) -> Multi a -> G (Multi a)
+splitFloatsApplyReassemble :: forall a. Expr a => (Float -> G Float) -> Matrix a -> G (Matrix a)
 splitFloatsApplyReassemble f xs = do
   xs'' <- traverse f $ mapRows toFloats xs 
   pure $ mapRows fromFloats xs''
 -}
 
-maskUnitSquare :: forall a. Expr a => Multi a -> G (Multi a)
+maskUnitSquare :: forall a. Expr a => Matrix a -> G (Matrix a)
 maskUnitSquare xs = do
   fxy <- _.fxy <$> get
   mask <- assign $ lessThanEqual (abs fxy) (constant 1.0) -- :: Vec2
@@ -474,7 +474,7 @@ sqr :: forall a. Expr a => a -> G a
 sqr f = phasor f >>= bipolar >>> greaterThanEqual (constant 0.5) >>> assign
 
 
-binaryFunctionToExprs :: forall a. Expr a => MultiMode -> (a -> a -> a) -> Signal -> Signal -> G (Multi a)
+binaryFunctionToExprs :: forall a. Expr a => MultiMode -> (a -> a -> a) -> Signal -> Signal -> G (Matrix a)
 binaryFunctionToExprs Combinatorial f x y = combine f Combinatorial <$> (map fromFloat <$> signalToExprs x) <*> signalToExprs y
 binaryFunctionToExprs Pairwise f x y = combine f Pairwise <$> signalToExprs x <*> signalToExprs y
 

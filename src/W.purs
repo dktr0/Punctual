@@ -19,7 +19,7 @@ import Data.Int (toNumber)
 import NonEmptyList (zipWithEqualLength)
 import Signal (Signal(..))
 import MultiMode (MultiMode(..))
-import Multi (Multi,flatten,semiFlatten,fromNonEmptyListMulti,zip,rep,combine,combine3,concat,toTuples,fromNonEmptyList)
+import Matrix (Matrix,flatten,semiFlatten,fromNonEmptyListMulti,zip,rep,combine,combine3,concat,toTuples,fromNonEmptyList)
 import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, division, smoothStep) as Number
 
 
@@ -60,7 +60,7 @@ writeCode :: String -> W Unit
 writeCode x = modify_ $ \s -> s { code = s.code <> x } 
   
 
-type Frame = Multi Sample
+type Frame = Matrix Sample
 
 signalToFrame :: Signal -> W Frame
 
@@ -69,7 +69,7 @@ signalToFrame (Constant x) = pure $ pure $ Left x
 signalToFrame (SignalList xs) = 
   case fromList xs of
     Nothing -> pure $ pure $ Left 0.0
-    Just xs' -> fromNonEmptyListMulti <$> traverse signalToFrame xs' -- :: NonEmptyList Frame == NonEmptyList (Multi Sample)
+    Just xs' -> fromNonEmptyListMulti <$> traverse signalToFrame xs' -- :: NonEmptyList Frame == NonEmptyList (Matrix Sample)
 
 signalToFrame (Append x y) = do
   xs <- signalToFrame x
