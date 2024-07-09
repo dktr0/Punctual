@@ -343,15 +343,16 @@ signalToExprs (SmoothStep mm r x) = do
 signalToExprs (Circle mm xy d) = do
   fxy <- _.fxy <$> get
   xys <- signalToExprs xy
-  ds <- signalToExprs d
-  traverse assign $ combine (circle fxy) mm xys ds
+  ds <- signalToExprs d :: G (Multi Float)
+  rs <- traverse assign $ combine (circle fxy) mm xys ds
+  traverse assign $ mapRows fromFloats rs
 
 signalToExprs (Rect mm xy wh) = do
   fxy <- _.fxy <$> get
   xys <- signalToExprs xy
   whs <- signalToExprs wh
   rs <- sequence $ combine (rect fxy) mm xys whs
-  pure $ mapRows fromFloats rs
+  traverse assign $ mapRows fromFloats rs
 
 signalToExprs (VLine mm x w) = do
   fxy <- _.fxy <$> get

@@ -14,7 +14,6 @@ import Data.Maybe (Maybe(..))
 import NonEmptyList (multi,zipWithEqualLength,unconsTuple)
 import MultiMode (MultiMode(..))
 
-
 newtype Multi a = Multi (NonEmptyList (NonEmptyList a)) -- outer dimension is rows, inner dimension is columns
 
 flatten :: forall a. Multi a -> NonEmptyList a
@@ -45,11 +44,12 @@ mapRows :: forall a b. (NonEmptyList a -> NonEmptyList b) -> Multi a -> Multi b
 mapRows f (Multi xs) = Multi $ map f xs
 
 instance Apply Multi where
-  apply fs xs = Multi $ map (\f -> map f (flatten xs)) (flatten fs)
+  apply fs xs = Multi $ map (\x -> map (\f -> f x) (flatten fs)) (flatten xs)
+  -- i.e. xs are "latest" combinatorial addition, so they are the rows of the result
   
 applyPairwise :: forall a b. Multi (a -> b) -> Multi a -> Multi b
 applyPairwise fs xs = fromNonEmptyList $ zipWithEqualLength ($) (flatten fs) (flatten xs)
-  
+
 instance Applicative Multi where
   pure = Multi <<< pure <<< pure 
 
@@ -98,4 +98,3 @@ toTuples xs = unfoldr1 unconsTuple (flatten xs)
 
 pp :: forall a. Show a => Multi a -> String
 pp (Multi xss) = "[" <> intercalate "," (map (\xs -> "[" <> intercalate "," (map show xs) <> "]" ) xss) <> "]"
-
