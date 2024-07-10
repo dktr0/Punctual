@@ -320,10 +320,12 @@ signalToExprs (LessThanEqual mm x y) = binaryFunctionToExprs mm lessThanEqual le
 signalToExprs (Max mm x y) = binaryFunctionToExprs mm max max x y
 signalToExprs (Min mm x y) = binaryFunctionToExprs mm min min x y
 
+-- TODO later: optimize so that larger underlying types can be used when possible (which may not be often)
 signalToExprs (Gate mm x y) = do
-  xs <- signalToExprs x
-  ys <- signalToExprs y >>= traverse assign
-  traverse assign $ combine gate mm xs ys
+  xs <- signalToExprs x -- :: Matrix Float
+  ys <- (signalToExprs y :: G (Matrix Float)) >>= traverse assign
+  zs <- traverse assign $ combine gate mm xs ys
+  traverse assign $ mapRows fromFloats zs
 
 signalToExprs (Clip mm r x) = do
   rs <- signalToExprs r >>= traverse assign
