@@ -140,11 +140,20 @@ modulatedRangePlusMinus a b = modulatedRangeLowHigh low high
     high = Product Combinatorial a (Addition Pairwise (Constant 1.0) b)
 
 fit :: Signal -> Signal -> Signal
+fit ar x = ZoomXy z x
+  where
+    cond = GreaterThanEqual Combinatorial Aspect ar
+    ifTrue = SignalList $ Division Pairwise ar Aspect : Constant 1.0 : Nil
+    ifFalse = SignalList $ Division Pairwise ar Aspect : Constant 1.0 : Nil
+    z = Mix Combinatorial ifFalse ifTrue cond
+
+{-
 fit ar x = Mix Pairwise ifFalse ifTrue cond
   where
     cond = GreaterThanEqual Combinatorial Aspect ar
     ifTrue = Zoom (SignalList $ Division Pairwise ar Aspect : Constant 1.0 : Nil) x
-    ifFalse = Zoom (SignalList $ Constant 1.0 : Division Pairwise Aspect ar : Nil) x
+    ifFalse = Zoom (c) x
+-}
 
 fast :: Signal -> Signal -> Signal
 fast x = Slow (Division Pairwise (Constant 1.0) x)

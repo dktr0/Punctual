@@ -32,4 +32,5 @@ cabal.project.local~
 .psci_modules/
 .spago/
 output/
+.psc-ide-port
 
