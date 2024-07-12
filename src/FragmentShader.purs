@@ -23,7 +23,8 @@ import Action (Action,actionTimesAsSecondsSinceEval)
 import Output (Output)
 import Output as Output
 import Program (Program)
-import Expr (class Expr, Float(..), Vec2(..), Vec3, Vec4, abs, acos, add, ampdb, asin, atan, between, bipolar, blend, cbrt, ceil, circle, clip, constant, cos, cpsmidi, dbamp, difference, distance, division, divisionExprFloat, dotSum, equal, exp, expr, fadeIn, fadeOut, floatFloatToVec2, floor, fract, fromFloat, fromFloats, fromVec2s, fromVec3s, fromVec4s, function1, gate, greaterThan, greaterThanEqual, hline, hsvrgb, iline, lessThan, lessThanEqual, line, linlin, log, log10, log2, max, midicps, min, mix, mixFloat, mod, notEqual, pi, point, pow, product, productExprFloat, productFloatExpr, prox, pxy, rgbaFade, rgbhsv, rtx, rtxy, rty, seq, setX, setY, sign, sin, smoothStep, sqrt, sum, swizzleW, swizzleX, swizzleXY, swizzleXYZ, swizzleY, swizzleZ, swizzleZW, tan, tile, toExpr, unaryFunction, unipolar, vec3FloatToVec4, vline, xyr, xyrt, xyt, zero)
+import Expr (class Expr, Float(..), Vec2(..), Vec3, Vec4, abs, acos, add, ampdb, asin, atan, between, bipolar, blend, cbrt, ceil, circle, clip, constant, cos, cpsmidi, dbamp, difference, distance, division, divisionExprFloat, dotSum, equal, exp, expr, fadeIn, fadeOut, floatFloatToVec2, floor, fract, fromFloat, fromFloats, fromVec2s, fromVec3s, fromVec4s, function1, gate, greaterThan, greaterThanEqual, hline, hsvrgb, iline, lessThan, lessThanEqual, line, linlin, log, log10, log2, max, midicps, min, mix, mixFloat, mod, notEqual, pi, point, pow, product, productExprFloat, productFloatExpr, prox, pxy, rgbaFade, rgbhsv, rtx, rtxy, rty, seq, setX, setY, sign, sin, smoothStep, sqrt, sum, swizzleW, swizzleX, swizzleXY, swizzleXYZ, swizzleY, swizzleZ, swizzleZW, tan, tile, toExpr, unaryFunction, unipolar, vec3FloatToVec4, vline, xyr, xyrt, xyt, zero, castExprs)
+import Expr as Expr
 import G (G, assign, runG, texture2D, textureFFT, withAlteredTime, withFxys)
 import Matrix (Matrix,fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3,semiFlatten)
 import Number (acosh, asinh, atanh, cosh, sinh, tanh) as Number
@@ -305,20 +306,20 @@ signalToExprs (Slow q z) = do
     }
   withAlteredTime qs' $ signalToExprs z
   
-signalToExprs (Addition mm x y) = binaryFunctionToExprs mm add add x y
-signalToExprs (Difference mm x y) = binaryFunctionToExprs mm difference difference x y
-signalToExprs (Product mm x y) = binaryFunctionToExprs mm product product x y
-signalToExprs (Division mm x y) = binaryFunctionToExprs mm division division x y
-signalToExprs (Mod mm x y) = binaryFunctionToExprs mm mod mod x y
-signalToExprs (Pow mm x y) = binaryFunctionToExprs mm pow pow x y
-signalToExprs (Equal mm x y) = binaryFunctionToExprs mm equal equal x y
-signalToExprs (NotEqual mm x y) = binaryFunctionToExprs mm notEqual notEqual x y
-signalToExprs (GreaterThan mm x y) = binaryFunctionToExprs mm greaterThan greaterThan x y
-signalToExprs (GreaterThanEqual mm x y) = binaryFunctionToExprs mm greaterThanEqual greaterThanEqual x y
-signalToExprs (LessThan mm x y) = binaryFunctionToExprs mm lessThan lessThan x y
-signalToExprs (LessThanEqual mm x y) = binaryFunctionToExprs mm lessThanEqual lessThanEqual x y
-signalToExprs (Max mm x y) = binaryFunctionToExprs mm max max x y
-signalToExprs (Min mm x y) = binaryFunctionToExprs mm min min x y
+signalToExprs (Addition mm x y) = binaryFunctionToExprs mm add Expr.addFloatExpr x y
+signalToExprs (Difference mm x y) = binaryFunctionToExprs mm difference Expr.differenceFloatExpr x y
+signalToExprs (Product mm x y) = binaryFunctionToExprs mm product Expr.productFloatExpr x y
+signalToExprs (Division mm x y) = binaryFunctionToExprs mm division Expr.divisionFloatExpr x y
+signalToExprs (Mod mm x y) = binaryFunctionToExprs mm mod Expr.modFloatExpr x y
+signalToExprs (Pow mm x y) = binaryFunctionToExprs mm pow Expr.powFloatExpr x y
+signalToExprs (Equal mm x y) = binaryFunctionToExprs mm equal Expr.equalFloatExpr x y
+signalToExprs (NotEqual mm x y) = binaryFunctionToExprs mm notEqual Expr.notEqualFloatExpr x y
+signalToExprs (GreaterThan mm x y) = binaryFunctionToExprs mm greaterThan Expr.greaterThanFloatExpr x y
+signalToExprs (GreaterThanEqual mm x y) = binaryFunctionToExprs mm greaterThanEqual Expr.greaterThanEqualFloatExpr x y
+signalToExprs (LessThan mm x y) = binaryFunctionToExprs mm lessThan Expr.lessThanFloatExpr x y
+signalToExprs (LessThanEqual mm x y) = binaryFunctionToExprs mm lessThanEqual Expr.lessThanEqualFloatExpr x y
+signalToExprs (Max mm x y) = binaryFunctionToExprs mm max Expr.maxFloatExpr x y
+signalToExprs (Min mm x y) = binaryFunctionToExprs mm min Expr.minFloatExpr x y
 
 -- TODO later: optimize so that larger underlying types can be used when possible (which may not be often)
 signalToExprs (Gate mm x y) = do
@@ -484,13 +485,13 @@ sqr :: forall a. Expr a => a -> G a
 sqr f = phasor f >>= bipolar >>> greaterThanEqual (constant 0.5) >>> assign
 
 
--- TODO later: optimize this so that Combinatorial pathway can use larger underlying types instead of just Float when possible
-binaryFunctionToExprs :: forall a. Expr a => MultiMode -> (a -> a -> a) -> (Float -> Float -> Float) -> Signal -> Signal -> G (Matrix a)
+-- TODO later: optimize so that combinatorial pathway doesn't force xs to float when y is singleton
+binaryFunctionToExprs :: forall a. Expr a => MultiMode -> (a -> a -> a) -> (Float -> a -> a) -> Signal -> Signal -> G (Matrix a)
 binaryFunctionToExprs Combinatorial _ fFloat x y = do -- combine f Combinatorial <$> (map fromFloat <$> signalToExprs x) <*> signalToExprs y
-  xs <- signalToExprs x :: G (Matrix Float)
-  ys <- signalToExprs y :: G (Matrix Float)
+  xs <- signalToExprs x
+  ys <- signalToExprs y
   zs <- traverse assign $ combine fFloat Combinatorial xs ys
-  traverse assign $ mapRows fromFloats zs  
+  traverse assign $ mapRows castExprs zs  
 binaryFunctionToExprs Pairwise f _ x y = combine f Pairwise <$> signalToExprs x <*> signalToExprs y
 
   

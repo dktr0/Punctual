@@ -645,17 +645,28 @@ divisionExprFloat = operatorExprFloat (/) "/" -- TODO: this should be safe divis
 min :: forall a. Expr a => a -> a -> a
 min = binaryFunction Prelude.min (function2 "min")
 
+minFloatExpr :: forall a. Expr a => Float -> a -> a
+minFloatExpr x y = min (fromFloat x) y
+-- note: if we ever make minExprFloat it would be implemented differently since GLSL includes a variant of min that takes any type followed by a float
+
 max :: forall a. Expr a => a -> a -> a
 max = binaryFunction Prelude.max (function2 "max")
 
--- maybe TODO later if some advantage to it appears: make variants for mismatched types where one argument is a float
-
+maxFloatExpr :: forall a. Expr a => Float -> a -> a
+maxFloatExpr x y = max (fromFloat x) y
+-- note: if we ever make maxExprFloat it would be implemented differently since GLSL includes a variant of max that takes any type followed by a float
 
 pow :: forall a. Expr a => a -> a -> a
 pow = binaryFunction Number.pow (function2 "pow")
 
+powFloatExpr :: forall a. Expr a => Float -> a -> a
+powFloatExpr x y = pow (fromFloat x) y
+
 mod :: forall a. Expr a => a -> a -> a
 mod = binaryFunction Prelude.mod (function2 "mod")
+
+modFloatExpr :: forall a. Expr a => Float -> a -> a
+modFloatExpr x y = mod (fromFloat x) y
 
 
 comparisonOperator :: forall a. Expr a => (Number -> Number -> Boolean) -> String -> String -> a -> a -> a
@@ -667,23 +678,51 @@ booleanToNumber :: Boolean -> Number
 booleanToNumber true = 1.0
 booleanToNumber false = 0.0
 
+comparisonOperatorFloatExpr :: forall a. Expr a => (Number -> Number -> Boolean) -> String -> String -> Float -> a -> a
+comparisonOperatorFloatExpr f funcName op x y 
+  | channels y == 1 = binaryFunctionFloatExpr (\a b -> booleanToNumber $ f a b) (\a b -> function1 "float" $ binOp op a b) x y
+  | otherwise = binaryFunctionFloatExpr (\a b -> booleanToNumber $ f a b) (\a b -> function1 (showType y) $ function2 funcName a b) x y
+
+binaryFunctionFloatExpr :: forall a. Expr a => (Number -> Number -> Number) -> (String -> String -> String) -> Float -> a -> a
+binaryFunctionFloatExpr f1 f2 (FloatConstant x) y = unaryFunction (f1 x) (f2 $ showNumber x) y
+binaryFunctionFloatExpr _ f2 (FloatExpr x) y = expr $ f2 x (toExpr y)
+
+
 equal :: forall a. Expr a => a -> a -> a
 equal = comparisonOperator (==) "equal" "==" 
+
+equalFloatExpr :: forall a. Expr a => Float -> a -> a
+equalFloatExpr = comparisonOperatorFloatExpr (==) "equal" "==" 
 
 notEqual :: forall a. Expr a => a -> a -> a
 notEqual = comparisonOperator (/=) "notEqual" "!="
 
+notEqualFloatExpr :: forall a. Expr a => Float -> a -> a
+notEqualFloatExpr = comparisonOperatorFloatExpr (/=) "notEqual" "/=" 
+
 greaterThan :: forall a. Expr a => a -> a -> a
 greaterThan = comparisonOperator (>) "greaterThan" ">"
+
+greaterThanFloatExpr :: forall a. Expr a => Float -> a -> a
+greaterThanFloatExpr = comparisonOperatorFloatExpr (>) "greaterThan" ">" 
 
 greaterThanEqual :: forall a. Expr a => a -> a -> a
 greaterThanEqual = comparisonOperator (>=) "greaterThanEqual" ">=" 
 
+greaterThanEqualFloatExpr :: forall a. Expr a => Float -> a -> a
+greaterThanEqualFloatExpr = comparisonOperatorFloatExpr (>=) "greaterThanEqual" ">=" 
+
 lessThan :: forall a. Expr a => a -> a -> a
 lessThan = comparisonOperator (<) "lessThan" "<"
 
+lessThanFloatExpr :: forall a. Expr a => Float -> a -> a
+lessThanFloatExpr = comparisonOperatorFloatExpr (<) "lessThan" "<" 
+
 lessThanEqual ::forall a. Expr a => a -> a -> a
 lessThanEqual = comparisonOperator (<=) "lessThanEqual" "<="
+
+lessThanEqualFloatExpr :: forall a. Expr a => Float -> a -> a
+lessThanEqualFloatExpr = comparisonOperatorFloatExpr (<=) "lessThanEqual" "<=" 
 
 
 -- second argument is multiply used and should be assigned by caller
