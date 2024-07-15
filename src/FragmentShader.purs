@@ -32,11 +32,11 @@ import Number (acosh, asinh, atanh, cosh, sinh, tanh) as Number
 
 signalToExprs :: forall a. Expr a => Signal -> G (Matrix a)
 
-signalToExprs (Constant x) = pure $ pure $ constant x
+signalToExprs (Constant x) = pure $ mapRows castExprs $ (pure (constant x) :: Matrix Float) 
 
 signalToExprs (SignalList xs) = 
   case fromList xs of
-    Nothing -> pure $ pure $ constant 0.0
+    Nothing -> signalToExprs (Constant 0.0)
     Just xs' -> do
       xs'' <- fromNonEmptyListMulti <$> traverse signalToExprs xs' -- :: Matrix Float, with list already combinatorially expanded
       pure $ mapRows fromFloats xs''
@@ -446,8 +446,7 @@ signalToExprs (Seq steps) = do
   chs <- traverse assign $ map (seq b) steps' -- :: NonEmptyList Float  ; seq :: Float -> NonEmptyList Float -> Float
   traverse assign $ fromNonEmptyList $ fromFloats chs
 
-signalToExprs _ = pure $ pure $ constant 0.0
-
+signalToExprs _ = signalToExprs (Constant 0.0)
 
 {-
 -- for preserving alignment requests through intermediate calculations that are Float -> G Float
