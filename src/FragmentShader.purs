@@ -41,13 +41,15 @@ signalToExprs (SignalList xs) =
       xs'' <- fromNonEmptyListMulti <$> traverse signalToExprs xs' -- :: Matrix Float, with list already combinatorially expanded
       pure $ mapRows fromFloats xs''
 
-signalToExprs (Append x y) = (<>) <$> signalToExprs x <*> signalToExprs y
-
+signalToExprs (Append x y) = do
+  xs <- flatten <$> (signalToExprs x :: G (Matrix Float))
+  ys <- flatten <$> (signalToExprs y :: G (Matrix Float))
+  pure $ fromNonEmptyList $ fromFloats (xs <> ys)
+  
 signalToExprs (Zip x y) = do
   xs <- flatten <$> (signalToExprs x :: G (Matrix Float))
   ys <- flatten <$> (signalToExprs y :: G (Matrix Float))
-  let v2s = fromNonEmptyList $ zipWithEqualLength floatFloatToVec2 xs ys
-  pure $ mapRows fromVec2s v2s
+  pure $ fromNonEmptyList $ fromVec2s $ zipWithEqualLength floatFloatToVec2 xs ys
 
 signalToExprs (Mono x) = do
   xs <- (signalToExprs x :: G (Matrix Float)) -- MAYBE LATER: determine an optimal type for realization of x based on its number of channels or the nature of the underlying signal (eg. whether it naturally produces vec2s 3s or 4s)
