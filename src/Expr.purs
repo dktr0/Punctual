@@ -32,9 +32,9 @@ class Channels a <= Expr a where
   toFloats :: NonEmptyList a -> NonEmptyList Float
   toVec2s :: NonEmptyList a -> NonEmptyList Vec2
   toVec3s :: NonEmptyList a -> NonEmptyList Vec3
-  toVec4s :: NonEmptyList a -> NonEmptyList Vec4  
-  dotSum :: a -> Float  
-  
+  toVec4s :: NonEmptyList a -> NonEmptyList Vec4
+  dotSum :: a -> Float
+
 zero :: forall a. Expr a => a
 zero = constant 0.0
 
@@ -80,10 +80,10 @@ instance Expr Float where
   toVec3s = floatsToVec3s
   toVec4s = floatsToVec4s
   dotSum = identity
-  
+
 instance Channels Float where channels _ = 1
 
-  
+
 data Vec2 =
   Vec2Constant Number Number |
   Vec2Expr String
@@ -113,7 +113,7 @@ instance Expr Vec2 where
   toVec4s = vec2sToVec4s
   dotSum (Vec2Constant x y) = FloatConstant (x+y)
   dotSum x = FloatExpr $ "dot(" <> toExpr x <> ",vec2(1.))"
-  
+
 instance Channels Vec2 where channels _ = 2
 
 
@@ -269,25 +269,25 @@ floatVec3ToVec4 x y = Vec4Expr $ "vec4(" <> toExpr x <> "," <> toExpr y <> ")"
 -- Construction of Expr types by uncons-ing lists of other Expr types
 
 unconsFloatsToVec2s :: NonEmptyList Float -> Tuple (NonEmptyList Vec2) (Maybe (NonEmptyList Float))
-unconsFloatsToVec2s xs = 
+unconsFloatsToVec2s xs =
   case fromList (tail xs) of
     Nothing -> Tuple (singleton $ floatFloatToVec2 (head xs) zero) Nothing
     Just xs' -> Tuple (singleton $ floatFloatToVec2 (head xs) (head xs')) (fromList $ tail xs')
-    
+
 unconsFloatsToVec3s :: NonEmptyList Float -> Tuple (NonEmptyList Vec3) (Maybe (NonEmptyList Float))
 unconsFloatsToVec3s xs =
   case fromList (tail xs) of
     Nothing -> Tuple (singleton $ floatFloatFloatToVec3 (head xs) zero zero) Nothing
-    Just xs' -> 
+    Just xs' ->
       case fromList (tail xs') of
         Nothing -> Tuple (singleton $ floatFloatFloatToVec3 (head xs) (head xs') zero) Nothing
         Just xs'' -> Tuple (singleton $ floatFloatFloatToVec3 (head xs) (head xs') (head xs'')) (fromList $ tail xs'')
-        
+
 unconsFloatsToVec4s :: NonEmptyList Float -> Tuple (NonEmptyList Vec4) (Maybe (NonEmptyList Float))
 unconsFloatsToVec4s xs =
   case fromList (tail xs) of
     Nothing -> Tuple (singleton $ floatFloatFloatFloatToVec4 (head xs) zero zero zero) Nothing
-    Just xs' -> 
+    Just xs' ->
       case fromList (tail xs') of
         Nothing -> Tuple (singleton $ floatFloatFloatFloatToVec4 (head xs) (head xs') zero zero) Nothing
         Just xs'' ->
@@ -299,18 +299,18 @@ unconsVec3sToVec2s :: NonEmptyList Vec3 -> Tuple (NonEmptyList Vec2) (Maybe (Non
 unconsVec3sToVec2s xs =
   case fromList (tail xs) of
     Nothing -> Tuple (swizzleXY (head xs) `cons` singleton (floatFloatToVec2 (swizzleZ $ head xs) zero)) Nothing -- one vec3 makes two vec2s
-    Just xs' -> 
+    Just xs' ->
       let a = swizzleXY $ head xs
           b = floatFloatToVec2 (swizzleZ (head xs)) (swizzleX (head xs'))
           c = swizzleYZ $ head xs'
       in Tuple (a `cons` (b `cons` singleton c)) (fromList $ tail xs') -- two vec3s make three vec2s, evenly
 
 unconsVec2sToVec3s :: NonEmptyList Vec2 -> Tuple (NonEmptyList Vec3) (Maybe (NonEmptyList Vec2))
-unconsVec2sToVec3s xs = 
+unconsVec2sToVec3s xs =
   case fromList (tail xs) of
     -- one vec2s makes one vec3 via swizzleXYY
     Nothing -> Tuple (singleton $ vec2FloatToVec3 (head xs) zero) Nothing
-    Just xs' -> 
+    Just xs' ->
       case fromList (tail xs') of
         Nothing -> -- two vec2s makes two vec3s (second one is swizzleY00)
           let a = vec2FloatToVec3 (head xs) (swizzleX (head xs'))
@@ -334,18 +334,18 @@ unconsVec4sToVec3s xs =
               c = vec2FloatToVec3 (swizzleZW $ head xs') zero
           in Tuple (a `cons` (b `cons` singleton c)) Nothing
         Just xs'' -> -- three vec4s makes four vec3s evenly
-          let a = swizzleXYZ (head xs) 
-              b = floatVec2ToVec3 (swizzleW $ head xs) (swizzleXY $ head xs') 
+          let a = swizzleXYZ (head xs)
+              b = floatVec2ToVec3 (swizzleW $ head xs) (swizzleXY $ head xs')
               c = vec2FloatToVec3 (swizzleZW $ head xs') (swizzleX $ head xs'')
               d = swizzleYZW $ head xs''
           in Tuple (a `cons` (b `cons` (c `cons` singleton d))) (fromList $ tail xs'')
 
 
 unconsVec2sToVec4s :: NonEmptyList Vec2 -> Tuple (NonEmptyList Vec4) (Maybe (NonEmptyList Vec2))
-unconsVec2sToVec4s xs = 
+unconsVec2sToVec4s xs =
   case fromList (tail xs) of
     Nothing -> Tuple (singleton $ vec2FloatFloatToVec4 (swizzleXY $ head xs) zero zero) Nothing
-    Just xs' -> 
+    Just xs' ->
       let x = vec2Vec2ToVec4 (head xs) (head xs')
       in Tuple (singleton x) (fromList $ tail xs')
 
@@ -356,7 +356,7 @@ unconsVec3sToVec4s xs =
     Just xs' ->
       case fromList (tail xs') of
         Nothing ->
-          let a = vec3FloatToVec4 (head xs) (swizzleX $ head xs') 
+          let a = vec3FloatToVec4 (head xs) (swizzleX $ head xs')
               b = vec2FloatFloatToVec4 (swizzleYZ $ head xs') zero zero
           in Tuple (a `cons` singleton b) Nothing
         Just xs'' ->
@@ -372,11 +372,11 @@ unconsVec3sToVec4s xs =
                   c = floatVec3ToVec4 (swizzleZ $ head xs'') (head xs''')
               in Tuple (a `cons` (b `cons` singleton c)) (fromList $ tail xs''')
 
-        
+
 -- Swizzling
 
-_swizzleExpr :: forall a. Expr a => forall b. Expr b => String -> a -> b 
-_swizzleExpr sMask a = expr $ toExpr a <> "." <> sMask 
+_swizzleExpr :: forall a. Expr a => forall b. Expr b => String -> a -> b
+_swizzleExpr sMask a = expr $ toExpr a <> "." <> sMask
 
 class SwizzleX a where
   swizzleX :: a -> Float
@@ -391,11 +391,11 @@ instance SwizzleX Vec2 where
 instance SwizzleX Vec3 where
   swizzleX (Vec3Constant x _ _) = FloatConstant x
   swizzleX e = _swizzleExpr "x" e
-  
+
 instance SwizzleX Vec4 where
   swizzleX (Vec4Constant x _ _ _) = FloatConstant x
   swizzleX e = _swizzleExpr "x" e
-  
+
 class SwizzleY a where
   swizzleY :: a -> Float
   swizzleXY :: a -> Vec2
@@ -511,7 +511,7 @@ binOp :: String -> String -> String -> String
 binOp op x y = "(" <> x <> op <> y <> ")"
 
 
--- unary functions 
+-- unary functions
 
 sin :: forall a. Expr a => a -> a
 sin = unaryFunction Number.sin (function1 "sin")
@@ -582,7 +582,7 @@ fract = unaryFunction (\x -> Prelude.mod x 1.0) (function1 "fract")
 operatorFloatExpr :: forall a. Expr a => (Number -> Number -> Number) -> String -> Float -> a -> a
 operatorFloatExpr f op (FloatConstant x) y = unaryFunction (f x) (\y' -> "(" <> showNumber x <> op <> y' <> ")") y
 operatorFloatExpr _ op (FloatExpr x) y = expr $ "(" <> x <> op <> toExprSafe y <> ")"
-  
+
 operatorExprFloat :: forall a. Expr a => (Number -> Number -> Number) -> String -> a -> Float -> a
 operatorExprFloat f op x (FloatConstant y) = unaryFunction (flip f y) (\x' -> "(" <> x' <> op <> showNumber y <> ")") x
 operatorExprFloat _ op x (FloatExpr y) = expr $ "(" <> toExprSafe x <> op <> y <> ")"
@@ -670,7 +670,7 @@ modFloatExpr x y = mod (fromFloat x) y
 
 
 comparisonOperator :: forall a. Expr a => (Number -> Number -> Boolean) -> String -> String -> a -> a -> a
-comparisonOperator f funcName op x y 
+comparisonOperator f funcName op x y
   | channels x == 1 = binaryFunction (\a b -> booleanToNumber $ f a b) (\a b -> function1 (showType x) $ binOp op a b) x y
   | otherwise = binaryFunction (\a b -> booleanToNumber $ f a b) (\a b -> function1 (showType x) $ function2 funcName a b) x y
 
@@ -679,7 +679,7 @@ booleanToNumber true = 1.0
 booleanToNumber false = 0.0
 
 comparisonOperatorFloatExpr :: forall a. Expr a => (Number -> Number -> Boolean) -> String -> String -> Float -> a -> a
-comparisonOperatorFloatExpr f funcName op x y 
+comparisonOperatorFloatExpr f funcName op x y
   | channels y == 1 = binaryFunctionFloatExpr (\a b -> booleanToNumber $ f a b) (\a b -> function1 "float" $ binOp op a b) x y
   | otherwise = binaryFunctionFloatExpr (\a b -> booleanToNumber $ f a b) (\a b -> function1 (showType y) $ function2 funcName a b) x y
 
@@ -689,40 +689,40 @@ binaryFunctionFloatExpr _ f2 (FloatExpr x) y = expr $ f2 x (toExpr y)
 
 
 equal :: forall a. Expr a => a -> a -> a
-equal = comparisonOperator (==) "equal" "==" 
+equal = comparisonOperator (==) "equal" "=="
 
 equalFloatExpr :: forall a. Expr a => Float -> a -> a
-equalFloatExpr = comparisonOperatorFloatExpr (==) "equal" "==" 
+equalFloatExpr = comparisonOperatorFloatExpr (==) "equal" "=="
 
 notEqual :: forall a. Expr a => a -> a -> a
 notEqual = comparisonOperator (/=) "notEqual" "!="
 
 notEqualFloatExpr :: forall a. Expr a => Float -> a -> a
-notEqualFloatExpr = comparisonOperatorFloatExpr (/=) "notEqual" "/=" 
+notEqualFloatExpr = comparisonOperatorFloatExpr (/=) "notEqual" "/="
 
 greaterThan :: forall a. Expr a => a -> a -> a
 greaterThan = comparisonOperator (>) "greaterThan" ">"
 
 greaterThanFloatExpr :: forall a. Expr a => Float -> a -> a
-greaterThanFloatExpr = comparisonOperatorFloatExpr (>) "greaterThan" ">" 
+greaterThanFloatExpr = comparisonOperatorFloatExpr (>) "greaterThan" ">"
 
 greaterThanEqual :: forall a. Expr a => a -> a -> a
-greaterThanEqual = comparisonOperator (>=) "greaterThanEqual" ">=" 
+greaterThanEqual = comparisonOperator (>=) "greaterThanEqual" ">="
 
 greaterThanEqualFloatExpr :: forall a. Expr a => Float -> a -> a
-greaterThanEqualFloatExpr = comparisonOperatorFloatExpr (>=) "greaterThanEqual" ">=" 
+greaterThanEqualFloatExpr = comparisonOperatorFloatExpr (>=) "greaterThanEqual" ">="
 
 lessThan :: forall a. Expr a => a -> a -> a
 lessThan = comparisonOperator (<) "lessThan" "<"
 
 lessThanFloatExpr :: forall a. Expr a => Float -> a -> a
-lessThanFloatExpr = comparisonOperatorFloatExpr (<) "lessThan" "<" 
+lessThanFloatExpr = comparisonOperatorFloatExpr (<) "lessThan" "<"
 
 lessThanEqual ::forall a. Expr a => a -> a -> a
 lessThanEqual = comparisonOperator (<=) "lessThanEqual" "<="
 
 lessThanEqualFloatExpr :: forall a. Expr a => Float -> a -> a
-lessThanEqualFloatExpr = comparisonOperatorFloatExpr (<=) "lessThanEqual" "<=" 
+lessThanEqualFloatExpr = comparisonOperatorFloatExpr (<=) "lessThanEqual" "<="
 
 
 -- second argument is multiply used and should be assigned by caller
@@ -758,7 +758,7 @@ distance :: forall a. Expr a => a -> a -> Float
 distance a b
   | isConstant a && isConstant b = sqrt $ dotSum $ squared $ difference a b
   | otherwise = expr $ "distance(" <> toExpr a <> "," <> toExpr b <> ")"
-  
+
 prox :: Vec2 -> Vec2 -> Float
 prox a b = clamp (constant 0.0) (constant 1.0) $ division (difference (constant 2.828427) (distance a b)) (constant 2.828427)
 
@@ -767,27 +767,27 @@ circle fxy xy diameter = smoothStep r $ differenceFloatExpr (distance fxy xy) (p
   where
     r = floatFloatToVec2 (expr "1.5/(res.x+res.y)") (constant 0.0)
 
-point :: Vec2 -> Vec2 -> Float 
+point :: Vec2 -> Vec2 -> Float
 point fxy xy = circle fxy xy d
   where d = expr "((1./res.x)+(1./res.y))"
 
 -- third argument (width) is multiply used and should be pre-assigned by caller
 vline :: forall a. Expr a => Vec2 -> a -> Float -> a
-vline fxy x w = smoothStep es $ differenceExprFloat (abs (differenceFloatExpr (swizzleX fxy) x)) w
+vline fxy x w = differenceFloatExpr (constant 1.0) $ smoothStep es $ differenceExprFloat (abs (differenceFloatExpr (swizzleX fxy) x)) w
   where
     es = floatFloatToVec2 (constant 0.0) (min w (expr "3./res.x"))
 
--- third argument (height) is multiply used and should be pre-assigned by caller  
+-- third argument (height) is multiply used and should be pre-assigned by caller
 hline :: forall a. Expr a => Vec2 -> a -> Float -> a
-hline fxy y h = smoothStep es $ differenceExprFloat (abs (differenceFloatExpr (swizzleY fxy) y)) h
+hline fxy y h = differenceFloatExpr (constant 1.0) $ smoothStep es $ differenceExprFloat (abs (differenceFloatExpr (swizzleY fxy) y)) h
   where
     es = floatFloatToVec2 (constant 0.0) (min h (expr "3./res.y"))
 
 line :: Vec2 -> Vec2 -> Vec2 -> Float -> Float
-line fxy xy1 xy2 w = expr $ "line(" <> toExpr xy1 <> "," <> toExpr xy2 <> "," <> toExpr w <> "," <> toExpr fxy <> ")" 
+line fxy xy1 xy2 w = expr $ "line(" <> toExpr xy1 <> "," <> toExpr xy2 <> "," <> toExpr w <> "," <> toExpr fxy <> ")"
 
 iline :: Vec2 -> Vec2 -> Vec2 -> Float -> Float
-iline fxy xy1 xy2 w = expr $ "iline(" <> toExpr xy1 <> "," <> toExpr xy2 <> "," <> toExpr w <> "," <> toExpr fxy <> ")" 
+iline fxy xy1 xy2 w = expr $ "iline(" <> toExpr xy1 <> "," <> toExpr xy2 <> "," <> toExpr w <> "," <> toExpr fxy <> ")"
 
 linlin :: forall a. Expr a => Vec2 -> Vec2 -> a -> a
 linlin r1 r2 x = addExprFloat x'' (swizzleX r2)
@@ -796,7 +796,7 @@ linlin r1 r2 x = addExprFloat x'' (swizzleX r2)
     x' = divisionExprFloat (differenceExprFloat x (swizzleX r1)) r1size
     r2size = difference (swizzleY r2) (swizzleX r2)
     x'' = productExprFloat x' r2size
-    
+
 mix :: forall a. Expr a => a -> a -> a -> a
 mix x y a = expr $ "mix(" <> toExpr x <> "," <> toExpr y <> "," <> toExpr a <> ")"
 
@@ -815,7 +815,7 @@ seq y steps = sum allSteps
     stepNumbers = map (FloatConstant <<< toNumber) $ range 0 (nSteps - 1) :: NonEmptyList Float
     allSteps = zipWith stepF stepNumbers steps
 
-fadeIn :: Number -> Number -> Float 
+fadeIn :: Number -> Number -> Float
 fadeIn t1 t2 = expr $ "clamp((_etime-" <> show t1 <> ")/(" <> show t2 <> "-" <> show t1 <> "),0.,1.)"
 
 fadeOut :: Number -> Number -> Float
@@ -846,7 +846,7 @@ aspect :: Float
 aspect = expr "(res.x/res.y)"
 
 sum :: forall f. Foldable1 f => forall a. Expr a => f a -> a
-sum = foldl1 add 
+sum = foldl1 add
 
 blend :: Vec4 -> Vec4 -> Vec4
 blend a b = Vec4Expr $ "mix(" <> toExpr a <> "," <> toExpr b <> "," <> toExpr (swizzleW b) <> ")"
@@ -862,7 +862,7 @@ cbrt = unaryFunction Number.cbrt f
   where f x = "(exp(log(abs(" <> x <> "))/3.)*sign(" <> x <> "))"
 
 rtxy :: Vec2 -> Vec2
-rtxy rt = floatFloatToVec2 x y   
+rtxy rt = floatFloatToVec2 x y
   where
     r = swizzleX rt
     t = swizzleY rt
@@ -870,7 +870,7 @@ rtxy rt = floatFloatToVec2 x y
     y = product r (sin t)
 
 rtx :: Vec2 -> Float
-rtx rt = product r (cos t) 
+rtx rt = product r (cos t)
   where
     r = swizzleX rt
     t = swizzleY rt
@@ -890,7 +890,7 @@ xyrt xy = floatFloatToVec2 r t
     t = atan (division y x)
 
 xyr :: Vec2 -> Float
-xyr xy = sqrt (add (product x x) (product y y)) 
+xyr xy = sqrt (add (product x x) (product y y))
   where
     x = swizzleX xy
     y = swizzleY xy
@@ -907,9 +907,8 @@ setX xy x = expr $ "vec2(" <> toExpr x <> "," <> toExpr (swizzleY xy) <> ")"
 
 setY :: Vec2 -> Float -> Vec2
 setY (Vec2Constant x _) (FloatConstant y) = Vec2Constant x y
-setY xy y = expr $ "vec2(" <> toExpr (swizzleX xy) <> "," <> toExpr y <> ")" 
+setY xy y = expr $ "vec2(" <> toExpr (swizzleX xy) <> "," <> toExpr y <> ")"
 
 -- for each vec4 in a blend, xyz stay what they are, alpha is multiplied by provided fade expression
 rgbaFade :: Float -> Vec4 -> Vec4
 rgbaFade f v4 = vec3FloatToVec4 (swizzleXYZ v4) (product (swizzleW v4) f)
-
