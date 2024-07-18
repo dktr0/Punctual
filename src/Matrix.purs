@@ -55,20 +55,20 @@ instance Apply Matrix where
     | isSingleton fs = map (matrixHead fs) xs -- if fs is singleton, structure of xs is retained
     | isSingleton xs = map (\f -> f (matrixHead xs)) fs -- if xs is singleton, structure of fs is retained
     | otherwise = Matrix $ map (\f -> map f (flatten xs)) (flatten fs) -- if neither are singletons, rows reflect flattened fs and columns reflect flattened xs
-  
+
 applyPairwise :: forall a b. Matrix (a -> b) -> Matrix a -> Matrix b
 applyPairwise fs xs = fromNonEmptyList $ zipWithEqualLength ($) (flatten fs) (flatten xs)
 
 instance Applicative Matrix where
-  pure = Matrix <<< pure <<< pure 
+  pure = Matrix <<< pure <<< pure
 
 instance Semigroup (Matrix a) where
   append xs ys = Matrix $ pure $ flatten xs <> flatten ys
-  
+
 instance Foldable Matrix where
-  foldl f b xs = foldl f b $ flatten xs 
+  foldl f b xs = foldl f b $ flatten xs
   foldr f b xs = foldr f b $ flatten xs
-  foldMap = foldMapDefaultL 
+  foldMap = foldMapDefaultL
 
 instance Traversable Matrix where
   traverse f (Matrix xs) = Matrix <$> traverse (traverse f) xs
@@ -78,7 +78,7 @@ instance Unfoldable1 Matrix where
   unfoldr1 f b = case f b of
                    Tuple a Nothing -> pure a
                    Tuple a (Just r) -> pure a <> unfoldr1 f r
-  
+
 -- to be used, for example, in implementation of Zip
 zip :: forall a. Matrix a -> Matrix a -> Matrix a
 zip xs ys = Matrix $ zipWithEqualLength (\x y -> x `cons` singleton y) (flatten xs) (flatten ys)
@@ -89,7 +89,7 @@ concat xs = Matrix $ map flatten xs
 
 -- to be used, for example, in implementation of Rep
 rep :: forall a. Int -> Matrix a -> Matrix a
-rep n x = Matrix $ replicate1 n (flatten x)
+rep n x = fromNonEmptyList $ L.concat $ replicate1 n (flatten x)
 
 combine :: forall a b c. (a -> b -> c) -> MultiMode -> Matrix a -> Matrix b -> Matrix c
 combine f Combinatorial = lift2 f
