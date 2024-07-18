@@ -204,7 +204,7 @@ signalToExprs (XyRt xy) = signalToExprs xy >>= traverse assign >>= map xyrt >>> 
 signalToExprs (XyR xy) = signalToExprs xy >>= traverse assign >>= map xyr >>> traverse assign >>= mapRows castExprs >>> pure
 signalToExprs (XyT xy) = signalToExprs xy >>= traverse assign >>= map xyt >>> traverse assign >>= mapRows castExprs >>> pure
 
-signalToExprs (Distance xy) = do
+signalToExprs (Dist xy) = do
   fxy <- _.fxy <$> get
   xys <- signalToExprs xy
   traverse assign $ mapRows castExprs $ map (distance fxy) xys

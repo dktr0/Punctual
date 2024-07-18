@@ -70,7 +70,7 @@ data Signal =
   XyR Signal | -- r = sqrt (x^2 + y ^2)
   XyT Signal | -- theta = atan2(y,x)
   Point Signal |
-  Distance Signal |
+  Dist Signal |
   Prox Signal |
   MidiCps Signal |
   CpsMidi Signal |
@@ -266,7 +266,7 @@ subSignals (XyRt x) = x:Nil
 subSignals (XyR x) = x:Nil
 subSignals (XyT x) = x:Nil
 subSignals (Point x) = x:Nil
-subSignals (Distance x) = x:Nil
+subSignals (Dist x) = x:Nil
 subSignals (Prox x) = x:Nil
 subSignals (MidiCps x) = x:Nil
 subSignals (CpsMidi x) = x:Nil

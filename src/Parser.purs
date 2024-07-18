@@ -53,21 +53,21 @@ parseLibrary libCache txt = do
       case eErrTup of
         Left err -> pure (Left err)
         Right (Tuple _ lib) -> pure $ Right lib
-        
-        
+
+
 -- just for testing
 {-
 parseSignal :: String -> Either ParseError Signal
 parseSignal txt = do
   ast <- parseAST txt
-  Tuple xs _ <- runP Map.empty $ astToListMaybeAction ast 
+  Tuple xs _ <- runP Map.empty $ astToListMaybeAction ast
   case head xs of
     Just mA -> do
       case mA of
         Just x -> pure x.signal
         Nothing -> pure $ Constant 0.0
     Nothing -> pure $ Constant 0.0
-  
+
 testAST :: String -> Either ParseError { actions :: List (Maybe Action) }
 testAST txt = do
   ast <- parseAST txt
@@ -82,7 +82,7 @@ testStatement txt = do
 testExpression :: String -> Either ParseError (Tuple Value Library)
 testExpression txt = do
   exp <- runParser txt expression1
-  runP Map.empty $ parseExpression exp  
+  runP Map.empty $ parseExpression exp
 -}
 
 astToListMaybeAction :: AST -> P (List (Maybe Action))
@@ -143,7 +143,7 @@ application :: Value -> Value -> P Value
 application f x = do
   f' <- valueToFunction f
   f' x
-  
+
 
 parseReserved :: Position -> String -> P Value
 parseReserved p "append" = lift $ signalSignalSignal p Append
@@ -251,7 +251,7 @@ parseReserved p "xyrt" = pure $ signalSignal p XyRt
 parseReserved p "xyr" = pure $ signalSignal p XyR
 parseReserved p "xyt" = pure $ signalSignal p XyT
 parseReserved p "point" = pure $ signalSignal p Point
-parseReserved p "distance" = pure $ signalSignal p Distance
+parseReserved p "dist" = pure $ signalSignal p Dist
 parseReserved p "prox" = pure $ signalSignal p Prox
 parseReserved p "midicps" = pure $ signalSignal p MidiCps
 parseReserved p "cpsmidi" = pure $ signalSignal p CpsMidi
@@ -359,7 +359,7 @@ abcd p f = ValueFunction p (\v -> fromValue v >>= (pure <<< abc p <<< f ))
 
 -- todo: replace signalSignal calls with direct calls to ab
 signalSignal :: Position -> (Signal -> Signal) -> Value
-signalSignal = ab 
+signalSignal = ab
 
 -- TODO: replace stringSignal calls with direct calls to ab
 stringSignal :: forall m. Monad m => Position -> (String -> Signal) -> m Value
@@ -390,7 +390,7 @@ actionAAction p f = ValueFunction p (\v -> valueToAction v >>= (pure <<< aAction
 
 -- TODO: replace actionOutputAction calls with direct calls to actionAAction
 actionOutputAction :: forall m. Monad m => Position -> (Action -> Output -> Action) -> m Value
-actionOutputAction p f = pure $ actionAAction p f 
+actionOutputAction p f = pure $ actionAAction p f
 
 -- TODO: replace actionNumberAction calls with direct calls to actionAAction
 actionNumberAction :: forall m. Monad m => Position -> (Action -> Number -> Action) -> m Value
@@ -427,8 +427,8 @@ importLibrary p v = do
    Right lib -> do
      modify_ $ \s -> Map.union lib s
      pure $ ValueInt p 0
-   
-   
+
+
 loadLibrary :: LibraryCache -> Position -> URL -> Aff (Either ParseError Library)
 loadLibrary libCache p url = do
   libraries <- liftEffect $ read libCache
@@ -458,4 +458,3 @@ loadTextFile url = do
   text' <- text
   log $ "loaded text file: " <> text'
   pure $ Right text'
-
