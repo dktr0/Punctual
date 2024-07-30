@@ -58,7 +58,7 @@ signalToExprs (Mono x) = do
   let f = sum (dotSum <$> flatten xs)
   pure $ pure $ fromFloat f
 
-signalToExprs (Rep n x) = do -- rep n <$> signalToExprs x
+signalToExprs (Rep n x) = do
   xs <- signalToExprs x :: G (Matrix Float)
   pure $ mapRows castExprs $ rep n xs
 
@@ -328,11 +328,33 @@ signalToExprs (Max mm x y) = binaryFunctionToExprs mm max Expr.maxFloatExpr x y
 signalToExprs (Min mm x y) = binaryFunctionToExprs mm min Expr.minFloatExpr x y
 
 -- TODO later: optimize so that larger underlying types can be used when possible (which may not be often)
-signalToExprs (Gate mm x y) = do
+signalToExprs (Gate mm x y) = binaryFunctionToExprs mm gate gate x y
+-- binaryFunctionToExprs :: forall a b c d. Expr a => Expr b => Expr c => Expr d => MultiMode -> (a -> b -> c) -> (d -> b -> c) -> Signal -> Signal -> G (Matrix c)
+
+{- do
   xs <- signalToExprs x -- :: Matrix Float
   ys <- (signalToExprs y :: G (Matrix Float)) >>= traverse assign
   zs <- traverse assign $ combine gate mm xs ys
-  traverse assign $ mapRows castExprs zs
+  traverse assign $ mapRows castExprs zs -}
+
+{-
+gatePattern :: forall a b c d. Expr a => Expr b => Expr c => Expr d => (a -> b -> c) -> (Float -> b -> c) -> MultiMode -> Signal -> Signal -> G (Matrix d)
+gatePattern _ fFloat Combinatorial a b = do
+  a' <- signalToExprs a -- :: Matrix Float
+  b' <- signalToExprs b >>= traverse assign -- :: Matrix b
+  c <- traverse assign $ combine fFloat Combinatorial a' b'
+  traverse assign $ mapRows castExprs c
+gatePattern
+
+binaryFunctionToExprs :: forall a b c. Expr a => Expr b => Expr c => MultiMode -> (a -> b -> c) -> (Float -> b -> c) -> Signal -> Signal -> G (Matrix c)
+
+gate :: forall a. Expr a => Float -> a -> a
+
+
+
+
+
+-}
 
 signalToExprs (Clip mm r x) = do
   rs <- signalToExprs r >>= traverse assign
@@ -490,14 +512,25 @@ sqr :: forall a. Expr a => a -> G a
 sqr f = phasor f >>= bipolar >>> greaterThanEqual (constant 0.5) >>> assign
 
 
--- TODO later: optimize so that combinatorial pathway doesn't force xs to float when y is singleton
-binaryFunctionToExprs :: forall a. Expr a => MultiMode -> (a -> a -> a) -> (Float -> a -> a) -> Signal -> Signal -> G (Matrix a)
-binaryFunctionToExprs Combinatorial _ fFloat x y = do -- combine f Combinatorial <$> (map fromFloat <$> signalToExprs x) <*> signalToExprs y
+-- TODO later: optimize so that combinatorial pathway doesn't force xs to float when y is singleton?
+binaryFunctionToExprs :: forall a b c d. Expr a => Expr b => Expr c => Expr d => MultiMode -> (a -> b -> c) -> (d -> b -> c) -> Signal -> Signal -> G (Matrix c)
+binaryFunctionToExprs Combinatorial _ fCombinatorial x y = do
   xs <- signalToExprs x
   ys <- signalToExprs y
-  zs <- traverse assign $ combine fFloat Combinatorial xs ys
-  traverse assign $ mapRows castExprs zs
-binaryFunctionToExprs Pairwise f _ x y = combine f Pairwise <$> signalToExprs x <*> signalToExprs y
+  traverse assign $ combine fCombinatorial Combinatorial xs ys
+binaryFunctionToExprs Pairwise fPairwise _ x y = do
+  zs <- combine fPairwise Pairwise <$> signalToExprs x <*> signalToExprs y
+  traverse assign zs
+
+mostGeneralForm :: forall ca cb pwa pwb c. Expr ca => Expr cb => Expr pwa => Expr pwb => Expr c => MultiMode -> (ca -> cb -> c) -> (pwa -> pwb -> c) -> Signal -> Signal -> G (Matrix c)
+mostGeneralForm Combinatorial fCombinatorial _ x y = combineG (combine fCombinatorial Combinatorial) x y
+mostGeneralForm Pairwise _ fPairwise x y = combineG (combine fPairwise Pairwise) x y
+
+combineG :: forall a b c. Expr a => Expr b => Expr c => (Matrix a -> Matrix b -> Matrix c) -> Signal -> Signal -> G (Matrix c)
+combineG f x y = do
+  a <- signalToExprs x
+  b <- signalToExprs y
+  traverse assign $ f a b
 
 
 acosh :: forall a. Expr a => a -> G a
