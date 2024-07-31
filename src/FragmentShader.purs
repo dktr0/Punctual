@@ -327,9 +327,14 @@ signalToExprs (LessThanEqual mm x y) = binaryFunctionToExprs mm lessThanEqual Ex
 signalToExprs (Max mm x y) = binaryFunctionToExprs mm max Expr.maxFloatExpr x y
 signalToExprs (Min mm x y) = binaryFunctionToExprs mm min Expr.minFloatExpr x y
 
+
+
+
 -- TODO later: optimize so that larger underlying types can be used when possible (which may not be often)
 signalToExprs (Gate mm x y) = binaryFunctionToExprs mm gate gate x y
 -- binaryFunctionToExprs :: forall a b c d. Expr a => Expr b => Expr c => Expr d => MultiMode -> (a -> b -> c) -> (d -> b -> c) -> Signal -> Signal -> G (Matrix c)
+
+
 
 {- do
   xs <- signalToExprs x -- :: Matrix Float
@@ -377,6 +382,48 @@ signalToExprs (Circle mm xy d) = do
   ds <- signalToExprs d :: G (Matrix Float)
   rs <- traverse assign $ combine (circle fxy) mm xys ds
   traverse assign $ mapRows castExprs rs
+
+{-
+arithmetic (etc) model
+underlying functions exist as Float -> a -> a, a -> Float -> a, and a -> a -> a
+combinatorial:
+ realize left argument as Matrix Float
+ realize right argument as Matrix a
+ combine and assign
+pairwise: [note existing binaryFunctionToExprs is not doing this right]
+ there are a number of different scenarios here
+ is left argument 1 channel?
+   if so realize as Float
+   then realize right argument as Matrix a
+   apply apply and assign
+ OR is right argument 1 channel?
+   if so realize it as Float
+   then realize left argument as Matrix a
+   apply (flipped) apply and assign
+ OTHERWISE
+   continue here
+   
+ left argument 1 channel or more? (affects phasing with other argument)
+ if right argument is 1 channel...
+   
+ 
+
+
+gate model
+underlying function is only Float -> a -> a
+
+clip between smoothstep model
+underlying function is only Vec2 -> a -> a
+first (clip, smoothstep) or both (between) arguments are multiply used and should be assigned
+(but not if they are constant vec2s?)
+
+circle model
+underlying function is Vec2 -> a -> a (like clip etc, but with no reuse)
+
+rect model
+underlying function is Vec2 -> Vec2 -> G Float (because of internal reuse)
+
+-}
 
 signalToExprs (Rect mm xy wh) = do
   fxy <- _.fxy <$> get
