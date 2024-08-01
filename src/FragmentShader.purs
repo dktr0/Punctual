@@ -392,22 +392,26 @@ combinatorial:
  combine and assign
 pairwise: [note existing binaryFunctionToExprs is not doing this right]
  there are a number of different scenarios here
- is left argument 1 channel?
+ determine intrinsic number of channels in both left and right arguments
+ IF left argument 1 channel:
    if so realize as Float
    then realize right argument as Matrix a
-   apply apply and assign
- OR is right argument 1 channel?
+   apply and assign using Float -> a -> a
+ ELIF right argument 1 channel:
    if so realize it as Float
-   then realize left argument as Matrix a
-   apply (flipped) apply and assign
- OTHERWISE
-   continue here
-   
- left argument 1 channel or more? (affects phasing with other argument)
- if right argument is 1 channel...
-   
- 
+   and realize left argument as Matrix a
+   apply and assign using a -> Float -> a
+ ELIF if left and right argument have same number of channels
+   realize both left and right argument as Matrix a
+   combine pairwise using the a -> a -> a function
+   if length doesn't align with result type, explicitly set extra values to 0
+   (since some operations, eg. ==, will produce incorrect results, 0 == 0 => 1)
+ ELSE (degenerate case)
+   realize both argument as Matrix Float
+   apply using a -> a -> a, yielding Matrix Float
+   convert to Matrix a using castExprs
 
+for the above to work we need a way of querying number of channels in Signal
 
 gate model
 underlying function is only Float -> a -> a
