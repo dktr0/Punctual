@@ -1,19 +1,21 @@
 module Signal where
 
-import Prelude (class Eq, class Show, mempty, negate, ($), (<>), pure)
+import Prelude (class Eq, class Show, mempty, negate, ($), (<>), pure, (*), map, (+), max, (/), (-))
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.List (List(..),(:))
+import Data.List.NonEmpty (NonEmptyList,length,toList)
 import Data.Foldable (foldMap)
 import Data.Set (Set,singleton)
 import Data.Monoid.Disj (Disj)
+import Data.Semigroup.Foldable (foldl1)
 
 import MultiMode
 import Channels
 
 data Signal =
   Constant Number |
-  SignalList (List Signal) |
+  SignalList (NonEmptyList Signal) |
   Append Signal Signal |
   Zip Signal Signal |
   Mono Signal |
@@ -208,7 +210,7 @@ signalInfo x = foldMap signalInfo $ subSignals x
 -- given a Signal return the list of the component Signals it is dependent on
 -- for example, Add x y is dependent on x and y, Bipolar x is dependent on x
 subSignals :: Signal -> List Signal
-subSignals (SignalList xs) = xs
+subSignals (SignalList xs) = toList xs
 subSignals (Append x y) = x:y:Nil
 subSignals (Zip x y) = x:y:Nil
 subSignals (Mono x) = x:Nil
@@ -319,33 +321,33 @@ subSignals (Delay _ x y)  = x:y:Nil
 subSignals _ = Nil
 
 -- determine the dimensions of a Signal according to Punctual's multichannel matrix semantics
-dimensions :: Signal -> Tuple Int Int
-dimensions (SignalList xs) = ???
-dimensions (Append x y) = ???
-dimensions (Zip x y) = ???
-dimensions (Rep n x) = Tuple n (dimensions x)
-dimensions Pxy = Tuple 1 2
-dimensions Fxy = Tuple 1 2
-dimensions Frt = Tuple 1 2
-dimensions Fb = Tuple 1 3
-dimensions Cam = Tuple 1 3
-dimensions (Img _) = Tuple 1 3
-dimensions (Vid _) = Tuple 1 3
+dimensions :: Signal -> { rows :: Int, columns :: Int }
+dimensions (SignalList xs) = { rows: foldl1 (*) $ map channels xs, columns: length xs }
+dimensions (Append x y) = { rows: 1, columns: channels x + channels y }
+dimensions (Zip x y) = { rows: 1, columns: nPer 2 2 (channels x) + nPer 2 2 (channels y) }
+dimensions (Rep n x) = { rows: n, columns: channels x }
+dimensions Pxy = { rows: 1, columns: 2 }
+dimensions Fxy = { rows: 1, columns: 2 }
+dimensions FRt = { rows: 1, columns: 2 }
+dimensions Fb = { rows: 1, columns: 3 }
+dimensions Cam = { rows: 1, columns: 3 }
+dimensions (Img _) = { rows: 1, columns: 3 }
+dimensions (Vid _) = { rows: 1, columns: 3 }
 dimensions (Bipolar x) = dimensions x
 dimensions (Unipolar x) = dimensions x
-dimensions (Blend x) = Tuple 1 4
-dimensions (Add x) = Tuple 1 3
-dimensions (Mul x) = Tuple 1 3
-...etc...
-dimensions _ = Tuple 1 1
+dimensions (Blend _) = { rows: 1, columns: 4 }
+dimensions (Add _) = { rows: 1, columns: 3 }
+dimensions (Mul _) = { rows: 1, columns: 3 }
+dimensions (RgbHsv x) = { rows: (dimensions x).rows, columns: nPer 3 3 (dimensions x).columns }
+dimensions (HsvRgb x) = { rows: (dimensions x).rows, columns: nPer 3 3 (dimensions x).columns }
+--...etc...
+dimensions _ = { rows: 1, columns: 1 }
 
 instance Channels Signal where
-  channels x = r * c
-    where Tuple r c = dimensions x
+  channels x = y.rows * y.columns
+    where y = dimensions x
 
 {-
-  channels (RgbHsv x) = nPer 3 3 (channels x)
-  channels (HsvRgb x) = nPer 3 3 (channels x)
   channels (HsvR x) = nPer 1 3 (channels x)
   channels (HsvG x) = nPer 1 3 (channels x)
   channels (HsvB x) = nPer 1 3 (channels x)
@@ -453,8 +455,9 @@ instance Channels Signal where
   channels (BPF mm x y z) = binaryFunctionChannels mm (binaryFunctionChannels mm (channels x) (channels y)) (channels z)
   channels (Delay _ x y) = channels x * channels y
   channels _ = 1
+-}
 
-nPer :: Int -> Int -> Int
+nPer :: Int -> Int -> Int -> Int
 nPer n per x = (((x - 1)/per)+1)*n
 
 binaryFunctionChannels :: MultiMode -> Int -> Int -> Int
