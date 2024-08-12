@@ -4,18 +4,19 @@ import Prelude (class Eq, class Show, mempty, negate, ($), (<>), pure, (*), map,
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.List (List(..),(:))
-import Data.List.NonEmpty (NonEmptyList,length,toList)
+import Data.List.NonEmpty (NonEmptyList,length,toList,fromList)
 import Data.Foldable (foldMap)
 import Data.Set (Set,singleton)
 import Data.Monoid.Disj (Disj)
 import Data.Semigroup.Foldable (foldl1)
+import Data.Maybe (Maybe(..))
 
 import MultiMode
 import Channels
 
 data Signal =
   Constant Number |
-  SignalList (NonEmptyList Signal) |
+  SignalList (List Signal) |
   Append Signal Signal |
   Zip Signal Signal |
   Mono Signal |
@@ -210,7 +211,7 @@ signalInfo x = foldMap signalInfo $ subSignals x
 -- given a Signal return the list of the component Signals it is dependent on
 -- for example, Add x y is dependent on x and y, Bipolar x is dependent on x
 subSignals :: Signal -> List Signal
-subSignals (SignalList xs) = toList xs
+subSignals (SignalList xs) = xs
 subSignals (Append x y) = x:y:Nil
 subSignals (Zip x y) = x:y:Nil
 subSignals (Mono x) = x:Nil
@@ -322,7 +323,10 @@ subSignals _ = Nil
 
 -- determine the dimensions of a Signal according to Punctual's multichannel matrix semantics
 dimensions :: Signal -> { rows :: Int, columns :: Int }
-dimensions (SignalList xs) = { rows: foldl1 (*) $ map channels xs, columns: length xs }
+dimensions (SignalList xs) = 
+  case fromList xs of
+    Nothing -> { rows: 1, columns: 1 }
+    Just xs' -> { rows: foldl1 (*) $ map channels xs', columns: length xs' }
 dimensions (Append x y) = { rows: 1, columns: channels x + channels y }
 dimensions (Zip x y) = { rows: 1, columns: nPer 2 2 (channels x) + nPer 2 2 (channels y) }
 dimensions (Rep n x) = { rows: n, columns: channels x }

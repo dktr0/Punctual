@@ -1,22 +1,20 @@
 module Parser where
 
-import Prelude (($),pure,bind,(<>),(>>=),(<<<),(<$>),class Applicative,discard,unit)
+import Prelude (bind, discard, pure, unit, ($), (<$>), (<<<), (<>), (>>=))
 import Control.Monad (class Monad)
 import Data.Int (toNumber)
 import Data.Tuple (Tuple(..))
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
-import Data.List (range,List(..),(:),head)
+import Data.List (List(..), range, (:))
 import Data.Traversable (traverse)
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.State.Trans (StateT,evalStateT,runStateT,get,put,modify_)
-import Control.Monad.Error.Class (class MonadThrow,throwError)
-import Control.Monad.Except.Trans (ExceptT,runExceptT)
+import Control.Monad.State.Trans (get, modify_, put)
+import Control.Monad.Error.Class (throwError)
 import Control.Monad.Reader (ask)
-import Parsing (ParseError(..),Position,runParser)
+import Parsing (ParseError(..), Position)
 import Data.Map as Map
 import Data.DateTime (DateTime)
-import Effect (Effect)
 import Effect.Ref (read,write)
 import Effect.Aff (Aff)
 import Effect.Aff.Class (liftAff)
@@ -24,15 +22,15 @@ import Effect.Class (liftEffect)
 import Fetch
 import Effect.Class.Console (log)
 
-import AST (AST,Expression(..),Statement,expression1,statement,parseAST)
+import AST (AST, Expression(..), Statement, parseAST)
 import Program (Program)
 import MultiMode (MultiMode(..))
 import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus,fit,fast,late)
 import Value (Value(..),valuePosition,listValueToValueSignal,valueToSignal,class ToValue, class FromValue, toValue, fromValue, valueToAction, valueToFunction, P, Library, runP, valueToString, LibraryCache)
-import Action (Action,signalToAction,setOutput,setCrossFade)
+import Action (Action, setCrossFade, setOutput)
 import Output (Output)
 import Output as Output
-import SharedResources
+import SharedResources (URL)
 
 parseProgram :: LibraryCache -> String -> DateTime -> Aff (Either ParseError Program)
 parseProgram libCache txt eTime = do
