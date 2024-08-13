@@ -1,6 +1,6 @@
 module Signal where
 
-import Prelude (class Eq, class Show, mempty, negate, ($), (<>), pure, (*), map, (+), max, (/), (-))
+import Prelude (class Eq, class Show, mempty, negate, ($), (<>), pure, (*), map, (+), max, (/), (-), (<=), otherwise)
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.List (List(..),(:))
@@ -344,126 +344,135 @@ dimensions (Add _) = { rows: 1, columns: 3 }
 dimensions (Mul _) = { rows: 1, columns: 3 }
 dimensions (RgbHsv x) = { rows: (dimensions x).rows, columns: nPer 3 3 (dimensions x).columns }
 dimensions (HsvRgb x) = { rows: (dimensions x).rows, columns: nPer 3 3 (dimensions x).columns }
---...etc...
+dimensions (HsvR x) = { rows: (dimensions x).rows, columns: nPer 1 3 (dimensions x).columns }
+dimensions (HsvG x) = { rows: (dimensions x).rows, columns: nPer 1 3 (dimensions x).columns }
+dimensions (HsvB x) = { rows: (dimensions x).rows, columns: nPer 1 3 (dimensions x).columns }
+dimensions (RgbH x) = { rows: (dimensions x).rows, columns: nPer 1 3 (dimensions x).columns }
+dimensions (RgbS x) = { rows: (dimensions x).rows, columns: nPer 1 3 (dimensions x).columns }
+dimensions (RgbV x) = { rows: (dimensions x).rows, columns: nPer 1 3 (dimensions x).columns }
+dimensions (RgbR x) = { rows: (dimensions x).rows, columns: nPer 1 3 (dimensions x).columns }
+dimensions (RgbG x) = { rows: (dimensions x).rows, columns: nPer 1 3 (dimensions x).columns }
+dimensions (RgbB x) = { rows: (dimensions x).rows, columns: nPer 1 3 (dimensions x).columns }
+dimensions (Osc x) = dimensions x
+dimensions (Tri x) = dimensions x
+dimensions (Saw x) = dimensions x
+dimensions (Sqr x) = dimensions x
+dimensions (LFTri x) = dimensions x
+dimensions (LFSaw x) = dimensions x
+dimensions (LFSqr x) = dimensions x
+dimensions (Abs x) = dimensions x
+dimensions (Acos x) = dimensions x
+dimensions (Acosh x) = dimensions x
+dimensions (Asin x) = dimensions x
+dimensions (Asinh x) = dimensions x
+dimensions (Atan x) = dimensions x
+dimensions (Atanh x) = dimensions x
+dimensions (Cbrt x) = dimensions x
+dimensions (Ceil x) = dimensions x
+dimensions (Cos x) = dimensions x
+dimensions (Cosh x) = dimensions x
+dimensions (Exp x) = dimensions x
+dimensions (Floor x) = dimensions x
+dimensions (Log x) = dimensions x
+dimensions (Log2 x) = dimensions x
+dimensions (Log10 x) = dimensions x
+dimensions (Round x) = dimensions x
+dimensions (Sign x) = dimensions x
+dimensions (Sin x) = dimensions x
+dimensions (Sinh x) = dimensions x
+dimensions (Sqrt x) = dimensions x
+dimensions (Tan x) = dimensions x
+dimensions (Tanh x) = dimensions x
+dimensions (Trunc x) = dimensions x
+dimensions (MidiCps x) = dimensions x
+dimensions (CpsMidi x) = dimensions x
+dimensions (DbAmp x) = dimensions x
+dimensions (AmpDb x) = dimensions x
+dimensions (Fract x) = dimensions x
+dimensions (RtXy x) = { rows: (dimensions x).rows, columns: nPer 2 2 (dimensions x).columns }
+dimensions (RtX x) = { rows: (dimensions x).rows, columns: nPer 1 2 (dimensions x).columns }
+dimensions (RtY x) = { rows: (dimensions x).rows, columns: nPer 1 2 (dimensions x).columns }
+dimensions (XyRt x) = { rows: (dimensions x).rows, columns: nPer 2 2 (dimensions x).columns }
+dimensions (XyR x) = { rows: (dimensions x).rows, columns: nPer 1 2 (dimensions x).columns }
+dimensions (Point x) = { rows: (dimensions x).rows, columns: nPer 1 2 (dimensions x).columns }
+dimensions (Dist x) = { rows: (dimensions x).rows, columns: nPer 1 2 (dimensions x).columns }
+dimensions (Prox x) = { rows: (dimensions x).rows, columns: nPer 1 2 (dimensions x).columns }
+dimensions (SetFx x y) = { rows: channels x, columns: channels y }
+dimensions (SetFy x y) = { rows: channels x, columns: channels y }
+dimensions (SetFxy x y) = { rows: nPer 1 2 (channels x), columns: channels y }
+dimensions (Zoom x y) = { rows: channels x, columns: channels y }
+dimensions (ZoomXy x y) = { rows: nPer 1 2 (channels x), columns: channels y }
+dimensions (ZoomX x y) = { rows: channels x, columns: channels y }
+dimensions (ZoomY x y) = { rows: channels x, columns: channels y }
+dimensions (Move x y) = { rows: nPer 1 2 (channels x), columns: channels y }
+dimensions (Tile x y) = { rows: channels x, columns: channels y }
+dimensions (TileXy x y) = { rows: nPer 1 2 (channels x), columns: channels y }
+dimensions (TileX x y) = { rows: channels x, columns: channels y }
+dimensions (TileY x y) = { rows: channels x, columns: channels y }
+dimensions (Spin x y) = { rows: channels x, columns: channels y }
+dimensions (Early x y) = { rows: channels x, columns: channels y }
+dimensions (Slow x y) = { rows: channels x, columns: channels y }
+dimensions (Addition mm x y) = binaryFunctionDimensions mm (channels x) (channels y)
+dimensions (Difference mm x y) = binaryFunctionDimensions mm (channels x) (channels y)
+dimensions (Product mm x y) = binaryFunctionDimensions mm (channels x) (channels y)
+dimensions (Division mm x y) = binaryFunctionDimensions mm (channels x) (channels y)
+dimensions (Mod mm x y) = binaryFunctionDimensions mm (channels x) (channels y)
+dimensions (Pow mm x y) = binaryFunctionDimensions mm (channels x) (channels y)
+dimensions (Equal mm x y) = binaryFunctionDimensions mm (channels x) (channels y)
+dimensions (NotEqual mm x y) = binaryFunctionDimensions mm (channels x) (channels y)
+dimensions (GreaterThan mm x y) = binaryFunctionDimensions mm (channels x) (channels y)
+dimensions (GreaterThanEqual mm x y) = binaryFunctionDimensions mm (channels x) (channels y)
+dimensions (LessThan mm x y) = binaryFunctionDimensions mm (channels x) (channels y)
+dimensions (LessThanEqual mm x y) = binaryFunctionDimensions mm (channels x) (channels y)
+dimensions (Max mm x y) = binaryFunctionDimensions mm (channels x) (channels y)
+dimensions (Min mm x y) = binaryFunctionDimensions mm (channels x) (channels y)
+dimensions (Gate mm x y) = binaryFunctionDimensions mm (channels x) (channels y)
+dimensions (Circle mm x y) = binaryFunctionDimensions mm (nPer 1 2 $ channels x) (channels y)
+dimensions (Rect mm x y) = binaryFunctionDimensions mm (nPer 1 2 $ channels x) (nPer 1 2 $ channels y)
+dimensions (Clip mm x y) = binaryFunctionDimensions mm (nPer 1 2 $ channels x) (channels y)
+dimensions (Between mm x y) = binaryFunctionDimensions mm (nPer 1 2 $ channels x) (channels y)
+dimensions (SmoothStep mm x y) = binaryFunctionDimensions mm (nPer 1 2 $ channels x) (channels y)
+dimensions (VLine mm x y) = binaryFunctionDimensions mm (channels x) (channels y)
+dimensions (HLine mm x y) = binaryFunctionDimensions mm (channels x) (channels y)
+dimensions (Chain mm xy w) = binaryFunctionDimensions mm (chainChannels $ channels xy) (channels w)
+dimensions (Lines mm x y) = binaryFunctionDimensions mm (nPer 1 4 $ channels x) (channels y)
+dimensions (ILines mm x y) = binaryFunctionDimensions mm (nPer 1 4 $ channels x) (channels y)
+dimensions (Mesh mm xy w) = binaryFunctionDimensions mm (meshChannels $ channels xy) (channels w)
+dimensions (Seq x) = { rows: 1, columns: (dimensions x).rows }
+dimensions (Mix mm x y z) = binaryFunctionDimensions mm (max (channels x) (channels y)) (channels z)
+dimensions (ILine mm xy1 xy2 w) = binaryFunctionDimensions mm (binaryFunctionChannels mm (nPer 1 2 $ channels xy1) (nPer 1 2 $ channels xy2)) (channels w)
+dimensions (Line mm xy1 xy2 w) = binaryFunctionDimensions mm (binaryFunctionChannels mm (nPer 1 2 $ channels xy1) (nPer 1 2 $ channels xy2)) (channels w)
+dimensions (ILine mm xy1 xy2 w) = binaryFunctionDimensions mm (binaryFunctionChannels mm (nPer 1 2 $ channels xy1) (nPer 1 2 $ channels xy2)) (channels w)
+dimensions (LinLin mm x y z) = binaryFunctionDimensions mm (binaryFunctionChannels mm (nPer 1 2 $ channels x) (nPer 1 2 $ channels y)) (channels z)
+dimensions (LPF mm x y z) = binaryFunctionDimensions mm (binaryFunctionChannels mm (nPer 1 2 $ channels x) (nPer 1 2 $ channels y)) (channels z)
+dimensions (HPF mm x y z) = binaryFunctionDimensions mm (binaryFunctionChannels mm (nPer 1 2 $ channels x) (nPer 1 2 $ channels y)) (channels z)
+dimensions (BPF mm x y z) = binaryFunctionDimensions mm (binaryFunctionChannels mm (nPer 1 2 $ channels x) (nPer 1 2 $ channels y)) (channels z)
+dimensions (Delay _ x y) = { rows: channels x, columns: channels y }
 dimensions _ = { rows: 1, columns: 1 }
 
 instance Channels Signal where
   channels x = y.rows * y.columns
     where y = dimensions x
 
-{-
-  channels (HsvR x) = nPer 1 3 (channels x)
-  channels (HsvG x) = nPer 1 3 (channels x)
-  channels (HsvB x) = nPer 1 3 (channels x)
-  channels (RgbH x) = nPer 1 3 (channels x)
-  channels (RgbS x) = nPer 1 3 (channels x)
-  channels (RgbV x) = nPer 1 3 (channels x)
-  channels (RgbR x) = nPer 1 3 (channels x)
-  channels (RgbG x) = nPer 1 3 (channels x)
-  channels (RgbB x) = nPer 1 3 (channels x)
-  channels (Osc x) = channels x
-  channels (Tri x) = channels x
-  channels (Saw x) = channels x
-  channels (Sqr x) = channels x
-  channels (LFTri x) = channels x
-  channels (LFSaw x) = channels x
-  channels (LFSqr x) = channels x
-  channels (Abs x) = channels x
-  channels (Acos x) = channels x
-  channels (Acosh x) = channels x
-  channels (Asin x) = channels x
-  channels (Asinh x) = channels x
-  channels (Atan x) = channels x
-  channels (Atanh x) = channels x
-  channels (Cbrt x) = channels x
-  channels (Ceil x) = channels x
-  channels (Cos x) = channels x
-  channels (Cosh x) = channels x
-  channels (Exp x) = channels x
-  channels (Floor x) = channels x
-  channels (Log x) = channels x
-  channels (Log2 x) = channels x
-  channels (Log10 x) = channels x
-  channels (Round x) = channels x
-  channels (Sign x) = channels x
-  channels (Sin x) = channels x
-  channels (Sinh x) = channels x
-  channels (Sqrt x) = channels x
-  channels (Tan x) = channels x
-  channels (Tanh x) = channels x
-  channels (Trunc x) = channels x
-  channels (RtXy x) = nPer 2 2 (channels x)
-  channels (RtX x) = nPer 1 2 (channels x)
-  channels (RtY x) = nPer 1 2 (channels x)
-  channels (XyRt x) = nPer 2 2 (channels x)
-  channels (XyR x) = nPer 1 2 (channels x)
-  channels (XyT x) = nPer 1 2 (channels x)
-  channels (Point x) = nPer 1 2 (channels x)
-  channels (Dist x) = nPer 1 2 (channels x)
-  channels (Prox x) = nPer 1 2 (channels x)
-  channels (MidiCps x) = channels x
-  channels (CpsMidi x) = channels x
-  channels (DbAmp x) = channels x
-  channels (AmpDb x) = channels x
-  channels (Fract x) = channels x
-  channels (SetFx x y) = channels x * channels y
-  channels (SetFy x y) = channels x * channels y
-  channels (SetFxy x y) = nPer 1 2 (channels x) * channels y
-  channels (Zoom x y) = channels x * channels y
-  channels (ZoomXy x y) = nPer 1 2 (channels x) * channels y
-  channels (ZoomX x y) = channels x * channels y
-  channels (ZoomY x y) = channels x * channels y
-  channels (Move x y) = nPer 1 2 (channels x) * channels y
-  channels (Tile x y) = channels x * channels y
-  channels (TileXy x y) = nPer 1 2 (channels x) * channels y
-  channels (TileX x y) = channels x * channels y
-  channels (TileY x y) = channels x * channels y
-  channels (Spin x y) = channels x * channels y
-  channels (Early x y) = channels x * channels y
-  channels (Slow x y) = channels x * channels y
-  channels (Addition mm x y) = binaryFunctionChannels mm (channels x) (channels y)
-  channels (Difference mm x y) = binaryFunctionChannels mm (channels x) (channels y)
-  channels (Product mm x y) = binaryFunctionChannels mm (channels x) (channels y)
-  channels (Division mm x y) = binaryFunctionChannels mm (channels x) (channels y)
-  channels (Mod mm x y) = binaryFunctionChannels mm (channels x) (channels y)
-  channels (Pow mm x y) = binaryFunctionChannels mm (channels x) (channels y)
-  channels (Equal mm x y) = binaryFunctionChannels mm (channels x) (channels y)
-  channels (NotEqual mm x y) = binaryFunctionChannels mm (channels x) (channels y)
-  channels (GreaterThan mm x y) = binaryFunctionChannels mm (channels x) (channels y)
-  channels (GreaterThanEqual mm x y) = binaryFunctionChannels mm (channels x) (channels y)
-  channels (LessThan mm x y) = binaryFunctionChannels mm (channels x) (channels y)
-  channels (LessThanEqual mm x y) = binaryFunctionChannels mm (channels x) (channels y)
-  channels (Max mm x y) = binaryFunctionChannels mm (channels x) (channels y)
-  channels (Min mm x y) = binaryFunctionChannels mm (channels x) (channels y)
-  channels (Gate mm x y) = binaryFunctionChannels mm (channels x) (channels y)
-  channels (Circle mm x y) = binaryFunctionChannels mm (nPer 1 2 $ channels x) (channels y)
-  channels (Rect mm x y) = binaryFunctionChannels mm (nPer 1 2 $ channels x) (nPer 1 2 $ channels y)
-  channels (Clip mm x y) = binaryFunctionChannels mm (nPer 1 2 $ channels x) (channels y)
-  channels (Between mm x y) = binaryFunctionChannels mm (nPer 1 2 $ channels x) (channels y)
-  channels (SmoothStep mm x y) = binaryFunctionChannels mm (nPer 1 2 $ channels x) (channels y)
-  channels (VLine mm x y) = binaryFunctionChannels mm (channels x) (channels y)
-  channels (HLine mm x y) = binaryFunctionChannels mm (channels x) (channels y)
-  channels (Chain mm x y) = binaryFunctionChannels (nPer 1 2 (channels x) ????
-  channels (Lines mm x y) = binaryFunctionChannels mm (nPer 1 4 $ channels x) (channels y)
-  channels (ILines mm x y) = binaryFunctionChannels mm (nPer 1 4 $ channels x) (channels y)
-  channels (Mesh mm x y) = binaryFunctionChannels mm x' (channels y)
-    where x = ...every pair from x...
-  channels (Seq x) = ???
-  channels (Mix mm x y z) = binaryFunctionChannels mm xy (channels z)
-    where xy = max (channels x) (channels y)
-  channels (ILine mm x y z) = binaryFunctionChannels mm (binaryFunctionChannels mm (nPer 1 2 $ channels x) (nPer 1 2 $ channels y)) (channels z)
-  channels (Line mm x y z) = binaryFunctionChannels mm (binaryFunctionChannels mm (nPer 1 2 $ channels x) (nPer 1 2 $ channels y)) (channels z)
-  channels (LinLin mm x y z) = binaryFunctionChannels mm (binaryFunctionChannels mm (nPer 1 2 $ channels x) (nPer 1 2 $ channels y)) (channels z)
-  channels (LPF mm x y z) = binaryFunctionChannels mm (binaryFunctionChannels mm (channels x) (channels y)) (channels z)
-  channels (HPF mm x y z) = binaryFunctionChannels mm (binaryFunctionChannels mm (channels x) (channels y)) (channels z)
-  channels (BPF mm x y z) = binaryFunctionChannels mm (binaryFunctionChannels mm (channels x) (channels y)) (channels z)
-  channels (Delay _ x y) = channels x * channels y
-  channels _ = 1
--}
+chainChannels :: Int -> Int
+chainChannels x
+  | x <= 4 = 1
+  | otherwise = (nPer 1 2 x) - 1 
+
+meshChannels :: Int -> Int
+meshChannels x
+  | x <= 4 = 1
+  | otherwise = n * (n - 1) / 2
+      where n = nPer 1 2 x
 
 nPer :: Int -> Int -> Int -> Int
 nPer n per x = (((x - 1)/per)+1)*n
 
+binaryFunctionDimensions :: MultiMode -> Int -> Int -> { rows :: Int, columns :: Int }
+binaryFunctionDimensions Combinatorial x 1 = { rows: 1, columns: x } 
+binaryFunctionDimensions Combinatorial x y = { rows: x, columns: y }
+binaryFunctionDimensions Pairwise x y = { rows: 1, columns: max x y }
+
 binaryFunctionChannels :: MultiMode -> Int -> Int -> Int
-binaryFunctionChannels Combinatorial x y = x * y
+binaryFunctionChannels Combinatorial x y = x * y 
 binaryFunctionChannels Pairwise x y = max x y
