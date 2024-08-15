@@ -24,7 +24,6 @@ import Output (Output)
 import Output as Output
 import Program (Program)
 import Expr (class Expr, Float(..), Vec2(..), Vec3, Vec4, abs, acos, add, ampdb, asin, atan, between, bipolar, blend, castExprs, cbrt, ceil, circle, clip, constant, cos, cpsmidi, dbamp, difference, distance, division, divisionExprFloat, dotSum, equal, exp, expr, fadeIn, fadeOut, floatFloatToVec2, floor, fract, fromFloat, fromFloats, fromVec2s, function1, gate, greaterThan, greaterThanEqual, hline, hsvrgb, iline, lessThan, lessThanEqual, line, linlin, log, log10, log2, max, midicps, min, mix, mixFloat, mod, notEqual, pi, point, pow, product, productExprFloat, productFloatExpr, prox, pxy, rgbaFade, rgbhsv, rtx, rtxy, rty, seq, setX, setY, sign, sin, smoothStep, sqrt, sum, swizzleW, swizzleX, swizzleXY, swizzleXYZ, swizzleY, swizzleZ, swizzleZW, tan, tile, toExpr, unaryFunction, unipolar, vec3FloatToVec4, vline, xyr, xyrt, xyt, zero)
-import Expr as Expr
 import G (G, assign, runG, texture2D, textureFFT, withAlteredTime, withFxys)
 import Matrix (Matrix,fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3,semiFlatten)
 import Number (acosh, asinh, atanh, cosh, sinh, tanh) as Number
@@ -312,165 +311,28 @@ signalToExprs (Slow q z) = do
     }
   withAlteredTime qs' $ signalToExprs z
 
-signalToExprs (Addition mm x y) = binaryFunctionToExprs mm add Expr.addFloatExpr x y
-signalToExprs (Difference mm x y) = binaryFunctionToExprs mm difference Expr.differenceFloatExpr x y
-signalToExprs (Product mm x y) = binaryFunctionToExprs mm product Expr.productFloatExpr x y
-signalToExprs (Division mm x y) = binaryFunctionToExprs mm division Expr.divisionFloatExpr x y
-signalToExprs (Mod mm x y) = binaryFunctionToExprs mm mod Expr.modFloatExpr x y
-signalToExprs (Pow mm x y) = binaryFunctionToExprs mm pow Expr.powFloatExpr x y
-signalToExprs (Equal mm x y) = binaryFunctionToExprs mm equal Expr.equalFloatExpr x y
-signalToExprs (NotEqual mm x y) = binaryFunctionToExprs mm notEqual Expr.notEqualFloatExpr x y
-signalToExprs (GreaterThan mm x y) = binaryFunctionToExprs mm greaterThan Expr.greaterThanFloatExpr x y
-signalToExprs (GreaterThanEqual mm x y) = binaryFunctionToExprs mm greaterThanEqual Expr.greaterThanEqualFloatExpr x y
-signalToExprs (LessThan mm x y) = binaryFunctionToExprs mm lessThan Expr.lessThanFloatExpr x y
-signalToExprs (LessThanEqual mm x y) = binaryFunctionToExprs mm lessThanEqual Expr.lessThanEqualFloatExpr x y
-signalToExprs (Max mm x y) = binaryFunctionToExprs mm max Expr.maxFloatExpr x y
-signalToExprs (Min mm x y) = binaryFunctionToExprs mm min Expr.minFloatExpr x y
+signalToExprs (Addition mm x y) = arithmeticModel add mm x y
+signalToExprs (Difference mm x y) = arithmeticModel difference mm x y
+signalToExprs (Product mm x y) = arithmeticModel product mm x y
+signalToExprs (Division mm x y) = arithmeticModel division mm x y
+signalToExprs (Mod mm x y) = arithmeticModel mod mm x y
+signalToExprs (Pow mm x y) = arithmeticModel pow mm x y
+signalToExprs (Equal mm x y) = arithmeticModel equal mm x y
+signalToExprs (NotEqual mm x y) = arithmeticModel notEqual mm x y
+signalToExprs (GreaterThan mm x y) = arithmeticModel greaterThan mm x y
+signalToExprs (GreaterThanEqual mm x y) = arithmeticModel greaterThanEqual mm x y
+signalToExprs (LessThan mm x y) = arithmeticModel lessThan mm x y
+signalToExprs (LessThanEqual mm x y) = arithmeticModel lessThanEqual mm x y
+signalToExprs (Max mm x y) = arithmeticModel max mm x y
+signalToExprs (Min mm x y) = arithmeticModel min mm x y
+signalToExprs (Gate mm x y) = arithmeticModel gate mm x y
 
-
-
-
--- TODO later: optimize so that larger underlying types can be used when possible (which may not be often)
-signalToExprs (Gate mm x y) = binaryFunctionToExprs mm gate gate x y
--- binaryFunctionToExprs :: forall a b c d. Expr a => Expr b => Expr c => Expr d => MultiMode -> (a -> b -> c) -> (d -> b -> c) -> Signal -> Signal -> G (Matrix c)
-
-
-
-{- do
-  xs <- signalToExprs x -- :: Matrix Float
-  ys <- (signalToExprs y :: G (Matrix Float)) >>= traverse assign
-  zs <- traverse assign $ combine gate mm xs ys
-  traverse assign $ mapRows castExprs zs -}
-
-{-
-gatePattern :: forall a b c d. Expr a => Expr b => Expr c => Expr d => (a -> b -> c) -> (Float -> b -> c) -> MultiMode -> Signal -> Signal -> G (Matrix d)
-gatePattern _ fFloat Combinatorial a b = do
-  a' <- signalToExprs a -- :: Matrix Float
-  b' <- signalToExprs b >>= traverse assign -- :: Matrix b
-  c <- traverse assign $ combine fFloat Combinatorial a' b'
-  traverse assign $ mapRows castExprs c
-gatePattern
-
-binaryFunctionToExprs :: forall a b c. Expr a => Expr b => Expr c => MultiMode -> (a -> b -> c) -> (Float -> b -> c) -> Signal -> Signal -> G (Matrix c)
-
-gate :: forall a. Expr a => Float -> a -> a
-
-
-
-
-
--}
-
-signalToExprs (Clip mm r x) = do
-  rs <- signalToExprs r >>= traverse assign
-  xs <- signalToExprs x
-  traverse assign $ combine clip mm rs xs
-
-signalToExprs (Between mm r x) = do
-  rs <- signalToExprs r >>= traverse assign
-  xs <- signalToExprs x >>= traverse assign
-  traverse assign $ combine between mm rs xs
-
-signalToExprs (SmoothStep mm r x) = do
-  rs <- signalToExprs r >>= traverse assign
-  xs <- signalToExprs x
-  traverse assign $ combine smoothStep mm rs xs
-
-signalToExprs (Circle mm xy d) = do
+signalToExprs (Clip mm r x) = clipModel clip mm r x
+signalToExprs (Between mm r x) = clipModel between mm r x
+signalToExprs (SmoothStep mm r x) = clipModel smoothStep mm r x
+signalToExprs (Circle mm xy d) = do 
   fxy <- _.fxy <$> get
-  xys <- signalToExprs xy
-  ds <- signalToExprs d :: G (Matrix Float)
-  rs <- traverse assign $ combine (circle fxy) mm xys ds
-  traverse assign $ mapRows castExprs rs
-
-
-arithmeticModel :: forall a b. Expr a => Boolean -> (Float -> Float -> Float) -> (a -> a -> a) -> (Float -> a -> a) -> (a -> Float -> a) -> MultiMode -> Signal -> Signal -> G (Matrix a)
-arithmeticModel zeroExtraChannelsIfNecessary fFloatFloatFloat fAAA fFloatAA fAFloatA mm x y = do
-  let xChnls = channels x
-  let yChnls = channels y
-  case xChnls == 1 of
-    true -> do
-      xs <- signalToExprs x 
-      ys <- signalToExprs y
-      zs <- traverse assign $ combine fFloatAA mm xs ys
-      case zeroExtraChannelsIfNecessary of 
-        true -> zeroExtraChannels zs yChnls
-        false -> pure zs
-    false -> do
-      case yChnls == 1 of
-        true -> do
-          xs <- signalToExprs x 
-          ys <- signalToExprs y
-          zs <- traverse assign $ combine fAFloatA mm xs ys
-          case zeroExtraChannelsIfNecessary of 
-            true -> zeroExtraChannels zs xChnls
-            false -> pure zs
-        false -> do
-          case xChnls == yChnls && mm == Pairwise of
-            true -> do
-              xs <- signalToExprs x
-              ys <- signalToExprs y
-              zs <- traverse assign $ combine fAAA Pairwise xs ys
-              case zeroExtraChannelsIfNecessary of
-                true -> zeroExtraChannels zs xChnls
-                false -> pure zs
-            false -> do -- in the degenerate case 
-              xs <- signalToExprs x
-              ys <- signalToExprs y
-              zs <<- traverse assign $ combine fFloatFloatFloat mm xs ys
-              case zeroExtraChannelsIfNecessary of
-                true -> zeroExtraChannels zs (channels $ Product mm x y)
-                false -> pure zs
-
-
-    false -> do
-      xs <- signalToExprs x
-      ys <- signalToExprs y
-      zs <- traverse assign $ combine fFloatAA Combinatorial xs ys
-      case zeroExtraChannelsIfNecessary of
-        true -> zeroExtraChannels zs (xChnls*yChnls)
-        false -> pure zs
-arithmeticModel zeroExtraChannelsIfNecessary  fFloatAA fAFloatA Pairwise x y = do
-  let xChnls = channels x
-  let yChnls = channels y
-  case xChnls == 1 || yChnls == 1 of
-    true -> arithmeticModel zeroExtraChannelsIfNecessary fAAA fFloatAA fAFloatA Combinatorial x y
-    false -> do
-      case xChnls == yChnls of
-        true -> do
-          xs <- signalToExprs x
-          ys <- signalToExprs y
-          zs <- traverse assign $ combine fAAA Pairwise xs ys
-          case zeroExtraChannelsIfNecessary of
-            true -> zeroExtraChannels zs (max xChnls yChnls)
-            false -> pure zs
-        false -> do
-          xs <- signalToExprs x
-          ys <- signalToExprs x
-          zs <- traverse assign $ combine fFloatFloatFloat Pairwise xs ys
-          case zeroExtraChannelsIfNecessary of
-            true -> zeroExtraChannels zs (max xChnls yChnls)
-            false -> pure zs
-            
--- CONTINUE with implementation of zeroExtraChannels
--- ALSO consider approach where optimization is discarded early/high in processing of graph when number of channels doesn't match?
-
-{-
-gate model
-underlying function is only Float -> a -> a
-
-clip between smoothstep model
-underlying function is only Vec2 -> a -> a
-first (clip, smoothstep) or both (between) arguments are multiply used and should be assigned
-(but not if they are constant vec2s?)
-
-circle model
-underlying function is Vec2 -> a -> a (like clip etc, but with no reuse)
-
-rect model
-underlying function is Vec2 -> Vec2 -> G Float (because of internal reuse)
-
--}
+  clipModel (circle fxy) mm xy d
 
 signalToExprs (Rect mm xy wh) = do
   fxy <- _.fxy <$> get
@@ -479,17 +341,8 @@ signalToExprs (Rect mm xy wh) = do
   rs <- sequence $ combine (rect fxy) mm xys whs
   traverse assign $ mapRows castExprs rs
 
-signalToExprs (VLine mm x w) = do
-  fxy <- _.fxy <$> get
-  xs <- signalToExprs x
-  ws <- signalToExprs w >>= traverse assign
-  traverse assign $ combine (vline fxy) mm xs ws
-
-signalToExprs (HLine mm y h) = do
-  fxy <- _.fxy <$> get
-  ys <- signalToExprs y
-  hs <- signalToExprs h >>= traverse assign
-  traverse assign $ combine (hline fxy) mm ys hs
+signalToExprs (VLine mm x w) = vlineModel vline mm x w
+signalToExprs (HLine mm y h) = vlineModel hline mm y h
 
 signalToExprs (Chain mm xy w) = do
   fxy <- _.fxy <$> get
@@ -535,7 +388,7 @@ signalToExprs (Line mm xy1 xy2 w) = do
   ws <- signalToExprs w
   traverse assign $ mapRows castExprs $ combine3 (line fxy) mm xy1s xy2s ws
 
-signalToExprs (Point xy) = do
+signalToExprs (Point xy) = do 
   fxy <- _.fxy <$> get
   xys <- signalToExprs xy
   traverse assign $ mapRows castExprs $ map (point fxy) xys
@@ -579,6 +432,26 @@ splitFloatsApplyReassemble f xs = do
   pure $ mapRows fromFloats xs''
 -}
 
+-- underlying functions exist in many variations, restricting it to float to prioritize semantics over optimization
+arithmeticModel :: forall a. Expr a => (Float -> Float -> Float) -> MultiMode -> Signal -> Signal -> G (Matrix a)
+arithmeticModel = combineG
+
+-- underlying functions are Vec2 -> a -> a, keeping it to float to prioritize semantics over optimization
+clipModel :: forall a. Expr a => (Vec2 -> Float -> Float) -> MultiMode -> Signal -> Signal -> G (Matrix a)
+clipModel = combineG
+
+vlineModel :: forall a. Expr a => (Vec2 -> Float -> Float -> Float) -> MultiMode -> Signal -> Signal -> G (Matrix a)
+vlineModel f mm x y = do
+  fxy <- _.fxy <$> get
+  combineG (f fxy) mm x y
+
+combineG :: forall a b c d. Expr a => Expr b => Expr c => Expr d => (a -> b -> c) -> MultiMode -> Signal -> Signal -> G (Matrix d)
+combineG f mm x y = do
+  xs <- signalToExprs x -- :: Matrix a
+  ys <- signalToExprs y -- :: Matrix b
+  zs <- traverse assign $ combine f mm xs ys -- :: Matrix c
+  traverse assign $ mapRows castExprs zs -- TODO later: optimize to avoid redundant assignment
+
 maskUnitSquare :: forall a. Expr a => Matrix a -> G (Matrix a)
 maskUnitSquare xs = do
   fxy <- _.fxy <$> get
@@ -604,28 +477,6 @@ saw f = phasor f >>= bipolar >>> assign
 
 sqr :: forall a. Expr a => a -> G a
 sqr f = phasor f >>= bipolar >>> greaterThanEqual (constant 0.5) >>> assign
-
-
--- TODO later: optimize so that combinatorial pathway doesn't force xs to float when y is singleton?
-binaryFunctionToExprs :: forall a b c d. Expr a => Expr b => Expr c => Expr d => MultiMode -> (a -> b -> c) -> (d -> b -> c) -> Signal -> Signal -> G (Matrix c)
-binaryFunctionToExprs Combinatorial _ fCombinatorial x y = do
-  xs <- signalToExprs x
-  ys <- signalToExprs y
-  traverse assign $ combine fCombinatorial Combinatorial xs ys
-binaryFunctionToExprs Pairwise fPairwise _ x y = do
-  zs <- combine fPairwise Pairwise <$> signalToExprs x <*> signalToExprs y
-  traverse assign zs
-
-mostGeneralForm :: forall ca cb pwa pwb c. Expr ca => Expr cb => Expr pwa => Expr pwb => Expr c => MultiMode -> (ca -> cb -> c) -> (pwa -> pwb -> c) -> Signal -> Signal -> G (Matrix c)
-mostGeneralForm Combinatorial fCombinatorial _ x y = combineG (combine fCombinatorial Combinatorial) x y
-mostGeneralForm Pairwise _ fPairwise x y = combineG (combine fPairwise Pairwise) x y
-
-combineG :: forall a b c. Expr a => Expr b => Expr c => (Matrix a -> Matrix b -> Matrix c) -> Signal -> Signal -> G (Matrix c)
-combineG f x y = do
-  a <- signalToExprs x
-  b <- signalToExprs y
-  traverse assign $ f a b
-
 
 acosh :: forall a. Expr a => a -> G a
 acosh x = do
