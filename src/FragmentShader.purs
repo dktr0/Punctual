@@ -383,36 +383,79 @@ signalToExprs (Circle mm xy d) = do
   rs <- traverse assign $ combine (circle fxy) mm xys ds
   traverse assign $ mapRows castExprs rs
 
+
+arithmeticModel :: forall a b. Expr a => Boolean -> (Float -> Float -> Float) -> (a -> a -> a) -> (Float -> a -> a) -> (a -> Float -> a) -> MultiMode -> Signal -> Signal -> G (Matrix a)
+arithmeticModel zeroExtraChannelsIfNecessary fFloatFloatFloat fAAA fFloatAA fAFloatA mm x y = do
+  let xChnls = channels x
+  let yChnls = channels y
+  case xChnls == 1 of
+    true -> do
+      xs <- signalToExprs x 
+      ys <- signalToExprs y
+      zs <- traverse assign $ combine fFloatAA mm xs ys
+      case zeroExtraChannelsIfNecessary of 
+        true -> zeroExtraChannels zs yChnls
+        false -> pure zs
+    false -> do
+      case yChnls == 1 of
+        true -> do
+          xs <- signalToExprs x 
+          ys <- signalToExprs y
+          zs <- traverse assign $ combine fAFloatA mm xs ys
+          case zeroExtraChannelsIfNecessary of 
+            true -> zeroExtraChannels zs xChnls
+            false -> pure zs
+        false -> do
+          case xChnls == yChnls && mm == Pairwise of
+            true -> do
+              xs <- signalToExprs x
+              ys <- signalToExprs y
+              zs <- traverse assign $ combine fAAA Pairwise xs ys
+              case zeroExtraChannelsIfNecessary of
+                true -> zeroExtraChannels zs xChnls
+                false -> pure zs
+            false -> do -- in the degenerate case 
+              xs <- signalToExprs x
+              ys <- signalToExprs y
+              zs <<- traverse assign $ combine fFloatFloatFloat mm xs ys
+              case zeroExtraChannelsIfNecessary of
+                true -> zeroExtraChannels zs (channels $ Product mm x y)
+                false -> pure zs
+
+
+    false -> do
+      xs <- signalToExprs x
+      ys <- signalToExprs y
+      zs <- traverse assign $ combine fFloatAA Combinatorial xs ys
+      case zeroExtraChannelsIfNecessary of
+        true -> zeroExtraChannels zs (xChnls*yChnls)
+        false -> pure zs
+arithmeticModel zeroExtraChannelsIfNecessary  fFloatAA fAFloatA Pairwise x y = do
+  let xChnls = channels x
+  let yChnls = channels y
+  case xChnls == 1 || yChnls == 1 of
+    true -> arithmeticModel zeroExtraChannelsIfNecessary fAAA fFloatAA fAFloatA Combinatorial x y
+    false -> do
+      case xChnls == yChnls of
+        true -> do
+          xs <- signalToExprs x
+          ys <- signalToExprs y
+          zs <- traverse assign $ combine fAAA Pairwise xs ys
+          case zeroExtraChannelsIfNecessary of
+            true -> zeroExtraChannels zs (max xChnls yChnls)
+            false -> pure zs
+        false -> do
+          xs <- signalToExprs x
+          ys <- signalToExprs x
+          zs <- traverse assign $ combine fFloatFloatFloat Pairwise xs ys
+          case zeroExtraChannelsIfNecessary of
+            true -> zeroExtraChannels zs (max xChnls yChnls)
+            false -> pure zs
+            
+-- CONTINUE with implementation of zeroExtraChannels
+-- ALSO consider approach where optimization is discarded early/high in processing of graph when number of channels doesn't match?
+
 {-
-arithmetic (etc) model
-underlying functions exist as Float -> a -> a, a -> Float -> a, and a -> a -> a
-combinatorial:
- realize left argument as Matrix Float
- realize right argument as Matrix a
- combine and assign
-pairwise: [note existing binaryFunctionToExprs is not doing this right]
- there are a number of different scenarios here
- determine intrinsic number of channels in both left and right arguments
- IF left argument 1 channel:
-   if so realize as Float
-   then realize right argument as Matrix a
-   apply and assign using Float -> a -> a
- ELIF right argument 1 channel:
-   if so realize it as Float
-   and realize left argument as Matrix a
-   apply and assign using a -> Float -> a
- ELIF if left and right argument have same number of channels
-   realize both left and right argument as Matrix a
-   combine pairwise using the a -> a -> a function
-   if length doesn't align with result type, explicitly set extra values to 0
-   (since some operations, eg. ==, will produce incorrect results, 0 == 0 => 1)
- ELSE (degenerate case)
-   realize both argument as Matrix Float
-   apply using a -> a -> a, yielding Matrix Float
-   convert to Matrix a using castExprs
-
-for the above to work we need a way of querying number of channels in Signal
-
 gate model
 underlying function is only Float -> a -> a
 
