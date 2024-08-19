@@ -33,7 +33,7 @@ boolean = choice [
 
 functionsWithNoArgumentsDef :: Array String
 functionsWithNoArgumentsDef = [
-  "pi","audioin","cps","time","beat","etime","ebeat","rnd",
+  "pi","mic","audioin","cps","time","beat","etime","ebeat","rnd",
   "fx","fy","fxy","px","py","pxy","frt","fr","ft","aspect",
   "lo","mid","hi","ilo","imid","ihi","fft","ifft","fb","cam"
   ]
@@ -41,6 +41,7 @@ functionsWithNoArgumentsDef = [
 functionsWithArgumentsDef :: Array String
 functionsWithArgumentsDef = [
   "blend","add","mul",
+  "ain",
   "abs","acos","acosh","asin","asinh","atan","atanh","cbrt","ceil","cos",
   "cosh","exp","fract","floor","log","log2","log10","round","sign","sin","sinh",
   "sqrt","tan","tanh","trunc",

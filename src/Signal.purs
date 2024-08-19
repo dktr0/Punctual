@@ -28,7 +28,7 @@ data Signal =
   Lo | Mid | Hi | ILo | IMid | IHi |
   Cps | Time | Beat | EBeat | ETime |
   Rnd |
-  AudioIn |
+  AIn Int Int |
   FFT |
   IFFT |
   Fb |
@@ -330,6 +330,7 @@ dimensions (SignalList xs) =
 dimensions (Append x y) = { rows: 1, columns: channels x + channels y }
 dimensions (Zip x y) = { rows: 1, columns: nPer 2 2 (channels x) + nPer 2 2 (channels y) }
 dimensions (Rep n x) = { rows: n, columns: channels x }
+dimensions (AIn n _) = { rows: 1, columns: n }
 dimensions Pxy = { rows: 1, columns: 2 }
 dimensions Fxy = { rows: 1, columns: 2 }
 dimensions FRt = { rows: 1, columns: 2 }

@@ -1,6 +1,6 @@
 module Parser where
 
-import Prelude (bind, discard, pure, unit, ($), (<$>), (<<<), (<>), (>>=))
+import Prelude (bind, discard, pure, unit, ($), (<$>), (<<<), (<>), (>>=), max)
 import Control.Monad (class Monad)
 import Data.Int (toNumber)
 import Data.Tuple (Tuple(..))
@@ -186,7 +186,9 @@ parseReserved p "beat" = pure $ ValueSignal p Beat
 parseReserved p "ebeat" = pure $ ValueSignal p EBeat
 parseReserved p "etime" = pure $ ValueSignal p ETime
 parseReserved p "rnd" = pure $ ValueSignal p Rnd
-parseReserved p "audioin" = pure $ ValueSignal p AudioIn
+parseReserved p "audioin" = pure $ ValueSignal p $ AIn 1 0 -- deprecated, remove in 0.6
+parseReserved p "mic" = pure $ ValueSignal p $ AIn 1 0
+parseReserved p "ain" = pure $ abc p $ \n o -> AIn (max 1 n) (max 0 o)
 parseReserved p "fft" = pure $ ValueSignal p FFT
 parseReserved p "ifft" = pure $ ValueSignal p IFFT
 parseReserved p "mono" = pure $ signalSignal p Mono

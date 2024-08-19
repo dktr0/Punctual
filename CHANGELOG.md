@@ -9,6 +9,8 @@ draft changes in 0.5 rewrite:
 
 -tile now uses each channel of its first argument to modify both x and y dimensions; tilexy, tilex, and tiley (new) can be used to tile x and y axes independently
 
+-multichannel audio: ain [nChnls] [offset], with mic as a synonym for 'ain 1 0' (the former audioin is a synonym for mic but is deprecated and will be removed in 0.6)
+
 0.4.9.3:
 
 -another bugfix affecting geometry transformations (spin, zoom, move, etc...)
