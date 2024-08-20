@@ -11,7 +11,7 @@ import Data.Foldable (intercalate,foldM)
 import Data.Traversable (traverse,for,sequence)
 import Data.Tuple (Tuple(..))
 import Data.Maybe (Maybe(..))
-import Data.Unfoldable1 (iterateN)
+import Data.Unfoldable1 (iterateN,range)
 import Data.Number (acos, asin, atan, ceil, cos, exp, floor, log, pow, round, sign, sin, sqrt, tan, trunc) as Number
 import Data.Ord as Ord
 import Data.Int (toNumber)
@@ -93,7 +93,10 @@ signalToFrame ETime = pure $ pure $ Right "eTime"
 signalToFrame EBeat = pure $ pure $ Right "eBeat"
 signalToFrame Rnd = pure <$> assign "Math.random()*2-1"
 
--- AudioIn
+signalToFrame (AIn n o) = do
+  let ns = map ((+) o) $ range 0 (Prelude.max 0 (n-1))
+  xs <- traverse (\n' -> assign $ "ain(" <> show n' <> ")" ) ns
+  pure $ fromNonEmptyList xs
 
 signalToFrame (Bipolar x) = signalToFrame x >>= traverse bipolar
 signalToFrame (Unipolar x) = signalToFrame x >>= traverse unipolar

@@ -55,6 +55,7 @@ generateWorkletCode s name fInStart fInDur = prefix <> classHeader <> getParamet
     prefix = """'use strict';
 
 function clamp(min,max,x) { return Math.max(Math.min(max,x),min); }
+function ain(input,n) { return (n >= input.length ? 0.0 : input[n]); }
 
 """
     classHeader = "class " <> name <> " extends AudioWorkletProcessor {\n\n"
