@@ -175,6 +175,7 @@ type SignalInfo = {
   ilo :: Disj Boolean,
   imid :: Disj Boolean,
   ihi :: Disj Boolean,
+  ain :: Disj Boolean,
   imgURLs :: Set String,
   vidURLs :: Set String
   }
@@ -190,16 +191,18 @@ emptySignalInfo = {
   ilo: pure false,
   imid: pure false,
   ihi: pure false,
+  ain: pure false,
   imgURLs: mempty,
   vidURLs: mempty
   }
 
 signalInfo :: Signal -> SignalInfo
 signalInfo Cam = emptySignalInfo { webcam = pure true }
-signalInfo ILo = emptySignalInfo { ilo = pure true }
-signalInfo IMid = emptySignalInfo { imid = pure true }
-signalInfo IHi = emptySignalInfo { ihi = pure true }
-signalInfo IFFT = emptySignalInfo { ifft = pure true }
+signalInfo ILo = emptySignalInfo { ilo = pure true, ain = pure true }
+signalInfo IMid = emptySignalInfo { imid = pure true, ain = pure true }
+signalInfo IHi = emptySignalInfo { ihi = pure true, ain = pure true }
+signalInfo IFFT = emptySignalInfo { ifft = pure true, ain = pure true }
+signalInfo (AIn _ _) = emptySignalInfo { ain = pure true }
 signalInfo Lo = emptySignalInfo { lo = pure true }
 signalInfo Mid = emptySignalInfo { mid = pure true }
 signalInfo Hi = emptySignalInfo { hi = pure true }

@@ -9,7 +9,7 @@ import Data.Time.Duration (Seconds)
 import Data.Maybe (maybe)
 import Data.Newtype (unwrap)
 
-import Signal (Signal)
+import Signal (Signal,signalInfo)
 import DefTime (DefTime(..), calculateT1)
 import Transition (Transition(..), transitionToXfade)
 import Duration (Duration(..))
@@ -61,4 +61,5 @@ actionHasVisualOutput a = a.output == Blend || a.output == RGBA || a.output == A
 actionHasAudioOutput :: Action -> Boolean
 actionHasAudioOutput a = a.output == Audio
 
-
+actionHasAudioInput :: Action -> Boolean
+actionHasAudioInput a = unwrap (signalInfo a.signal).ain

@@ -16,7 +16,7 @@ import Data.Monoid.Disj (Disj)
 import WebGLCanvas (WebGLCanvas, WebGLContext, WebGLTexture)
 import WebAudio
 import AudioAnalyser (AudioAnalyser,newInputAnalyser,newOutputAnalyser,updateAnalyser)
-import Value (Library,LibraryCache) 
+import Value (LibraryCache) 
 
 type URL = String
 
@@ -27,6 +27,8 @@ type SharedResources = {
   videos :: Ref (Map URL Video),
   libraries :: LibraryCache,
   webAudioContext :: WebAudioContext,
+  audioInputGetter :: Ref (Effect WebAudioNode), -- client environment provides function to get audio input node
+  mAudioInputNode :: Ref (Maybe WebAudioNode), -- cached audio input node returned by function above (dropped when audio input not needed)
   audioOutputNode :: WebAudioNode,
   inputAnalyser :: AudioAnalyser,
   outputAnalyser :: AudioAnalyser,
@@ -44,6 +46,8 @@ newSharedResources mWebAudioContext = do
   webAudioContext <- case mWebAudioContext of
                        Nothing -> defaultWebAudioContext
                        Just x -> pure x
+  audioInputGetter <- new $ _defaultAudioInputNode webAudioContext
+  mAudioInputNode <- new Nothing
   audioOutputNode <- gainNode webAudioContext 1.0
   destination webAudioContext >>= connect audioOutputNode
   inputAnalyser <- newInputAnalyser webAudioContext
@@ -56,6 +60,8 @@ newSharedResources mWebAudioContext = do
     videos,
     libraries,
     webAudioContext,
+    audioInputGetter,
+    mAudioInputNode,
     audioOutputNode,
     inputAnalyser,
     outputAnalyser,
@@ -158,4 +164,15 @@ foreign import _newVideo :: String -> Effect Video
 foreign import _videoIsPlaying :: Video -> Effect Boolean
 
 
+-- Audio Input
 
+getAudioInputNode :: SharedResources -> Effect WebAudioNode
+getAudioInputNode sharedResources = do
+  mAudioInputNode <- read sharedResources.mAudioInputNode
+  case mAudioInputNode of
+    Just audioInputNode -> pure audioInputNode
+    Nothing -> do
+      audioInputGetter <- read sharedResources.audioInputGetter
+      audioInputNode <- audioInputGetter
+      write (Just audioInputNode) sharedResources.mAudioInputNode
+      pure audioInputNode

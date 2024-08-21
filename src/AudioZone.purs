@@ -43,6 +43,22 @@ justAudioActions (Just x)
   | otherwise = Just x
 
 
+{-
+WORKING HERE - approach partially incorrect because audioworklet might not be loaded at time of addOrRemoveWorklet
+possiblyConnectWorkletToAudioInput :: SharedResources -> Action -> AudioWorklet -> Effect Unit
+possiblyConnectWorkletToAudioInput sharedResources action w =
+  case actionHasAudioInput action of
+    false -> pure unit -- audio input not necessary
+    true -> do -- audio input IS necessary
+      i <- getAudioInputNode sharedResources
+      connect i ...w?....
+
+
+
+      ...connect the input to the worklet...
+-}
+
+
 addOrRemoveWorklet :: SharedResources -> DateTime -> Number -> Maybe AudioWorklet -> Maybe Action -> Effect (Maybe AudioWorklet)
 addOrRemoveWorklet _ _ _ Nothing Nothing = pure Nothing
 addOrRemoveWorklet sharedResources evalTime clockDiff Nothing (Just action) = do
