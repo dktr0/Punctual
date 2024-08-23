@@ -8,6 +8,7 @@ import Data.Tuple (Tuple(..))
 import Data.List.NonEmpty (length,zipWith)
 import Data.Unfoldable1 (range)
 import Data.Foldable (fold)
+import Effect.Class.Console (log)
 
 import Signal (Signal)
 import WebAudio (WebAudioContext,WebAudioNode)
@@ -27,13 +28,14 @@ type AudioWorklet' = {
   audioWorkletNode :: Nullable WebAudioNode
   }
 
-runWorklet :: WebAudioContext -> WebAudioNode -> String -> Signal -> Number -> Number -> Effect AudioWorklet
-runWorklet ctx dest name signal fInStart fInDur = do
+runWorklet :: WebAudioContext -> Nullable WebAudioNode -> WebAudioNode -> String -> Signal -> Number -> Number -> Effect AudioWorklet
+runWorklet ctx ain aout name signal fInStart fInDur = do
   let code = generateWorkletCode signal name fInStart fInDur
-  audioWorklet' <- _runWorklet ctx dest name code 2
+  log code
+  audioWorklet' <- _runWorklet ctx ain aout name code 2
   pure { name, signal, code, audioWorklet' }
 
-foreign import _runWorklet :: WebAudioContext -> WebAudioNode -> String -> String -> Int -> Effect AudioWorklet'
+foreign import _runWorklet :: WebAudioContext -> Nullable WebAudioNode -> WebAudioNode -> String -> String -> Int -> Effect AudioWorklet'
 
 stopWorklet :: AudioWorklet -> Number -> Number -> Effect Unit
 stopWorklet w fOutStart fOutDur = do

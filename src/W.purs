@@ -95,7 +95,7 @@ signalToFrame Rnd = pure <$> assign "Math.random()*2-1"
 
 signalToFrame (AIn n o) = do
   let ns = map ((+) o) $ range 0 (Prelude.max 0 (n-1))
-  xs <- traverse (\n' -> assign $ "ain(" <> show n' <> ")" ) ns
+  xs <- traverse (\n' -> assign $ "ain(input," <> show n' <> ")[n]" ) ns
   pure $ fromNonEmptyList xs
 
 signalToFrame (Bipolar x) = signalToFrame x >>= traverse bipolar

@@ -12,11 +12,13 @@ import Data.Tuple (Tuple(..))
 import Effect.Now (now)
 import Data.DateTime.Instant (unInstant)
 import Data.Newtype (unwrap)
+import Data.Nullable (null,notNull)
+import Effect.Class.Console (log)
 
-import SharedResources (SharedResources)
+import SharedResources (SharedResources,getAudioInputNode)
 import Program (Program)
 import AudioWorklet (AudioWorklet,runWorklet,stopWorklet)
-import Action (Action,actionTimesAsAudioTime)
+import Action (Action,actionTimesAsAudioTime,actionHasAudioInput)
 import Output (Output(..))
 import WebAudio (resumeWebAudioContext,currentTime)
 
@@ -43,30 +45,12 @@ justAudioActions (Just x)
   | otherwise = Just x
 
 
-{-
-WORKING HERE - approach partially incorrect because audioworklet might not be loaded at time of addOrRemoveWorklet
-possiblyConnectWorkletToAudioInput :: SharedResources -> Action -> AudioWorklet -> Effect Unit
-possiblyConnectWorkletToAudioInput sharedResources action w =
-  case actionHasAudioInput action of
-    false -> pure unit -- audio input not necessary
-    true -> do -- audio input IS necessary
-      i <- getAudioInputNode sharedResources
-      connect i ...w?....
-
-
-
-      ...connect the input to the worklet...
--}
-
-
 addOrRemoveWorklet :: SharedResources -> DateTime -> Number -> Maybe AudioWorklet -> Maybe Action -> Effect (Maybe AudioWorklet)
 addOrRemoveWorklet _ _ _ Nothing Nothing = pure Nothing
 addOrRemoveWorklet sharedResources evalTime clockDiff Nothing (Just action) = do
   tempo <- read sharedResources.tempo
   let Tuple t1 t2 = actionTimesAsAudioTime tempo evalTime clockDiff action
-  i <- read sharedResources.audioWorkletCount
-  write (i+1) sharedResources.audioWorkletCount
-  Just <$> runWorklet sharedResources.webAudioContext sharedResources.audioOutputNode ("W" <> show i) action.signal t1 (t2-t1)
+  Just <$> addWorklet sharedResources action t1 t2
 addOrRemoveWorklet sharedResources _ _ (Just prevWorklet) Nothing = do
   t <- currentTime sharedResources.webAudioContext
   stopWorklet prevWorklet (t+0.25) 0.1
@@ -78,11 +62,21 @@ addOrRemoveWorklet sharedResources evalTime clockDiff (Just prevWorklet) (Just a
       tempo <- read sharedResources.tempo
       let Tuple t1 t2 = actionTimesAsAudioTime tempo evalTime clockDiff action
       stopWorklet prevWorklet t1 (t2-t1)
-      i <- read sharedResources.audioWorkletCount
-      write (i+1) sharedResources.audioWorkletCount
-      Just <$> runWorklet sharedResources.webAudioContext sharedResources.audioOutputNode ("W" <> show i) action.signal t1 (t2-t1)
+      Just <$> addWorklet sharedResources action t1 t2
       
-   
+addWorklet :: SharedResources -> Action -> Number -> Number -> Effect AudioWorklet
+addWorklet sharedResources action t1 t2 = do
+  i <- read sharedResources.audioWorkletCount
+  write (i+1) sharedResources.audioWorkletCount
+  nAin <- case actionHasAudioInput action of
+            true -> do
+              log "worklet has audio input"
+              notNull <$> getAudioInputNode sharedResources
+            false -> do
+              log "worklet does not have audio input"
+              pure null
+  runWorklet sharedResources.webAudioContext nAin sharedResources.audioOutputNode ("W" <> show i) action.signal t1 (t2-t1)
+
 -- to convert audio to POSIX, add clockdiff; to convert POSIX to audio, subtract clockdiff
 calculateClockDiff :: SharedResources -> Effect Number
 calculateClockDiff sharedResources = do
