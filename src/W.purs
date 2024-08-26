@@ -45,20 +45,49 @@ showSample (Right x) = x
 
 assign :: String -> W Sample
 assign x = do
-  n <- allocate
-  let m = "m[" <> show n <> "]"
-  writeCode $ m <> "=" <> x <> ";\n"
+  m <- allocate
+  write $ m <> "=" <> x <> ";\n"
   pure $ Right m
 
-allocate :: W Int
+allocate :: W String
 allocate = do
   s <- get
   put $ s { allocation = s.allocation + 1 }
-  pure s.allocation
+  pure $ "m[" <> show s.allocation <> "]"
   
-writeCode :: String -> W Unit
-writeCode x = modify_ $ \s -> s { code = s.code <> x } 
+write :: String -> W Unit
+write x = modify_ $ \s -> s { code = s.code <> x } 
   
+-- single-sample delay
+ssd :: Sample -> W Sample
+ssd (Left i) = pure $ Left i 
+ssd (Right i) = do
+  x0 <- allocate
+  x1 <- allocate
+  write $ x1 <> "=" <> x0 <> ";\n" 
+  write $ x0 <> "=" <> i <> ";\n"
+  pure $ Right x1
+
+biquad :: Sample -> Sample -> Sample -> Sample -> Sample -> Sample -> Sample -> W Sample
+biquad b0 b1 b2 a0 a1 a2 i = do
+  x0 <- allocate
+  x1 <- allocate
+  x2 <- allocate
+  y0 <- allocate
+  y1 <- allocate
+  y2 <- allocate
+  write $ x2 <> "=" <> x1 <> ";\n" 
+  write $ x1 <> "=" <> x0 <> ";\n"
+  write $ x0 <> "=" <> show i <> ";\n"
+  write $ y2 <> "=" <> y1 <> ";\n"
+  write $ y1 <> "=" <> y0 <> ";\n"
+  let b0x0 = "(" <> show x0 <> "*" <> show b0 <> "/" <> show a0 <> ")"
+  let b1x1 = "(" <> show x1 <> "*" <> show b1 <> "/" <> show a0 <> ")"
+  let b2x2 = "(" <> show x2 <> "*" <> show b2 <> "/" <> show a0 <> ")"
+  let a1y1 = "(" <> show y1 <> "*" <> show a1 <> "/" <> show a0 <> ")"
+  let a2y2 = "(" <> show y2 <> "*" <> show a2 <> "/" <> show a0 <> ")"
+  write $ y0 <> "=" <> b0x0 <> "+" <> b1x1 <> "+" <> b2x2 <> "+" <> a1y1 <> "+" <> a2y2 <> ";\n"
+  pure $ Right y0
 
 type Frame = Matrix Sample
 
