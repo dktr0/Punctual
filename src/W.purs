@@ -2,7 +2,7 @@ module W where
 
 -- A monad and associated functions for generating the code of a WebAudio audio worklet.
 
-import Prelude (Unit, bind, discard, map, pure, show, ($), (*), (+), (-), (/), (/=), (<), (<$>), (<<<), (<=), (<>), (==), (>), (>=), (>>=))
+import Prelude (Unit, bind, discard, map, pure, show, ($), (*), (+), (-), (/), (/=), (<), (<$>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), negate)
 import Prelude as Prelude
 import Control.Monad.State (State,get,put,runState,modify_)
 import Data.List.NonEmpty (NonEmptyList, fromList, length, zipWith)
@@ -49,6 +49,10 @@ assign x = do
   write $ m <> "=" <> x <> ";\n"
   pure $ Right m
 
+assignIfVariable :: Sample -> W Sample
+assignIfVariable (Left x) = pure $ Left x
+assignIfVariable (Right x) = assign x
+
 allocate :: W String
 allocate = do
   s <- get
@@ -78,16 +82,38 @@ biquad b0 b1 b2 a0 a1 a2 i = do
   y2 <- allocate
   write $ x2 <> "=" <> x1 <> ";\n" 
   write $ x1 <> "=" <> x0 <> ";\n"
-  write $ x0 <> "=" <> show i <> ";\n"
+  write $ x0 <> "=" <> showSample i <> ";\n"
   write $ y2 <> "=" <> y1 <> ";\n"
   write $ y1 <> "=" <> y0 <> ";\n"
-  let b0x0 = "(" <> show x0 <> "*" <> show b0 <> "/" <> show a0 <> ")"
-  let b1x1 = "(" <> show x1 <> "*" <> show b1 <> "/" <> show a0 <> ")"
-  let b2x2 = "(" <> show x2 <> "*" <> show b2 <> "/" <> show a0 <> ")"
-  let a1y1 = "(" <> show y1 <> "*" <> show a1 <> "/" <> show a0 <> ")"
-  let a2y2 = "(" <> show y2 <> "*" <> show a2 <> "/" <> show a0 <> ")"
+  let b0x0 = "(" <> x0 <> "*" <> showSample b0 <> "/" <> showSample a0 <> ")"
+  let b1x1 = "(" <> x1 <> "*" <> showSample b1 <> "/" <> showSample a0 <> ")"
+  let b2x2 = "(" <> x2 <> "*" <> showSample b2 <> "/" <> showSample a0 <> ")"
+  let a1y1 = "(" <> y1 <> "*" <> showSample a1 <> "/" <> showSample a0 <> ")"
+  let a2y2 = "(" <> y2 <> "*" <> showSample a2 <> "/" <> showSample a0 <> ")"
   write $ y0 <> "=" <> b0x0 <> "+" <> b1x1 <> "+" <> b2x2 <> "+" <> a1y1 <> "+" <> a2y2 <> ";\n"
   pure $ Right y0
+
+twoPi :: Sample
+twoPi = Right "(2.0*Math.PI)" 
+
+sampleRate :: Sample
+sampleRate = Right "sampleRate"
+
+lpf :: Sample -> Sample -> Sample -> W Sample
+lpf f0 q i = do
+  twoPiF0 <- product twoPi f0
+  w0 <- division twoPiF0 sampleRate
+  cosW0 <- assignIfVariable $ unaryFunction' Number.cos "Math.cos" w0
+  oneMinusCosW0 <- difference (Left 1.0) cosW0
+  sinW0 <- assignIfVariable $ unaryFunction' Number.sin "Math.sin" w0
+  alpha <- product (Left 2.0) q >>= division sinW0
+  b0 <- division oneMinusCosW0 (Left 2.0)
+  let b1 = oneMinusCosW0
+  let b2 = b0
+  a0 <- add (Left 1.0) alpha 
+  a1 <- product (Left (-2.0)) cosW0 
+  a2 <- difference (Left 1.0) alpha 
+  biquad b0 b1 b2 a0 a1 a2 i
 
 type Frame = Matrix Sample
 
@@ -229,8 +255,13 @@ signalToFrame (LinLin mm r1 r2 x) = do
   xs <- signalToFrame x
   sequence $ combine3 linlin mm r1s r2s xs
 
+signalToFrame (LPF mm f0 q i) = do
+  f0' <- signalToFrame f0
+  q' <- signalToFrame q
+  i' <- signalToFrame i
+  sequence $ combine3 lpf mm f0' q' i'
+
 {-
-  LPF MultiMode Signal Signal Signal |
   HPF MultiMode Signal Signal Signal |
   BPF MultiMode Signal Signal Signal |
   Delay Number Signal Signal
@@ -255,6 +286,10 @@ unaryFunction f name s = do
               Left x' -> pure $ Left $ f x'
               Right x' -> assign $ name <> "(" <> x' <> ")"
   traverse g xs
+
+unaryFunction' :: (Number -> Number) -> String -> Sample -> Sample
+unaryFunction' f _ (Left x) = Left $ f x
+unaryFunction' _ name (Right x) = Right $ name <> "(" <> x <> ")"
 
 binaryFunction :: (Sample -> Sample -> W Sample) -> MultiMode -> Signal -> Signal -> W Frame
 binaryFunction f mm x y = do
