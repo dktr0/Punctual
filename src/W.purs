@@ -20,7 +20,7 @@ import NonEmptyList (zipWithEqualLength)
 import Signal (Signal(..))
 import MultiMode (MultiMode(..))
 import Matrix (Matrix,flatten,semiFlatten,fromNonEmptyListMulti,zip,rep,combine,combine3,concat,toTuples,fromNonEmptyList)
-import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, division, smoothStep) as Number
+import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, divisionSafe, divisionUnsafe, smoothStep) as Number
 
 
 type W = State WState
@@ -90,7 +90,7 @@ biquad b0 b1 b2 a0 a1 a2 i = do
   let b2x2 = "(" <> x2 <> "*" <> showSample b2 <> "/" <> showSample a0 <> ")"
   let a1y1 = "(" <> y1 <> "*" <> showSample a1 <> "/" <> showSample a0 <> ")"
   let a2y2 = "(" <> y2 <> "*" <> showSample a2 <> "/" <> showSample a0 <> ")"
-  write $ y0 <> "=" <> b0x0 <> "+" <> b1x1 <> "+" <> b2x2 <> "+" <> a1y1 <> "+" <> a2y2 <> ";\n"
+  write $ y0 <> "=" <> b0x0 <> "+" <> b1x1 <> "+" <> b2x2 <> "-" <> a1y1 <> "-" <> a2y2 <> ";\n"
   pure $ Right y0
 
 twoPi :: Sample
@@ -102,12 +102,12 @@ sampleRate = Right "sampleRate"
 lpf :: Sample -> Sample -> Sample -> W Sample
 lpf f0 q i = do
   twoPiF0 <- product twoPi f0
-  w0 <- division twoPiF0 sampleRate
+  w0 <- divisionUnsafe twoPiF0 sampleRate
   cosW0 <- assignIfVariable $ unaryFunction' Number.cos "Math.cos" w0
   oneMinusCosW0 <- difference (Left 1.0) cosW0
   sinW0 <- assignIfVariable $ unaryFunction' Number.sin "Math.sin" w0
-  alpha <- product (Left 2.0) q >>= division sinW0
-  b0 <- division oneMinusCosW0 (Left 2.0)
+  alpha <- product (Left 2.0) q >>= divisionSafe sinW0
+  b0 <- divisionUnsafe oneMinusCosW0 (Left 2.0)
   let b1 = oneMinusCosW0
   let b2 = b0
   a0 <- add (Left 1.0) alpha 
@@ -210,17 +210,17 @@ signalToFrame (Slow x z) = do
   xs <- flatten <$> signalToFrame x
   s <- get
   xs' <- for xs $ \y -> do
-    time <- division s.time y
-    beat <- division s.beat y
-    etime <- division s.etime y
-    ebeat <- division s.ebeat y
+    time <- divisionSafe s.time y
+    beat <- divisionSafe s.beat y
+    etime <- divisionSafe s.etime y
+    ebeat <- divisionSafe s.ebeat y
     pure { time, beat, etime, ebeat }  
   withAlteredTime xs' $ signalToFrame z
 
 signalToFrame (Addition mm x y) = binaryFunction add mm x y
 signalToFrame (Difference mm x y) = binaryFunction difference mm x y
 signalToFrame (Product mm x y) = binaryFunction product mm x y
-signalToFrame (Division mm x y) = binaryFunction division mm x y
+signalToFrame (Division mm x y) = binaryFunction divisionSafe mm x y
 signalToFrame (Mod mm x y) = binaryFunction mod mm x y
 signalToFrame (Pow mm x y) = binaryFunction pow mm x y
 signalToFrame (Equal mm x y) = binaryFunction equal mm x y
@@ -354,13 +354,18 @@ product _ (Left 0.0) = pure $ Left 0.0
 product x (Left 1.0) = pure x
 product x y = operator (*) "*" x y
 
-division :: Sample -> Sample -> W Sample
-division (Left x) (Left y) = pure $ Left $ Number.division x y
-division (Left 0.0) _ = pure $ Left 0.0
-division _ (Left 0.0) = pure $ Left 0.0
-division x (Left 1.0) = pure x
-division x y = assign $ showSample y <> "!=0? " <> showSample x <> "/" <> showSample y <> " : 0"
+divisionSafe :: Sample -> Sample -> W Sample
+divisionSafe (Left x) (Left y) = pure $ Left $ Number.divisionSafe x y
+divisionSafe (Left 0.0) _ = pure $ Left 0.0
+divisionSafe _ (Left 0.0) = pure $ Left 0.0
+divisionSafe x (Left 1.0) = pure x
+divisionSafe x y = assign $ showSample y <> "!=0? " <> showSample x <> "/" <> showSample y <> " : 0"
 
+divisionUnsafe :: Sample -> Sample -> W Sample
+divisionUnsafe (Left x) (Left y) = pure $ Left $ Number.divisionUnsafe x y
+divisionUnsafe (Left 0.0) _ = pure $ Left 0.0
+divisionUnsafe x (Left 1.0) = pure x
+divisionUnsafe x y = assign $ showSample x <> "/" <> showSample y
 
 mod :: Sample -> Sample -> W Sample
 mod = operator (Prelude.mod) "%"
@@ -438,11 +443,11 @@ mix (Tuple (Left x) (Left y)) (Left a) = pure $ Left $ ((y-x)*a)+x
 mix (Tuple x y) a = difference y x >>= product a >>= add x
 
 linlin :: Tuple Sample Sample -> Tuple Sample Sample -> Sample -> W Sample
-linlin (Tuple (Left r1x) (Left r1y)) (Tuple (Left r2x) (Left r2y)) (Left x) = pure $ Left $ (Number.division (x - r1x) (r1y - r1x)) * (r2y - r2x) + r2x
+linlin (Tuple (Left r1x) (Left r1y)) (Tuple (Left r2x) (Left r2y)) (Left x) = pure $ Left $ (Number.divisionSafe (x - r1x) (r1y - r1x)) * (r2y - r2x) + r2x
 linlin (Tuple r1x r1y) (Tuple r2x r2y) x = do
   x' <- difference x r1x
   r2 <- difference r2y r2x
-  difference r1y r1x >>= division x' >>= product r2 >>= add r2x
+  difference r1y r1x >>= divisionSafe x' >>= product r2 >>= add r2x
 
 abs :: Sample -> W Sample
 abs (Left x) = pure $ Left $ Ord.abs x

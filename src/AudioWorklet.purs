@@ -71,7 +71,7 @@ return [
 ];}
 
 """
-    constructor = "constructor() { super(); this.framesOut = 0; this.runTime = currentTime; this.m = new Float32Array(" <> show wState.allocation <> ")}\n\n"
+    constructor = "constructor() { super(); this.framesOut = 0; this.runTime = currentTime; this.m = new Float32Array(" <> show wState.allocation <> ").fill(0);}\n\n"
     innerLoopPrefix = """process(inputs,outputs,parameters) {
 const input = inputs[0];
 const output = outputs[0];

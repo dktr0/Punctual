@@ -2,9 +2,12 @@ module Number where
 
 import Prelude (min,max,(>=),(&&),(<=),($),(/),(-),(*))
 
-division :: Number -> Number -> Number
-division _ 0.0 = 0.0
-division x y = x/y
+divisionSafe :: Number -> Number -> Number
+divisionSafe _ 0.0 = 0.0
+divisionSafe x y = x/y
+
+divisionUnsafe :: Number -> Number -> Number
+divisionUnsafe x y = x/y
 
 clip :: Number -> Number -> Number -> Number
 clip e0 e1 x = clamp (min e0 e1) (max e0 e1) x
@@ -18,7 +21,7 @@ between e0 e1 x = if x >= (min e0 e1) && x <= (max e0 e1) then 1.0 else 0.0
 
 smoothStep :: Number -> Number -> Number -> Number
 smoothStep e0 e1 x = t * t * (3.0 - (2.0 * t))
-  where t = clamp 0.0 1.0 $ division (x - e0) (e1 - e0)
+  where t = clamp 0.0 1.0 $ divisionSafe (x - e0) (e1 - e0)
 
 foreign import acosh :: Number -> Number
 foreign import asinh :: Number -> Number
