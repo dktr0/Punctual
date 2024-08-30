@@ -115,6 +115,39 @@ lpf f0 q i = do
   a2 <- difference (Left 1.0) alpha 
   biquad b0 b1 b2 a0 a1 a2 i
 
+hpf :: Sample -> Sample -> Sample -> W Sample
+hpf f0 q i = do
+  twoPiF0 <- product twoPi f0
+  w0 <- divisionUnsafe twoPiF0 sampleRate
+  cosW0 <- assignIfVariable $ unaryFunction' Number.cos "Math.cos" w0
+  onePlusCosW0 <- add (Left 1.0) cosW0
+  sinW0 <- assignIfVariable $ unaryFunction' Number.sin "Math.sin" w0
+  alpha <- product (Left 2.0) q >>= divisionSafe sinW0
+  b0 <- divisionUnsafe onePlusCosW0 (Left 2.0)
+  b1 <- product (Left (-1.0)) onePlusCosW0
+  let b2 = b0
+  a0 <- add (Left 1.0) alpha 
+  a1 <- product (Left (-2.0)) cosW0 
+  a2 <- difference (Left 1.0) alpha 
+  biquad b0 b1 b2 a0 a1 a2 i
+
+-- following "constant 0 db peak gain" recipe from audio eq cookbook
+bpf :: Sample -> Sample -> Sample -> W Sample
+bpf f0 q i = do
+  twoPiF0 <- product twoPi f0
+  w0 <- divisionUnsafe twoPiF0 sampleRate
+  cosW0 <- assignIfVariable $ unaryFunction' Number.cos "Math.cos" w0
+  -- onePlusCosW0 <- difference (Left 1.0) cosW0
+  sinW0 <- assignIfVariable $ unaryFunction' Number.sin "Math.sin" w0
+  alpha <- product (Left 2.0) q >>= divisionSafe sinW0
+  let b0 = alpha
+  let b1 = Left 0.0
+  b2 <- product (Left (-1.0)) alpha
+  a0 <- add (Left 1.0) alpha 
+  a1 <- product (Left (-2.0)) cosW0 
+  a2 <- difference (Left 1.0) alpha 
+  biquad b0 b1 b2 a0 a1 a2 i
+
 type Frame = Matrix Sample
 
 signalToFrame :: Signal -> W Frame
@@ -261,9 +294,19 @@ signalToFrame (LPF mm f0 q i) = do
   i' <- signalToFrame i
   sequence $ combine3 lpf mm f0' q' i'
 
+signalToFrame (HPF mm f0 q i) = do
+  f0' <- signalToFrame f0
+  q' <- signalToFrame q
+  i' <- signalToFrame i
+  sequence $ combine3 hpf mm f0' q' i'
+
+signalToFrame (BPF mm f0 q i) = do
+  f0' <- signalToFrame f0
+  q' <- signalToFrame q
+  i' <- signalToFrame i
+  sequence $ combine3 bpf mm f0' q' i'
+
 {-
-  HPF MultiMode Signal Signal Signal |
-  BPF MultiMode Signal Signal Signal |
   Delay Number Signal Signal
 -}
 
