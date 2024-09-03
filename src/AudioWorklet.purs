@@ -71,7 +71,7 @@ return [
 ];}
 
 """
-    constructor = "constructor() { super(); this.framesOut = 0; this.runTime = currentTime; this.m = new Float32Array(" <> show wState.allocation <> ").fill(0);}\n\n"
+    constructor = "constructor() { super(); this.framesOut = 0; this.runTime = currentTime; this.f = new Float32Array(" <> show wState.allocatedFloats <> ").fill(0); this.i = new Int32Array(" <> show wState.allocatedInts <> ").fill(0);}\n\n"
     innerLoopPrefix = """process(inputs,outputs,parameters) {
 const input = inputs[0];
 const output = outputs[0];
@@ -81,7 +81,8 @@ const originAudio = parameters.originAudio[0];
 const evalTimeAudio = parameters.evalTimeAudio[0];
 const fOutDur = parameters.fOutDur[0];
 const fOutEnd = parameters.fOutStart[0] == -1.0 ? -1.0 : parameters.fOutStart[0] + fOutDur;
-const m = this.m;
+const f = this.f;
+const i = this.i;
 for(let n=0; n<blockSize; n++){
 const t = currentTime + (n/sampleRate);
 const time = t - originAudio;
@@ -90,9 +91,9 @@ const eTime = t - evalTimeAudio;
 const eBeat = eTime * cps;
 const fOut = fOutEnd == -1.0 ? 1.0 : clamp(0,1,(fOutEnd-t)/fOutDur);
 """
-    fadeCalculations = "const fIn = clamp(0,1,(t-" <> show fInStart <> ")/" <> show fInDur <> ");\nconst f = Math.min(fIn,fOut);\n"
+    fadeCalculations = "const fIn = clamp(0,1,(t-" <> show fInStart <> ")/" <> show fInDur <> ");\nconst fade = Math.min(fIn,fOut);\n"
     outputIndices = range 0 (length frame - 1)
-    outputF i x = "output[" <> show i <> "][n] = " <> showSample x <> "*f*0.1;\n"
+    outputF i x = "output[" <> show i <> "][n] = " <> showSample x <> "*fade*0.1;\n"
     outputs = fold $ zipWith outputF outputIndices frame
     debug = ("// signal:" <> show s <> "\n") <> ("// frameMulti:" <> show frameMulti <> "\n") <> ("// frame:" <> show frame <> "\n")
     restOfClass = """}

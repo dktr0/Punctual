@@ -14,7 +14,7 @@ import Data.Maybe (Maybe(..))
 import Data.Unfoldable1 (iterateN,range)
 import Data.Number (acos, asin, atan, ceil, cos, exp, floor, log, pow, round, sign, sin, sqrt, tan, trunc) as Number
 import Data.Ord as Ord
-import Data.Int (toNumber)
+import Data.Int (toNumber,round)
 
 import NonEmptyList (zipWithEqualLength)
 import Signal (Signal(..))
@@ -26,7 +26,8 @@ import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh
 type W = State WState
 
 type WState = {
-  allocation :: Int,
+  allocatedFloats :: Int,
+  allocatedInts :: Int,
   code :: String,
   time :: Sample,
   beat :: Sample,
@@ -35,7 +36,7 @@ type WState = {
   }
 
 runW :: forall a. W a -> Tuple a WState
-runW x = runState x { allocation: 0, code: "", time: Right "time", beat: Right "beat", etime: Right "eTime", ebeat: Right "eBeat" }
+runW x = runState x { allocatedFloats: 0, allocatedInts: 0, code: "", time: Right "time", beat: Right "beat", etime: Right "eTime", ebeat: Right "eBeat" }
 
 type Sample = Either Number String -- lefts are precalculated constants, rights are either references to built-in constants or variables (eg. Math.PI) or to items from preallocated memory heap
 
@@ -45,19 +46,38 @@ showSample (Right x) = x
 
 assign :: String -> W Sample
 assign x = do
-  m <- allocate
-  write $ m <> "=" <> x <> ";\n"
-  pure $ Right m
+  f <- allocateFloat
+  write $ f <> "=" <> x <> ";\n"
+  pure $ Right f
+
+assignInt :: String -> W String
+assignInt x = do
+  i <- allocateInt
+  write $ i <> "=" <> x <> ";\n"
+  pure i
 
 assignIfVariable :: Sample -> W Sample
 assignIfVariable (Left x) = pure $ Left x
 assignIfVariable (Right x) = assign x
 
-allocate :: W String
-allocate = do
+allocateFloat :: W String
+allocateFloat = do
   s <- get
-  put $ s { allocation = s.allocation + 1 }
-  pure $ "m[" <> show s.allocation <> "]"
+  put $ s { allocatedFloats = s.allocatedFloats + 1 }
+  pure $ "f[" <> show s.allocatedFloats <> "]"
+
+allocateFloats :: Int -> W Int
+allocateFloats n = do
+  s <- get
+  put $ s { allocatedFloats = s.allocatedFloats + n }
+  pure s.allocatedFloats
+
+allocateInt :: W String
+allocateInt = do
+  s <- get
+  put $ s { allocatedInts = s.allocatedInts + 1 }
+  pure $ "i[" <> show s.allocatedInts <> "]"
+
   
 write :: String -> W Unit
 write x = modify_ $ \s -> s { code = s.code <> x } 
@@ -66,20 +86,20 @@ write x = modify_ $ \s -> s { code = s.code <> x }
 ssd :: Sample -> W Sample
 ssd (Left i) = pure $ Left i 
 ssd (Right i) = do
-  x0 <- allocate
-  x1 <- allocate
+  x0 <- allocateFloat
+  x1 <- allocateFloat
   write $ x1 <> "=" <> x0 <> ";\n" 
   write $ x0 <> "=" <> i <> ";\n"
   pure $ Right x1
 
 biquad :: Sample -> Sample -> Sample -> Sample -> Sample -> Sample -> Sample -> W Sample
 biquad b0 b1 b2 a0 a1 a2 i = do
-  x0 <- allocate
-  x1 <- allocate
-  x2 <- allocate
-  y0 <- allocate
-  y1 <- allocate
-  y2 <- allocate
+  x0 <- allocateFloat
+  x1 <- allocateFloat
+  x2 <- allocateFloat
+  y0 <- allocateFloat
+  y1 <- allocateFloat
+  y2 <- allocateFloat
   write $ x2 <> "=" <> x1 <> ";\n" 
   write $ x1 <> "=" <> x0 <> ";\n"
   write $ x0 <> "=" <> showSample i <> ";\n"
@@ -147,6 +167,24 @@ bpf f0 q i = do
   a1 <- product (Left (-2.0)) cosW0 
   a2 <- difference (Left 1.0) alpha 
   biquad b0 b1 b2 a0 a1 a2 i
+
+delay :: Number -> Sample -> Sample -> W Sample
+delay maxT t x = do
+  let maxSamples = round $ maxT * 48000.0 -- PLACEHOLDER (hard-coded sample rate at "initialization" time)
+  bufferStart <- allocateFloats maxSamples
+  -- write input into buffer
+  inputPointer <- allocateInt
+  write $ "f[" <> show bufferStart <> "+" <> inputPointer <> "]=" <> showSample x <> ";\n"
+  -- read output from buffer
+  currentSamplesF <- product t sampleRate
+  currentSamples <- assignInt $ "Math.round(" <> showSample currentSamplesF <> ")"
+  outputPointer <- assignInt $ inputPointer <> "-" <> currentSamples
+  write $ outputPointer <> "=" <> outputPointer <> ">=0?(" <> show bufferStart <> "+" <> outputPointer <> "):(" <> show bufferStart <> "+" <> show maxSamples <> "+" <> outputPointer <> ");\n"
+  y <- assign $ "f[" <> outputPointer <> "]"
+  -- advance input pointer
+  write $ inputPointer <> "=(" <> inputPointer <> "+1)%" <> show maxSamples <> ";\n"
+  pure y
+
 
 type Frame = Matrix Sample
 
@@ -306,9 +344,10 @@ signalToFrame (BPF mm f0 q i) = do
   i' <- signalToFrame i
   sequence $ combine3 bpf mm f0' q' i'
 
-{-
-  Delay Number Signal Signal
--}
+signalToFrame (Delay maxT t x) = do
+  t' <- signalToFrame t
+  x' <- signalToFrame x
+  sequence $ combine (delay maxT) Combinatorial t' x'
 
 signalToFrame _ = pure $ pure $ Left 0.0
 
