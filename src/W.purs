@@ -238,7 +238,10 @@ signalToFrame (Osc f) = signalToFrame f >>= traverse osc
 -- Tri Signal
 -- Saw Signal
 -- Sqr Signal
--- LFTri Signal
+
+signalToFrame (LFTri f) = do
+  xs <- signalToFrame f >>= traverse phasor
+  traverse (\x -> assign $ showSample x <> "<0.5?(" <> showSample x <> "*4-1):(" <> showSample x <> "*(-4)+3)") xs
 
 signalToFrame (LFSaw f) = signalToFrame f >>= traverse phasor >>= traverse bipolar
 
