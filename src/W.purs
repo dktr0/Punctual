@@ -170,7 +170,7 @@ bpf f0 q i = do
 
 delay :: Number -> Sample -> Sample -> W Sample
 delay maxT t x = do
-  let maxSamples = round $ maxT * 48000.0 -- PLACEHOLDER (hard-coded sample rate at "initialization" time)
+  let maxSamples = round $ maxT * 48000.0 -- TODO remove PLACEHOLDER (hard-coded sample rate at "initialization" time)
   bufferStart <- allocateFloats maxSamples
   -- write input into buffer
   inputPointer <- allocateInt
@@ -185,6 +185,13 @@ delay maxT t x = do
   write $ inputPointer <> "=(" <> inputPointer <> "+1)%" <> show maxSamples <> ";\n"
   pure y
 
+phasor :: Sample -> W Sample
+phasor f = do
+  inc <- divisionUnsafe f sampleRate
+  y <- allocateFloat
+  write $ y <> "=(" <> y <> "+" <> showSample inc <> ")%1;\n"
+  pure $ Right y
+  
 
 type Frame = Matrix Sample
 
@@ -226,14 +233,18 @@ signalToFrame (AIn n o) = do
 
 signalToFrame (Bipolar x) = signalToFrame x >>= traverse bipolar
 signalToFrame (Unipolar x) = signalToFrame x >>= traverse unipolar
-signalToFrame (Osc f) = signalToFrame f >>= traverse osc
 
+signalToFrame (Osc f) = signalToFrame f >>= traverse osc
 -- Tri Signal
 -- Saw Signal
 -- Sqr Signal
 -- LFTri Signal
--- LFSaw Signal
--- LFSqr Signal
+
+signalToFrame (LFSaw f) = signalToFrame f >>= traverse phasor >>= traverse bipolar
+
+signalToFrame (LFSqr f) = do
+  xs <- signalToFrame f >>= traverse phasor
+  traverse (\x -> assign $ showSample x <> ">=0.5?1:-1") xs
 
 signalToFrame (Abs x) = signalToFrame x >>= traverse abs
 signalToFrame (Acos x) = unaryFunction Number.acos "Math.acos" x
