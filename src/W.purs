@@ -192,6 +192,22 @@ phasor f = do
   write $ y <> "=(" <> y <> "+" <> showSample inc <> ")%1;\n"
   pure $ Right y
   
+-- linearly interpolated wavetable lookup
+wavetable :: String -> Int -> Sample -> W Sample
+wavetable tableName tableLength phase = do
+  nIdeal <- product phase (Left $ toNumber tableLength)
+  n0 <- assign $ "Math.floor(" <> showSample nIdeal <> ")"
+  n1 <- add n0 (Left 1.0)
+  weight0 <- difference n1 nIdeal
+  weight1 <- difference nIdeal n0
+  lookup0 <- assign $ tableName <> "[" <> showSample n0 <> "]"
+  lookup1 <- assign $ tableName <> "[" <> showSample n1 <> "%" <> show tableLength <> "]"
+  y0' <- product lookup0 weight0
+  y1' <- product lookup1 weight1
+  add y0' y1'
+
+wavetableTest :: Sample -> W Sample
+wavetableTest f = phasor f >>= wavetable "wavetableTest" 1024
 
 type Frame = Matrix Sample
 
@@ -236,7 +252,7 @@ signalToFrame (Unipolar x) = signalToFrame x >>= traverse unipolar
 
 signalToFrame (Osc f) = signalToFrame f >>= traverse osc
 -- Tri Signal
--- Saw Signal
+signalToFrame (Saw f) = signalToFrame f >>= traverse wavetableTest -- PLACEHOLDER: obviously not the right wavetable...
 -- Sqr Signal
 
 signalToFrame (LFTri f) = do
