@@ -206,8 +206,8 @@ wavetable tableName tableLength phase = do
   y1' <- product lookup1 weight1
   add y0' y1'
 
-wavetableTest :: Sample -> W Sample
-wavetableTest f = phasor f >>= wavetable "wavetableTest" 1024
+saw :: Sample -> W Sample
+saw f = phasor f >>= wavetable "saw" 4096
 
 type Frame = Matrix Sample
 
@@ -252,7 +252,7 @@ signalToFrame (Unipolar x) = signalToFrame x >>= traverse unipolar
 
 signalToFrame (Osc f) = signalToFrame f >>= traverse osc
 -- Tri Signal
-signalToFrame (Saw f) = signalToFrame f >>= traverse wavetableTest -- PLACEHOLDER: obviously not the right wavetable...
+signalToFrame (Saw f) = signalToFrame f >>= traverse saw
 -- Sqr Signal
 
 signalToFrame (LFTri f) = do
