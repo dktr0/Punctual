@@ -209,6 +209,12 @@ wavetable tableName tableLength phase = do
 saw :: Sample -> W Sample
 saw f = phasor f >>= wavetable "saw" 4096
 
+sqr :: Sample -> W Sample
+sqr f = phasor f >>= wavetable "sqr" 4096
+
+tri :: Sample -> W Sample
+tri f = phasor f >>= wavetable "tri" 4096
+
 type Frame = Matrix Sample
 
 signalToFrame :: Signal -> W Frame
@@ -251,9 +257,9 @@ signalToFrame (Bipolar x) = signalToFrame x >>= traverse bipolar
 signalToFrame (Unipolar x) = signalToFrame x >>= traverse unipolar
 
 signalToFrame (Osc f) = signalToFrame f >>= traverse osc
--- Tri Signal
+signalToFrame (Tri f) = signalToFrame f >>= traverse tri
 signalToFrame (Saw f) = signalToFrame f >>= traverse saw
--- Sqr Signal
+signalToFrame (Sqr f) = signalToFrame f >>= traverse sqr
 
 signalToFrame (LFTri f) = do
   xs <- signalToFrame f >>= traverse phasor

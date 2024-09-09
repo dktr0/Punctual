@@ -60,10 +60,29 @@ function clamp(min,max,x) { return Math.max(Math.min(max,x),min); }
 function ain(input,n) { return (n >= input.length ? 0.0 : input[n]); }
 function genSaw() {
   var r = new Float32Array(4096).fill(0.5);
-  for(var k=1;k<=84;k++) { -- with 84 harmonics, highest harmonic of middle C is just below 22050 Hz
+  for(var k=1;k<=84;k++) { // with 84 harmonics, highest harmonic of middle C is just below 22050 Hz
     var x = Math.pow(-1,k);
     for(var t=0;t<4096;t++) {
       r[t] -= Math.sin(Math.PI * 2.0 * k * t / 4096) * x / (k * Math.PI);
+    }
+  }
+  return r;
+}
+function genSqr() {
+  var r = new Float32Array(4096).fill(0.5);
+  for(var k=1;k<=83;k+=2) { // with 84 harmonics, highest harmonic of middle C is just below 22050 Hz
+    for(var t=0;t<4096;t++) {
+      r[t] += Math.sin(Math.PI * 2.0 * k * t / 4096) * 4 / (k * Math.PI);
+    }
+  }
+  return r;
+}
+function genTri() {
+  var r = new Float32Array(4096).fill(0.5);
+  for(var k=1;k<=83;k+=2) { // with 84 harmonics, highest harmonic of middle C is just below 22050 Hz
+    var x = Math.pow(-1,(k-1)*0.5);
+    for(var t=0;t<4096;t++) {
+      r[t] += Math.sin(Math.PI * 2.0 * k * t / 4096) * 8 * x / (k * k * Math.PI * Math.PI);
     }
   }
   return r;
@@ -81,7 +100,7 @@ return [
 ];}
 
 """
-    constructor = "constructor() { super(); this.saw = genSaw(); this.framesOut = 0; this.runTime = currentTime; this.f = new Float32Array(" <> show wState.allocatedFloats <> ").fill(0); this.i = new Int32Array(" <> show wState.allocatedInts <> ").fill(0);}\n\n"
+    constructor = "constructor() { super(); this.saw=genSaw(); this.sqr=genSqr(); this.tri=genTri(); this.framesOut=0; this.runTime=currentTime; this.f=new Float32Array(" <> show wState.allocatedFloats <> ").fill(0); this.i=new Int32Array(" <> show wState.allocatedInts <> ").fill(0);}\n\n"
     innerLoopPrefix = """process(inputs,outputs,parameters) {
 const input = inputs[0];
 const output = outputs[0];
@@ -101,6 +120,8 @@ const eTime = t - evalTimeAudio;
 const eBeat = eTime * cps;
 const fOut = fOutEnd == -1.0 ? 1.0 : clamp(0,1,(fOutEnd-t)/fOutDur);
 const saw = this.saw;
+const sqr = this.sqr;
+const tri = this.tri;
 """
     fadeCalculations = "const fIn = clamp(0,1,(t-" <> show fInStart <> ")/" <> show fInDur <> ");\nconst fade = Math.min(fIn,fOut);\n"
     outputIndices = range 0 (length frame - 1)
