@@ -35,12 +35,54 @@ signalToExprs :: forall a. Expr a => Signal -> G (Matrix a)
 
 signalToExprs (Constant x) = pure $ exprToExprs $ FloatConstant x
 
+{-
+in the degenerate circle example
+signalToExprs (SignalList xs) is called with Matrix Vec2 as the return type
+xs' is SignalList [0,0.3,0.6] : Constant 0.0
+
+  so that leads to a nested call to signalToExprs (SignalList [0,0.3,0.6]) with Matrix Float as the return type
+  xs' is Constant 0 : Constant 0.3 : Constant 0.6
+  traverse signalToExprs xs is NonEmptyList (Matrix Float)  [ Constant 0 as Matrix Float, Constant 0.3 as Matrix Float, Constant 0.6 as Matrix Float  ]
+  fromNonEmptyListMulti is applied to that...
+  so each Matrix Float is flattened to a NonEmptyList, 
+  so map flatten xs is [ Constant 0 as NonEmptyList Float, Constant 0.3 as NonEmptyList Float, Constant 0.6 as NonEmptyList Float ]
+  multi is called on that which gives us back [ [Constant 0, Constant 0.3, Constant 0.6] ]
+  and wrapping that in Matrix makes sense - it represents on possibility which has within it 3 values
+
+  and a nested called to signalToExprs (Constant 0) with Matrix Float
+  which obviously gives us back a singleton Matrix Float
+
+  now we call mapRows on this how does that make sense at all????
+
+
+  and then when that is a Matrix now we have three rows of one column instead of one column of three rows (an invalid matrix)
+
+
+fromNonEmptyListMulti xs = Matrix $ multi $ map flatten xs -- NonEmptyList (NonEmptyList a)
+-}
+
+
 signalToExprs (SignalList xs) =
   case fromList xs of
     Nothing -> pure $ exprToExprs $ FloatConstant 0.0
     Just xs' -> do
-      xs'' <- fromNonEmptyListMulti <$> traverse signalToExprs xs' -- :: Matrix Float, with list already combinatorially expanded
-      pure $ mapRows fromFloats xs''
+      case length xs' of
+        1 -> signalToExprs (head xs')
+        _ -> do
+
+{-
+          -- there's more than one item in the list
+          -- the number of (outer) items in the list represents the columns, which might or might not mismatch the request type (eg. 2 columns but Vec3 type)
+          -- note: in the case of seq we realize as float so there is never a mismatch when seq then calls signallist.
+          traverse signalToExprs xs' -- NonEmptyList (Matrix ?)
+
+[a,b,c] realized as Float is [[float a,float b,float c]] 1 row of 3 columns
+d or [d] realized as Float is [[float d]] singleton
+[[a,b,c],d] realized as Vec3 ... how many rows and columns?
+
+-}
+          xs'' <- fromNonEmptyListMulti <$> traverse signalToExprs xs' -- :: Matrix Float, with list already combinatorially expanded
+          pure $ mapRows fromFloats xs''
 
 signalToExprs (Append x y) = do
   xs <- flatten <$> (signalToExprs x :: G (Matrix Float))
@@ -622,13 +664,13 @@ appendActions tempo eTime mPrevOutput (Tuple mPrevAction (Just newAction)) = do
 appendSignals :: Output -> Number -> Number -> Maybe Vec4 -> Maybe Signal -> Signal -> G (Maybe Vec4)
 
 appendSignals Output.Blend t0 t1 mPrevOutput mPrevSignal newSignal = do
-  newRGBAs <- flatten <$> signalToExprs newSignal
+  newRGBAs <- temp1 newSignal
   rgbas <- case mPrevSignal of
            Just prevSignal -> do
              case prevSignal == newSignal of
                true -> traverse assign newRGBAs
                false -> do
-                 prevRGBAs <- flatten <$> signalToExprs prevSignal
+                 prevRGBAs <- temp1 prevSignal
                  crossFadeRGBAsBlend t0 t1 prevRGBAs newRGBAs
            Nothing -> do
              fIn <- assign $ fadeIn t0 t1
@@ -638,25 +680,25 @@ appendSignals Output.Blend t0 t1 mPrevOutput mPrevSignal newSignal = do
     Just prevOutput -> Just <$> foldM (\x y -> assign $ blend x y) prevOutput rgbas
 
 appendSignals Output.RGBA t0 t1 _ mPrevSignal newSignal = do
-  newRGBA <- (last <<< flatten) <$> signalToExprs newSignal
+  newRGBA <- temp2 newSignal
   case mPrevSignal of
     Just prevSignal -> do
       case prevSignal == newSignal of
         true -> Just <$> assign newRGBA
         false -> do
-          prevRGBA <- (last <<< flatten) <$> signalToExprs prevSignal
+          prevRGBA <- temp2 prevSignal
           fIn <- assign $ fadeIn t0 t1
           Just <$> (assign $ mixFloat prevRGBA newRGBA fIn)
     Nothing -> Just <$> assign newRGBA
 
 appendSignals Output.Add t0 t1 mPrevOutput mPrevSignal newSignal = do
-  newRGBs <- flatten <$> signalToExprs newSignal
+  newRGBs <- temp1 newSignal
   rgbs <- case mPrevSignal of
     Just prevSignal -> do
       case prevSignal == newSignal of
         true -> traverse assign newRGBs
         false -> do
-          prevRGBs <- flatten <$> signalToExprs prevSignal
+          prevRGBs <- temp1 prevSignal
           crossFadeRGBsAdd t0 t1 prevRGBs newRGBs
     Nothing -> do
       fIn <- assign $ fadeIn t0 t1
@@ -666,13 +708,13 @@ appendSignals Output.Add t0 t1 mPrevOutput mPrevSignal newSignal = do
     Just prevOutput -> (Just <<< flip vec3FloatToVec4 (constant 1.0)) <$> foldM (\x y -> assign $ add x y) (swizzleXYZ prevOutput) rgbs
 
 appendSignals Output.Mul t0 t1 mPrevOutput mPrevSignal newSignal = do
-  newRGBs <- flatten <$> signalToExprs newSignal
+  newRGBs <- temp1 newSignal
   rgbs <- case mPrevSignal of
     Just prevSignal -> do
       case prevSignal == newSignal of
         true -> traverse assign newRGBs
         false -> do
-          prevRGBs <- flatten <$> signalToExprs prevSignal
+          prevRGBs <- temp1 prevSignal
           crossFadeRGBsMul t0 t1 prevRGBs newRGBs
     Nothing -> do
       fIn <- assign $ fadeIn t0 t1
@@ -682,18 +724,25 @@ appendSignals Output.Mul t0 t1 mPrevOutput mPrevSignal newSignal = do
     Just prevOutput -> (Just <<< flip vec3FloatToVec4 (constant 1.0)) <$> foldM (\x y -> assign $ product x y) (swizzleXYZ prevOutput) rgbs
 
 appendSignals Output.RGB t0 t1 _ mPrevSignal newSignal = do
-  newRGB <- (last <<< flatten) <$> signalToExprs newSignal
+  newRGB <- temp2 newSignal
   case mPrevSignal of
     Just prevSignal -> do
       case prevSignal == newSignal of
         true -> Just <$> assign (vec3FloatToVec4 newRGB (constant 1.0))
         false -> do
-          prevRGB <- (last <<< flatten) <$> signalToExprs prevSignal
+          prevRGB <- temp2 prevSignal
           fIn <- assign $ fadeIn t0 t1
           Just <$> (assign $ vec3FloatToVec4 (mixFloat prevRGB newRGB fIn) (constant 1.0))
     Nothing -> Just <$> assign (vec3FloatToVec4 newRGB (constant 1.0))
 
 appendSignals _ _ _ mPrevOutput _ _ = pure mPrevOutput
+
+
+temp1 :: forall a. Expr a => Signal -> G (NonEmptyList a)
+temp1 x = castExprs <$> flatten <$> (signalToExprs x :: G (Matrix Float))
+
+temp2 :: forall a. Expr a => Signal -> G a
+temp2 x = last <$> castExprs <$> flatten <$> (signalToExprs x :: G (Matrix Float))
 
 
 crossFadeRGBAsBlend :: Number -> Number -> NonEmptyList Vec4 -> NonEmptyList Vec4 -> G (NonEmptyList Vec4)
