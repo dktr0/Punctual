@@ -10,10 +10,15 @@
 
   <script type="module">
   import * as P from "./punctual.js";
+  window.footer = true;
+  window.info = false;
   window.doLaunch = function () {
     var cvs = document.getElementById('canvas');
     window.punctual = new P.Punctual();
+    window.timeOfLastFPSUpdate = Date.now()/1000.0;
+    window.framesSinceFPSUpdate = 0;
     window.requestAnimationFrame(animate);
+    setTimeout(updateFPS,1020);
   }
   function animate() {
     window.requestAnimationFrame(animate);
@@ -21,13 +26,26 @@
     window.punctual.preRender({canDraw: true, nowTime: now});
     window.punctual.render({canDraw: true, zone:0, nowTime: now});
     window.punctual.postRender({canDraw: true, nowTime: now});
+    window.framesSinceFPSUpdate += 1;
+  }
+  function updateFPS() {
+    var now = Date.now()/1000.0;
+    var elapsed = now - window.timeOfLastFPSUpdate;
+    var fps = Math.round(window.framesSinceFPSUpdate/elapsed);
+    document.getElementById('fps').textContent = fps.toString() + " FPS";
+    setTimeout(updateFPS,1020);
   }
   window.doEval = function () {
     var t = document.getElementById("editorArea").value;
-    window.punctual.define({zone:0,text:t,time: Date.now()/1000.0}).then( r => {
-      console.log(r);
-      document.getElementById('errors').textContent = r.error;
-      });
+    window.punctual.define({zone:0,text:t,time: Date.now()/1000.0})
+    .then( r => {
+      document.getElementById('info').textContent = r.info;
+      document.getElementById('errors').textContent = "";
+    })
+    .catch( e => {
+      var eString = e.toString();
+      document.getElementById('errors').textContent = eString;
+    });
   }
   window.addEventListener('keydown', function (e) {
     e = e || window.event;
@@ -35,6 +53,15 @@
       e.preventDefault();
       window.doEval();
     }
+    if(e.ctrlKey && e.shiftKey && e.key=="F") {
+      window.footer = !window.footer;
+      document.getElementById('status').hidden = !window.footer;
+    }
+    if(e.ctrlKey && e.shiftKey && e.key=="Q") {
+      window.info = !window.info;
+      document.getElementById('info').hidden = !window.info;
+    }
+
   });
   </script>
 
@@ -56,9 +83,10 @@ a << fit 1 $ ls * col * mask;
 gate 0.1 (maxp a (fb * 0.98)) >> add <> 5
 </textarea>
     </div>
-    <div class="status">
-      <!-- <button onClick="doEval()">eval</button> -->
-      <span id="errors"></span>
+    <pre class="info" id="info" hidden="true"></pre>
+    <div class="status" id="status">
+      <div class="errors" id="errors"></div>
+      <div class="fps" id="fps">-- FPS</div>
     </div>
   </div>
 </body>

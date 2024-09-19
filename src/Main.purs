@@ -16,6 +16,8 @@ import Data.Newtype (unwrap)
 import Control.Promise (fromAff,Promise)
 import Effect.Class.Console (log)
 import Effect.Class (liftEffect)
+import Control.Monad.Error.Class (throwError)
+import Effect.Exception (error)
 
 import Signal (SignalInfo,emptySignalInfo)
 import Program (Program,emptyProgram,programHasVisualOutput,programHasAudioOutput,programInfo)
@@ -52,21 +54,23 @@ launch = do
   pure { sharedResources, programs, previousPrograms, programInfos, previousProgramInfos, combinedProgramInfo, webGLs, audioZones }
 
 
-define :: Punctual -> { zone :: Int, time :: Number, text :: String } -> Effect (Promise { success :: Boolean, info :: String, error :: String })
+define :: Punctual -> { zone :: Int, time :: Number, text :: String } -> Effect (Promise { info :: String })
 define punctual args = fromAff $ do
-  log $ "define: " <> show args
+  -- log $ "define: " <> show args
   t0 <- liftEffect $ nowDateTime
   pr <- parseProgram punctual.sharedResources.libraries args.text (numberToDateTime args.time)
   t1 <- liftEffect $ nowDateTime
-  log $ " parse time = " <> show (diff t1 t0 :: Milliseconds)
+  -- log $ " parse time = " <> show (diff t1 t0 :: Milliseconds)
   case pr of
     Left err -> do
-      log $ "error: " <> show err
-      pure { success: false, info: "", error: show err }
-    Right newProgram -> liftEffect $ _newProgramInZone punctual args.zone newProgram
+      let eString = show err
+      throwError $ error eString
+    Right newProgram -> do
+      info <- liftEffect $ _newProgramInZone punctual args.zone newProgram
+      pure { info }
 
     
-_newProgramInZone :: Punctual -> Int -> Program -> Effect { success :: Boolean, info :: String, error :: String }
+_newProgramInZone :: Punctual -> Int -> Program -> Effect String
 _newProgramInZone punctual zone newProgram = do
   programs <- read punctual.programs
   previousPrograms <- read punctual.previousPrograms
@@ -99,14 +103,14 @@ _newProgramInZone punctual zone newProgram = do
   case programHasAudioOutput newProgram of
     true -> updateAudioForZone punctual zone newProgram
     false -> deleteAudioForZone punctual zone
-  pure { success: true, info, error: "" }
+  pure info
       
 _updateCombinedProgramInfo :: Punctual -> Effect Unit
 _updateCombinedProgramInfo punctual = do
   programsInfo <- fold <$> read punctual.programInfos
   previousProgramsInfo <- fold <$> read punctual.previousProgramInfos
   let combinedInfo = programsInfo <> previousProgramsInfo
-  log $ "_updateCombinedProgramInfo: " <> show combinedInfo
+  -- log $ "_updateCombinedProgramInfo: " <> show combinedInfo
   write combinedInfo punctual.combinedProgramInfo
         
 clear :: Punctual -> { zone :: Int } -> Effect Unit

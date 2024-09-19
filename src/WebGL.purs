@@ -100,7 +100,7 @@ updateFragmentShader glc tempo imgMap vidMap oldProg newProg = do
   t0 <- nowDateTime
   let shaderSrc = fragmentShader glc.webGL2 tempo imgMap vidMap oldProg newProg
   t1 <- nowDateTime
-  log $ " GLSL transpile time = " <> show (diff t1 t0 :: Milliseconds)
+  -- log $ " GLSL transpile time = " <> show (diff t1 t0 :: Milliseconds)
   glProg <- createProgram glc
   vShader <- createVertexShader glc
   attachShader glc glProg vShader
@@ -116,16 +116,14 @@ updateFragmentShader glc tempo imgMap vidMap oldProg newProg = do
   linkProgram glc glProg
   flush glc
   
-  -- WORKING HERE 
-  vsStatus <- getShaderParameterCompileStatus glc vShader
-  vsLog <- getShaderInfoLog glc vShader
-  log $ " vertex shader status=" <> show vsStatus <> " log: " <> vsLog
-  fsStatus <- getShaderParameterCompileStatus glc fShader
-  fsLog <- getShaderInfoLog glc fShader
-  log $ " fragment shader status=" <> show fsStatus <> " log: " <> fsLog
-  pLog <- getProgramInfoLog glc glProg
-  log $ " program log: " <> pLog
-  --
+  -- vsStatus <- getShaderParameterCompileStatus glc vShader
+  -- vsLog <- getShaderInfoLog glc vShader
+  -- log $ " vertex shader status=" <> show vsStatus <> " log: " <> vsLog
+  -- fsStatus <- getShaderParameterCompileStatus glc fShader
+  -- fsLog <- getShaderInfoLog glc fShader
+  -- log $ " fragment shader status=" <> show fsStatus <> " log: " <> fsLog
+  -- pLog <- getProgramInfoLog glc glProg
+  -- log $ " program log: " <> pLog
   
   pure $ Tuple shaderSrc glProg
 
