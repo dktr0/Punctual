@@ -16,7 +16,7 @@ import Channels
 
 data Signal =
   Constant Number |
-  SignalList (List Signal) |
+  SignalList MultiMode (List Signal) |
   Append Signal Signal |
   Zip Signal Signal |
   Mono Signal |
@@ -135,7 +135,7 @@ when x y = Mix (Constant 0.0) y x
 -}
 
 modulatedRangeLowHigh :: Signal -> Signal -> Signal -> Signal
-modulatedRangeLowHigh low high x = LinLin Combinatorial (SignalList $ Constant (-1.0):Constant 1.0:Nil) (SignalList $ low:high:Nil) x
+modulatedRangeLowHigh low high x = LinLin Combinatorial (SignalList Combinatorial $ Constant (-1.0):Constant 1.0:Nil) (SignalList Combinatorial $ low:high:Nil) x
 
 modulatedRangePlusMinus :: Signal -> Signal -> Signal -> Signal
 modulatedRangePlusMinus a b = modulatedRangeLowHigh low high
@@ -147,15 +147,15 @@ fit :: Signal -> Signal -> Signal
 fit ar x = ZoomXy z x
   where
     cond = GreaterThanEqual Combinatorial Aspect ar
-    ifTrue = SignalList $ Division Pairwise ar Aspect : Constant 1.0 : Nil
-    ifFalse = SignalList $ Division Pairwise ar Aspect : Constant 1.0 : Nil
+    ifTrue = SignalList Combinatorial $ Division Pairwise ar Aspect : Constant 1.0 : Nil
+    ifFalse = SignalList Combinatorial $ Division Pairwise ar Aspect : Constant 1.0 : Nil
     z = Mix Combinatorial ifFalse ifTrue cond
 
 {-
 fit ar x = Mix Pairwise ifFalse ifTrue cond
   where
     cond = GreaterThanEqual Combinatorial Aspect ar
-    ifTrue = Zoom (SignalList $ Division Pairwise ar Aspect : Constant 1.0 : Nil) x
+    ifTrue = Zoom (SignalList Combinatorial $ Division Pairwise ar Aspect : Constant 1.0 : Nil) x
     ifFalse = Zoom (c) x
 -}
 
@@ -214,7 +214,7 @@ signalInfo x = foldMap signalInfo $ subSignals x
 -- given a Signal return the list of the component Signals it is dependent on
 -- for example, Add x y is dependent on x and y, Bipolar x is dependent on x
 subSignals :: Signal -> List Signal
-subSignals (SignalList xs) = xs
+subSignals (SignalList _ xs) = xs
 subSignals (Append x y) = x:y:Nil
 subSignals (Zip x y) = x:y:Nil
 subSignals (Mono x) = x:Nil
@@ -326,10 +326,14 @@ subSignals _ = Nil
 
 -- determine the dimensions of a Signal according to Punctual's multichannel matrix semantics
 dimensions :: Signal -> { rows :: Int, columns :: Int }
-dimensions (SignalList xs) = 
+dimensions (SignalList Combinatorial xs) = 
   case fromList xs of
     Nothing -> { rows: 1, columns: 1 }
     Just xs' -> { rows: foldl1 (*) $ map channels xs', columns: length xs' }
+dimensions (SignalList Pairwise xs) = 
+  case fromList xs of
+    Nothing -> { rows: 1, columns: 1 }
+    Just xs' -> { rows: foldl1 max $ map channels xs', columns: length xs' }
 dimensions (Append x y) = { rows: 1, columns: channels x + channels y }
 dimensions (Zip x y) = { rows: 1, columns: nPer 2 2 (channels x) + nPer 2 2 (channels y) }
 dimensions (Rep n x) = { rows: n, columns: channels x }

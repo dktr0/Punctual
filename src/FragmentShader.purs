@@ -16,7 +16,7 @@ import Data.DateTime (DateTime)
 import Data.Number (round, trunc) as Number
 import Data.List as List
 
-import NonEmptyList (zipWithEqualLength,everyPair,everyAdjacentPair)
+import NonEmptyList (zipWithEqualLength,everyPair,everyAdjacentPair,pairwise)
 import MultiMode (MultiMode(..))
 import Signal (Signal(..))
 import Action (Action,actionTimesAsSecondsSinceEval)
@@ -25,7 +25,7 @@ import Output as Output
 import Program (Program)
 import Expr (class Expr, Float(..), Vec2(..), Vec3, Vec4, abs, acos, add, ampdb, asin, atan, between, bipolar, blend, castExprs, cbrt, ceil, circle, clip, constant, cos, cpsmidi, dbamp, difference, distance, division, divisionExprFloat, dotSum, equal, exp, expr, fadeIn, fadeOut, floatFloatToVec2, floor, fract, fromFloat, fromFloats, fromVec2s, function1, gate, greaterThan, greaterThanEqual, hline, hsvrgb, iline, lessThan, lessThanEqual, line, linlin, log, log10, log2, max, midicps, min, mix, mixFloat, mod, notEqual, pi, point, pow, product, productExprFloat, productFloatExpr, prox, pxy, rgbaFade, rgbhsv, rtx, rtxy, rty, seq, setX, setY, sign, sin, smoothStep, sqrt, sum, swizzleW, swizzleX, swizzleXY, swizzleXYZ, swizzleY, swizzleZ, swizzleZW, tan, tile, toExpr, unaryFunction, unipolar, vec3FloatToVec4, vline, xyr, xyrt, xyt, zero)
 import G (G, assign, runG, texture2D, textureFFT, withAlteredTime, withFxys)
-import Matrix (Matrix,fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3,semiFlatten)
+import Matrix (Matrix(..),fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3,semiFlatten)
 import Number (acosh, asinh, atanh, cosh, sinh, tanh) as Number
 
 exprToExprs :: forall a b. Expr a => Expr b => a -> Matrix b
@@ -35,54 +35,25 @@ signalToExprs :: forall a. Expr a => Signal -> G (Matrix a)
 
 signalToExprs (Constant x) = pure $ exprToExprs $ FloatConstant x
 
-{-
-in the degenerate circle example
-signalToExprs (SignalList xs) is called with Matrix Vec2 as the return type
-xs' is SignalList [0,0.3,0.6] : Constant 0.0
-
-  so that leads to a nested call to signalToExprs (SignalList [0,0.3,0.6]) with Matrix Float as the return type
-  xs' is Constant 0 : Constant 0.3 : Constant 0.6
-  traverse signalToExprs xs is NonEmptyList (Matrix Float)  [ Constant 0 as Matrix Float, Constant 0.3 as Matrix Float, Constant 0.6 as Matrix Float  ]
-  fromNonEmptyListMulti is applied to that...
-  so each Matrix Float is flattened to a NonEmptyList, 
-  so map flatten xs is [ Constant 0 as NonEmptyList Float, Constant 0.3 as NonEmptyList Float, Constant 0.6 as NonEmptyList Float ]
-  multi is called on that which gives us back [ [Constant 0, Constant 0.3, Constant 0.6] ]
-  and wrapping that in Matrix makes sense - it represents on possibility which has within it 3 values
-
-  and a nested called to signalToExprs (Constant 0) with Matrix Float
-  which obviously gives us back a singleton Matrix Float
-
-  now we call mapRows on this how does that make sense at all????
-
-
-  and then when that is a Matrix now we have three rows of one column instead of one column of three rows (an invalid matrix)
-
-
-fromNonEmptyListMulti xs = Matrix $ multi $ map flatten xs -- NonEmptyList (NonEmptyList a)
--}
-
-
-signalToExprs (SignalList xs) =
+signalToExprs (SignalList Combinatorial xs) =
   case fromList xs of
     Nothing -> pure $ exprToExprs $ FloatConstant 0.0
     Just xs' -> do
       case length xs' of
         1 -> signalToExprs (head xs')
         _ -> do
-
-{-
-          -- there's more than one item in the list
-          -- the number of (outer) items in the list represents the columns, which might or might not mismatch the request type (eg. 2 columns but Vec3 type)
-          -- note: in the case of seq we realize as float so there is never a mismatch when seq then calls signallist.
-          traverse signalToExprs xs' -- NonEmptyList (Matrix ?)
-
-[a,b,c] realized as Float is [[float a,float b,float c]] 1 row of 3 columns
-d or [d] realized as Float is [[float d]] singleton
-[[a,b,c],d] realized as Vec3 ... how many rows and columns?
-
--}
           xs'' <- fromNonEmptyListMulti <$> traverse signalToExprs xs' -- :: Matrix Float, with list already combinatorially expanded
           pure $ mapRows fromFloats xs''
+
+signalToExprs (SignalList Pairwise xs) = 
+  case fromList xs of
+    Nothing -> pure $ exprToExprs $ FloatConstant 0.0
+    Just xs' -> do
+      case length xs' of
+        1 -> signalToExprs (head xs')
+        _ -> do
+          xs'' <- map flatten <$> traverse signalToExprs xs' :: G (NonEmptyList (NonEmptyList Float))
+          pure $ mapRows fromFloats $ Matrix $ pairwise xs''
 
 signalToExprs (Append x y) = do
   xs <- flatten <$> (signalToExprs x :: G (Matrix Float))

@@ -2,10 +2,11 @@ module NonEmptyList where
 
 -- utility functions over PureScript's NonEmptyList
 
-import Prelude (max,($),(+),(/),bind,pure,map,(>=),(==),otherwise)
-import Data.List.NonEmpty (NonEmptyList,length,concat,zipWith,singleton,fromList,init,tail,head,cons,drop)
+import Prelude (max,($),(+),(/),bind,pure,map,(>=),(==),otherwise,(<<<))
+import Data.List.NonEmpty (NonEmptyList,length,concat,zipWith,singleton,fromList,init,tail,head,cons,drop,catMaybes,cons',toList)
 import Data.Tuple (Tuple(..))
 import Data.Foldable (indexl)
+import Data.Semigroup.Foldable (maximum)
 import Data.Unfoldable1 (replicate1,unfoldr1)
 import Data.List as List
 import Data.Maybe (Maybe(..))
@@ -21,6 +22,10 @@ zipWithEqualLength f xs ys = zipWith f xs' ys'
 extendToEqualLength :: forall a b. NonEmptyList a -> NonEmptyList b -> Tuple (NonEmptyList a) (NonEmptyList b)
 extendToEqualLength xs ys = Tuple (extendByRepetition n xs) (extendByRepetition n ys)
   where n = max (length xs) (length ys)
+
+extendNonEmptyListsByRepetition :: forall a. NonEmptyList (NonEmptyList a) -> NonEmptyList (NonEmptyList a)
+extendNonEmptyListsByRepetition xss = map (extendByRepetition n) xss
+  where n = maximum $ map length xss 
     
 extendByRepetition :: forall a. Int -> NonEmptyList a -> NonEmptyList a
 extendByRepetition n xs = zipWith (\x _ -> x) xs' ys
@@ -88,6 +93,7 @@ combine3Pairwise f xs ys zs = zipWith ($) (zipWith f xs' ys') zs'
     ys' = extendByRepetition n ys
     zs' = extendByRepetition n zs
 
+-- TODO: rename this 'combinatorial' to complement 'pairwise' below
 multi :: forall a. NonEmptyList (NonEmptyList a) -> NonEmptyList (NonEmptyList a)
 multi xs = do 
   case fromList (tail xs) of 
@@ -107,3 +113,11 @@ unconsTuple xs =
   in case fromList (drop 2 xs) of
        Nothing -> Tuple h Nothing
        Just t -> Tuple h (Just t)
+
+
+pairwise :: forall a. NonEmptyList (NonEmptyList a) -> NonEmptyList (NonEmptyList a)
+pairwise = transpose <<< extendNonEmptyListsByRepetition
+
+transpose :: forall a. NonEmptyList (NonEmptyList a) -> NonEmptyList (NonEmptyList a)
+transpose xss = cons' (map head xss) (List.catMaybes $ map fromList transposedList)
+  where transposedList = List.transpose $ toList $ map tail xss -- :: List (List a)

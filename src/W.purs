@@ -16,10 +16,10 @@ import Data.Number (acos, asin, atan, ceil, cos, exp, floor, log, pow, round, si
 import Data.Ord as Ord
 import Data.Int (toNumber,round)
 
-import NonEmptyList (zipWithEqualLength)
+import NonEmptyList (zipWithEqualLength,pairwise)
 import Signal (Signal(..))
 import MultiMode (MultiMode(..))
-import Matrix (Matrix,flatten,semiFlatten,fromNonEmptyListMulti,zip,rep,combine,combine3,concat,toTuples,fromNonEmptyList)
+import Matrix (Matrix(..),flatten,semiFlatten,fromNonEmptyListMulti,zip,rep,combine,combine3,concat,toTuples,fromNonEmptyList)
 import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, divisionSafe, divisionUnsafe, smoothStep) as Number
 
 
@@ -221,10 +221,17 @@ signalToFrame :: Signal -> W Frame
 
 signalToFrame (Constant x) = pure $ pure $ Left x
 
-signalToFrame (SignalList xs) = 
+signalToFrame (SignalList Combinatorial xs) = 
   case fromList xs of
     Nothing -> pure $ pure $ Left 0.0
     Just xs' -> fromNonEmptyListMulti <$> traverse signalToFrame xs' -- :: NonEmptyList Frame == NonEmptyList (Matrix Sample)
+
+signalToFrame (SignalList Pairwise xs) = 
+  case fromList xs of
+    Nothing -> pure $ pure $ Left 0.0
+    Just xs' -> do
+      xs'' <- map flatten <$> traverse signalToFrame xs'
+      pure $ Matrix $ pairwise xs''
 
 signalToFrame (Append x y) = do
   xs <- signalToFrame x

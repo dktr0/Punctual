@@ -114,7 +114,7 @@ parseExpression (Identifier p x) = do
 parseExpression (LiteralInt p x) = pure $ ValueInt p x
 parseExpression (LiteralNumber p x) = pure $ ValueNumber p x
 parseExpression (LiteralString p x) = pure $ ValueString p x
-parseExpression (ListExpression p xs) = traverse parseExpression xs >>= listValueToValueSignal p
+parseExpression (ListExpression p mm xs) = traverse parseExpression xs >>= listValueToValueSignal p mm
 parseExpression (Application _ f x) = do
   f' <- parseExpression f
   x' <- parseExpression x
@@ -125,7 +125,7 @@ parseExpression (Operation p op x y) = do
   y' <- parseExpression y
   z <- application f x'
   application z y'
-parseExpression (FromTo p x y) = pure $ ValueSignal p $ SignalList $ (Constant <<< toNumber) <$> range x y
+parseExpression (FromTo p x y) = pure $ ValueSignal p $ SignalList Combinatorial $ (Constant <<< toNumber) <$> range x y
 parseExpression (FromThenTo p _ _ _) = throwError $ ParseError "FromThenTo not supported yet" p
 -- TODO: implement FromThenTo and fix implementation of FromTo to match Haskell behaviour
 parseExpression (Lambda p xs e) = embedLambdas p xs e

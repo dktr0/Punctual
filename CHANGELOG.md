@@ -1,15 +1,38 @@
 # ChangeLog
 
+0.5.0: 
 
-draft changes in 0.5 rewrite:
+Major changes relative to 0.4.x
 
--all texture access functions(img vid cam ifft fft fb) don't take position arguments (if they did before), all instead stretch their results over the range of the unit square (in the case of fft and ifft, results are stretched over the x axis), and all are masked by the unit square (0 values outside of the coordinates lower than -1 or greater than 1)
+-Punctual has been rewritten from the ground up in PureScript instead of Haskell, and is compiled as a JavaScript library (to be specific: an exolang for the Estuary platform)
+
+-Libraries: addition of 'import' to include web-located libraries of Punctual code in programs (which also makes the evaluation of punctual code an asynchronous operation)
+
+-Audio: all audio synthesis now happens in AudioWorklet nodes containing generated audio callback code (each distinct audio output statement in a punctual program is translated in to distinct AudioWorklet)
+
+-Matrix semantics: previously the result of most punctual functions was essentially a non-empty *list* (a list of one or more items) of things that could be turned into time-varying signals (audio or light intensities). Now most of those same functions produce instead a non-empty two-dimensional matrix (rows and columns) of things that can be turned into time-varying signals, with rows typically representing combinatorial variations of an inner or lower level of information. Among other things, this allows for "multi-channel" use of seq.
+
+Other changes relative to 0.4.x
+
+-in degenerate cases where fewer channels are provided by the punctual programmer than are expected, the missing channels are generally filled in with zero instead of repeating the last channel that was provided
+
+-[a,b,c] combines a b and c combinatorially (similar to 0.4 but with matrix semantics); {a,b,c}, which is new, combines a b and c pairwise; 'zip' is now deprecated (and will be removed in 0.6) since the new { } notation generalizes it
+
+-available outputs are 'audio' 'blend' 'add' 'rgba' 'rgb' (previously existing outputs like 'hsv' 'red' 'splay' 'alpha' etc have been removed)
+
+-'step' has been replaced with 'seq'
+
+-introduction of 'slow' 'fast' 'early' and 'late' for time-shifting/stretching of arbitrary punctual expressions
+
+-texture access functions(img vid cam ifft fft fb) don't take position arguments (if they did before), all instead stretch their results over the range of the unit square (in the case of fft and ifft, results are stretched over the x axis), and all are masked by the unit square (0 values outside of the coordinates lower than -1 or greater than 1)
 
 -zoom now uses each channel of its first argument to scale both x and y dimensions; zoomxy, zoomx, and zoomy (new) can be used to zoom x and y axes independently
 
 -tile now uses each channel of its first argument to modify both x and y dimensions; tilexy, tilex, and tiley (new) can be used to tile x and y axes independently
 
 -multichannel audio: ain [nChnls] [offset], with mic as a synonym for 'ain 1 0' (the former audioin is a synonym for mic but is deprecated and will be removed in 0.6)
+
+-the 'm' and 'db' syntaxes from early punctual have been removed (use the normal functions 'midicps' and 'dbamp' instead)
 
 0.4.9.3:
 
