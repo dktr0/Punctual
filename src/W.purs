@@ -20,7 +20,7 @@ import NonEmptyList (zipWithEqualLength,pairwise)
 import Signal (Signal(..))
 import MultiMode (MultiMode(..))
 import Matrix (Matrix(..),flatten,semiFlatten,fromNonEmptyListMulti,zip,rep,combine,combine3,concat,toTuples,fromNonEmptyList)
-import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, divisionSafe, divisionUnsafe, smoothStep) as Number
+import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, divisionSafe, divisionUnsafe, smoothStep, showNumber) as Number
 
 
 type W = State WState
@@ -41,7 +41,7 @@ runW x = runState x { allocatedFloats: 0, allocatedInts: 0, code: "", time: Righ
 type Sample = Either Number String -- lefts are precalculated constants, rights are either references to built-in constants or variables (eg. Math.PI) or to items from preallocated memory heap
 
 showSample :: Sample -> String
-showSample (Left x) = show x
+showSample (Left x) = Number.showNumber x
 showSample (Right x) = x
 
 assign :: String -> W Sample

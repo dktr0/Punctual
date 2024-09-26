@@ -1,6 +1,6 @@
 module Number where
 
-import Prelude (min,max,(>=),(&&),(<=),($),(/),(-),(*))
+import Prelude (min,max,(>=),(&&),(<=),($),(/),(-),(*),(<),(<>),show,otherwise)
 
 divisionSafe :: Number -> Number -> Number
 divisionSafe _ 0.0 = 0.0
@@ -33,3 +33,8 @@ foreign import log10 :: Number -> Number
 foreign import sinh :: Number -> Number
 foreign import tanh :: Number -> Number
 
+-- wraps negative numbers in brackets, to be used where necessary
+showNumber :: Number -> String
+showNumber x
+  | x < 0.0 = "(" <> show x <> ")"
+  | otherwise = show x

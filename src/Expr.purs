@@ -63,7 +63,7 @@ instance Expr Float where
   isConstant (FloatExpr _) = false
   toExpr (FloatConstant x) = show x
   toExpr (FloatExpr x) = x
-  toExprSafe (FloatConstant x) = showNumber x
+  toExprSafe (FloatConstant x) = Number.showNumber x
   toExprSafe (FloatExpr x) = x
   unaryFunction f _ (FloatConstant x) = FloatConstant (f x)
   unaryFunction _ f (FloatExpr x) = FloatExpr (f x)
@@ -181,13 +181,6 @@ instance Expr Vec4 where
   dotSum x = FloatExpr $ "dot(" <> toExpr x <> ",vec4(1.))"
 
 instance Channels Vec4 where channels _ = 1
-
-
--- wraps negative numbers in brackets, to be used where necessary
-showNumber :: Number -> String
-showNumber x
-  | x < 0.0 = "(" <> show x <> ")"
-  | otherwise = show x
 
 
 floatsToVec2s :: NonEmptyList Float -> NonEmptyList Vec2
@@ -580,11 +573,11 @@ fract = unaryFunction (\x -> Prelude.mod x 1.0) (function1 "fract")
 -- Arithmetic operations
 
 operatorFloatExpr :: forall a. Expr a => (Number -> Number -> Number) -> String -> Float -> a -> a
-operatorFloatExpr f op (FloatConstant x) y = unaryFunction (f x) (\y' -> "(" <> showNumber x <> op <> y' <> ")") y
+operatorFloatExpr f op (FloatConstant x) y = unaryFunction (f x) (\y' -> "(" <> Number.showNumber x <> op <> y' <> ")") y
 operatorFloatExpr _ op (FloatExpr x) y = expr $ "(" <> x <> op <> toExprSafe y <> ")"
 
 operatorExprFloat :: forall a. Expr a => (Number -> Number -> Number) -> String -> a -> Float -> a
-operatorExprFloat f op x (FloatConstant y) = unaryFunction (flip f y) (\x' -> "(" <> x' <> op <> showNumber y <> ")") x
+operatorExprFloat f op x (FloatConstant y) = unaryFunction (flip f y) (\x' -> "(" <> x' <> op <> Number.showNumber y <> ")") x
 operatorExprFloat _ op x (FloatExpr y) = expr $ "(" <> toExprSafe x <> op <> y <> ")"
 
 arithmeticOperator :: forall a. Expr a => (Number -> Number -> Number) -> String -> a -> a -> a
@@ -684,7 +677,7 @@ comparisonOperatorFloatExpr f funcName op x y
   | otherwise = binaryFunctionFloatExpr (\a b -> booleanToNumber $ f a b) (\a b -> function1 (showType y) $ function2 funcName a b) x y
 
 binaryFunctionFloatExpr :: forall a. Expr a => (Number -> Number -> Number) -> (String -> String -> String) -> Float -> a -> a
-binaryFunctionFloatExpr f1 f2 (FloatConstant x) y = unaryFunction (f1 x) (f2 $ showNumber x) y
+binaryFunctionFloatExpr f1 f2 (FloatConstant x) y = unaryFunction (f1 x) (f2 $ Number.showNumber x) y
 binaryFunctionFloatExpr _ f2 (FloatExpr x) y = expr $ f2 x (toExpr y)
 
 

@@ -129,19 +129,14 @@ instance Show Signal where
 
 -- Miscellaneous functions over Signals:
 
-{-
-when :: Signal -> Signal -> Signal
-when x y = Mix (Constant 0.0) y x
--}
-
 modulatedRangeLowHigh :: Signal -> Signal -> Signal -> Signal
 modulatedRangeLowHigh low high x = LinLin Combinatorial (SignalList Combinatorial $ Constant (-1.0):Constant 1.0:Nil) (SignalList Combinatorial $ low:high:Nil) x
 
 modulatedRangePlusMinus :: Signal -> Signal -> Signal -> Signal
 modulatedRangePlusMinus a b = modulatedRangeLowHigh low high
   where
-    low = Product Combinatorial a (Difference Pairwise (Constant 1.0) b)
-    high = Product Combinatorial a (Addition Pairwise (Constant 1.0) b)
+    low = Difference Pairwise a b
+    high = Addition Pairwise a b
 
 fit :: Signal -> Signal -> Signal
 fit ar x = ZoomXy z x
@@ -150,14 +145,6 @@ fit ar x = ZoomXy z x
     ifTrue = SignalList Combinatorial $ Division Pairwise ar Aspect : Constant 1.0 : Nil
     ifFalse = SignalList Combinatorial $ Division Pairwise ar Aspect : Constant 1.0 : Nil
     z = Mix Combinatorial ifFalse ifTrue cond
-
-{-
-fit ar x = Mix Pairwise ifFalse ifTrue cond
-  where
-    cond = GreaterThanEqual Combinatorial Aspect ar
-    ifTrue = Zoom (SignalList Combinatorial $ Division Pairwise ar Aspect : Constant 1.0 : Nil) x
-    ifFalse = Zoom (c) x
--}
 
 fast :: Signal -> Signal -> Signal
 fast x = Slow (Division Pairwise (Constant 1.0) x)

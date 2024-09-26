@@ -58,7 +58,6 @@ instance Apply Matrix where
     | isSingleton fs = map (matrixHead fs) xs -- if fs is singleton, structure of xs is retained
     | isSingleton xs = map (\f -> f (matrixHead xs)) fs -- if xs is singleton, structure of fs is retained
     | otherwise = Matrix $ map (\f -> map f (flatten xs)) (flatten fs) -- if neither are singletons, rows reflect flattened fs and columns reflect flattened xs
-    -- | otherwise = Matrix $ map (\x -> map (\f -> f x) (flatten fs)) (flatten xs) -- if neither are singletons, rows reflect flattened fs and columns reflect flattened xs
 
 applyPairwise :: forall a b. Matrix (a -> b) -> Matrix a -> Matrix b
 applyPairwise fs xs = fromNonEmptyList $ zipWithEqualLength ($) (flatten fs) (flatten xs)
