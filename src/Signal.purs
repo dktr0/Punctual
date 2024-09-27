@@ -130,7 +130,10 @@ instance Show Signal where
 -- Miscellaneous functions over Signals:
 
 modulatedRangeLowHigh :: Signal -> Signal -> Signal -> Signal
-modulatedRangeLowHigh low high x = LinLin Combinatorial (SignalList Combinatorial $ Constant (-1.0):Constant 1.0:Nil) (SignalList Combinatorial $ low:high:Nil) x
+modulatedRangeLowHigh low high x = LinLin Combinatorial inputRange outputRange x
+  where
+    inputRange = SignalList Combinatorial $ Constant (-1.0):Constant 1.0:Nil
+    outputRange = SignalList Combinatorial $ low:high:Nil
 
 modulatedRangePlusMinus :: Signal -> Signal -> Signal -> Signal
 modulatedRangePlusMinus a b = modulatedRangeLowHigh low high
