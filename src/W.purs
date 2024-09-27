@@ -200,11 +200,14 @@ wavetable tableName tableLength phase = do
   n1 <- add n0 (Left 1.0)
   weight0 <- difference n1 nIdeal
   weight1 <- difference nIdeal n0
-  lookup0 <- assign $ tableName <> "[" <> showSample n0 <> "]"
+  lookup0 <- assign $ tableName <> "[" <> showSample n0 <> "%" <> show tableLength <> "]"
   lookup1 <- assign $ tableName <> "[" <> showSample n1 <> "%" <> show tableLength <> "]"
   y0' <- product lookup0 weight0
   y1' <- product lookup1 weight1
   add y0' y1'
+
+osc :: Sample -> W Sample
+osc f = phasor f >>= wavetable "sin" 16384
 
 saw :: Sample -> W Sample
 saw f = phasor f >>= wavetable "saw" 4096
@@ -434,11 +437,6 @@ bipolar x = assign $ showSample x <> "*2-1"
 
 unipolar :: Sample -> W Sample
 unipolar x = assign $ showSample x <> "*0.5+0.5"
-
-osc :: Sample -> W Sample
-osc x = do
-  t <- _.time <$> get
-  assign $ "Math.sin(" <> showSample t <> " * 2.0 * Math.PI * " <> showSample x <> ")"
 
 midicps :: Sample -> W Sample
 midicps x = assign $ "440 * (2 ** ((" <> showSample x <> "-69)/12))"
