@@ -12,6 +12,8 @@ Major changes relative to 0.4.x
 
 -Matrix semantics: previously the result of most punctual functions was essentially a non-empty *list* (a list of one or more items) of things that could be turned into time-varying signals (audio or light intensities). Now most of those same functions produce instead a non-empty two-dimensional matrix (rows and columns) of things that can be turned into time-varying signals, with rows typically representing combinatorial variations of an inner or lower level of information. Among other things, this allows for "multi-channel" use of seq.
 
+-User-defined functions of any number of arguments, for example "f x y = osc [x,x+1,x*y,x*y+1];"
+
 Other changes relative to 0.4.x
 
 -in degenerate cases where fewer channels are provided by the punctual programmer than are expected, the missing channels are generally filled in with zero instead of repeating the last channel that was provided
