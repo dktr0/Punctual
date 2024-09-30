@@ -153,7 +153,7 @@ fast :: Signal -> Signal -> Signal
 fast x = Slow (Division Pairwise (Constant 1.0) x)
 
 late :: Signal -> Signal -> Signal
-late x = Early (Division Pairwise (Constant 1.0) x)
+late x = Early (Difference Pairwise (Constant 0.0) x)
 
 type SignalInfo = {
   webcam :: Disj Boolean,
