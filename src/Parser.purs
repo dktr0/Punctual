@@ -1,6 +1,6 @@
 module Parser where
 
-import Prelude (bind, discard, pure, unit, ($), (<$>), (<<<), (<>), (>>=), max)
+import Prelude (bind, discard, pure, unit, ($), (<$>), (<<<), (<>), (>>=), max, show, Unit)
 import Control.Monad (class Monad)
 import Data.Int (toNumber)
 import Data.Tuple (Tuple(..))
@@ -8,6 +8,7 @@ import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.List (List(..), range, (:))
 import Data.Traversable (traverse)
+import Data.Map (empty)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.State.Trans (get, modify_, put)
 import Control.Monad.Error.Class (throwError)
@@ -15,12 +16,15 @@ import Control.Monad.Reader (ask)
 import Parsing (ParseError(..), Position)
 import Data.Map as Map
 import Data.DateTime (DateTime)
-import Effect.Ref (read,write)
+import Effect (Effect)
+import Effect.Ref (new,read,write)
 import Effect.Aff (Aff)
 import Effect.Aff.Class (liftAff)
 import Effect.Class (liftEffect)
 import Fetch
 import Effect.Class.Console (log)
+import Effect.Now (nowDateTime)
+import Effect.Aff (runAff_)
 
 import AST (AST, Expression(..), Statement, parseAST)
 import Program (Program)
@@ -41,6 +45,12 @@ parseProgram libCache txt eTime = do
       case eErrTup of
         Left err -> pure (Left err)
         Right (Tuple xs _) -> pure $ Right { actions: xs, evalTime: eTime }
+
+parseProgramTest :: String -> Effect Unit
+parseProgramTest txt = do
+  libCache <- new empty
+  eTime <- nowDateTime
+  runAff_ (log <<< show) $ parseProgram libCache txt eTime
 
 parseLibrary :: LibraryCache -> String -> Aff (Either ParseError Library)
 parseLibrary libCache txt = do
