@@ -416,9 +416,21 @@ numberSignalSignalSignal p f = pure $ abcd p f
 
 
 embedLambdas :: Position -> List String -> Expression -> P Value
-embedLambdas _ Nil e = parseExpression e
-embedLambdas p (x:xs) e = pure $ ValueFunction p (\v -> embedLambda x v (embedLambdas (valuePosition v) xs e))
+embedLambdas p ks e = do
+  cachedS <- get
+  a <- _embedLambdas p ks e
+  put cachedS
+  pure a
 
+_embedLambdas :: Position -> List String -> Expression -> P Value
+_embedLambdas _ Nil e = parseExpression e
+_embedLambdas p (k:ks) e = pure $ ValueFunction p (\v -> do
+  s <- get
+  put $ Map.insert k v s
+  embedLambdas (valuePosition v) ks e
+  )
+
+{-
 embedLambda :: forall a. String -> Value -> P a -> P a
 embedLambda k v p = do
   cachedS <- get
@@ -426,6 +438,7 @@ embedLambda k v p = do
   a <- p
   put cachedS
   pure a
+-}
 
 importLibrary :: Position -> Value -> P Value
 importLibrary p v = do
