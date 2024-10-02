@@ -889,10 +889,7 @@ xyr xy = sqrt (add (product x x) (product y y))
     y = swizzleY xy
 
 xyt :: Vec2 -> Float
-xyt xy = atan (division y x)
-  where
-    x = swizzleX xy
-    y = swizzleY xy
+xyt xy = atan2 (swizzleY xy) (swizzleX xy)
 
 setX :: Vec2 -> Float -> Vec2
 setX (Vec2Constant _ y) (FloatConstant x) = Vec2Constant x y
@@ -905,3 +902,6 @@ setY xy y = expr $ "vec2(" <> toExpr (swizzleX xy) <> "," <> toExpr y <> ")"
 -- for each vec4 in a blend, xyz stay what they are, alpha is multiplied by provided fade expression
 rgbaFade :: Float -> Vec4 -> Vec4
 rgbaFade f v4 = vec3FloatToVec4 (swizzleXYZ v4) (product (swizzleW v4) f)
+
+atan2 :: forall a. Expr a => a -> a -> a
+atan2 = binaryFunction Number.atan2 (function2 "atan")
