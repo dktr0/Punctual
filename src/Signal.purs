@@ -1,11 +1,11 @@
 module Signal where
 
-import Prelude (class Eq, class Show, mempty, negate, ($), (<>), pure, (*), map, (+), max, (/), (-), (<=), otherwise)
+import Prelude (class Eq, class Show, mempty, negate, ($), (<>), pure, (*), map, (+), max, (/), (-), (<=), otherwise, (==), show)
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.List (List(..),(:))
 import Data.List.NonEmpty (NonEmptyList,length,toList,fromList)
-import Data.Foldable (foldMap)
+import Data.Foldable (foldMap,intercalate)
 import Data.Set (Set,singleton)
 import Data.Monoid.Disj (Disj)
 import Data.Semigroup.Foldable (foldl1)
@@ -124,8 +124,15 @@ data Signal =
 derive instance Eq Signal
 derive instance Generic Signal _
 instance Show Signal where
+  show (SignalList mm xs) = showList mm xs
   show x = genericShow x
 
+showList :: forall a. Show a => MultiMode -> List a -> String
+showList mm xs = beginning <> middle <> end
+  where
+    beginning = if mm == Combinatorial then "[" else "{"
+    middle = intercalate "," $ map show xs
+    end = if mm == Combinatorial then "]" else "}"
 
 -- Miscellaneous functions over Signals:
 
