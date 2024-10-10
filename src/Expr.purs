@@ -531,7 +531,7 @@ log2 :: forall a. Expr a => a -> a
 log2 = unaryFunction Number.log2 (function1 "log2")
 
 log10 :: forall a. Expr a => a -> a
-log10 = unaryFunction Number.log10 (function1 "log10")
+log10 x = division (log x) (log $ constant 10.0)
 
 asin :: forall a. Expr a => a -> a
 asin = unaryFunction Number.asin (function1 "asin")
