@@ -108,7 +108,7 @@ _newProgramInZone punctual zone newProgram = do
     true -> updateAudioForZone punctual zone newProgram
     false -> deleteAudioForZone punctual zone
   let debugInfo = newProgramDebug <> previousProgramDebug <> fragShaderDebug
-  log debugInfo
+  -- log debugInfo
   pure debugInfo
       
 _updateCombinedProgramInfo :: Punctual -> Effect Unit

@@ -31,7 +31,6 @@ type AudioWorklet' = {
 runWorklet :: WebAudioContext -> Nullable WebAudioNode -> WebAudioNode -> String -> Signal -> Number -> Number -> Effect AudioWorklet
 runWorklet ctx ain aout name signal fInStart fInDur = do
   let code = generateWorkletCode signal name fInStart fInDur
-  log code
   audioWorklet' <- _runWorklet ctx ain aout name code 2
   pure { name, signal, code, audioWorklet' }
 
