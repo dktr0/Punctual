@@ -5,7 +5,6 @@ import Effect (Effect)
 import Effect.Ref (Ref,new,read,write)
 import Effect.Console (log)
 import Data.Maybe (Maybe(..))
-import Data.Tuple (Tuple(..))
 import Data.Monoid.Disj (Disj)
 import Data.Newtype (unwrap)
 
@@ -13,79 +12,50 @@ import WebAudio
 
 type AudioAnalyser = {
   webAudioContext :: WebAudioContext,
-  defaultSource :: Effect WebAudioNode,
-  intendedSource :: Ref (Effect WebAudioNode),
-  sourceAndAnalyser :: Ref (Maybe (Tuple WebAudioNode WebAudioNode)),
+  sourceNode :: WebAudioNode,
+  mAnalyserNode :: Ref (Maybe WebAudioNode),
   analyserArray :: AnalyserArray,
   lo :: Ref Number,
   mid :: Ref Number,
   hi :: Ref Number
   }
-  
-newInputAnalyser :: WebAudioContext -> Effect AudioAnalyser
-newInputAnalyser webAudioContext = do
-  let x = _defaultAudioInputNode webAudioContext
-  _newAnalyser webAudioContext x
-  
-newOutputAnalyser :: WebAudioContext -> WebAudioNode -> Effect AudioAnalyser
-newOutputAnalyser webAudioContext defaultOutput = do
-  let x = pure defaultOutput
-  _newAnalyser webAudioContext x
-  
-_newAnalyser :: WebAudioContext -> Effect WebAudioNode -> Effect AudioAnalyser
-_newAnalyser webAudioContext defaultSource = do
-  intendedSource <- new defaultSource
+      
+newAudioAnalyser :: WebAudioContext -> WebAudioNode -> Effect AudioAnalyser
+newAudioAnalyser webAudioContext sourceNode = do
+  mAnalyserNode <- new Nothing
   analyserArray <- _analyserArray 512
-  sourceAndAnalyser <- new Nothing
   lo <- new 0.0
   mid <- new 0.0
   hi <- new 0.0
   pure {
     webAudioContext,
-    defaultSource,
-    intendedSource,
-    sourceAndAnalyser,
+    sourceNode,
+    mAnalyserNode,
     analyserArray,
     lo,
     mid,
     hi
   }
-  
-setAnalysisSource :: AudioAnalyser -> Maybe (Effect WebAudioNode) -> Effect Unit
-setAnalysisSource a mEffectNode = do
-  let effectNode = case mEffectNode of
-                     Nothing -> a.defaultSource
-                     Just x -> x
-  write effectNode a.intendedSource
-  mSourceAndAnalyser <- read a.sourceAndAnalyser
-  case mSourceAndAnalyser of
-    Nothing -> pure unit  -- analysis is not currently active, so nothing more to do
-    Just (Tuple source analyser) -> do -- analysis currently active, so disconnect and reconnect
-      disconnect source analyser
-      newSource <- effectNode
-      connect newSource analyser
     
 _disactivateAnalysis :: AudioAnalyser -> Effect Unit
 _disactivateAnalysis a = do
-  mSourceAndAnalyser <- read a.sourceAndAnalyser
-  case mSourceAndAnalyser of
+  mAnalyserNode <- read a.mAnalyserNode
+  case mAnalyserNode of
     Nothing -> pure unit  -- analysis is not currently active, so nothing more to do
-    Just (Tuple source analyser)-> do -- disactivate
-      disconnect source analyser
-      write Nothing a.sourceAndAnalyser
+    Just analyserNode -> do -- disactivate
+      disconnect a.sourceNode analyserNode
+      write Nothing a.mAnalyserNode
       log "punctual: disactivating an audio analyser..."
       
 _activateAnalysis :: AudioAnalyser -> Effect WebAudioNode -- WebAudioNode is current AnalyserNode
 _activateAnalysis a = do
-  mSourceAndAnalyser <- read a.sourceAndAnalyser
-  case mSourceAndAnalyser of
-    Just (Tuple _ analyserNode) -> pure analyserNode -- analysis is already active, so nothing more to do
+  mAnalyserNode <- read a.mAnalyserNode
+  case mAnalyserNode of
+    Just analyserNode -> pure analyserNode -- analysis is already active, so nothing more to do
     Nothing -> do -- analysis is not active, so need to make new source and analyser nodes
-      intendedSource' <- read a.intendedSource
-      sourceNode <- intendedSource'
       analyserNode <- _analyserNode a.webAudioContext 1024 0.5
-      connect sourceNode analyserNode
-      write (Just $ Tuple sourceNode analyserNode) a.sourceAndAnalyser
+      connect a.sourceNode analyserNode
+      write (Just analyserNode) a.mAnalyserNode
       log "punctual: activating an audio analyser..."
       pure analyserNode
       

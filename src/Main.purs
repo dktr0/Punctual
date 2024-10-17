@@ -27,6 +27,7 @@ import SharedResources (SharedResources)
 import SharedResources as SharedResources
 import WebGL (WebGL, newWebGL, updateWebGL, deleteWebGL, drawWebGL)
 import AudioZone (AudioZone,newAudioZone,redefineAudioZone,deleteAudioZone)
+import WebAudio (WebAudioNode)
   
 type Punctual = {
   sharedResources :: SharedResources,
@@ -132,10 +133,6 @@ clear punctual args = do
   deleteAudioForZone punctual args.zone
   
   
-setTempo :: Punctual -> ForeignTempo -> Effect Unit
-setTempo punctual ft = SharedResources.setTempo punctual.sharedResources (fromForeignTempo ft)
-
-
 preRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number } -> Effect Unit
 preRender punctual args = when args.canDraw $ _updateSharedResources punctual
 
@@ -161,7 +158,17 @@ render punctual args = do
 postRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number } -> Effect Unit
 postRender _ _ = pure unit -- log $ "postRender: " <> show args
 
+setTempo :: Punctual -> ForeignTempo -> Effect Unit
+setTempo punctual ft = SharedResources.setTempo punctual.sharedResources (fromForeignTempo ft)
 
+setAudioInput :: Punctual -> Effect WebAudioNode -> Effect Unit
+setAudioInput punctual e = SharedResources.setAudioInput punctual.sharedResources e
+
+setAudioOutput :: Punctual -> WebAudioNode -> Effect Unit
+setAudioOutput punctual n = SharedResources.setAudioOutput punctual.sharedResources n
+
+setBrightness :: Punctual -> Number -> Effect Unit
+setBrightness punctual b = SharedResources.setBrightness punctual.sharedResources b
 
 
 -- below this line are functions that are not directly part of the exolang API

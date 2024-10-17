@@ -15,7 +15,7 @@ import Data.Newtype (unwrap)
 import Data.Nullable (null,notNull)
 import Effect.Class.Console (log)
 
-import SharedResources (SharedResources,getAudioInputNode)
+import SharedResources (SharedResources,activateAudioInput,disactivateAudioInput)
 import Program (Program)
 import AudioWorklet (AudioWorklet,runWorklet,stopWorklet)
 import Action (Action,actionTimesAsAudioTime,actionHasAudioInput)
@@ -64,6 +64,7 @@ addOrRemoveWorklet sharedResources evalTime clockDiff (Just prevWorklet) (Just a
       stopWorklet prevWorklet t1 (t2-t1)
       Just <$> addWorklet sharedResources action t1 t2
       
+-- TODO: need to disactivateAudioInput when NO worklet requires it any more
 addWorklet :: SharedResources -> Action -> Number -> Number -> Effect AudioWorklet
 addWorklet sharedResources action t1 t2 = do
   i <- read sharedResources.audioWorkletCount
@@ -71,11 +72,12 @@ addWorklet sharedResources action t1 t2 = do
   nAin <- case actionHasAudioInput action of
             true -> do
               log "worklet has audio input"
-              notNull <$> getAudioInputNode sharedResources
+              activateAudioInput sharedResources
+              notNull <$> pure sharedResources.internalAudioInputNode
             false -> do
               log "worklet does not have audio input"
               pure null
-  runWorklet sharedResources.webAudioContext nAin sharedResources.audioOutputNode ("W" <> show i) action.signal t1 (t2-t1)
+  runWorklet sharedResources.webAudioContext nAin sharedResources.internalAudioOutputNode ("W" <> show i) action.signal t1 (t2-t1)
 
 -- to convert audio to POSIX, add clockdiff; to convert POSIX to audio, subtract clockdiff
 calculateClockDiff :: SharedResources -> Effect Number
