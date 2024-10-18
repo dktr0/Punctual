@@ -85,6 +85,8 @@ _newProgramInZone punctual zone newProgram = do
     case lookup zone programInfos of
       Just x -> pure x
       Nothing -> pure emptySignalInfo
+  let newProgramDebug = "new program: " <> show newProgram <> "\n\n"
+  let previousProgramDebug = "previous program: " <> show previousProgram <> "\n\n" 
   let newPrograms = insert zone newProgram programs
   let newPreviousPrograms = insert zone previousProgram previousPrograms
   let newProgramInfos = insert zone (programInfo newProgram) programInfos
@@ -95,8 +97,10 @@ _newProgramInZone punctual zone newProgram = do
   write newPreviousProgramInfos punctual.previousProgramInfos
   _updateCombinedProgramInfo punctual
   -- update visual rendering system
-  info <- case programHasVisualOutput newProgram of 
-    true -> updateWebGLForZone punctual zone newProgram previousProgram
+  fragShaderDebug <- case programHasVisualOutput newProgram of 
+    true -> do
+      fragShaderSrc <- updateWebGLForZone punctual zone newProgram previousProgram
+      pure $ "fragment shader: " <> fragShaderSrc <> "\n\n"
     false -> do
       deleteWebGLForZone punctual zone
       pure ""
@@ -104,7 +108,9 @@ _newProgramInZone punctual zone newProgram = do
   case programHasAudioOutput newProgram of
     true -> updateAudioForZone punctual zone newProgram
     false -> deleteAudioForZone punctual zone
-  pure info
+  let debugInfo = newProgramDebug <> previousProgramDebug <> fragShaderDebug
+  -- log debugInfo
+  pure debugInfo
       
 _updateCombinedProgramInfo :: Punctual -> Effect Unit
 _updateCombinedProgramInfo punctual = do

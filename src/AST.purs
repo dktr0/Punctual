@@ -12,8 +12,8 @@ import Parsing.String (eof)
 import Data.Either (Either(..))
 import Data.Foldable (foldl)
 
-import TokenParser (P, commaSep, identifier, number, parens, reserved, reservedOp, semiSep, stringLiteral, whiteSpace, brackets, functionsWithArgumentsDef, functionsWithNoArgumentsDef, operators1, operators2, operators3, operators4, operators5, operators6, operators7, comma, integer,naturalOrFloat)
-
+import TokenParser (P, commaSep, identifier, number, parens, reserved, reservedOp, semiSep, stringLiteral, whiteSpace, brackets, functionsWithArgumentsDef, functionsWithNoArgumentsDef, operators1, operators2, operators3, operators4, operators5, operators6, operators7, comma, integer,naturalOrFloat,braces)
+import MultiMode (MultiMode(..))
 
 type AST = List (Maybe Statement)
 
@@ -29,7 +29,7 @@ data Expression =
   LiteralInt Position Int |
   LiteralNumber Position Number |
   LiteralString Position String |
-  ListExpression Position (List Expression) |
+  ListExpression Position MultiMode (List Expression) |
   Application Position Expression Expression |
   Operation Position String Expression Expression |
   FromTo Position Int Int |
@@ -202,10 +202,23 @@ fromThenTo = do
 list :: P Expression
 list = do
   _ <- pure unit
+  listCombinatorial <|> listPairwise
+
+listCombinatorial :: P Expression
+listCombinatorial = do
+  _ <- pure unit
   brackets $ do
     p <- position
     xs <- commaSep expression1
-    pure $ ListExpression p xs
+    pure $ ListExpression p Combinatorial xs
+
+listPairwise :: P Expression
+listPairwise = do
+  _ <- pure unit
+  braces $ do
+    p <- position
+    xs <- commaSep expression1
+    pure $ ListExpression p Pairwise xs
 
 intOrNumber :: P Expression
 intOrNumber = do

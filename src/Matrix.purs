@@ -30,7 +30,9 @@ fromNonEmptyList = Matrix <<< pure
 
 -- to be used, for example, in implementation of SignalList
 fromNonEmptyListMulti :: forall a. NonEmptyList (Matrix a) -> Matrix a
-fromNonEmptyListMulti xs = Matrix $ multi $ map flatten xs -- NonEmptyList (NonEmptyList a)
+fromNonEmptyListMulti xs
+  | length xs == 1 = head xs
+  | otherwise = Matrix $ multi $ map flatten xs -- NonEmptyList (NonEmptyList a)
 
 -- to be used, for example, in implementation of Seq
 semiFlatten :: forall a. Matrix a -> NonEmptyList (NonEmptyList a)
@@ -40,7 +42,8 @@ instance Eq a => Eq (Matrix a) where
   eq (Matrix xs) (Matrix ys) = xs == ys
 
 instance Show a => Show (Matrix a) where
-  show (Matrix xs) = "Matrix (" <> show xs <> ")"
+  show x = pp x
+  -- show (Matrix xs) = "Matrix (" <> show xs <> ")"
 
 instance Functor Matrix where
   map f (Matrix xs) = Matrix $ map (map f) xs

@@ -31,7 +31,6 @@ type AudioWorklet' = {
 runWorklet :: WebAudioContext -> Nullable WebAudioNode -> WebAudioNode -> String -> Signal -> Number -> Number -> Effect AudioWorklet
 runWorklet ctx ain aout name signal fInStart fInDur = do
   let code = generateWorkletCode signal name fInStart fInDur
-  log code
   audioWorklet' <- _runWorklet ctx ain aout name code 2
   pure { name, signal, code, audioWorklet' }
 
@@ -50,7 +49,7 @@ foreign import setWorkletParamValue :: WebAudioNode -> String -> Number -> Effec
 
 
 generateWorkletCode :: Signal -> String -> Number -> Number -> String
-generateWorkletCode s name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> fadeCalculations <> wState.code <> outputs <> debug <> restOfClass <> registerProcessor
+generateWorkletCode s name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> fadeCalculations <> wState.code <> outputs <> restOfClass <> registerProcessor
   where
     Tuple frameMulti wState = runW $ signalToFrame s >>= splay 2
     frame = flatten frameMulti
@@ -58,6 +57,13 @@ generateWorkletCode s name fInStart fInDur = prefix <> classHeader <> getParamet
 
 function clamp(min,max,x) { return Math.max(Math.min(max,x),min); }
 function ain(input,n) { return (n >= input.length ? 0.0 : input[n]); }
+function genSin() {
+  var r = new Float32Array(16384).fill(0);
+  for(var t=0;t<16384;t++) {
+    r[t] = Math.sin(Math.PI * 2.0 * t / 16384);
+  }
+  return r;
+}
 function genSaw() {
   var r = new Float32Array(4096).fill(0.5);
   for(var k=1;k<=84;k++) { // with 84 harmonics, highest harmonic of middle C is just below 22050 Hz
@@ -100,7 +106,7 @@ return [
 ];}
 
 """
-    constructor = "constructor() { super(); this.saw=genSaw(); this.sqr=genSqr(); this.tri=genTri(); this.framesOut=0; this.runTime=currentTime; this.f=new Float32Array(" <> show wState.allocatedFloats <> ").fill(0); this.i=new Int32Array(" <> show wState.allocatedInts <> ").fill(0);}\n\n"
+    constructor = "constructor() { super(); this.sin=genSin(); this.saw=genSaw(); this.sqr=genSqr(); this.tri=genTri(); this.framesOut=0; this.runTime=currentTime; this.f=new Float32Array(" <> show wState.allocatedFloats <> ").fill(0); this.i=new Int32Array(" <> show wState.allocatedInts <> ").fill(0);}\n\n"
     innerLoopPrefix = """process(inputs,outputs,parameters) {
 const input = inputs[0];
 const output = outputs[0];
@@ -119,6 +125,7 @@ const beat = time * cps;
 const eTime = t - evalTimeAudio;
 const eBeat = eTime * cps;
 const fOut = fOutEnd == -1.0 ? 1.0 : clamp(0,1,(fOutEnd-t)/fOutDur);
+const sin = this.sin;
 const saw = this.saw;
 const sqr = this.sqr;
 const tri = this.tri;
@@ -127,7 +134,6 @@ const tri = this.tri;
     outputIndices = range 0 (length frame - 1)
     outputF i x = "output[" <> show i <> "][n] = " <> showSample x <> "*fade;\n"
     outputs = fold $ zipWith outputF outputIndices frame
-    debug = ("// signal:" <> show s <> "\n") <> ("// frameMulti:" <> show frameMulti <> "\n") <> ("// frame:" <> show frame <> "\n")
     restOfClass = """}
 this.framesOut += blockSize;
 return (fOutEnd == -1.0 ? true : (currentTime + (blockSize/sampleRate) <= fOutEnd));

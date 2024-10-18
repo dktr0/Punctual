@@ -16,11 +16,11 @@ import Data.Number (acos, asin, atan, ceil, cos, exp, floor, log, pow, round, si
 import Data.Ord as Ord
 import Data.Int (toNumber,round)
 
-import NonEmptyList (zipWithEqualLength)
+import NonEmptyList (zipWithEqualLength,pairwise)
 import Signal (Signal(..))
 import MultiMode (MultiMode(..))
-import Matrix (Matrix,flatten,semiFlatten,fromNonEmptyListMulti,zip,rep,combine,combine3,concat,toTuples,fromNonEmptyList)
-import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, divisionSafe, divisionUnsafe, smoothStep) as Number
+import Matrix (Matrix(..),flatten,semiFlatten,fromNonEmptyListMulti,zip,rep,combine,combine3,concat,toTuples,fromNonEmptyList)
+import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, divisionSafe, divisionUnsafe, smoothStep, showNumber) as Number
 
 
 type W = State WState
@@ -41,7 +41,7 @@ runW x = runState x { allocatedFloats: 0, allocatedInts: 0, code: "", time: Righ
 type Sample = Either Number String -- lefts are precalculated constants, rights are either references to built-in constants or variables (eg. Math.PI) or to items from preallocated memory heap
 
 showSample :: Sample -> String
-showSample (Left x) = show x
+showSample (Left x) = Number.showNumber x
 showSample (Right x) = x
 
 assign :: String -> W Sample
@@ -200,11 +200,14 @@ wavetable tableName tableLength phase = do
   n1 <- add n0 (Left 1.0)
   weight0 <- difference n1 nIdeal
   weight1 <- difference nIdeal n0
-  lookup0 <- assign $ tableName <> "[" <> showSample n0 <> "]"
+  lookup0 <- assign $ tableName <> "[" <> showSample n0 <> "%" <> show tableLength <> "]"
   lookup1 <- assign $ tableName <> "[" <> showSample n1 <> "%" <> show tableLength <> "]"
   y0' <- product lookup0 weight0
   y1' <- product lookup1 weight1
   add y0' y1'
+
+osc :: Sample -> W Sample
+osc f = phasor f >>= wavetable "sin" 16384
 
 saw :: Sample -> W Sample
 saw f = phasor f >>= wavetable "saw" 4096
@@ -221,10 +224,17 @@ signalToFrame :: Signal -> W Frame
 
 signalToFrame (Constant x) = pure $ pure $ Left x
 
-signalToFrame (SignalList xs) = 
+signalToFrame (SignalList Combinatorial xs) = 
   case fromList xs of
     Nothing -> pure $ pure $ Left 0.0
     Just xs' -> fromNonEmptyListMulti <$> traverse signalToFrame xs' -- :: NonEmptyList Frame == NonEmptyList (Matrix Sample)
+
+signalToFrame (SignalList Pairwise xs) = 
+  case fromList xs of
+    Nothing -> pure $ pure $ Left 0.0
+    Just xs' -> do
+      xs'' <- map flatten <$> traverse signalToFrame xs'
+      pure $ Matrix $ pairwise xs''
 
 signalToFrame (Append x y) = do
   xs <- signalToFrame x
@@ -427,11 +437,6 @@ bipolar x = assign $ showSample x <> "*2-1"
 
 unipolar :: Sample -> W Sample
 unipolar x = assign $ showSample x <> "*0.5+0.5"
-
-osc :: Sample -> W Sample
-osc x = do
-  t <- _.time <$> get
-  assign $ "Math.sin(" <> showSample t <> " * 2.0 * Math.PI * " <> showSample x <> ")"
 
 midicps :: Sample -> W Sample
 midicps x = assign $ "440 * (2 ** ((" <> showSample x <> "-69)/12))"

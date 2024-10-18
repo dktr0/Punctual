@@ -23,7 +23,7 @@ import Data.Map (Map)
 import Signal (Signal(..))
 import Action (Action,signalToAction)
 import Output (Output)
-
+import MultiMode (MultiMode(..))
 
 type Library = Map.Map String Value
 
@@ -79,8 +79,8 @@ valuePosition (ValuePolymorphic p _) = p
 
 -- convert a list of Values to a single value that is a multi-channel Signal
 -- succeeds only if each of the provided values can be meaningfully cast to a Signal
-listValueToValueSignal :: forall m. Applicative m => MonadThrow ParseError m => Position -> List Value -> m Value
-listValueToValueSignal p xs = traverse valueToSignal xs >>= (pure <<< ValueSignal p <<< SignalList)
+listValueToValueSignal :: forall m. Applicative m => MonadThrow ParseError m => Position -> MultiMode -> List Value -> m Value
+listValueToValueSignal p mm xs = traverse valueToSignal xs >>= (pure <<< ValueSignal p <<< SignalList mm)
 
 -- convert a Value to a ValueSignal
 -- succeeds only if the provided value can be meaningfully cast to a Signal

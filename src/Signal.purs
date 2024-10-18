@@ -1,11 +1,12 @@
 module Signal where
 
-import Prelude (class Eq, class Show, mempty, negate, ($), (<>), pure, (*), map, (+), max, (/), (-), (<=), otherwise)
+import Prelude (class Eq, class Show, mempty, negate, ($), (<>), pure, (*), map, (+), max, (/), (-), (<=), otherwise, (==), show)
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.List (List(..),(:))
 import Data.List.NonEmpty (NonEmptyList,length,toList,fromList)
-import Data.Foldable (foldMap)
+import Data.Foldable (foldMap,intercalate,fold)
+import Data.Unfoldable (replicate)
 import Data.Set (Set,singleton)
 import Data.Monoid.Disj (Disj)
 import Data.Semigroup.Foldable (foldl1)
@@ -16,7 +17,7 @@ import Channels
 
 data Signal =
   Constant Number |
-  SignalList (List Signal) |
+  SignalList MultiMode (List Signal) |
   Append Signal Signal |
   Zip Signal Signal |
   Mono Signal |
@@ -124,46 +125,198 @@ data Signal =
 derive instance Eq Signal
 derive instance Generic Signal _
 instance Show Signal where
-  show x = genericShow x
+  show x = showIndented 0 x
+  -- show (SignalList mm xs) = showList mm xs
+  -- show x = genericShow x
+
+{- showList :: forall a. Show a => MultiMode -> List a -> String
+showList mm xs = beginning <> middle <> end
+  where
+    beginning = if mm == Combinatorial then "[" else "{"
+    middle = intercalate "," $ map show xs
+    end = if mm == Combinatorial then "]" else "}" -}
+
+indent :: Int -> String
+indent n = fold (replicate n " " :: List String)
+
+showIndented :: Int -> Signal -> String
+showIndented i (Constant x) = indent i <> "Constant " <> show x <> "\n"
+showIndented i (SignalList Combinatorial xs) = indent i <> "[\n" <> fold (map (showIndented (i+1)) xs) <> indent i <> "]\n"
+showIndented i (SignalList Pairwise xs) = indent i <> "{\n" <> fold (map (showIndented (i+1)) xs) <> indent i <> "}\n"
+showIndented i (Append x y) = indent i <> "Append\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Zip x y) = indent i <> "Zip\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Mono x) = indent i <> "Mono\n" <> showIndented (i+1) x
+showIndented i (Rep n x) = indent i <> "Rep " <> show n <> "\n" <> showIndented (i+1) x
+showIndented i Pi = indent i <> "Pi\n"
+showIndented i Px = indent i <> "Px\n"
+showIndented i Py = indent i <> "Py\n"
+showIndented i Pxy = indent i <> "Pxy\n"
+showIndented i Aspect = indent i <> "Aspect\n"
+showIndented i Fx = indent i <> "Fx\n"
+showIndented i Fy = indent i <> "Fy\n"
+showIndented i Fxy = indent i <> "Fxy\n"
+showIndented i FRt = indent i <> "FRt\n"
+showIndented i FR = indent i <> "FR\n"
+showIndented i FT = indent i <> "FT\n"
+showIndented i Lo = indent i <> "Lo\n"
+showIndented i Mid = indent i <> "Mid\n"
+showIndented i Hi = indent i <> "Hi\n"
+showIndented i ILo = indent i <> "ILo\n"
+showIndented i IMid = indent i <> "IMid\n"
+showIndented i IHi = indent i <> "IHi\n"
+showIndented i Cps = indent i <> "Cps\n"
+showIndented i Time = indent i <> "Time\n"
+showIndented i Beat = indent i <> "Beat\n"
+showIndented i EBeat = indent i <> "EBeat\n"
+showIndented i ETime = indent i <> "ETime\n"
+showIndented i Rnd = indent i <> "Rnd\n"
+showIndented i (AIn nchnls offset) = indent i <> "AIn " <> show nchnls <> " " <> show offset <> "\n"
+showIndented i FFT = indent i <> "FFT\n"
+showIndented i IFFT = indent i <> "IFFT\n"
+showIndented i Fb = indent i <> "Fb\n"
+showIndented i Cam = indent i <> "Cam\n"
+showIndented i (Img url) = indent i <> "Img " <> url <> "\n"
+showIndented i (Vid url) = indent i <> "Vid " <> url <> "\n"
+showIndented i (Bipolar x) = indent i <> "Bipolar\n" <> showIndented (i+1) x
+showIndented i (Unipolar x) = indent i <> "Unipolar\n" <> showIndented (i+1) x
+showIndented i (Blend x) = indent i <> "Blend\n" <> showIndented (i+1) x
+showIndented i (Add x) = indent i <> "Add\n" <> showIndented (i+1) x
+showIndented i (Mul x) = indent i <> "Mul\n" <> showIndented (i+1) x
+showIndented i (RgbHsv x) = indent i <> "RgbHsv\n" <> showIndented (i+1) x
+showIndented i (HsvRgb x) = indent i <> "HsvRgb\n" <> showIndented (i+1) x
+showIndented i (HsvR x) = indent i <> "HsvR\n" <> showIndented (i+1) x
+showIndented i (HsvG x) = indent i <> "HsvG\n" <> showIndented (i+1) x
+showIndented i (HsvB x) = indent i <> "HsvB\n" <> showIndented (i+1) x
+showIndented i (RgbH x) = indent i <> "RgbH\n" <> showIndented (i+1) x
+showIndented i (RgbS x) = indent i <> "RgbS\n" <> showIndented (i+1) x
+showIndented i (RgbV x) = indent i <> "RgbV\n" <> showIndented (i+1) x
+showIndented i (RgbR x) = indent i <> "RgbR\n" <> showIndented (i+1) x
+showIndented i (RgbG x) = indent i <> "RgbG\n" <> showIndented (i+1) x
+showIndented i (RgbB x) = indent i <> "RgbB\n" <> showIndented (i+1) x
+showIndented i (Osc x) = indent i <> "Osc\n" <> showIndented (i+1) x
+showIndented i (Tri x) = indent i <> "Tri\n" <> showIndented (i+1) x
+showIndented i (Saw x) = indent i <> "Saw\n" <> showIndented (i+1) x
+showIndented i (Sqr x) = indent i <> "Sqr\n" <> showIndented (i+1) x
+showIndented i (LFTri x) = indent i <> "LFTri\n" <> showIndented (i+1) x
+showIndented i (LFSaw x) = indent i <> "LFSaw\n" <> showIndented (i+1) x
+showIndented i (LFSqr x) = indent i <> "LFSqr\n" <> showIndented (i+1) x
+showIndented i (Abs x) = indent i <> "Abs\n" <> showIndented (i+1) x
+showIndented i (Acos x) = indent i <> "Acos\n" <> showIndented (i+1) x
+showIndented i (Acosh x) = indent i <> "Acosh\n" <> showIndented (i+1) x
+showIndented i (Asin x) = indent i <> "Asin\n" <> showIndented (i+1) x
+showIndented i (Asinh x) = indent i <> "Asinh\n" <> showIndented (i+1) x
+showIndented i (Atan x) = indent i <> "Atan\n" <> showIndented (i+1) x
+showIndented i (Atanh x) = indent i <> "Atanh\n" <> showIndented (i+1) x
+showIndented i (Cbrt x) = indent i <> "Cbrt\n" <> showIndented (i+1) x
+showIndented i (Ceil x) = indent i <> "Ceil\n" <> showIndented (i+1) x
+showIndented i (Cos x) = indent i <> "Cos\n" <> showIndented (i+1) x
+showIndented i (Cosh x) = indent i <> "Cosh\n" <> showIndented (i+1) x
+showIndented i (Exp x) = indent i <> "Exp\n" <> showIndented (i+1) x
+showIndented i (Floor x) = indent i <> "Floor\n" <> showIndented (i+1) x
+showIndented i (Log x) = indent i <> "Log\n" <> showIndented (i+1) x
+showIndented i (Log2 x) = indent i <> "Log2\n" <> showIndented (i+1) x
+showIndented i (Log10 x) = indent i <> "Log10\n" <> showIndented (i+1) x
+showIndented i (Round x) = indent i <> "Round\n" <> showIndented (i+1) x
+showIndented i (Sign x) = indent i <> "Sign\n" <> showIndented (i+1) x
+showIndented i (Sin x) = indent i <> "Sin\n" <> showIndented (i+1) x
+showIndented i (Sinh x) = indent i <> "Sinh\n" <> showIndented (i+1) x
+showIndented i (Sqrt x) = indent i <> "Sqrt\n" <> showIndented (i+1) x
+showIndented i (Tan x) = indent i <> "Tan\n" <> showIndented (i+1) x
+showIndented i (Tanh x) = indent i <> "Tanh\n" <> showIndented (i+1) x
+showIndented i (Trunc x) = indent i <> "Trunc\n" <> showIndented (i+1) x
+showIndented i (RtXy x) = indent i <> "RtXy\n" <> showIndented (i+1) x
+showIndented i (RtX x) = indent i <> "RtX\n" <> showIndented (i+1) x
+showIndented i (RtY x) = indent i <> "RtY\n" <> showIndented (i+1) x
+showIndented i (XyRt x) = indent i <> "XyRt\n" <> showIndented (i+1) x
+showIndented i (XyR x) = indent i <> "XyR\n" <> showIndented (i+1) x
+showIndented i (XyT x) = indent i <> "XyT\n" <> showIndented (i+1) x
+showIndented i (Point x) = indent i <> "Point\n" <> showIndented (i+1) x
+showIndented i (Dist x) = indent i <> "Dist\n" <> showIndented (i+1) x
+showIndented i (Prox x) = indent i <> "Prox\n" <> showIndented (i+1) x
+showIndented i (MidiCps x) = indent i <> "MidiCps\n" <> showIndented (i+1) x
+showIndented i (CpsMidi x) = indent i <> "CpsMidi\n" <> showIndented (i+1) x
+showIndented i (DbAmp x) = indent i <> "DbAmp\n" <> showIndented (i+1) x
+showIndented i (AmpDb x) = indent i <> "AmpDb\n" <> showIndented (i+1) x
+showIndented i (Fract x) = indent i <> "Fract\n" <> showIndented (i+1) x
+showIndented i (SetFx x y) = indent i <> "SetFx\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (SetFy x y) = indent i <> "SetFy\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (SetFxy x y) = indent i <> "SetFxy\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Zoom x y) = indent i <> "Zoom\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (ZoomXy x y) = indent i <> "ZoomXy\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (ZoomX x y) = indent i <> "ZoomX\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (ZoomY x y) = indent i <> "ZoomY\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Move x y) = indent i <> "Move\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Tile x y) = indent i <> "Tile\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (TileXy x y) = indent i <> "TileXy\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (TileX x y) = indent i <> "TileX\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (TileY x y) = indent i <> "TileY\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Spin x y) = indent i <> "Spin\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Early x y) = indent i <> "Early\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Slow x y) = indent i <> "Slow\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Addition mm x y) = indent i <> "Addition " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Difference mm x y) = indent i <> "Difference " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Product mm x y) = indent i <> "Product " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Division mm x y) = indent i <> "Division " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Mod mm x y) = indent i <> "Mod " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Pow mm x y) = indent i <> "Pow " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Equal mm x y) = indent i <> "Equal " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (NotEqual mm x y) = indent i <> "NotEqual " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (GreaterThan mm x y) = indent i <> "GreaterThan " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (GreaterThanEqual mm x y) = indent i <> "GreaterThanEqual " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (LessThan mm x y) = indent i <> "LessThan " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (LessThanEqual mm x y) = indent i <> "LessThanEqual " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Max mm x y) = indent i <> "Max " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Min mm x y) = indent i <> "Min " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Gate mm x y) = indent i <> "Gate " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Circle mm x y) = indent i <> "Circle " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Rect mm x y) = indent i <> "Rect " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Clip mm x y) = indent i <> "Clip " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Between mm x y) = indent i <> "Between " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (SmoothStep mm x y) = indent i <> "SmoothStep " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (VLine mm x y) = indent i <> "VLine " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (HLine mm x y) = indent i <> "HLine " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Chain mm x y) = indent i <> "Chain " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Lines mm x y) = indent i <> "Lines " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (ILines mm x y) = indent i <> "ILines " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Mesh mm x y) = indent i <> "Mesh " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Seq x) = indent i <> "Seq\n" <> showIndented (i+1) x
+showIndented i (Mix mm x y z) = indent i <> "Mix " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y <> showIndented (i+1) z
+showIndented i (ILine mm x y z) = indent i <> "ILine " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y <> showIndented (i+1) z
+showIndented i (Line mm x y z) = indent i <> "Line" <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y <> showIndented (i+1) z
+showIndented i (LinLin mm x y z) = indent i <> "LinLin " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y <> showIndented (i+1) z
+showIndented i (LPF mm x y z) = indent i <> "LPF " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y <> showIndented (i+1) z
+showIndented i (HPF mm x y z) = indent i <> "HPF " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y <> showIndented (i+1) z
+showIndented i (BPF mm x y z) = indent i <> "BPF " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y <> showIndented (i+1) z
+showIndented i (Delay maxTime x y) = indent i <> "Delay " <> show maxTime <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
 
 
 -- Miscellaneous functions over Signals:
 
-{-
-when :: Signal -> Signal -> Signal
-when x y = Mix (Constant 0.0) y x
--}
-
 modulatedRangeLowHigh :: Signal -> Signal -> Signal -> Signal
-modulatedRangeLowHigh low high x = LinLin Combinatorial (SignalList $ Constant (-1.0):Constant 1.0:Nil) (SignalList $ low:high:Nil) x
+modulatedRangeLowHigh low high x = LinLin Combinatorial inputRange outputRange x
+  where
+    inputRange = SignalList Combinatorial $ Constant (-1.0):Constant 1.0:Nil
+    outputRange = SignalList Combinatorial $ low:high:Nil
 
 modulatedRangePlusMinus :: Signal -> Signal -> Signal -> Signal
 modulatedRangePlusMinus a b = modulatedRangeLowHigh low high
   where
-    low = Product Combinatorial a (Difference Pairwise (Constant 1.0) b)
-    high = Product Combinatorial a (Addition Pairwise (Constant 1.0) b)
+    low = Difference Pairwise a b
+    high = Addition Pairwise a b
 
 fit :: Signal -> Signal -> Signal
 fit ar x = ZoomXy z x
   where
     cond = GreaterThanEqual Combinatorial Aspect ar
-    ifTrue = SignalList $ Division Pairwise ar Aspect : Constant 1.0 : Nil
-    ifFalse = SignalList $ Division Pairwise ar Aspect : Constant 1.0 : Nil
+    ifTrue = SignalList Combinatorial $ Division Pairwise ar Aspect : Constant 1.0 : Nil
+    ifFalse = SignalList Combinatorial $ Division Pairwise ar Aspect : Constant 1.0 : Nil
     z = Mix Combinatorial ifFalse ifTrue cond
-
-{-
-fit ar x = Mix Pairwise ifFalse ifTrue cond
-  where
-    cond = GreaterThanEqual Combinatorial Aspect ar
-    ifTrue = Zoom (SignalList $ Division Pairwise ar Aspect : Constant 1.0 : Nil) x
-    ifFalse = Zoom (c) x
--}
 
 fast :: Signal -> Signal -> Signal
 fast x = Slow (Division Pairwise (Constant 1.0) x)
 
 late :: Signal -> Signal -> Signal
-late x = Early (Division Pairwise (Constant 1.0) x)
+late x = Early (Difference Pairwise (Constant 0.0) x)
 
 type SignalInfo = {
   webcam :: Disj Boolean,
@@ -214,7 +367,7 @@ signalInfo x = foldMap signalInfo $ subSignals x
 -- given a Signal return the list of the component Signals it is dependent on
 -- for example, Add x y is dependent on x and y, Bipolar x is dependent on x
 subSignals :: Signal -> List Signal
-subSignals (SignalList xs) = xs
+subSignals (SignalList _ xs) = xs
 subSignals (Append x y) = x:y:Nil
 subSignals (Zip x y) = x:y:Nil
 subSignals (Mono x) = x:Nil
@@ -326,10 +479,14 @@ subSignals _ = Nil
 
 -- determine the dimensions of a Signal according to Punctual's multichannel matrix semantics
 dimensions :: Signal -> { rows :: Int, columns :: Int }
-dimensions (SignalList xs) = 
+dimensions (SignalList Combinatorial xs) = 
   case fromList xs of
     Nothing -> { rows: 1, columns: 1 }
     Just xs' -> { rows: foldl1 (*) $ map channels xs', columns: length xs' }
+dimensions (SignalList Pairwise xs) = 
+  case fromList xs of
+    Nothing -> { rows: 1, columns: 1 }
+    Just xs' -> { rows: foldl1 max $ map channels xs', columns: length xs' }
 dimensions (Append x y) = { rows: 1, columns: channels x + channels y }
 dimensions (Zip x y) = { rows: 1, columns: nPer 2 2 (channels x) + nPer 2 2 (channels y) }
 dimensions (Rep n x) = { rows: n, columns: channels x }

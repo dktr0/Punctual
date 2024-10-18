@@ -1,6 +1,6 @@
 module Parser where
 
-import Prelude (bind, discard, pure, unit, ($), (<$>), (<<<), (<>), (>>=), max)
+import Prelude (bind, discard, pure, unit, ($), (<$>), (<<<), (<>), (>>=), max, show, Unit)
 import Control.Monad (class Monad)
 import Data.Int (toNumber)
 import Data.Tuple (Tuple(..))
@@ -8,6 +8,7 @@ import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.List (List(..), range, (:))
 import Data.Traversable (traverse)
+import Data.Map (empty)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.State.Trans (get, modify_, put)
 import Control.Monad.Error.Class (throwError)
@@ -15,12 +16,15 @@ import Control.Monad.Reader (ask)
 import Parsing (ParseError(..), Position)
 import Data.Map as Map
 import Data.DateTime (DateTime)
-import Effect.Ref (read,write)
+import Effect (Effect)
+import Effect.Ref (new,read,write)
 import Effect.Aff (Aff)
 import Effect.Aff.Class (liftAff)
 import Effect.Class (liftEffect)
 import Fetch
 import Effect.Class.Console (log)
+import Effect.Now (nowDateTime)
+import Effect.Aff (runAff_)
 
 import AST (AST, Expression(..), Statement, parseAST)
 import Program (Program)
@@ -41,6 +45,12 @@ parseProgram libCache txt eTime = do
       case eErrTup of
         Left err -> pure (Left err)
         Right (Tuple xs _) -> pure $ Right { actions: xs, evalTime: eTime }
+
+parseProgramTest :: String -> Effect Unit
+parseProgramTest txt = do
+  libCache <- new empty
+  eTime <- nowDateTime
+  runAff_ (log <<< show) $ parseProgram libCache txt eTime
 
 parseLibrary :: LibraryCache -> String -> Aff (Either ParseError Library)
 parseLibrary libCache txt = do
@@ -114,7 +124,7 @@ parseExpression (Identifier p x) = do
 parseExpression (LiteralInt p x) = pure $ ValueInt p x
 parseExpression (LiteralNumber p x) = pure $ ValueNumber p x
 parseExpression (LiteralString p x) = pure $ ValueString p x
-parseExpression (ListExpression p xs) = traverse parseExpression xs >>= listValueToValueSignal p
+parseExpression (ListExpression p mm xs) = traverse parseExpression xs >>= listValueToValueSignal p mm
 parseExpression (Application _ f x) = do
   f' <- parseExpression f
   x' <- parseExpression x
@@ -125,7 +135,7 @@ parseExpression (Operation p op x y) = do
   y' <- parseExpression y
   z <- application f x'
   application z y'
-parseExpression (FromTo p x y) = pure $ ValueSignal p $ SignalList $ (Constant <<< toNumber) <$> range x y
+parseExpression (FromTo p x y) = pure $ ValueSignal p $ SignalList Combinatorial $ (Constant <<< toNumber) <$> range x y
 parseExpression (FromThenTo p _ _ _) = throwError $ ParseError "FromThenTo not supported yet" p
 -- TODO: implement FromThenTo and fix implementation of FromTo to match Haskell behaviour
 parseExpression (Lambda p xs e) = embedLambdas p xs e
@@ -406,16 +416,19 @@ numberSignalSignalSignal p f = pure $ abcd p f
 
 
 embedLambdas :: Position -> List String -> Expression -> P Value
-embedLambdas _ Nil e = parseExpression e
-embedLambdas p (x:xs) e = pure $ ValueFunction p (\v -> embedLambda x v (embedLambdas (valuePosition v) xs e))
-
-embedLambda :: forall a. String -> Value -> P a -> P a
-embedLambda k v p = do
+embedLambdas p ks e = do 
+  s <- get
+  _embedLambdas s p ks e
+ 
+_embedLambdas :: Library -> Position -> List String -> Expression -> P Value
+_embedLambdas s _ Nil e = do
   cachedS <- get
-  put $ Map.insert k v cachedS
-  a <- p
+  put s
+  a <- parseExpression e
   put cachedS
   pure a
+_embedLambdas s p (k:ks) e = pure $ ValueFunction p (\v -> _embedLambdas (Map.insert k v s) p ks e)
+
 
 importLibrary :: Position -> Value -> P Value
 importLibrary p v = do
