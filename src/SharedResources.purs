@@ -12,6 +12,7 @@ import Data.Maybe (Maybe(..))
 import Data.Tempo (Tempo, newTempo)
 import Data.Map (Map, empty, lookup, insert)
 import Data.Monoid.Disj (Disj)
+import Data.Newtype (unwrap)
 
 import WebGLCanvas (WebGLCanvas, WebGLContext, WebGLTexture)
 import WebAudio
@@ -78,8 +79,11 @@ newSharedResources mWebAudioContext = do
     brightness
     }
     
-updateAudioAnalysers :: SharedResources -> forall r. { ifft::Disj Boolean, ilo::Disj Boolean, imid::Disj Boolean, ihi::Disj Boolean, fft::Disj Boolean, lo::Disj Boolean, mid::Disj Boolean, hi::Disj Boolean | r } -> Effect Unit
-updateAudioAnalysers sr needs = do
+updateAudioInputAndAnalysers :: SharedResources -> forall r. { ain::Disj Boolean, ifft::Disj Boolean, ilo::Disj Boolean, imid::Disj Boolean, ihi::Disj Boolean, fft::Disj Boolean, lo::Disj Boolean, mid::Disj Boolean, hi::Disj Boolean | r } -> Effect Unit
+updateAudioInputAndAnalysers sr needs = do
+  case unwrap needs.ain of
+    true -> activateAudioInput sr
+    false -> disactivateAudioInput sr
   updateAnalyser sr.inputAnalyser { fft: needs.ifft, lo: needs.ilo, mid: needs.imid, hi: needs.ihi }
   updateAnalyser sr.outputAnalyser needs
 
@@ -199,6 +203,7 @@ activateAudioInput sr = do
       newExternalAudioInputNode <- audioInputGetter
       connect newExternalAudioInputNode sr.internalAudioInputNode
       write (Just newExternalAudioInputNode) sr.mExternalAudioInputNode
+      log "punctual audio input activated"
     Just _ -> pure unit -- already activated
 
 -- to be called internally whenever nothing requires audio input, to release/disconnect them if necessary
@@ -210,6 +215,7 @@ disactivateAudioInput sr = do
     Just externalAudioInputNode -> do
       disconnect externalAudioInputNode sr.internalAudioInputNode
       write Nothing sr.mExternalAudioInputNode
+      log "punctual audio input disactivated"
 
 -- called externally to use audio output other than the audio context destination
 setAudioOutput :: SharedResources -> WebAudioNode -> Effect Unit

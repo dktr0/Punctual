@@ -146,7 +146,7 @@ _updateSharedResources :: Punctual -> Effect Unit
 _updateSharedResources punctual = do
   combinedInfo <- read punctual.combinedProgramInfo
   SharedResources.setWebcamActive punctual.sharedResources $ unwrap combinedInfo.webcam
-  SharedResources.updateAudioAnalysers punctual.sharedResources combinedInfo
+  SharedResources.updateAudioInputAndAnalysers punctual.sharedResources combinedInfo
 
 
 render :: Punctual -> { zone :: Int, canDraw :: Boolean, nowTime :: Number } -> Effect Unit -- later will be Effect (Array Foreign)
