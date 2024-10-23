@@ -301,7 +301,7 @@ unconsVec3sToVec2s xs =
 unconsVec2sToVec3s :: NonEmptyList Vec2 -> Tuple (NonEmptyList Vec3) (Maybe (NonEmptyList Vec2))
 unconsVec2sToVec3s xs =
   case fromList (tail xs) of
-    -- one vec2s makes one vec3 via swizzleXYY
+    -- one vec2 makes one vec3 via swizzleXY + 0
     Nothing -> Tuple (singleton $ vec2FloatToVec3 (head xs) zero) Nothing
     Just xs' ->
       case fromList (tail xs') of
@@ -880,7 +880,7 @@ xyrt xy = floatFloatToVec2 r t
     x = swizzleX xy
     y = swizzleY xy
     r = sqrt (add (product x x) (product y y))
-    t = atan (division y x)
+    t = atan2 y x
 
 xyr :: Vec2 -> Float
 xyr xy = sqrt (add (product x x) (product y y))
