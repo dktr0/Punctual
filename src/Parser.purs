@@ -29,7 +29,7 @@ import Effect.Aff (runAff_)
 import AST (AST, Expression(..), Statement, parseAST)
 import Program (Program)
 import MultiMode (MultiMode(..))
-import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus,fit,fast,late)
+import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus,fit,fast,late,zero)
 import Value (Value(..),valuePosition,listValueToValueSignal,valueToSignal,class ToValue, class FromValue, toValue, fromValue, valueToAction, valueToFunction, P, Library, runP, valueToString, LibraryCache)
 import Action (Action, setCrossFade, setOutput)
 import Output (Output)
@@ -260,6 +260,8 @@ parseReserved p "rty" = pure $ signalSignal p RtY
 parseReserved p "xyrt" = pure $ signalSignal p XyRt
 parseReserved p "xyr" = pure $ signalSignal p XyR
 parseReserved p "xyt" = pure $ signalSignal p XyT
+parseReserved p "zero" = pure $ signalSignal p zero
+parseReserved p "zer0" = pure $ signalSignal p zero
 parseReserved p "point" = pure $ signalSignal p Point
 parseReserved p "dist" = pure $ signalSignal p Dist
 parseReserved p "prox" = pure $ signalSignal p Prox

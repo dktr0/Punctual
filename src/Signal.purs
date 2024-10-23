@@ -637,3 +637,6 @@ binaryFunctionDimensions Pairwise x y = { rows: 1, columns: max x y }
 binaryFunctionChannels :: MultiMode -> Int -> Int -> Int
 binaryFunctionChannels Combinatorial x y = x * y 
 binaryFunctionChannels Pairwise x y = max x y
+
+zero :: forall a. a -> Signal
+zero _ = Constant 0.0
