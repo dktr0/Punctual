@@ -68,7 +68,7 @@ instance Expr Float where
   unaryFunction f _ (FloatConstant x) = FloatConstant (f x)
   unaryFunction _ f (FloatExpr x) = FloatExpr (f x)
   binaryFunction f _ (FloatConstant x) (FloatConstant y) = FloatConstant (f x y)
-  binaryFunction _ f x y = FloatExpr (f (toExpr x) (toExpr y))
+  binaryFunction _ f x y = FloatExpr (f (toExprSafe x) (toExprSafe y))
   showType _ = "float"
   fromFloat = identity
   fromFloats = identity
