@@ -83,6 +83,11 @@ instance Expr Float where
 
 instance Channels Float where channels _ = 1
 
+derive instance Eq Float
+derive instance Generic Float _
+instance Show Float where
+  show x = genericShow x
+
 
 data Vec2 =
   Vec2Constant Number Number |
@@ -115,6 +120,11 @@ instance Expr Vec2 where
   dotSum x = FloatExpr $ "dot(" <> toExpr x <> ",vec2(1.))"
 
 instance Channels Vec2 where channels _ = 2
+
+derive instance Eq Vec2
+derive instance Generic Vec2 _
+instance Show Vec2 where
+  show x = genericShow x
 
 
 data Vec3 =
@@ -149,6 +159,11 @@ instance Expr Vec3 where
 
 instance Channels Vec3 where channels _ = 3
 
+derive instance Eq Vec3
+derive instance Generic Vec3 _
+instance Show Vec3 where
+  show x = genericShow x
+
 
 data Vec4 =
   Vec4Constant Number Number Number Number |
@@ -181,6 +196,11 @@ instance Expr Vec4 where
   dotSum x = FloatExpr $ "dot(" <> toExpr x <> ",vec4(1.))"
 
 instance Channels Vec4 where channels _ = 1
+
+derive instance Eq Vec4
+derive instance Generic Vec4 _
+instance Show Vec4 where
+  show x = genericShow x
 
 
 floatsToVec2s :: NonEmptyList Float -> NonEmptyList Vec2
@@ -567,7 +587,7 @@ tan :: forall a. Expr a => a -> a
 tan = unaryFunction Number.tan (function1 "tan")
 
 fract :: forall a. Expr a => a -> a
-fract = unaryFunction (\x -> Prelude.mod x 1.0) (function1 "fract")
+fract = unaryFunction (\x -> Number.abs $ Number.remainder x 1.0) (function1 "fract")
 
 
 -- Arithmetic operations

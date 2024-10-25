@@ -451,7 +451,7 @@ ampdb :: Sample -> W Sample
 ampdb x = assign $ "20 * Math.log10(" <> showSample x <> ")"
 
 fract :: Sample -> W Sample
-fract x = assign $ showSample x <> "%1"
+fract x = assign $ "Math.abs(" <> showSample x <> "%1)"
 
 operator :: (Number -> Number -> Number) -> String -> Sample -> Sample -> W Sample
 operator f _ (Left x) (Left y) = pure $ Left (f x y)
