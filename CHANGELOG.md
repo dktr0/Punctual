@@ -16,8 +16,6 @@ Major changes relative to 0.4.x
 
 Other changes relative to 0.4.x
 
--in degenerate cases where fewer channels are provided by the punctual programmer than are expected, the missing channels are generally filled in with zero instead of repeating the last channel that was provided
-
 -[a,b,c] combines a b and c combinatorially (similar to 0.4 but with matrix semantics); {a,b,c}, which is new, combines a b and c pairwise; 'zip' is now deprecated (and will be removed in 0.6) since the new { } notation generalizes it
 
 -available outputs are 'audio' 'blend' 'add' 'rgba' 'rgb' (previously existing outputs like 'hsv' 'red' 'splay' 'alpha' etc have been removed)

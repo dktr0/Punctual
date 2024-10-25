@@ -270,6 +270,10 @@ vec2FloatFloatToVec4 :: Vec2 -> Float -> Float -> Vec4
 vec2FloatFloatToVec4 (Vec2Constant x y) (FloatConstant z) (FloatConstant w) = Vec4Constant x y z w
 vec2FloatFloatToVec4 x y z = Vec4Expr $ "vec4(" <> toExpr x <> "," <> toExpr y <> "," <> toExpr z <> ")"
 
+floatFloatVec2ToVec4 :: Float -> Float -> Vec2 -> Vec4
+floatFloatVec2ToVec4 (FloatConstant x) (FloatConstant y) (Vec2Constant z w) = Vec4Constant x y z w
+floatFloatVec2ToVec4 x y z = Vec4Expr $ "vec4(" <> toExpr x <> "," <> toExpr y <> "," <> toExpr z <> ")"
+
 vec3FloatToVec4 :: Vec3 -> Float -> Vec4
 vec3FloatToVec4 (Vec3Constant x y z) (FloatConstant w) = Vec4Constant x y z w
 vec3FloatToVec4 x y = Vec4Expr $ "vec4(" <> toExpr x <> "," <> toExpr y <> ")"
@@ -284,34 +288,34 @@ floatVec3ToVec4 x y = Vec4Expr $ "vec4(" <> toExpr x <> "," <> toExpr y <> ")"
 unconsFloatsToVec2s :: NonEmptyList Float -> Tuple (NonEmptyList Vec2) (Maybe (NonEmptyList Float))
 unconsFloatsToVec2s xs =
   case fromList (tail xs) of
-    Nothing -> Tuple (singleton $ floatFloatToVec2 (head xs) zero) Nothing
+    Nothing -> Tuple (singleton $ fromFloat (head xs)) Nothing
     Just xs' -> Tuple (singleton $ floatFloatToVec2 (head xs) (head xs')) (fromList $ tail xs')
 
 unconsFloatsToVec3s :: NonEmptyList Float -> Tuple (NonEmptyList Vec3) (Maybe (NonEmptyList Float))
 unconsFloatsToVec3s xs =
   case fromList (tail xs) of
-    Nothing -> Tuple (singleton $ floatFloatFloatToVec3 (head xs) zero zero) Nothing
+    Nothing -> Tuple (singleton $ fromFloat (head xs)) Nothing
     Just xs' ->
       case fromList (tail xs') of
-        Nothing -> Tuple (singleton $ floatFloatFloatToVec3 (head xs) (head xs') zero) Nothing
+        Nothing -> Tuple (singleton $ floatVec2ToVec3 (head xs) (fromFloat $ head xs')) Nothing
         Just xs'' -> Tuple (singleton $ floatFloatFloatToVec3 (head xs) (head xs') (head xs'')) (fromList $ tail xs'')
 
 unconsFloatsToVec4s :: NonEmptyList Float -> Tuple (NonEmptyList Vec4) (Maybe (NonEmptyList Float))
 unconsFloatsToVec4s xs =
   case fromList (tail xs) of
-    Nothing -> Tuple (singleton $ floatFloatFloatFloatToVec4 (head xs) zero zero zero) Nothing
+    Nothing -> Tuple (singleton $ fromFloat (head xs)) Nothing
     Just xs' ->
       case fromList (tail xs') of
-        Nothing -> Tuple (singleton $ floatFloatFloatFloatToVec4 (head xs) (head xs') zero zero) Nothing
+        Nothing -> Tuple (singleton $ floatVec3ToVec4 (head xs) (fromFloat $ head xs')) Nothing
         Just xs'' ->
           case fromList (tail xs'') of
-            Nothing -> Tuple (singleton $ floatFloatFloatFloatToVec4 (head xs) (head xs') (head xs'') zero) Nothing
+            Nothing -> Tuple (singleton $ floatFloatVec2ToVec4 (head xs) (head xs') (fromFloat $ head xs'')) Nothing
             Just xs''' -> Tuple (singleton $ floatFloatFloatFloatToVec4 (head xs) (head xs') (head xs'') (head xs''')) (fromList $ tail xs''')
 
 unconsVec3sToVec2s :: NonEmptyList Vec3 -> Tuple (NonEmptyList Vec2) (Maybe (NonEmptyList Vec3))
 unconsVec3sToVec2s xs =
   case fromList (tail xs) of
-    Nothing -> Tuple (swizzleXY (head xs) `cons` singleton (floatFloatToVec2 (swizzleZ $ head xs) zero)) Nothing -- one vec3 makes two vec2s
+    Nothing -> Tuple (swizzleXY (head xs) `cons` singleton (fromFloat $ swizzleZ $ head xs)) Nothing -- one vec3 makes two vec2s
     Just xs' ->
       let a = swizzleXY $ head xs
           b = floatFloatToVec2 (swizzleZ (head xs)) (swizzleX (head xs'))
@@ -321,13 +325,12 @@ unconsVec3sToVec2s xs =
 unconsVec2sToVec3s :: NonEmptyList Vec2 -> Tuple (NonEmptyList Vec3) (Maybe (NonEmptyList Vec2))
 unconsVec2sToVec3s xs =
   case fromList (tail xs) of
-    -- one vec2 makes one vec3 via swizzleXY + 0
-    Nothing -> Tuple (singleton $ vec2FloatToVec3 (head xs) zero) Nothing
+    Nothing -> Tuple (singleton $ swizzleXYY (head xs)) Nothing
     Just xs' ->
       case fromList (tail xs') of
-        Nothing -> -- two vec2s makes two vec3s (second one is swizzleY00)
+        Nothing -> -- two vec2s makes two vec3s
           let a = vec2FloatToVec3 (head xs) (swizzleX (head xs'))
-              b = floatFloatFloatToVec3 (swizzleY $ head xs') zero zero
+              b = fromFloat $ swizzleY $ head xs'
           in Tuple (a `cons` singleton b) Nothing
         Just xs'' -> -- three vec2s makes two vec3s evenly
           let a = vec2FloatToVec3 (head xs) (swizzleX (head xs'))
@@ -338,13 +341,13 @@ unconsVec4sToVec3s :: NonEmptyList Vec4 -> Tuple (NonEmptyList Vec3) (Maybe (Non
 unconsVec4sToVec3s xs =
   case fromList (tail xs) of
     -- one vec4 makes two vec3s
-    Nothing -> Tuple (swizzleXYZ (head xs) `cons` singleton (floatFloatFloatToVec3 (swizzleW $ head xs) zero zero)) Nothing
+    Nothing -> Tuple (swizzleXYZ (head xs) `cons` singleton (fromFloat (swizzleW $ head xs))) Nothing
     Just xs' ->
       case fromList (tail xs') of
         Nothing -> -- two vec4s makes three vec3s
           let a = swizzleXYZ (head xs)
               b = floatVec2ToVec3 (swizzleW $ head xs) (swizzleXY $ head xs')
-              c = vec2FloatToVec3 (swizzleZW $ head xs') zero
+              c = swizzleZWW $ head xs'
           in Tuple (a `cons` (b `cons` singleton c)) Nothing
         Just xs'' -> -- three vec4s makes four vec3s evenly
           let a = swizzleXYZ (head xs)
@@ -357,7 +360,7 @@ unconsVec4sToVec3s xs =
 unconsVec2sToVec4s :: NonEmptyList Vec2 -> Tuple (NonEmptyList Vec4) (Maybe (NonEmptyList Vec2))
 unconsVec2sToVec4s xs =
   case fromList (tail xs) of
-    Nothing -> Tuple (singleton $ vec2FloatFloatToVec4 (swizzleXY $ head xs) zero zero) Nothing
+    Nothing -> Tuple (singleton $ swizzleXYYY $ head xs) Nothing
     Just xs' ->
       let x = vec2Vec2ToVec4 (head xs) (head xs')
       in Tuple (singleton x) (fromList $ tail xs')
@@ -365,19 +368,19 @@ unconsVec2sToVec4s xs =
 unconsVec3sToVec4s :: NonEmptyList Vec3 -> Tuple (NonEmptyList Vec4) (Maybe (NonEmptyList Vec3))
 unconsVec3sToVec4s xs =
   case fromList (tail xs) of
-    Nothing -> Tuple (singleton $ vec3FloatToVec4 (swizzleXYZ $ head xs) zero) Nothing
+    Nothing -> Tuple (singleton $ swizzleXYZZ $ head xs) Nothing
     Just xs' ->
       case fromList (tail xs') of
         Nothing ->
           let a = vec3FloatToVec4 (head xs) (swizzleX $ head xs')
-              b = vec2FloatFloatToVec4 (swizzleYZ $ head xs') zero zero
+              b = swizzleYZZZ $ head xs'
           in Tuple (a `cons` singleton b) Nothing
         Just xs'' ->
           case fromList (tail xs'') of
             Nothing ->
               let a = vec3FloatToVec4 (head xs) (swizzleX $ head xs')
                   b = vec2Vec2ToVec4 (swizzleYZ $ head xs') (swizzleXY $ head xs'')
-                  c = floatFloatFloatFloatToVec4 (swizzleZ $ head xs'') zero zero zero
+                  c = fromFloat $ swizzleZ $ head xs''
               in Tuple (a `cons` (b `cons` singleton c)) Nothing
             Just xs''' ->
               let a = vec3FloatToVec4 (head xs) (swizzleX $ head xs')
