@@ -1,0 +1,79 @@
+body {
+  background-color: black;
+}
+
+.standalone {
+}
+
+.canvas {
+  position: absolute;
+	width: 100%;
+	height: 100%;
+	left: 0px;
+	top: 0px;
+	pointer-events: none;
+  z-index: 1;
+}
+
+.editorAndStatus {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  overflow: hidden;
+}
+
+.editor {
+  flex-grow: 1;
+  flex-direction: column;
+  background-color: transparent;
+	width: 100%;
+  resize: none;
+}
+
+.info {
+  flex-grow: 1;
+  flex-direction: column;
+  background-colour: transparent;
+  width: 100%;
+  color: white;
+  font-family: Inconsolata,Consolas,monospace;
+  background-color: transparent;
+  border: none;
+  resize: none;
+  box-shadow: none;
+  outline: none;
+  font-size: 1em;
+}
+
+.editorArea {
+  font-family: Inconsolata,Consolas,monospace;
+  background-color: transparent;
+  border: none;
+	width: 100%;
+  height: 100%;
+  color: white;
+  resize: none;
+  overflow: hidden;
+  box-shadow: none;
+  outline: none;
+  font-size: 1em;
+}
+
+.status {
+  font-family: Inconsolata,Consolas,monospace;
+  width: 100%;
+  color: white;
+  font-size: 1em;
+}
+
+.errors {
+  float: left;
+}
+
+.fps {
+  float: right;
+}
