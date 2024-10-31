@@ -18,7 +18,7 @@ Other changes relative to 0.4.x
 
 -[a,b,c] combines a b and c combinatorially (similar to 0.4 but with matrix semantics); {a,b,c}, which is new, combines a b and c pairwise; 'zip' is now deprecated (and will be removed in 0.6) since the new { } notation generalizes it
 
--available outputs are 'audio' 'blend' 'add' 'rgba' 'rgb' (previously existing outputs like 'hsv' 'red' 'splay' 'alpha' etc have been removed)
+-available outputs are 'audio' 'blend' 'add' 'rgba' 'rgb' (previously existing outputs like 'hsv' 'red' 'splay' 'alpha' etc have been removed). Visual outputs behave in a layer fashion similar to image editing software. Earlier statements in a Punctual program with visual outputs are like lower/earlier layers in image editing. When a later/newer layer has an alpha component (blend or rgba), that alpha value is used to determine how much of the combined result comes from the previous layer (alpha = 0) versus the new/current layer (alpha = 1). 
 
 -'step' has been replaced with 'seq'
 
