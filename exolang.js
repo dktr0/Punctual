@@ -1,11 +1,12 @@
 import * as P from './output/Main/index.js';
 
-export function exoLang() {
-  return new Punctual();
+export function exoLang(args) {
+  return new Punctual(args);
 }
 
-export function Punctual() {
-  this.punctual = P.launch();
+export function Punctual(args) {
+  if (args==null) args = {};
+  this.punctual = P.launch(args)();
 }
 
 Punctual.prototype.define = function(args) {

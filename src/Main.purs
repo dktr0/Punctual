@@ -18,6 +18,7 @@ import Effect.Class.Console (log)
 import Effect.Class (liftEffect)
 import Control.Monad.Error.Class (throwError)
 import Effect.Exception (error)
+import Data.Nullable (Nullable,toMaybe)
 
 import Signal (SignalInfo,emptySignalInfo)
 import Program (Program,emptyProgram,programHasVisualOutput,programHasAudioOutput,programInfo)
@@ -27,7 +28,7 @@ import SharedResources (SharedResources)
 import SharedResources as SharedResources
 import WebGL (WebGL, newWebGL, updateWebGL, deleteWebGL, drawWebGL)
 import AudioZone (AudioZone,newAudioZone,redefineAudioZone,deleteAudioZone)
-import WebAudio (WebAudioNode)
+import WebAudio (WebAudioNode,WebAudioContext)
   
 type Punctual = {
   sharedResources :: SharedResources,
@@ -41,9 +42,10 @@ type Punctual = {
   }
 
 
-launch :: Effect Punctual
-launch = do
-  sharedResources <- SharedResources.newSharedResources Nothing
+launch :: { webAudioContext :: Nullable WebAudioContext } -> Effect Punctual
+launch args = do
+  let mWebAudioContext = toMaybe args.webAudioContext
+  sharedResources <- SharedResources.newSharedResources mWebAudioContext
   programs <- new empty
   previousPrograms <- new empty
   programInfos <- new empty

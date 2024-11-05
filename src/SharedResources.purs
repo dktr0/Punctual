@@ -38,7 +38,6 @@ type SharedResources = {
   audioWorkletCount :: Ref Int,
   brightness :: Ref Number
   }
-  
 
 newSharedResources :: Maybe WebAudioContext -> Effect SharedResources
 newSharedResources mWebAudioContext = do
