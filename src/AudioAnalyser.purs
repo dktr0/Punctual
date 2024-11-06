@@ -12,7 +12,7 @@ import WebAudio
 
 type AudioAnalyser = {
   webAudioContext :: WebAudioContext,
-  sourceNode :: WebAudioNode,
+  sourceNode :: Ref WebAudioNode,
   mAnalyserNode :: Ref (Maybe WebAudioNode),
   analyserArray :: AnalyserArray,
   lo :: Ref Number,
@@ -21,7 +21,8 @@ type AudioAnalyser = {
   }
       
 newAudioAnalyser :: WebAudioContext -> WebAudioNode -> Effect AudioAnalyser
-newAudioAnalyser webAudioContext sourceNode = do
+newAudioAnalyser webAudioContext n = do
+  sourceNode <- new n
   mAnalyserNode <- new Nothing
   analyserArray <- _analyserArray 512
   lo <- new 0.0
@@ -43,7 +44,8 @@ _disactivateAnalysis a = do
   case mAnalyserNode of
     Nothing -> pure unit  -- analysis is not currently active, so nothing more to do
     Just analyserNode -> do -- disactivate
-      disconnect a.sourceNode analyserNode
+      sourceNode <- read a.sourceNode
+      disconnect sourceNode analyserNode
       write Nothing a.mAnalyserNode
       log "punctual: disactivating an audio analyser..."
       
@@ -54,7 +56,8 @@ _activateAnalysis a = do
     Just analyserNode -> pure analyserNode -- analysis is already active, so nothing more to do
     Nothing -> do -- analysis is not active, so need to make new source and analyser nodes
       analyserNode <- _analyserNode a.webAudioContext 1024 0.5
-      connect a.sourceNode analyserNode
+      sourceNode <- read a.sourceNode
+      connect sourceNode analyserNode
       write (Just analyserNode) a.mAnalyserNode
       log "punctual: activating an audio analyser..."
       pure analyserNode
@@ -76,6 +79,17 @@ updateAnalyser a needs = do
       when (unwrap needs.hi) $ do
         x <- _getHi a.analyserArray
         write x a.hi
+
+setSourceNode :: AudioAnalyser -> WebAudioNode -> Effect Unit
+setSourceNode a newSourceNode = do
+  mAnalyserNode <- read a.mAnalyserNode
+  case mAnalyserNode of
+    Just analyserNode -> do
+      oldSourceNode <- read a.sourceNode
+      disconnect oldSourceNode analyserNode
+      connect newSourceNode analyserNode
+    Nothing -> pure unit
+  write newSourceNode a.sourceNode
         
 foreign import data AnalyserArray :: Type
 

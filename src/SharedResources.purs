@@ -16,7 +16,7 @@ import Data.Newtype (unwrap)
 
 import WebGLCanvas (WebGLCanvas, WebGLContext, WebGLTexture)
 import WebAudio
-import AudioAnalyser (AudioAnalyser,newAudioAnalyser,updateAnalyser)
+import AudioAnalyser (AudioAnalyser,newAudioAnalyser,updateAnalyser,setSourceNode)
 import Value (LibraryCache) 
 
 type URL = String
@@ -217,12 +217,14 @@ disactivateAudioInput sr = do
       log "punctual audio input disactivated"
 
 -- called externally to use audio output other than the audio context destination
+-- note: cannot be set to destination of audio context (since that can't be a source for audio analysis)
 setAudioOutput :: SharedResources -> WebAudioNode -> Effect Unit
 setAudioOutput sr newExternalAudioOutputNode = do
   externalAudioOutputNode <- read sr.externalAudioOutputNode
   disconnect sr.internalAudioOutputNode externalAudioOutputNode
   connect sr.internalAudioOutputNode newExternalAudioOutputNode
   write newExternalAudioOutputNode sr.externalAudioOutputNode
+  setSourceNode sr.outputAnalyser newExternalAudioOutputNode
 
 
 -- Brightness
