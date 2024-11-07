@@ -304,6 +304,27 @@ modulatedRangePlusMinus a b = modulatedRangeLowHigh low high
     low = Difference Pairwise a b
     high = Addition Pairwise a b
 
+{-
+
+uni x -- converts any signal x to unipolar, based on its nominal range (former unipolar deprecated)
+bi x -- converts any signal x to bipolar, based on its nominal range (former bipolar deprecated)
+range r x -- converts any signal x to the range r, based on its nominal range (has pairwise and unclipped variants, operators: <~ and ~>
+runi r x -- converts signal x to unipolar, on the assumption that it ranges according to r (has pairwise and unclipped variants)
+rbi r x -- converts signal x to bipolar, on the assumption that it ranges according to r (has pairwise and unclipped variants)
+
+examples:
+
+range [10,10000] $ lfsaw 0.1 -- produces an output that goes from 10 to 10000 at 0.1 Hz
+[10,10000] <~ lfsaw 0.1 -- same as above (operator equivalent)
+lfsaw 0.1 ~> [10,10000] -- same as above (operator equivalent with flipped arguments)
+[10,10000] <~ hi;  -- produces an output that goes from 10 to 10000 driven by unipolar input from audio analysis
+fx ~> [10,10000]; -- produces an output that goes from 10 to 10000 as fx goes from -1 to 1 (left to right across screen)
+
+range [10,10000] $ runi [3.0,117.0] x -- the linlin replacement, assume x ranges 3 to 117 even if it doesn't, scale that 10 to 10000
+[10,10000] <~ (runi [3.0,117.0] x) -- same as above
+
+-}
+
 fit :: Signal -> Signal -> Signal
 fit ar x = ZoomXy z x
   where
