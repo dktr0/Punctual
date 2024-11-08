@@ -86,7 +86,7 @@ operators2 :: Array String
 operators2 = ["$","&"]
 
 operators3 :: Array String
-operators3 = ["++","~~","+-"]
+operators3 = ["++","~~","~~:","+-"]
 
 operators4 :: Array String
 operators4 = ["==","/=",">","<",">=","<=","==:","/=:",">:","<:",">=:","<=:"]

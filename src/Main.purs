@@ -3,9 +3,9 @@ module Main where
 import Prelude
 
 import Effect (Effect)
-import Effect.Now (nowDateTime)
-import Data.Time.Duration (Milliseconds)
-import Data.DateTime (diff)
+-- import Effect.Now (nowDateTime)
+-- import Data.Time.Duration (Milliseconds)
+-- import Data.DateTime (diff)
 import Data.Either (Either(..))
 import Data.Map (Map, empty, lookup, insert, delete)
 import Effect.Ref (Ref, new, read, write)
@@ -60,9 +60,9 @@ launch args = do
 define :: Punctual -> { zone :: Int, time :: Number, text :: String } -> Effect (Promise { info :: String })
 define punctual args = fromAff $ do
   -- log $ "define: " <> show args
-  t0 <- liftEffect $ nowDateTime
+  -- t0 <- liftEffect $ nowDateTime
   pr <- parseProgram punctual.sharedResources.libraries args.text (numberToDateTime args.time)
-  t1 <- liftEffect $ nowDateTime
+  -- t1 <- liftEffect $ nowDateTime
   -- log $ " parse time = " <> show (diff t1 t0 :: Milliseconds)
   case pr of
     Left err -> do

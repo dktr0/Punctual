@@ -292,14 +292,14 @@ showIndented i (Delay maxTime x y) = indent i <> "Delay " <> show maxTime <> "\n
 
 -- Miscellaneous functions over Signals:
 
-modulatedRangeLowHigh :: Signal -> Signal -> Signal -> Signal
-modulatedRangeLowHigh low high x = LinLin Combinatorial inputRange outputRange x
+modulatedRangeLowHigh :: MultiMode -> Signal -> Signal -> Signal -> Signal
+modulatedRangeLowHigh mm low high x = LinLin mm inputRange outputRange x
   where
-    inputRange = SignalList Combinatorial $ Constant (-1.0):Constant 1.0:Nil
-    outputRange = SignalList Combinatorial $ low:high:Nil
+    inputRange = SignalList Pairwise $ Constant (-1.0):Constant 1.0:Nil
+    outputRange = SignalList mm $ low:high:Nil
 
 modulatedRangePlusMinus :: Signal -> Signal -> Signal -> Signal
-modulatedRangePlusMinus a b = modulatedRangeLowHigh low high
+modulatedRangePlusMinus a b = modulatedRangeLowHigh Pairwise low high
   where
     low = Difference Pairwise a b
     high = Addition Pairwise a b
@@ -322,6 +322,21 @@ fx ~> [10,10000]; -- produces an output that goes from 10 to 10000 as fx goes fr
 
 range [10,10000] $ runi [3.0,117.0] x -- the linlin replacement, assume x ranges 3 to 117 even if it doesn't, scale that 10 to 10000
 [10,10000] <~ (runi [3.0,117.0] x) -- same as above
+
+but how is nominal range calculated for multichannel signals? is it the widest range over all channels or does it exist for each channel?
+
+4 full-range oscillators...
+osc [110,220,330,440] -- range is clearly [-1,1]
+
+4 LFOs...
+range [0,1] $ [osc 1, osc 2 / 2, osc 3 / 3, osc 4 / 4]
+all 4 LFOS are rescaled in such a way that they stay within [0,1] 
+
+okay, so multichannel signals have the ranges that result from combining their component signals (the lowest minimum, the highest maximum)
+
+while this is a nice idea, it runs afoul of cases like (Mono x :: Signal), where to know the range you have to mappend the ranges of all channels of the argument x
+
+to return to later...
 
 -}
 

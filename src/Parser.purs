@@ -18,19 +18,18 @@ import Data.Map as Map
 import Data.DateTime (DateTime)
 import Effect (Effect)
 import Effect.Ref (new,read,write)
-import Effect.Aff (Aff)
+import Effect.Aff (Aff,runAff_)
 import Effect.Aff.Class (liftAff)
 import Effect.Class (liftEffect)
-import Fetch
+import Fetch (fetch)
 import Effect.Class.Console (log)
 import Effect.Now (nowDateTime)
-import Effect.Aff (runAff_)
 
 import AST (AST, Expression(..), Statement, parseAST)
 import Program (Program)
 import MultiMode (MultiMode(..))
 import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus,fit,fast,late,zero)
-import Value (Value(..),valuePosition,listValueToValueSignal,valueToSignal,class ToValue, class FromValue, toValue, fromValue, valueToAction, valueToFunction, P, Library, runP, valueToString, LibraryCache)
+import Value (class FromValue, class ToValue, Library, LibraryCache, P, Value(..), fromValue, listValueToValueSignal, runP, toValue, valueToAction, valueToFunction, valueToSignal, valueToString)
 import Action (Action, setCrossFade, setOutput)
 import Output (Output)
 import Output as Output
@@ -330,7 +329,8 @@ parseOperator p "<>" = lift $ actionNumberAction p setCrossFade
 parseOperator p "$" = pure $ ValueFunction p (\f -> pure $ ValueFunction p (\x -> application f x))
 parseOperator p "&" = pure $ ValueFunction p (\x -> pure $ ValueFunction p (\f -> application f x))
 parseOperator p "++" = lift $ signalSignalSignal p Append
-parseOperator p "~~" = lift $ signalSignalSignalSignal p modulatedRangeLowHigh
+parseOperator p "~~" = lift $ signalSignalSignalSignal p (modulatedRangeLowHigh Combinatorial)
+parseOperator p "~~:" = lift $ signalSignalSignalSignal p (modulatedRangeLowHigh Pairwise)
 parseOperator p "+-" = lift $ signalSignalSignalSignal p modulatedRangePlusMinus
 parseOperator p "+" = lift $ signalSignalSignal p $ Addition Combinatorial
 parseOperator p "-" = lift $ signalSignalSignal p $ Difference Combinatorial
