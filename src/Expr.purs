@@ -1,10 +1,10 @@
 module Expr where
 
-import Prelude (class Eq, class Ord, class Show,($),(<>),show,(+),(-),(*),(/),(<<<),flip,(==),(/=),(>),(>=),(<),(<=),map,identity,otherwise,(&&))
+import Prelude (class Eq, class Show, flip, identity, map, otherwise, show, ($), (&&), (*), (+), (-), (/), (/=), (<), (<<<), (<=), (<>), (==), (>), (>=))
 import Prelude as Prelude
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
-import Data.Number as Number
+import Data.Number (abs, acos, asin, atan, atan2, ceil, cos, exp, floor, log, pow, remainder, sign, sin, sqrt, tan) as Number
 import Data.Int (toNumber)
 import Data.List.NonEmpty (NonEmptyList,head,tail,fromList,concat,cons,singleton,length,zipWith)
 import Data.Tuple (Tuple(..))
@@ -13,7 +13,7 @@ import Data.Unfoldable1 (unfoldr1,range)
 import Data.Semigroup.Foldable (class Foldable1,foldl1)
 
 import Channels
-import Number as Number
+import Number (cbrt, divisionSafe, log2, showNumber) as Number
 
 class Channels a <= Expr a where
   constant :: Number -> a
@@ -596,67 +596,62 @@ fract = unaryFunction (\x -> Number.abs $ Number.remainder x 1.0) (function1 "fr
 -- Arithmetic operations
 
 operatorFloatExpr :: forall a. Expr a => (Number -> Number -> Number) -> String -> Float -> a -> a
-operatorFloatExpr f op (FloatConstant x) y = unaryFunction (f x) (\y' -> "(" <> Number.showNumber x <> op <> y' <> ")") y
-operatorFloatExpr _ op (FloatExpr x) y = expr $ "(" <> x <> op <> toExprSafe y <> ")"
+operatorFloatExpr f op (FloatConstant x) y = unaryFunction (f x) (binOp op (Number.showNumber x)) y
+operatorFloatExpr _ op (FloatExpr x) y = expr $ binOp op x (toExprSafe y)
 
 operatorExprFloat :: forall a. Expr a => (Number -> Number -> Number) -> String -> a -> Float -> a
-operatorExprFloat f op x (FloatConstant y) = unaryFunction (flip f y) (\x' -> "(" <> x' <> op <> Number.showNumber y <> ")") x
-operatorExprFloat _ op x (FloatExpr y) = expr $ "(" <> toExprSafe x <> op <> y <> ")"
+operatorExprFloat f op x (FloatConstant y) = unaryFunction (flip f y) (\x' -> binOp op x' (Number.showNumber y)) x
+operatorExprFloat _ op x (FloatExpr y) = expr $ binOp op (toExprSafe x) y
 
 arithmeticOperator :: forall a. Expr a => (Number -> Number -> Number) -> String -> a -> a -> a
 arithmeticOperator f op = binaryFunction f (binOp op)
+
+functionFloatExpr :: forall a. Expr a => (Number -> Number -> Number) -> String -> Float -> a -> a
+functionFloatExpr f fName (FloatConstant x) y = unaryFunction (f x) (function2 fName (Number.showNumber x)) y
+functionFloatExpr _ fName (FloatExpr x) y = expr $ function2 fName x (toExprSafe y)
+
+functionExprFloat :: forall a. Expr a => (Number -> Number -> Number) -> String -> a -> Float -> a
+functionExprFloat f fName x (FloatConstant y) = unaryFunction (flip f y) (\x' -> function2 fName x' (Number.showNumber y)) x
+functionExprFloat _ fName x (FloatExpr y) = expr $ function2 fName (toExprSafe x) y
+
+arithmeticFunction :: forall a. Expr a => (Number -> Number -> Number) -> String -> a -> a -> a
+arithmeticFunction f fName = binaryFunction f (function2 fName)
 
 add :: forall a. Expr a => a -> a -> a
 add = arithmeticOperator (+) "+"
 
 addFloatExpr :: forall b. Expr b => Float -> b -> b
 addFloatExpr = operatorFloatExpr (+) "+"
--- addFloatExpr (FloatConstant a) b = unaryFunction (\b' -> a + b') (\b' -> binOp "+" (show a) b') b
--- addFloatExpr (FloatExpr a) b = expr $ binOp "+" a (toExpr b)
 
 addExprFloat :: forall a. Expr a => a -> Float -> a
 addExprFloat = operatorExprFloat (+) "+"
---addExprFloat = flip addFloatExpr
 
 difference :: forall a. Expr a => a -> a -> a
 difference = arithmeticOperator (-) "-"
 
 differenceFloatExpr :: forall b. Expr b => Float -> b -> b
 differenceFloatExpr = operatorFloatExpr (-) "-"
--- differenceFloatExpr (FloatConstant a) b = unaryFunction (\b' -> a - b') (\b' -> binOp "-" (show a) b') b
--- differenceFloatExpr (FloatExpr a) b = expr $ binOp "-" a (toExpr b)
 
 differenceExprFloat :: forall b. Expr b => b -> Float -> b
 differenceExprFloat = operatorExprFloat (-) "-"
--- differenceExprFloat a (FloatConstant b) = unaryFunction (\a' -> a' - b) (\a' -> binOp "-" a' (show b)) a
--- differenceExprFloat a (FloatExpr b) = expr $ binOp "-" (toExpr a) b
 
 product :: forall a. Expr a => a -> a -> a
 product = arithmeticOperator (*) "*"
 
 productFloatExpr :: forall b. Expr b => Float -> b -> b
 productFloatExpr = operatorFloatExpr (*) "*"
--- productFloatExpr (FloatConstant a) b = unaryFunction (\x -> a * x) (\x -> binOp "*" (show a) x) b
--- productFloatExpr (FloatExpr a) b = expr $ binOp "*" a (toExpr b)
 
 productExprFloat :: forall a. Expr a => a -> Float -> a
 productExprFloat = operatorExprFloat (*) "*"
--- productExprFloat = flip productFloatExpr
 
 division :: forall a. Expr a => a -> a -> a
-division = arithmeticOperator (/) "/" -- TODO: this should be safe division to match the audio side!
+division = arithmeticFunction Number.divisionSafe "div"
 
 divisionFloatExpr :: forall b. Expr b => Float -> b -> b
-divisionFloatExpr = operatorFloatExpr (/) "/" -- TODO: this should be safe division to match the audio side!
--- divisionFloatExpr (FloatConstant a) b = unaryFunction (\b' -> a / b') (\b' -> binOp "/" (show a) b') b
--- divisionFloatExpr (FloatExpr a) b = expr $ binOp "/" a (toExpr b)
+divisionFloatExpr = functionFloatExpr Number.divisionSafe "div"
 
--- TODO: this should be safe division to match the audio side!
 divisionExprFloat :: forall b. Expr b => b -> Float -> b
-divisionExprFloat = operatorExprFloat (/) "/" -- TODO: this should be safe division to match the audio side!
--- divisionExprFloat a (FloatConstant b) = unaryFunction (\a' -> a' / b) (\a' -> binOp "/" a' (show b)) a
--- divisionExprFloat a (FloatExpr b) = expr $ binOp "/" (toExpr a) b
-
+divisionExprFloat = functionExprFloat Number.divisionSafe "div"
 
 min :: forall a. Expr a => a -> a -> a
 min = binaryFunction Prelude.min (function2 "min")

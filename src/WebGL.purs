@@ -2,12 +2,11 @@ module WebGL where
 
 import Prelude ((<$>),bind,discard,pure,Unit,($),(<>),show,(-),unit,(+),(>>=),when,(==))
 import Effect (Effect)
-import Effect.Console (log)
 import Effect.Ref (Ref, new, write, read)
 import Data.Maybe (Maybe(..))
 import Data.Tempo (Tempo,origin,timeToCount)
-import Effect.Now (nowDateTime)
-import Data.Time.Duration (Milliseconds,Seconds)
+-- import Effect.Now (nowDateTime)
+import Data.Time.Duration (Seconds)
 import Data.DateTime (DateTime,diff)
 import Data.Tuple (Tuple(..))
 import Data.Newtype (unwrap)
@@ -23,7 +22,7 @@ import Data.Monoid.Disj (Disj(..))
 import Signal (SignalInfo)
 import Program (Program,programInfo)
 import FragmentShader (fragmentShader)
-import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLContext, WebGLProgram, WebGLTexture, attachShader, bindBufferArray, bindFrameBuffer, bindTexture, compileShader, configureFrameBufferTextures, createFragmentShader, createProgram, createTexture, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, drawPostProgram, enableVertexAttribArray, flush, getAttribLocation, getCanvasHeight, getCanvasWidth, getFeedbackTexture, getOutputFrameBuffer, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport, getShaderParameterCompileStatus, getShaderInfoLog, getProgramInfoLog)
+import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLContext, WebGLProgram, WebGLTexture, attachShader, bindBufferArray, bindFrameBuffer, bindTexture, compileShader, configureFrameBufferTextures, createFragmentShader, createProgram, createTexture, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, drawPostProgram, enableVertexAttribArray, flush, getAttribLocation, getCanvasHeight, getCanvasWidth, getFeedbackTexture, getOutputFrameBuffer, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport)
 import SharedResources (SharedResources,getTempo,getImage,updateWebcamTexture,Image,Video,getVideo)
 import AudioAnalyser (AnalyserArray)
 
@@ -97,9 +96,9 @@ updateWebGL webGL program previousProgram = do
   
 updateFragmentShader :: WebGLCanvas -> Tempo -> Map String Int -> Map String Int -> Program -> Program -> Effect (Tuple String WebGLProgram)
 updateFragmentShader glc tempo imgMap vidMap oldProg newProg = do
-  t0 <- nowDateTime
+  -- t0 <- nowDateTime
   let shaderSrc = fragmentShader glc.webGL2 tempo imgMap vidMap oldProg newProg
-  t1 <- nowDateTime
+  -- t1 <- nowDateTime
   -- log $ " GLSL transpile time = " <> show (diff t1 t0 :: Milliseconds)
   glProg <- createProgram glc
   vShader <- createVertexShader glc

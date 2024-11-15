@@ -586,6 +586,16 @@ commonHeader = """uniform lowp vec2 res;
 uniform sampler2D f,o,i,w,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15;
 uniform float lo,mid,hi,ilo,imid,ihi,_defaultAlpha,_cps,_time,_etime,_beat,_ebeat;
 #define PI 3.1415926535897932384626433832795
+float div(float x,float y) { return (y != 0. ? x/y : 0.); }
+vec2 div(vec2 x,vec2 y) { return vec2(div(x.x,y.x),div(x.y,y.y)); }
+vec3 div(vec3 x,vec3 y) { return vec3(div(x.x,y.x),div(x.y,y.y),div(x.z,y.z)); }
+vec4 div(vec4 x,vec4 y) { return vec4(div(x.x,y.x),div(x.y,y.y),div(x.z,y.z),div(x.w,y.w)); }
+vec2 div(float x,vec2 y) { return vec2(div(x,y.x),div(x,y.y)); }
+vec3 div(float x,vec3 y) { return vec3(div(x,y.x),div(x,y.y),div(x,y.z)); }
+vec4 div(float x,vec4 y) { return vec4(div(x,y.x),div(x,y.y),div(x,y.z),div(x,y.w)); }
+vec2 div(vec2 x,float y) { return vec2(div(x.x,y),div(x.y,y)); }
+vec3 div(vec3 x,float y) { return vec3(div(x.x,y),div(x.y,y),div(x.z,y)); }
+vec4 div(vec4 x,float y) { return vec4(div(x.x,y),div(x.y,y),div(x.z,y),div(x.w,y)); }
 vec3 hsvrgb(vec3 c) {
   vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
   vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);

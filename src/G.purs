@@ -1,19 +1,14 @@
 module G where
 
-import Prelude (Unit,pure,(<>),otherwise,bind,discard,show,(+),($),(==),(<<<),(>>=),(<$>),(>=),(/),(-))
-import Prelude as Prelude
-import Data.Map (Map,insert,empty)
-import Data.Maybe (Maybe(..))
-import Data.List (List,(:))
+import Prelude (Unit, bind, discard, pure, show, ($), (+), (<$>), (<>))
+import Data.Map (Map)
 import Data.List.NonEmpty (NonEmptyList)
 import Control.Monad.State (State,get,put,runState,modify_)
-import Data.Traversable (traverse,for)
-import Data.Set as Set
-import Data.Tuple (Tuple(..))
-import Data.Unfoldable1 (replicate1)
+import Data.Traversable (for)
+import Data.Tuple (Tuple)
 
-import Matrix
-import Expr
+import Matrix (Matrix, concat)
+import Expr (class Expr, Float(..), Vec2(..), Vec3(..), expr, showType, toExpr)
 
 type GState = {
   webGl2 :: Boolean,
