@@ -489,7 +489,7 @@ saw :: forall a. Expr a => a -> G a
 saw f = phasor f >>= bipolar >>> assign
 
 sqr :: forall a. Expr a => a -> G a
-sqr f = phasor f >>= bipolar >>> greaterThanEqual (constant 0.5) >>> assign
+sqr f = phasor f >>= greaterThanEqual (constant 0.5) >>> bipolar >>> assign
 
 acosh :: forall a. Expr a => a -> G a
 acosh x = do
