@@ -2,7 +2,7 @@ module W where
 
 -- A monad and associated functions for generating the code of a WebAudio audio worklet.
 
-import Prelude (Unit, bind, discard, map, pure, show, ($), (*), (+), (-), (/), (/=), (<), (<$>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), negate)
+import Prelude (Unit, bind, discard, map, pure, show, ($), (*), (+), (-), (/), (/=), (<), (<$>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), negate, (>>>))
 import Prelude as Prelude
 import Control.Monad.State (State,get,put,runState,modify_)
 import Data.List.NonEmpty (NonEmptyList, fromList, length, zipWith)
@@ -352,6 +352,11 @@ signalToFrame (Gate mm x y) = binaryFunction gate mm x y
 signalToFrame (Clip mm x y) = binaryFunctionWithRange clip mm x y
 signalToFrame (Between mm x y) = binaryFunctionWithRange between mm x y
 signalToFrame (SmoothStep mm x y) = binaryFunctionWithRange smoothStep mm x y
+
+signalToFrame (Spr mm x y) = do
+  xs <- signalToFrame x >>= semiFlatten >>> fromNonEmptyList >>> pure -- :: one-dimensional Matrix (NonEmptyList Sample)
+  ys <- signalToFrame y >>= traverse unipolar -- :: Matrix Sample
+  sequence $ combine seq mm xs ys
 
 signalToFrame (Seq s) = do
   xs <- semiFlatten <$> signalToFrame s -- :: NonEmptyList Frame

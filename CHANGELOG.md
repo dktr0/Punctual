@@ -20,7 +20,7 @@ Other changes relative to 0.4.x
 
 -available outputs are 'audio' 'blend' 'add' 'rgba' 'rgb' (previously existing outputs like 'hsv' 'red' 'splay' 'alpha' etc have been removed). Visual outputs behave in a layer fashion similar to image editing software. Earlier statements in a Punctual program with visual outputs are like lower/earlier layers in image editing. When a later/newer layer has an alpha component (blend or rgba), that alpha value is used to determine how much of the combined result comes from the previous layer (alpha = 0) versus the new/current layer (alpha = 1). With "add" (which is RGB) the RGB of the previous and new layer are added together, and the result has an alpha of 1 everywhere. With "rgb", the result is simply the provided rgb data with an alpha of 1 everywhere.
 
--'step' has been replaced with 'seq'
+-'step' has been re-implemented as 'spr' (for spread), with support for multi-channel results and a pairwise variant (sprp). 'seq' has also been introduced - while spr/sprp require a second, bipolar argument, seq is instead driven directly by the prevailing metre.
 
 -introduction of 'slow' 'fast' 'early' and 'late' for time-shifting/stretching of arbitrary punctual expressions
 

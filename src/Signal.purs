@@ -1,19 +1,19 @@
 module Signal where
 
-import Prelude (class Eq, class Show, mempty, negate, ($), (<>), pure, (*), map, (+), max, (/), (-), (<=), otherwise, (==), show)
+import Prelude (class Eq, class Show, map, max, mempty, negate, otherwise, pure, show, ($), (*), (+), (-), (/), (<=), (<>))
 import Data.Generic.Rep (class Generic)
-import Data.Show.Generic (genericShow)
+-- import Data.Show.Generic (genericShow)
 import Data.List (List(..),(:))
-import Data.List.NonEmpty (NonEmptyList,length,toList,fromList)
-import Data.Foldable (foldMap,intercalate,fold)
+import Data.List.NonEmpty (fromList, length)
+import Data.Foldable (fold, foldMap)
 import Data.Unfoldable (replicate)
 import Data.Set (Set,singleton)
 import Data.Monoid.Disj (Disj)
 import Data.Semigroup.Foldable (foldl1)
 import Data.Maybe (Maybe(..))
 
-import MultiMode
-import Channels
+import MultiMode (MultiMode(..))
+import Channels (class Channels, channels)
 
 data Signal =
   Constant Number |
@@ -114,6 +114,7 @@ data Signal =
   Lines MultiMode Signal Signal |
   ILines MultiMode Signal Signal |
   Mesh MultiMode Signal Signal |
+  Spr MultiMode Signal Signal |
   Seq Signal |
   Mix MultiMode Signal Signal Signal |
   ILine MultiMode Signal Signal Signal |
@@ -279,6 +280,7 @@ showIndented i (Chain mm x y) = indent i <> "Chain " <> show mm <> "\n" <> showI
 showIndented i (Lines mm x y) = indent i <> "Lines " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
 showIndented i (ILines mm x y) = indent i <> "ILines " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
 showIndented i (Mesh mm x y) = indent i <> "Mesh " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Spr mm x y) = indent i <> "Spr " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
 showIndented i (Seq x) = indent i <> "Seq\n" <> showIndented (i+1) x
 showIndented i (Mix mm x y z) = indent i <> "Mix " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y <> showIndented (i+1) z
 showIndented i (ILine mm x y z) = indent i <> "ILine " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y <> showIndented (i+1) z
@@ -541,6 +543,7 @@ subSignals (Chain _ x y) = x:y:Nil
 subSignals (Lines _ x y) = x:y:Nil
 subSignals (ILines _ x y) = x:y:Nil
 subSignals (Mesh _ x y) = x:y:Nil
+subSignals (Spr _ x y) = x:y:Nil
 subSignals (Seq steps) = steps:Nil
 subSignals (ILine _ x y z) = x:y:z:Nil
 subSignals (Line _ x y z) = x:y:z:Nil
@@ -674,6 +677,7 @@ dimensions (Chain mm xy w) = binaryFunctionDimensions mm (chainChannels $ channe
 dimensions (Lines mm x y) = binaryFunctionDimensions mm (nPer 1 4 $ channels x) (channels y)
 dimensions (ILines mm x y) = binaryFunctionDimensions mm (nPer 1 4 $ channels x) (channels y)
 dimensions (Mesh mm xy w) = binaryFunctionDimensions mm (meshChannels $ channels xy) (channels w)
+dimensions (Spr mm x y) = binaryFunctionDimensions mm (channels y) (dimensions x).rows
 dimensions (Seq x) = { rows: 1, columns: (dimensions x).rows }
 dimensions (Mix mm x y z) = binaryFunctionDimensions mm (max (channels x) (channels y)) (channels z)
 dimensions (ILine mm xy1 xy2 w) = binaryFunctionDimensions mm (binaryFunctionChannels mm (nPer 1 2 $ channels xy1) (nPer 1 2 $ channels xy2)) (channels w)

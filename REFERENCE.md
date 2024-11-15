@@ -164,7 +164,9 @@ bipolar [graph] -- input is rescaled as if input range was unipolar (0,1) and ou
 
 [centre] +- [offsetRatio] [input] -- bipolar (-1,1) input rescaled to range centre +- (offsetRatio * centre), e.g. a +- 0.5 ranges from 0.5a to 1.5a (combinatorial, for pairwise use +-:)
 
-step [graph,graph,graph,...] [graph] -- given a list of graphs and a second, final, "modulating" graph, output the value of a selected graph from the list according to the second argument (drive with lfsaw to produce a simple step sequencer-like behaviour).
+spr [graph,graph,graph,...] [graph] -- given a list of graphs and a second, final, "modulating" graph, output the value of a selected graph from the list according to the second argument (drive with lfsaw to produce a simple step sequencer-like behaviour).
+
+seq [graph] -- given a list of graphs, outputs the value of the selected graph in such a way that it's spread over a single cycle of the metre
 
 mono [graph] -- takes multi-channel graphs down to a single channel by summing/mixing
 

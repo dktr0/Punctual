@@ -428,6 +428,11 @@ signalToExprs (Mix Combinatorial x y a) = do
   let f (Tuple xx yy) aa = mixFloat xx yy aa
   traverse assign $ combine f Combinatorial xys a'
 
+signalToExprs (Spr mm x y) = do
+  xs <- (signalToExprs x :: G (Matrix Float)) >>= semiFlatten >>> fromNonEmptyList >>> pure-- :: one-dimensional Matrix (NonEmptyList Float)
+  ys <- (signalToExprs y :: G (Matrix Float)) >>= map unipolar >>> pure -- :: Matrix Float
+  traverse assign $ mapRows castExprs $ combine (flip seq) mm xs ys
+
 signalToExprs (Seq steps) = do
   steps' <- semiFlatten <$> signalToExprs steps -- :: NonEmptyList (NonEmptyList Float)
   b <- get >>= _.beat >>> fract >>> pure

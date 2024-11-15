@@ -15,7 +15,7 @@ import Data.Newtype (unwrap)
 import Data.Nullable (null,notNull)
 import Effect.Class.Console (log)
 
-import SharedResources (SharedResources,activateAudioInput,disactivateAudioInput)
+import SharedResources (SharedResources, activateAudioInput)
 import Program (Program)
 import AudioWorklet (AudioWorklet,runWorklet,stopWorklet)
 import Action (Action,actionTimesAsAudioTime,actionHasAudioInput)

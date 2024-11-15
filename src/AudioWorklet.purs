@@ -8,7 +8,7 @@ import Data.Tuple (Tuple(..))
 import Data.List.NonEmpty (length,zipWith)
 import Data.Unfoldable1 (range)
 import Data.Foldable (fold)
-import Effect.Class.Console (log)
+-- import Effect.Class.Console (log)
 
 import Signal (Signal)
 import WebAudio (WebAudioContext,WebAudioNode)

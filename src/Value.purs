@@ -23,7 +23,7 @@ import Data.Map (Map)
 import Signal (Signal(..))
 import Action (Action,signalToAction)
 import Output (Output)
-import MultiMode (MultiMode(..))
+import MultiMode (MultiMode)
 
 type Library = Map.Map String Value
 
