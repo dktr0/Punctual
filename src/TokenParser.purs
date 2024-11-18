@@ -69,7 +69,7 @@ functionsWithArgumentsDef = [
 otherReservedNamesDef :: Array String
 otherReservedNamesDef = [
   "if","then","else",
-  "audio","blend","rgba","add","mul","rgb"
+  "audio","aout","blend","rgba","add","mul","rgb"
   ]
 
 reservedNamesDef :: Array String

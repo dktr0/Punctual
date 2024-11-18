@@ -6,6 +6,7 @@ import Data.Show.Generic (genericShow)
 
 data Output =
   Audio |
+  AOut Int Int | -- first argument is number of channels, second argument is channel offset
   Blend |
   RGBA |
   Add |

@@ -317,6 +317,7 @@ parseReserved p "bpf" = lift $ signalSignalSignalSignal p $ BPF Combinatorial
 parseReserved p "bpfp" = lift $ signalSignalSignalSignal p $ BPF Pairwise
 parseReserved p "delay" = lift $ numberSignalSignalSignal p Delay
 parseReserved p "audio" = pure $ ValueOutput p Output.Audio
+parseReserved p "aout" = pure $ abc p Output.AOut
 parseReserved p "blend" = pure $ ValuePolymorphic p (ValueOutput p Output.Blend : signalSignal p Blend : Nil)
 parseReserved p "rgba" = pure $ ValueOutput p Output.RGBA -- TODO: rework FragmentShader.purs with support for RGBA as a Signal that accesses previous output
 parseReserved p "add" = pure $ ValuePolymorphic p (ValueOutput p Output.Add : signalSignal p Add : Nil)
