@@ -44,6 +44,9 @@ showSample :: Sample -> String
 showSample (Left x) = Number.showNumber x
 showSample (Right x) = x
 
+zero :: Sample
+zero = Left 0.0
+
 assign :: String -> W Sample
 assign x = do
   f <- allocateFloat
