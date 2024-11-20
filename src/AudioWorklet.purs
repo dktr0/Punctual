@@ -13,7 +13,7 @@ import Data.Foldable (fold)
 import Signal (Signal)
 import WebAudio (WebAudioContext,WebAudioNode)
 import W
-import AudioPanning (splay)
+import AudioPanning (aout)
 
 type AudioWorklet = {
   name :: String,
@@ -27,10 +27,10 @@ type AudioWorklet' = {
   audioWorkletNode :: Nullable WebAudioNode
   }
 
-runWorklet :: WebAudioContext -> Nullable WebAudioNode -> WebAudioNode -> String -> Signal -> Number -> Number -> Effect AudioWorklet
-runWorklet ctx ain aout name signal fInStart fInDur = do
-  let code = generateWorkletCode signal name fInStart fInDur
-  audioWorklet' <- _runWorklet ctx ain aout name code 2
+runWorklet :: WebAudioContext -> Nullable WebAudioNode -> WebAudioNode -> String -> Signal -> Int -> Int -> Number -> Number -> Effect AudioWorklet
+runWorklet ctx ain aout name signal nOutputChnls channelOffset fInStart fInDur = do
+  let code = generateWorkletCode signal nOutputChnls channelOffset name fInStart fInDur
+  audioWorklet' <- _runWorklet ctx ain aout name code nOutputChnls
   pure { name, signal, code, audioWorklet' }
 
 foreign import _runWorklet :: WebAudioContext -> Nullable WebAudioNode -> WebAudioNode -> String -> String -> Int -> Effect AudioWorklet'
@@ -46,11 +46,10 @@ stopWorklet w fOutStart fOutDur = do
 
 foreign import setWorkletParamValue :: WebAudioNode -> String -> Number -> Effect Unit
 
-
-generateWorkletCode :: Signal -> String -> Number -> Number -> String
-generateWorkletCode s name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> fadeCalculations <> wState.code <> outputs <> restOfClass <> registerProcessor
+generateWorkletCode :: Signal -> Int -> Int -> String -> Number -> Number -> String
+generateWorkletCode s nOutputChnls channelOffset name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> fadeCalculations <> wState.code <> outputs <> restOfClass <> registerProcessor
   where
-    Tuple frame wState = runW $ signalToFrame s >>= splay 2
+    Tuple frame wState = runW $ signalToFrame s >>= aout nOutputChnls nOutputChnls channelOffset
     prefix = """'use strict';
 
 function clamp(min,max,x) { return Math.max(Math.min(max,x),min); }
@@ -130,7 +129,7 @@ const tri = this.tri;
 """
     fadeCalculations = "const fIn = clamp(0,1,(t-" <> show fInStart <> ")/" <> show fInDur <> ");\nconst fade = Math.min(fIn,fOut);\n"
     outputIndices = range 0 (length frame - 1)
-    outputF i x = "output[" <> show i <> "][n] = " <> showSample x <> "*fade;\n"
+    outputF i x = "if(output[" <> show i <> "]!=null){output[" <> show i <> "][n] = " <> showSample x <> "*fade};\n"
     outputs = fold $ zipWith outputF outputIndices frame
     restOfClass = """}
 this.framesOut += blockSize;

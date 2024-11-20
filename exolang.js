@@ -44,3 +44,8 @@ Punctual.prototype.setAudioOutput = function(webAudioNode) {
 Punctual.prototype.setBrightness = function(b) {
   return P.setBrightness(this.punctual)(b)();
 }
+
+Punctual.prototype.setOutputChannelCount = function(n) {
+  console.log("punctual setOutputChannelCount " + n);
+  return P.setOutputChannelCount(this.punctual)(n)();
+}

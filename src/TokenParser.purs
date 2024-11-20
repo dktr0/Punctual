@@ -35,7 +35,8 @@ functionsWithNoArgumentsDef :: Array String
 functionsWithNoArgumentsDef = [
   "pi","mic","audioin","cps","time","beat","etime","ebeat","rnd",
   "fx","fy","fxy","px","py","pxy","frt","fr","ft","aspect",
-  "lo","mid","hi","ilo","imid","ihi","fft","ifft","fb","cam"
+  "lo","mid","hi","ilo","imid","ihi","fft","ifft","fb","cam",
+  "audio","blend","rgba","add","mul","rgb"
   ]
   
 functionsWithArgumentsDef :: Array String
@@ -63,13 +64,14 @@ functionsWithArgumentsDef = [
   "rep",
   "img","vid",
   "mix","mixp",
-  "import"
+  "import",
+  "aout"
   ]
 
 otherReservedNamesDef :: Array String
 otherReservedNamesDef = [
-  "if","then","else",
-  "audio","aout","blend","rgba","add","mul","rgb"
+  "if","then","else"
+  -- "audio","aout","blend","rgba","add","mul","rgb"
   ]
 
 reservedNamesDef :: Array String

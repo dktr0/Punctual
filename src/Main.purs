@@ -178,6 +178,8 @@ setAudioOutput punctual n = SharedResources.setAudioOutput punctual.sharedResour
 setBrightness :: Punctual -> Number -> Effect Unit
 setBrightness punctual b = SharedResources.setBrightness punctual.sharedResources b
 
+setOutputChannelCount :: Punctual -> Int -> Effect Unit
+setOutputChannelCount punctual n = SharedResources.setOutputChannelCount punctual.sharedResources n
 
 -- below this line are functions that are not directly part of the exolang API
 

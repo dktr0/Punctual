@@ -258,7 +258,7 @@ ifThenElse = do
   pure $ IfThenElse p i t e
 
 output :: P Expression
-output = choice $ map reservedName ["audio","blend","rgba","add","mul","rgb"]
+output = choice $ map reservedName ["audio","aout","blend","rgba","add","mul","rgb"]
 
   
 

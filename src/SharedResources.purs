@@ -36,7 +36,8 @@ type SharedResources = {
   inputAnalyser :: AudioAnalyser,
   outputAnalyser :: AudioAnalyser,
   audioWorkletCount :: Ref Int,
-  brightness :: Ref Number
+  brightness :: Ref Number,
+  outputChannelCount :: Ref Int
   }
 
 newSharedResources :: Maybe WebAudioContext -> Effect SharedResources
@@ -60,6 +61,7 @@ newSharedResources mWebAudioContext = do
   outputAnalyser <- newAudioAnalyser webAudioContext internalAudioOutputNode
   audioWorkletCount <- new 0
   brightness <- new 1.0
+  outputChannelCount <- new 2
   pure {
     tempo,
     mWebcamElementRef,
@@ -75,7 +77,8 @@ newSharedResources mWebAudioContext = do
     inputAnalyser,
     outputAnalyser,
     audioWorkletCount,
-    brightness
+    brightness,
+    outputChannelCount
     }
     
 updateAudioInputAndAnalysers :: SharedResources -> forall r. { ain::Disj Boolean, ifft::Disj Boolean, ilo::Disj Boolean, imid::Disj Boolean, ihi::Disj Boolean, fft::Disj Boolean, lo::Disj Boolean, mid::Disj Boolean, hi::Disj Boolean | r } -> Effect Unit
@@ -235,3 +238,12 @@ setBrightness sr b = write b sr.brightness
 
 getBrightness :: SharedResources -> Effect Number
 getBrightness sr = read sr.brightness
+
+
+-- number of audio output channels
+
+setOutputChannelCount :: SharedResources -> Int -> Effect Unit
+setOutputChannelCount sr b = write b sr.outputChannelCount
+
+getOutputChannelCount :: SharedResources -> Effect Int
+getOutputChannelCount sr = read sr.outputChannelCount

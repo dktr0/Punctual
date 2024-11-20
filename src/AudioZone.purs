@@ -1,6 +1,6 @@
 module AudioZone where 
 
-import Prelude (Unit,map,bind,(/=),pure,($),discard,otherwise,(+),(<$>),(<>),show,(==),unit,max,(>=),(-),(<<<),(/))
+import Prelude (Unit,map,bind,pure,($),discard,otherwise,(+),(<$>),(<>),show,(==),unit,max,(>=),(-),(<<<),(/))
 import Data.Maybe (Maybe(..))
 import Data.List (List(..),zipWith,length)
 import Effect (Effect)
@@ -15,11 +15,11 @@ import Data.Newtype (unwrap)
 import Data.Nullable (null,notNull)
 import Effect.Class.Console (log)
 
-import SharedResources (SharedResources, activateAudioInput)
+import SharedResources (SharedResources, activateAudioInput, getOutputChannelCount)
 import Program (Program)
 import AudioWorklet (AudioWorklet,runWorklet,stopWorklet)
 import Action (Action,actionTimesAsAudioTime,actionHasAudioInput)
-import Output (Output(..))
+import Output (isAudioOutput,audioOutputChannels,audioOutputOffset)
 import WebAudio (resumeWebAudioContext,currentTime)
 
 type AudioZone = {
@@ -40,10 +40,9 @@ newAudioZone sharedResources p = do
 
 justAudioActions :: Maybe Action -> Maybe Action
 justAudioActions Nothing = Nothing
-justAudioActions (Just x) 
-  | x.output /= Audio = Nothing
-  | otherwise = Just x
-
+justAudioActions (Just x)
+  | isAudioOutput x.output = Just x
+  | otherwise = Nothing
 
 addOrRemoveWorklet :: SharedResources -> DateTime -> Number -> Maybe AudioWorklet -> Maybe Action -> Effect (Maybe AudioWorklet)
 addOrRemoveWorklet _ _ _ Nothing Nothing = pure Nothing
@@ -77,7 +76,10 @@ addWorklet sharedResources action t1 t2 = do
             false -> do
               log "worklet does not have audio input"
               pure null
-  runWorklet sharedResources.webAudioContext nAin sharedResources.internalAudioOutputNode ("W" <> show i) action.signal t1 (t2-t1)
+  maxChnls <- getOutputChannelCount sharedResources
+  let nOutputChnls = audioOutputChannels maxChnls action.output
+  let channelOffset = audioOutputOffset action.output
+  runWorklet sharedResources.webAudioContext nAin sharedResources.internalAudioOutputNode ("W" <> show i) action.signal nOutputChnls channelOffset t1 (t2-t1)
 
 -- to convert audio to POSIX, add clockdiff; to convert POSIX to audio, subtract clockdiff
 calculateClockDiff :: SharedResources -> Effect Number
