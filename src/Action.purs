@@ -1,6 +1,6 @@
 module Action where
 
-import Prelude (identity,($),one,zero,(==),(||),(/),(-))
+import Prelude (identity,($),one,zero,(==),(||),(/),(-),(<>),show,(*))
 import Data.Tuple (Tuple(..))
 import Data.Tempo (Tempo)
 import Data.DateTime (DateTime, adjust, diff)
@@ -9,7 +9,7 @@ import Data.Time.Duration (Seconds)
 import Data.Maybe (maybe)
 import Data.Newtype (unwrap)
 
-import Signal (Signal,signalInfo)
+import Signal (Signal,signalInfo,dimensions,showIndented)
 import DefTime (DefTime(..), calculateT1)
 import Transition (Transition(..), transitionToXfade)
 import Duration (Duration(..))
@@ -63,3 +63,9 @@ actionHasAudioOutput a = isAudioOutput a.output
 
 actionHasAudioInput :: Action -> Boolean
 actionHasAudioInput a = unwrap (signalInfo a.signal).ain
+
+showAction :: Action -> String
+showAction x = "  " <> show x.output <> ": " <> showDimensions <> showIndented 4 x.signal
+  where
+    ds = dimensions x.signal
+    showDimensions = show (ds.rows * ds.columns) <> " channels (" <> show ds.columns <> " cols x " <> show ds.rows <> " rows)\n"

@@ -57,7 +57,7 @@
       window.footer = !window.footer;
       document.getElementById('status').hidden = !window.footer;
     }
-    if(e.ctrlKey && e.shiftKey && e.key=="Q") {
+    if(e.ctrlKey && e.shiftKey && (e.key=="Q" || e.key=="S")) {
       window.info = !window.info;
       document.getElementById('info').hidden = !window.info;
     }
@@ -83,7 +83,7 @@ a << fit 1 $ ls * col * mask;
 gate 0.1 (maxp a (fb * 0.98)) >> add <> 5
 </textarea>
     </div>
-    <pre class="info" id="info" hidden="true"></pre>
+    <pre class="info" id="info" hidden="false"></pre>
     <div class="status" id="status">
       <div class="errors" id="errors"></div>
       <div class="fps" id="fps">-- FPS</div>

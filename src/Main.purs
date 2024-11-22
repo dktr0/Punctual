@@ -21,7 +21,7 @@ import Effect.Exception (error)
 import Data.Nullable (Nullable,toMaybe)
 
 import Signal (SignalInfo,emptySignalInfo)
-import Program (Program,emptyProgram,programHasVisualOutput,programHasAudioOutput,programInfo)
+import Program (Program,emptyProgram,programHasVisualOutput,programHasAudioOutput,programInfo,showProgram)
 import Parser (parseProgram)
 import DateTime (numberToDateTime)
 import SharedResources (SharedResources)
@@ -87,8 +87,8 @@ _newProgramInZone punctual zone newProgram = do
     case lookup zone programInfos of
       Just x -> pure x
       Nothing -> pure emptySignalInfo
-  let newProgramDebug = "new program: " <> show newProgram <> "\n\n"
-  let previousProgramDebug = "previous program: " <> show previousProgram <> "\n\n" 
+  let newProgramDebug = "new program actions:\n" <> showProgram newProgram
+  let previousProgramDebug = "previous program actions:\n" <> showProgram previousProgram 
   let newPrograms = insert zone newProgram programs
   let newPreviousPrograms = insert zone previousProgram previousPrograms
   let newProgramInfos = insert zone (programInfo newProgram) programInfos
@@ -102,7 +102,7 @@ _newProgramInZone punctual zone newProgram = do
   fragShaderDebug <- case programHasVisualOutput newProgram of 
     true -> do
       fragShaderSrc <- updateWebGLForZone punctual zone newProgram previousProgram
-      pure $ "fragment shader: " <> fragShaderSrc <> "\n\n"
+      pure $ "fragment shader:\n" <> fragShaderSrc <> "\n\n"
     false -> do
       deleteWebGLForZone punctual zone
       pure ""
