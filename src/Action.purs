@@ -13,7 +13,7 @@ import Signal (Signal,signalInfo)
 import DefTime (DefTime(..), calculateT1)
 import Transition (Transition(..), transitionToXfade)
 import Duration (Duration(..))
-import Output (Output(..))
+import Output (Output(..),isVisualOutput,isAudioOutput)
 
 type Action = {
   signal :: Signal,
@@ -56,10 +56,10 @@ actionTimesAsAudioTime tempo eTime clockDiff x = Tuple t1Audio t2Audio
     t2Audio = t2Posix - clockDiff
         
 actionHasVisualOutput :: Action -> Boolean
-actionHasVisualOutput a = a.output == Blend || a.output == RGBA || a.output == Add || a.output == Mul || a.output == RGB
+actionHasVisualOutput a = isVisualOutput a.output
 
 actionHasAudioOutput :: Action -> Boolean
-actionHasAudioOutput a = a.output == Audio
+actionHasAudioOutput a = isAudioOutput a.output
 
 actionHasAudioInput :: Action -> Boolean
 actionHasAudioInput a = unwrap (signalInfo a.signal).ain
