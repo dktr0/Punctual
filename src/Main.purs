@@ -27,7 +27,7 @@ import DateTime (numberToDateTime)
 import SharedResources (SharedResources)
 import SharedResources as SharedResources
 import WebGL (WebGL, newWebGL, updateWebGL, deleteWebGL, drawWebGL)
-import AudioZone (AudioZone,newAudioZone,redefineAudioZone,deleteAudioZone)
+import AudioZone (AudioZone,newAudioZone,redefineAudioZone,deleteAudioZone,calculateAudioZoneInfo)
 import WebAudio (WebAudioNode,WebAudioContext)
   
 type Punctual = {
@@ -107,10 +107,14 @@ _newProgramInZone punctual zone newProgram = do
       deleteWebGLForZone punctual zone
       pure ""
   -- update audio rendering system
-  case programHasAudioOutput newProgram of
-    true -> updateAudioForZone punctual zone newProgram
-    false -> deleteAudioForZone punctual zone
-  let debugInfo = newProgramDebug <> previousProgramDebug <> fragShaderDebug
+  audioDebugInfo <- case programHasAudioOutput newProgram of
+    true -> do
+      audioZoneInfo <- updateAudioForZone punctual zone newProgram
+      pure $ "audio worklets:\n" <> audioZoneInfo <> "\n\n"
+    false -> do
+      deleteAudioForZone punctual zone
+      pure ""
+  let debugInfo = newProgramDebug <> previousProgramDebug <> fragShaderDebug <> audioDebugInfo
   -- log debugInfo
   pure debugInfo
       
@@ -208,14 +212,19 @@ deleteWebGLForZone punctual z = do
        write (delete z webGLs) punctual.webGLs
     Nothing -> pure unit
 
-updateAudioForZone :: Punctual -> Int -> Program -> Effect Unit
+updateAudioForZone :: Punctual -> Int -> Program -> Effect String
 updateAudioForZone punctual z prog = do
   audioZones <- read punctual.audioZones
-  case lookup z audioZones of
-    Just x -> redefineAudioZone x prog
+  audioZone <- case lookup z audioZones of
+    Just x -> do
+      redefineAudioZone x prog
+      pure x
     Nothing -> do
       x <- newAudioZone punctual.sharedResources prog
       write (insert z x audioZones) punctual.audioZones
+      pure x
+  calculateAudioZoneInfo audioZone
+  
       
 deleteAudioForZone :: Punctual -> Int -> Effect Unit
 deleteAudioForZone punctual z = do

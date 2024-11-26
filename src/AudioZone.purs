@@ -1,10 +1,11 @@
 module AudioZone where 
 
-import Prelude (Unit,map,bind,pure,($),discard,otherwise,(+),(<$>),(<>),show,(==),unit,max,(>=),(-),(<<<),(/))
+import Prelude (Unit,map,bind,pure,($),discard,otherwise,(+),(<$>),(<>),show,(==),unit,max,(>=),(-),(<<<),(/),(>>>))
 import Data.Maybe (Maybe(..))
-import Data.List (List(..),zipWith,length)
+import Data.List (List(..),zipWith,length,catMaybes)
 import Effect (Effect)
 import Effect.Ref (Ref, new, read, write)
+import Data.Foldable (fold)
 import Data.Traversable (sequence,traverse,traverse_)
 import Data.Unfoldable1 (replicate1)
 import Data.DateTime (DateTime)
@@ -81,6 +82,11 @@ addWorklet sharedResources action t1 t2 = do
   let channelOffset = audioOutputOffset action.output
   runWorklet sharedResources.webAudioContext nAin sharedResources.internalAudioOutputNode ("W" <> show i) action.signal nOutputChnls channelOffset t1 (t2-t1)
 
+calculateAudioZoneInfo :: AudioZone -> Effect String
+calculateAudioZoneInfo z = do
+  ws <- catMaybes <$> read z.worklets
+  pure $ fold $ map (_.code >>> (_ <> "\n")) ws
+
 -- to convert audio to POSIX, add clockdiff; to convert POSIX to audio, subtract clockdiff
 calculateClockDiff :: SharedResources -> Effect Number
 calculateClockDiff sharedResources = do
@@ -104,8 +110,8 @@ redefineAudioZone audioZone p = do
   let actions' = extendByPadding Nothing n p.actions 
   clockDiff <- read audioZone.clockDiff
   worklets'' <- sequence $ zipWith (addOrRemoveWorklet audioZone.sharedResources p.evalTime clockDiff) worklets' (map justAudioActions actions')
-  write worklets'' audioZone.worklets  
-  
+  write worklets'' audioZone.worklets
+
 extendByPadding :: forall a. a -> Int -> List a -> List a
 extendByPadding a n xs
   | length xs >= n = xs

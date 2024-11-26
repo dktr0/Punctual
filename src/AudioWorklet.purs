@@ -1,11 +1,11 @@
 module AudioWorklet where
 
-import Prelude ((<>),Unit,pure,unit,discard,($),show,(>>=),(-),bind)
+import Prelude ((<>),Unit,pure,unit,discard,($),show,(>>=),(-),bind,(+))
 import Effect (Effect)
 import Data.Nullable (Nullable,toMaybe)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
-import Data.List.NonEmpty (length,zipWith)
+import Data.List.NonEmpty (zipWith)
 import Data.Unfoldable1 (range)
 import Data.Foldable (fold)
 -- import Effect.Class.Console (log)
@@ -49,7 +49,7 @@ foreign import setWorkletParamValue :: WebAudioNode -> String -> Number -> Effec
 generateWorkletCode :: Signal -> Int -> Int -> String -> Number -> Number -> String
 generateWorkletCode s nOutputChnls channelOffset name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> fadeCalculations <> wState.code <> outputs <> restOfClass <> registerProcessor
   where
-    Tuple frame wState = runW $ signalToFrame s >>= aout nOutputChnls nOutputChnls channelOffset
+    Tuple frame wState = runW $ signalToFrame s >>= aout nOutputChnls channelOffset
     prefix = """'use strict';
 
 function clamp(min,max,x) { return Math.max(Math.min(max,x),min); }
@@ -128,7 +128,7 @@ const sqr = this.sqr;
 const tri = this.tri;
 """
     fadeCalculations = "const fIn = clamp(0,1,(t-" <> show fInStart <> ")/" <> show fInDur <> ");\nconst fade = Math.min(fIn,fOut);\n"
-    outputIndices = range 0 (length frame - 1)
+    outputIndices = range 0 (nOutputChnls + channelOffset - 1)
     outputF i x = "if(output[" <> show i <> "]!=null){output[" <> show i <> "][n] = " <> showSample x <> "*fade};\n"
     outputs = fold $ zipWith outputF outputIndices frame
     restOfClass = """}

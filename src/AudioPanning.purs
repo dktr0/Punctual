@@ -1,15 +1,12 @@
 module AudioPanning where
 
 import Prelude ((>),($),pure,otherwise,(*),(<>),(/),(>>=),bind,(-),(+),(<=),map,(==),(<$>))
-import Data.Maybe (Maybe(..))
 import Data.Int (toNumber)
 import Data.Number (pi,cos)
 import Data.Ord (abs)
 import Data.Either (Either(..))
-import Data.List (take)
-import Data.List.NonEmpty (head, length, zipWith, NonEmptyList, fromList, toList)
-import Data.Unfoldable1 (iterateN)
-import Data.Unfoldable (replicate)
+import Data.List.NonEmpty (NonEmptyList, head, length, zipWith)
+import Data.Unfoldable1 (iterateN,replicate1)
 import Data.Traversable (traverse,sequence)
 import Data.Tuple (Tuple(..))
 
@@ -29,14 +26,14 @@ splay nOutputChnls xs
       xss <- sequence $ zipWith (pan nOutputChnls) inputPositions xs' -- :: NonEmptyList Frame -- one Frame per input, each Frame has nOutputChnls Samples
       flatten <$> sumChannels xss
 
-aout :: Int -> Int -> Int -> Frame -> W (NonEmptyList Sample)
-aout totalOutputChnls nOutputChnls channelOffset xs = do
-  let a = replicate channelOffset zero -- :: List Sample
-  b <- toList <$> splay nOutputChnls xs -- :: List Sample
-  let c = replicate (totalOutputChnls - channelOffset - nOutputChnls) zero -- :: List Sample
-  case fromList (take totalOutputChnls $ a <> b <> c) of
-    Just x -> pure x
-    Nothing -> pure $ pure zero -- only possible with meaningless input (totalOutputChnls or nOutputChnls < 1)
+aout :: Int -> Int -> Frame -> W (NonEmptyList Sample)
+aout nOutputChnls channelOffset xs = 
+  case channelOffset <= 0 of
+    true -> splay nOutputChnls xs
+    false -> do
+      let a = replicate1 channelOffset zero
+      b <- splay nOutputChnls xs
+      pure $ a <> b
 
 pan :: Int -> Sample -> Sample -> W Frame
 pan nOutputChnls pos i 

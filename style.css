@@ -47,6 +47,7 @@ body {
   box-shadow: none;
   outline: none;
   font-size: 1em;
+  overflow: scroll;
 }
 
 .editorArea {
