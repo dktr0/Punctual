@@ -164,7 +164,9 @@ render punctual args = do
       webGLs <- read punctual.webGLs
       case lookup args.zone webGLs of
         Nothing -> pure unit
-        Just w -> drawWebGL w (numberToDateTime args.nowTime)
+        Just w -> do
+          brightness <- read punctual.sharedResources.brightness
+          drawWebGL w (numberToDateTime args.nowTime) brightness
         
         
 postRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number } -> Effect Unit

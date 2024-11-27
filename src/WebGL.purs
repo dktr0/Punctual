@@ -140,8 +140,8 @@ deleteWebGL :: WebGL -> Effect Unit
 deleteWebGL webGL = deleteWebGLCanvas webGL.glc
 
 
-drawWebGL :: WebGL -> DateTime -> Effect Unit
-drawWebGL webGL now = do
+drawWebGL :: WebGL -> DateTime -> Number -> Effect Unit
+drawWebGL webGL now brightness = do
   configureFrameBufferTextures webGL.glc
   -- t0 <- nowDateTime
   let glc = webGL.glc
@@ -200,7 +200,7 @@ drawWebGL webGL now = do
   ofb <- getOutputFrameBuffer glc
   bindFrameBuffer glc (Just ofb)
   drawDefaultTriangleStrip glc
-  drawPostProgram glc
+  drawPostProgram glc brightness
   -- t1 <- nowDateTime
   -- log $ " draw time = " <> show (diff t1 t0 :: Milliseconds)
   pure unit

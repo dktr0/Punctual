@@ -325,15 +325,15 @@ _newPostProgram gl = do
   _flush gl
   pure glProg
 
-drawPostProgram :: WebGLCanvas -> Effect Unit
-drawPostProgram glc = do
+drawPostProgram :: WebGLCanvas -> Number -> Effect Unit
+drawPostProgram glc brightness = do
   let p = glc.postProgram
   useProgram glc p
   t <- getOutputTexture glc
   w <- getCanvasWidth glc
   h <- getCanvasHeight glc
   bindTexture glc p t 0 "t"
-  setUniform1f glc p "b" 1.0
+  setUniform1f glc p "b" brightness
   setUniform2f glc p "r" (toNumber w) (toNumber h) 
   viewport glc 0 0 w h
   harmonizeCanvasDimensions glc
