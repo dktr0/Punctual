@@ -30,7 +30,7 @@ type AudioWorklet' = {
 runWorklet :: WebAudioContext -> Nullable WebAudioNode -> WebAudioNode -> String -> Signal -> Int -> Int -> Number -> Number -> Effect AudioWorklet
 runWorklet ctx ain aout name signal nOutputChnls channelOffset fInStart fInDur = do
   let code = generateWorkletCode signal nOutputChnls channelOffset name fInStart fInDur
-  audioWorklet' <- _runWorklet ctx ain aout name code nOutputChnls
+  audioWorklet' <- _runWorklet ctx ain aout name code (nOutputChnls+channelOffset)
   pure { name, signal, code, audioWorklet' }
 
 foreign import _runWorklet :: WebAudioContext -> Nullable WebAudioNode -> WebAudioNode -> String -> String -> Int -> Effect AudioWorklet'
