@@ -325,7 +325,11 @@ A Punctual statement does not cause audio or video output unless it ends with >>
 
 In the pre-alpha draft of Punctual 0.5, the following outputs are available:
 
-\>> audio -- audio output: If multiple channels of audio are present, they are spread/panned "equidistantly" over the available audio outputs.
+\>> audio -- audio output: If multiple channels of audio are present, they are spread/panned "equidistantly" over all of the available audio outputs.
+
+\>> aout [channelOffset] [numberOfChannels] -- an audio output with [numberOfChannels] directed to the output channels starting at channelOffset. The channels of whatever signal is provided are spread over [numberOfChannels]. For example, aout 2 1 would be a mono (one channel) output going out the 3rd channel of audio output.
+
+\>> stereo - a synonym for "aout 0 2"; the channels of whatever signal is provided are spread/panned equidistantly over the first 2 available outputs (regardless of how many channels of audio output are available).
 
 \>> blend -- video output where every four channels of signal are interpreted as red, green, blue, and alpha channels, with the alpha channel controlling the blending with "previous" visual output (previous = in earlier statements in the same Punctual program), and (assuming it arrives at the final output of the program) also affecting the transparency of Punctual's visual output. Whenever less than 4 channels are available, the missing channels are formed as follows: the 2nd or 3rd channels are repeated to get to 3 channels, and then a default value of 1.0 is inserted for the missing alpha channel.
 
