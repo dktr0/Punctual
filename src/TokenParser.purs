@@ -36,7 +36,7 @@ functionsWithNoArgumentsDef = [
   "pi","mic","audioin","cps","time","beat","etime","ebeat","rnd",
   "fx","fy","fxy","px","py","pxy","frt","fr","ft","aspect",
   "lo","mid","hi","ilo","imid","ihi","fft","ifft","fb","cam",
-  "audio","blend","rgba","add","mul","rgb"
+  "audio","stereo","blend","rgba","add","mul","rgb"
   ]
   
 functionsWithArgumentsDef :: Array String
