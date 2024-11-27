@@ -1,6 +1,6 @@
 module AudioZone where 
 
-import Prelude (Unit,map,bind,pure,($),discard,otherwise,(+),(<$>),(<>),show,(==),unit,max,(>=),(-),(<<<),(/),(>>>))
+import Prelude (Unit,map,bind,pure,($),discard,otherwise,(+),(<$>),(<>),show,(==),unit,max,(>=),(-),(<<<),(/),(>>>),(&&))
 import Data.Maybe (Maybe(..))
 import Data.List (List(..),zipWith,length,catMaybes)
 import Effect (Effect)
@@ -20,7 +20,7 @@ import SharedResources (SharedResources, activateAudioInput, getOutputChannelCou
 import Program (Program)
 import AudioWorklet (AudioWorklet,runWorklet,stopWorklet)
 import Action (Action,actionTimesAsAudioTime,actionHasAudioInput)
-import Output (isAudioOutput,audioOutputChannels,audioOutputOffset)
+import Output (isAudioOutput)
 import WebAudio (resumeWebAudioContext,currentTime)
 
 type AudioZone = {
@@ -56,8 +56,8 @@ addOrRemoveWorklet sharedResources _ _ (Just prevWorklet) Nothing = do
   stopWorklet prevWorklet (t+0.25) 0.1
   pure Nothing
 addOrRemoveWorklet sharedResources evalTime clockDiff (Just prevWorklet) (Just action) = do
-  case prevWorklet.signal == action.signal of
-    true -> pure (Just prevWorklet) -- no change in signal, maintain existing worklet
+  case (prevWorklet.signal == action.signal && prevWorklet.output == action.output) of
+    true -> pure (Just prevWorklet) -- no change in signal/output, maintain existing worklet
     false -> do
       tempo <- read sharedResources.tempo
       let Tuple t1 t2 = actionTimesAsAudioTime tempo evalTime clockDiff action
@@ -78,9 +78,7 @@ addWorklet sharedResources action t1 t2 = do
               log "worklet does not have audio input"
               pure null
   maxChnls <- getOutputChannelCount sharedResources
-  let nOutputChnls = audioOutputChannels maxChnls action.output
-  let channelOffset = audioOutputOffset action.output
-  runWorklet sharedResources.webAudioContext nAin sharedResources.internalAudioOutputNode ("W" <> show i) action.signal nOutputChnls channelOffset t1 (t2-t1)
+  runWorklet sharedResources.webAudioContext nAin sharedResources.internalAudioOutputNode ("W" <> show i) action.signal maxChnls action.output t1 (t2-t1)
 
 calculateAudioZoneInfo :: AudioZone -> Effect String
 calculateAudioZoneInfo z = do

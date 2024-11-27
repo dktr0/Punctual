@@ -14,10 +14,12 @@ import Signal (Signal)
 import WebAudio (WebAudioContext,WebAudioNode)
 import W
 import AudioPanning (aout)
+import Output (Output,audioOutputChannels,audioOutputOffset)
 
 type AudioWorklet = {
   name :: String,
   signal :: Signal,
+  output :: Output,
   code :: String,
   audioWorklet' :: AudioWorklet'
   }
@@ -27,11 +29,13 @@ type AudioWorklet' = {
   audioWorkletNode :: Nullable WebAudioNode
   }
 
-runWorklet :: WebAudioContext -> Nullable WebAudioNode -> WebAudioNode -> String -> Signal -> Int -> Int -> Number -> Number -> Effect AudioWorklet
-runWorklet ctx ain aout name signal nOutputChnls channelOffset fInStart fInDur = do
+runWorklet :: WebAudioContext -> Nullable WebAudioNode -> WebAudioNode -> String -> Signal -> Int -> Output -> Number -> Number -> Effect AudioWorklet
+runWorklet ctx ain aout name signal maxChnls output fInStart fInDur = do
+  let nOutputChnls = audioOutputChannels maxChnls output 
+  let channelOffset = audioOutputOffset output
   let code = generateWorkletCode signal nOutputChnls channelOffset name fInStart fInDur
   audioWorklet' <- _runWorklet ctx ain aout name code (nOutputChnls+channelOffset)
-  pure { name, signal, code, audioWorklet' }
+  pure { name, signal, output, code, audioWorklet' }
 
 foreign import _runWorklet :: WebAudioContext -> Nullable WebAudioNode -> WebAudioNode -> String -> String -> Int -> Effect AudioWorklet'
 
