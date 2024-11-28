@@ -115,6 +115,8 @@ data Signal =
   ILines MultiMode Signal Signal |
   Mesh MultiMode Signal Signal |
   Spr MultiMode Signal Signal |
+  Pan MultiMode Signal Signal |
+  Splay Int Signal |
   Seq Signal |
   Mix MultiMode Signal Signal Signal |
   ILine MultiMode Signal Signal Signal |
@@ -281,6 +283,8 @@ showIndented i (Lines mm x y) = indent i <> "Lines " <> show mm <> "\n" <> showI
 showIndented i (ILines mm x y) = indent i <> "ILines " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
 showIndented i (Mesh mm x y) = indent i <> "Mesh " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
 showIndented i (Spr mm x y) = indent i <> "Spr " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Pan mm x y) = indent i <> "Pan " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Splay n x) = indent i <> "Splay " <> show n <> "\n" <> showIndented (i+1) x
 showIndented i (Seq x) = indent i <> "Seq\n" <> showIndented (i+1) x
 showIndented i (Mix mm x y z) = indent i <> "Mix " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y <> showIndented (i+1) z
 showIndented i (ILine mm x y z) = indent i <> "ILine " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y <> showIndented (i+1) z
@@ -544,7 +548,9 @@ subSignals (Lines _ x y) = x:y:Nil
 subSignals (ILines _ x y) = x:y:Nil
 subSignals (Mesh _ x y) = x:y:Nil
 subSignals (Spr _ x y) = x:y:Nil
-subSignals (Seq steps) = steps:Nil
+subSignals (Pan _ x y) = x:y:Nil
+subSignals (Splay _ x) = x:Nil
+subSignals (Seq x) = x:Nil
 subSignals (ILine _ x y z) = x:y:z:Nil
 subSignals (Line _ x y z) = x:y:z:Nil
 subSignals (LinLin _ x y z) = x:y:z:Nil
@@ -678,6 +684,8 @@ dimensions (Lines mm x y) = binaryFunctionDimensions mm (nPer 1 4 $ channels x) 
 dimensions (ILines mm x y) = binaryFunctionDimensions mm (nPer 1 4 $ channels x) (channels y)
 dimensions (Mesh mm xy w) = binaryFunctionDimensions mm (meshChannels $ channels xy) (channels w)
 dimensions (Spr mm x y) = binaryFunctionDimensions mm (channels y) (dimensions x).rows
+dimensions (Pan mm x y) = { columns: 2, rows: binaryFunctionChannels mm (channels x) (channels y) }
+dimensions (Splay n _) = { rows: 1, columns: max 1 n }
 dimensions (Seq x) = { rows: 1, columns: (dimensions x).rows }
 dimensions (Mix mm x y z) = binaryFunctionDimensions mm (max (channels x) (channels y)) (channels z)
 dimensions (ILine mm xy1 xy2 w) = binaryFunctionDimensions mm (binaryFunctionChannels mm (nPer 1 2 $ channels xy1) (nPer 1 2 $ channels xy2)) (channels w)
@@ -708,10 +716,11 @@ meshChannels x
 nPer :: Int -> Int -> Int -> Int
 nPer n per x = (((x - 1)/per)+1)*n
 
-binaryFunctionDimensions :: MultiMode -> Int -> Int -> { rows :: Int, columns :: Int }
-binaryFunctionDimensions Combinatorial x 1 = { rows: 1, columns: x } 
-binaryFunctionDimensions Combinatorial x y = { rows: x, columns: y }
-binaryFunctionDimensions Pairwise x y = { rows: 1, columns: max x y }
+-- TODO: probably the order of arguments should be columns then rows here, not the other way around...
+binaryFunctionDimensions :: MultiMode -> Int -> Int -> { columns :: Int, rows :: Int }
+binaryFunctionDimensions Combinatorial rs 1 = {  columns: rs, rows: 1 } 
+binaryFunctionDimensions Combinatorial rs cs = {  columns: cs, rows: rs }
+binaryFunctionDimensions Pairwise x y = { columns: max x y, rows: 1 }
 
 binaryFunctionChannels :: MultiMode -> Int -> Int -> Int
 binaryFunctionChannels Combinatorial x y = x * y 

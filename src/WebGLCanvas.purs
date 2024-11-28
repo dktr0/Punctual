@@ -1,6 +1,6 @@
 module WebGLCanvas where
 
-import Prelude (Unit, bind, discard, pure, unit, (<$>), (<>), show, (/=),(||),(==))
+import Prelude (Unit, bind, discard, pure, unit, (/=), (<$>), (||))
 import Effect
 import Effect.Console (log)
 import Effect.Ref (Ref,new,read,write)
