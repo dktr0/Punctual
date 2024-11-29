@@ -34,6 +34,9 @@ fromNonEmptyListMulti xs
   | length xs == 1 = head xs
   | otherwise = Matrix $ multi $ map flatten xs -- NonEmptyList (NonEmptyList a)
 
+fromMatrixMatrix :: forall a. Matrix (Matrix a) -> Matrix a
+fromMatrixMatrix x = Matrix $ flatten $ map flatten x
+
 -- to be used, for example, in implementation of Seq
 semiFlatten :: forall a. Matrix a -> NonEmptyList (NonEmptyList a)
 semiFlatten (Matrix xs) = xs

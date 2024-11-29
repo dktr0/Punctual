@@ -13,7 +13,6 @@ import Data.Foldable (fold)
 import Signal (Signal)
 import WebAudio (WebAudioContext,WebAudioNode)
 import W
-import AudioPanning (aout)
 import Output (Output,audioOutputChannels,audioOutputOffset)
 
 type AudioWorklet = {

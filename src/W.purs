@@ -2,26 +2,25 @@ module W where
 
 -- A monad and associated functions for generating the code of a WebAudio audio worklet.
 
-import Prelude (Unit, bind, discard, map, pure, show, ($), (*), (+), (-), (/), (/=), (<), (<$>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), negate, (>>>))
+import Prelude (Unit, bind, discard, map, pure, show, ($), (*), (+), (-), (/), (/=), (<), (<$>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), negate, (>>>), otherwise)
 import Prelude as Prelude
 import Control.Monad.State (State,get,put,runState,modify_)
-import Data.List.NonEmpty (NonEmptyList, fromList, length, zipWith)
+import Data.List.NonEmpty (NonEmptyList, fromList, length, zipWith, head)
 import Data.Either (Either(..))
 import Data.Foldable (intercalate,foldM)
 import Data.Traversable (traverse,for,sequence)
 import Data.Tuple (Tuple(..))
 import Data.Maybe (Maybe(..))
-import Data.Unfoldable1 (iterateN,range)
-import Data.Number (acos, asin, atan, ceil, cos, exp, floor, log, pow, round, sign, sin, sqrt, tan, trunc) as Number
+import Data.Unfoldable1 (iterateN, range, replicate1)
+import Data.Number (acos, asin, atan, ceil, cos, exp, floor, log, pow, round, sign, sin, sqrt, tan, trunc, pi) as Number
 import Data.Ord as Ord
 import Data.Int (toNumber,round)
 
 import NonEmptyList (zipWithEqualLength,pairwise)
 import Signal (Signal(..))
 import MultiMode (MultiMode(..))
-import Matrix (Matrix(..),flatten,semiFlatten,fromNonEmptyListMulti,zip,rep,combine,combine3,concat,toTuples,fromNonEmptyList)
-import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, divisionSafe, divisionUnsafe, smoothStep, showNumber) as Number
-
+import Matrix (Matrix(..),flatten,semiFlatten,fromNonEmptyListMulti,zip,rep,combine,combine3,concat,toTuples,fromNonEmptyList,fromMatrixMatrix)
+import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, divisionSafe, divisionUnsafe, smoothStep, showNumber) as Number 
 
 type W = State WState
 
@@ -361,6 +360,22 @@ signalToFrame (Spr mm x y) = do
   ys <- signalToFrame y >>= traverse unipolar -- :: Matrix Sample
   sequence $ combine seq mm xs ys
 
+signalToFrame (Pan mm n p x) = do
+  ps <- signalToFrame p >>= traverse unipolar
+  xs <- signalToFrame x
+  ys <- sequence $ combine (pan n) mm ps xs -- Matrix Frame = Matrix (Matrix Sample)
+  pure $ fromMatrixMatrix ys
+
+  -- each item in the outer matrix is a one-dimensional matrix of n items, reflecting a unique combination of a position and an audio signal
+  -- because each item is one-dimensional, we can flatten it to nonemptylist of n items with no loss of information
+  -- :: Matrix (NonEmptyList Sample)
+  -- the outer list can also be flattened to a NonEmptyList
+  -- :: NonEmptyList (NonEmptyList Sample)
+  -- 
+
+
+signalToFrame (Splay n x) = signalToFrame x >>= splay n >>= fromNonEmptyList >>> pure
+
 signalToFrame (Seq s) = do
   xs <- semiFlatten <$> signalToFrame s -- :: NonEmptyList Frame
   b <- (_.beat <$> get) >>= fract
@@ -584,3 +599,39 @@ abs :: Sample -> W Sample
 abs (Left x) = pure $ Left $ Ord.abs x
 abs (Right x) = assign $ "Math.abs(" <> x <> ")"
   
+splay :: Int -> Frame -> W (NonEmptyList Sample)
+splay nOutputChnls xs
+  | nOutputChnls <= 1 = pure <$> sum xs
+  | length (flatten xs) == 1 = flatten <$> pan nOutputChnls (Left 0.5) (head $ flatten xs)
+  | otherwise = do
+      let xs' = flatten xs
+      let nInputChnls = length xs'
+      let stepSize = 1.0 / toNumber (nInputChnls - 1)
+      let inputPositions = map Left $ iterateN nInputChnls (_ + stepSize) 0.0
+      xss <- sequence $ zipWith (pan nOutputChnls) inputPositions xs' -- :: NonEmptyList Frame -- one Frame per input, each Frame has nOutputChnls Samples
+      flatten <$> sumChannels xss
+
+aout :: Int -> Int -> Frame -> W (NonEmptyList Sample)
+aout nOutputChnls channelOffset xs = 
+  case channelOffset <= 0 of
+    true -> splay nOutputChnls xs
+    false -> do
+      let a = replicate1 channelOffset zero
+      b <- splay nOutputChnls xs
+      pure $ a <> b
+
+pan :: Int -> Sample -> Sample -> W Frame
+pan nOutputChnls pos i 
+  | nOutputChnls <= 1 = pure $ pure i
+  | otherwise = do
+      pos' <- product pos (Left $ toNumber $ nOutputChnls - 1)
+      let outputPositions = iterateN nOutputChnls (_ + 1.0) 0.0 
+      outputDistances <- traverse (\op -> difference (Left op) pos' >>= abs >>= clip (Tuple (Left 0.0) (Left 1.0)) ) outputPositions
+      outputGains <- traverse gainFromDistance outputDistances
+      fromNonEmptyList <$> traverse (product i) outputGains
+
+gainFromDistance :: Sample -> W Sample
+gainFromDistance (Left x) 
+  | Ord.abs x > 1.0 = pure $ Left 0.0
+  | otherwise = pure $ Left $ Number.cos (Ord.abs x * Number.pi / 2.0)
+gainFromDistance (Right x) = assign $ "Math.abs(" <> x <> ")>1?0:Math.cos(Math.abs(" <> x <> ")*Math.PI/2)"

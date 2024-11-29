@@ -115,7 +115,7 @@ data Signal =
   ILines MultiMode Signal Signal |
   Mesh MultiMode Signal Signal |
   Spr MultiMode Signal Signal |
-  Pan MultiMode Signal Signal |
+  Pan MultiMode Int Signal Signal |
   Splay Int Signal |
   Seq Signal |
   Mix MultiMode Signal Signal Signal |
@@ -283,7 +283,7 @@ showIndented i (Lines mm x y) = indent i <> "Lines " <> show mm <> "\n" <> showI
 showIndented i (ILines mm x y) = indent i <> "ILines " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
 showIndented i (Mesh mm x y) = indent i <> "Mesh " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
 showIndented i (Spr mm x y) = indent i <> "Spr " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
-showIndented i (Pan mm x y) = indent i <> "Pan " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Pan mm n x y) = indent i <> "Pan " <> show mm <> " " <> show n <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
 showIndented i (Splay n x) = indent i <> "Splay " <> show n <> "\n" <> showIndented (i+1) x
 showIndented i (Seq x) = indent i <> "Seq\n" <> showIndented (i+1) x
 showIndented i (Mix mm x y z) = indent i <> "Mix " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y <> showIndented (i+1) z
@@ -548,7 +548,7 @@ subSignals (Lines _ x y) = x:y:Nil
 subSignals (ILines _ x y) = x:y:Nil
 subSignals (Mesh _ x y) = x:y:Nil
 subSignals (Spr _ x y) = x:y:Nil
-subSignals (Pan _ x y) = x:y:Nil
+subSignals (Pan _ _ x y) = x:y:Nil
 subSignals (Splay _ x) = x:Nil
 subSignals (Seq x) = x:Nil
 subSignals (ILine _ x y z) = x:y:z:Nil
@@ -684,7 +684,7 @@ dimensions (Lines mm x y) = binaryFunctionDimensions mm (nPer 1 4 $ channels x) 
 dimensions (ILines mm x y) = binaryFunctionDimensions mm (nPer 1 4 $ channels x) (channels y)
 dimensions (Mesh mm xy w) = binaryFunctionDimensions mm (meshChannels $ channels xy) (channels w)
 dimensions (Spr mm x y) = binaryFunctionDimensions mm (channels y) (dimensions x).rows
-dimensions (Pan mm x y) = { columns: 2, rows: binaryFunctionChannels mm (channels x) (channels y) }
+dimensions (Pan mm n x y) = { columns: max 1 n, rows: binaryFunctionChannels mm (channels x) (channels y) }
 dimensions (Splay n _) = { rows: 1, columns: max 1 n }
 dimensions (Seq x) = { rows: 1, columns: (dimensions x).rows }
 dimensions (Mix mm x y z) = binaryFunctionDimensions mm (max (channels x) (channels y)) (channels z)
