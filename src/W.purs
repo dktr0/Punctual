@@ -366,14 +366,6 @@ signalToFrame (Pan mm n p x) = do
   ys <- sequence $ combine (pan n) mm ps xs -- Matrix Frame = Matrix (Matrix Sample)
   pure $ fromMatrixMatrix ys
 
-  -- each item in the outer matrix is a one-dimensional matrix of n items, reflecting a unique combination of a position and an audio signal
-  -- because each item is one-dimensional, we can flatten it to nonemptylist of n items with no loss of information
-  -- :: Matrix (NonEmptyList Sample)
-  -- the outer list can also be flattened to a NonEmptyList
-  -- :: NonEmptyList (NonEmptyList Sample)
-  -- 
-
-
 signalToFrame (Splay n x) = signalToFrame x >>= splay n >>= fromNonEmptyList >>> pure
 
 signalToFrame (Seq s) = do
@@ -632,6 +624,6 @@ pan nOutputChnls pos i
 
 gainFromDistance :: Sample -> W Sample
 gainFromDistance (Left x) 
-  | Ord.abs x > 1.0 = pure $ Left 0.0
+  | Ord.abs x >= 1.0 = pure $ Left 0.0
   | otherwise = pure $ Left $ Number.cos (Ord.abs x * Number.pi / 2.0)
 gainFromDistance (Right x) = assign $ "Math.abs(" <> x <> ")>1?0:Math.cos(Math.abs(" <> x <> ")*Math.PI/2)"

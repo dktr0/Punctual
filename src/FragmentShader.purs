@@ -433,6 +433,14 @@ signalToExprs (Spr mm x y) = do
   ys <- (signalToExprs y :: G (Matrix Float)) >>= map unipolar >>> pure -- :: Matrix Float
   traverse assign $ mapRows castExprs $ combine (flip seq) mm xs ys
 
+signalToExprs (Pan mm n p x) = do
+  ps <- signalToExprs p :: G (Matrix Float) >>= map unipolar >>> pure
+  xs <- signalToExprs x :: G (Matrix Float)
+  ys <- sequence $ combine (pan n) mm ps xs -- Matrix (Matrix Float)
+  traverse assign $ mapRows castExprs $ fromMatrixMatrix ys 
+
+-- signalToExprs (Splay n x) = do
+
 signalToExprs (Seq steps) = do
   steps' <- semiFlatten <$> signalToExprs steps -- :: NonEmptyList (NonEmptyList Float)
   b <- get >>= _.beat >>> fract >>> pure
@@ -570,6 +578,34 @@ rect fxy xy wh = do
   let e = (expr $ "smoothstep(vec2(0.)," <> toExpr a <> "," <> toExpr d <> ")") :: Vec2
   f <- assign $ difference (constant 1.0) e
   assign $ product (swizzleX f) (swizzleY f)
+
+pan :: Int -> Float -> Float -> G (Matrix Float)
+pan nOutputChnls pos x
+  | nOutputChnls <= 1 = pure $ pure x
+  | otherwise = do
+      let pos' = product pos (FloatConstant $ toNumber $ nOutputChnls - 1)
+      let outputPositions = iterateN nOutputChnls (_ + 1.0) 0.0
+      outputDistances <- map (\op -> difference (FloatConstant op) pos' >>> abs >>> clip ?) outputPositions
+      let outputGains = map gainFromDistance outputDistances
+      fromNonEmptyList <$> traverse (product i >>> assign) outputGains
+
+      outputDistances <- traverse (\op -> difference (Left op) pos' >>= abs >>= clip (Tuple (Left 0.0) (Left 1.0)) ) outputPositions
+
+
+gainFromPosition :: Float -> Float -> Float
+gainFromPosition pos outputPos = 
+  where
+    d = abs $ difference pos outputPos
+    
+gainFromPosition (FloatConstant pos) outputPos
+  | Ord.abs (pos - outputPos) >= 1.0 = FloatConstant 0.0 
+  | otherwise = FloatConstant $ Number.cos (Ord.abs (pos-outputPos) * Number.pi / 2.0)
+gainFromDistance (FloatExpr pos) outputPos = FloatExpr $ 
+  where
+    d = abs $ difference (FloatExpr pos) ()
+
+
+--- gainFromDistance (Right x) = assign $ "Math.abs(" <> x <> ")>1?0:Math.cos(Math.abs(" <> x <> ")*Math.PI/2)"
 
 
 header :: Boolean -> String
