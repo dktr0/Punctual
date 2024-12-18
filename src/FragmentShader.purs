@@ -1,6 +1,6 @@
 module FragmentShader where
 
-import Prelude (bind, discard, flip, map, negate, pure, show, ($), (-), (<$>), (<*>), (<<<), (<>), (==), (>), (>>=), (>>>))
+import Prelude (bind, discard, flip, map, negate, pure, show, ($), (-), (<$>), (<*>), (<<<), (<>), (==), (>), (>>=), (>>>), (<=), (*), (/), otherwise, (+))
 import Prelude as Prelude
 import Data.Functor (mapFlipped)
 import Data.Maybe (Maybe(..))
@@ -9,11 +9,13 @@ import Data.Traversable (traverse,sequence)
 import Data.Tuple (Tuple(..),fst,snd)
 import Data.Foldable (foldM)
 import Data.Unfoldable (replicate)
+import Data.Unfoldable1 (iterateN)
 import Control.Monad.State (get,modify_)
 import Data.Map (Map,lookup)
 import Data.Tempo (Tempo)
 import Data.DateTime (DateTime)
-import Data.Number (round, trunc) as Number
+import Data.Int (toNumber)
+import Data.Number (round, trunc, cos, pi) as Number
 import Data.List as List
 
 import NonEmptyList (zipWithEqualLength,everyPair,everyAdjacentPair,pairwise)
@@ -25,7 +27,7 @@ import Output as Output
 import Program (Program)
 import Expr (class Expr, Float(..), Vec2(..), Vec3, Vec4, abs, acos, add, ampdb, asin, atan, between, bipolar, blend, castExprs, cbrt, ceil, circle, clip, constant, cos, cpsmidi, dbamp, difference, distance, division, divisionExprFloat, dotSum, equal, exp, expr, fadeIn, fadeOut, floatFloatToVec2, floor, fract, fromFloat, fromFloats, fromVec2s, function1, gate, greaterThan, greaterThanEqual, hline, hsvrgb, iline, lessThan, lessThanEqual, line, linlin, log, log10, log2, max, midicps, min, mix, mixFloat, mod, notEqual, pi, point, pow, product, productExprFloat, productFloatExpr, prox, pxy, rgbaFade, rgbhsv, rtx, rtxy, rty, seq, setX, setY, sign, sin, smoothStep, sqrt, sum, swizzleW, swizzleX, swizzleXY, swizzleXYZ, swizzleY, swizzleZ, swizzleZW, tan, tile, toExpr, unaryFunction, unipolar, vec3FloatToVec4, vline, xyr, xyrt, xyt, zero)
 import G (G, assign, runG, texture2D, textureFFT, withAlteredTime, withFxys)
-import Matrix (Matrix(..),fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3,semiFlatten)
+import Matrix (Matrix(..),fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3,semiFlatten,fromMatrixMatrix)
 import Number (acosh, asinh, atanh, cosh, sinh, tanh) as Number
 
 exprToExprs :: forall a b. Expr a => Expr b => a -> Matrix b
@@ -434,7 +436,7 @@ signalToExprs (Spr mm x y) = do
   traverse assign $ mapRows castExprs $ combine (flip seq) mm xs ys
 
 signalToExprs (Pan mm n p x) = do
-  ps <- signalToExprs p :: G (Matrix Float) >>= map unipolar >>> pure
+  ps <- (signalToExprs p :: G (Matrix Float)) >>= map unipolar >>> pure
   xs <- signalToExprs x :: G (Matrix Float)
   ys <- sequence $ combine (pan n) mm ps xs -- Matrix (Matrix Float)
   traverse assign $ mapRows castExprs $ fromMatrixMatrix ys 
@@ -584,28 +586,17 @@ pan nOutputChnls pos x
   | nOutputChnls <= 1 = pure $ pure x
   | otherwise = do
       let pos' = product pos (FloatConstant $ toNumber $ nOutputChnls - 1)
-      let outputPositions = iterateN nOutputChnls (_ + 1.0) 0.0
-      outputDistances <- map (\op -> difference (FloatConstant op) pos' >>> abs >>> clip ?) outputPositions
-      let outputGains = map gainFromDistance outputDistances
-      fromNonEmptyList <$> traverse (product i >>> assign) outputGains
-
-      outputDistances <- traverse (\op -> difference (Left op) pos' >>= abs >>= clip (Tuple (Left 0.0) (Left 1.0)) ) outputPositions
-
+      let outputPositions = map FloatConstant $ iterateN nOutputChnls (_ + 1.0) 0.0
+      let outputGains = map (gainFromPosition pos') outputPositions 
+      fromNonEmptyList <$> traverse (product x >>> assign) outputGains
 
 gainFromPosition :: Float -> Float -> Float
-gainFromPosition pos outputPos = 
+gainFromPosition pos outputPos = g
   where
-    d = abs $ difference pos outputPos
-    
-gainFromPosition (FloatConstant pos) outputPos
-  | Ord.abs (pos - outputPos) >= 1.0 = FloatConstant 0.0 
-  | otherwise = FloatConstant $ Number.cos (Ord.abs (pos-outputPos) * Number.pi / 2.0)
-gainFromDistance (FloatExpr pos) outputPos = FloatExpr $ 
-  where
-    d = abs $ difference (FloatExpr pos) ()
-
-
---- gainFromDistance (Right x) = assign $ "Math.abs(" <> x <> ")>1?0:Math.cos(Math.abs(" <> x <> ")*Math.PI/2)"
+    d = clip (Vec2Constant 0.0 1.0) $ abs $ difference pos outputPos
+    g = case d of
+          (FloatConstant d') -> FloatConstant $ Number.cos (d' * Number.pi / 2.0)
+          (FloatExpr d') -> FloatExpr $ "cos(" <> d' <> "*" <> "PI/2.0)"
 
 
 header :: Boolean -> String

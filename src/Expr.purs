@@ -13,7 +13,7 @@ import Data.Unfoldable1 (unfoldr1,range)
 import Data.Semigroup.Foldable (class Foldable1,foldl1)
 
 import Channels
-import Number (cbrt, divisionSafe, log2, showNumber) as Number
+import Number (cbrt, divisionSafe, log2, showNumber, clamp) as Number
 
 class Channels a <= Expr a where
   constant :: Number -> a
@@ -758,6 +758,7 @@ clip r x = clamp (min e0 e1) (max e0 e1) x
 
 -- clamp is an "unchecked" clipping operation (ie. weird results if min and max are out of order)
 clamp :: forall a. Expr a => Float -> Float -> a -> a
+clamp (FloatConstant e0) (FloatConstant e1) x = unaryFunction (Number.clamp e0 e1) (\x' -> "clamp(" <> x' <> "," <> show e0 <> "," <> show e1 <> ")") x
 clamp e0 e1 x = expr $ "clamp(" <> toExpr x <> "," <> toExpr e0 <> "," <> toExpr e1 <> ")"
 
 -- first argument is multiply used and should be assigned by the caller
