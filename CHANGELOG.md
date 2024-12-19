@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.5.1:
+
+-added splay, pan, and panp (all work for both audio and visual outputs)
+
 0.5.0: 
 
 Major changes relative to 0.4.x

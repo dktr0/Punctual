@@ -52,7 +52,7 @@ etime -- how much time in seconds has passed since code was last evaluated
 
 ebeat -- how much time has passed since code was last evaluated, expressed in beats/cycles relative to the current tempo
 
-## Punctual Graph Functions
+## Punctual Functions
 
 When Punctual functions or operators take two or more arguments that are, themselves, Punctual graphs, the question arises of how multiple channels from both (or more) arguments are to be combined. Generally speaking, as of version 0.4.x of Punctual, the default answer to that question is 'combinatorial', eg. ```[1,2] + [10,20]``` is equivalent to [11,12,21,22] (every combination of both sets). However, for the most common mathematical operators, "pairwise" equivalents exist as well, denoted by adding a colon : to the right end of the operator, eg. ```[1,2] +: [10,20]``` is equivalent to [11,22].
 
@@ -179,6 +179,10 @@ zero [graph] -- returns a graph that is always 0 regardless of the input graph (
 [graph] ++ [graph] -- appends two graphs to each other in a way that preserves the multiple channels of both graphs. For example if the graph on the left has 3 channels, and the one on the right has 2 channels, then the result will be a 5-channel graph consisting of the 3 channels from the left operand, followed by the 2 channels from the right operand.
 
 pi -- the value of PI (3.1415926535897932384626433832795)
+
+pan/panp [n] [graph] [graph] -- equal-power panning (cosine law) over n (an integer) channels. first graph argument is position(s), second argument is input signals to be panned. works in both audio and visual outputs, FWIW.
+
+splay [n] [graph] -- the channels of the provided graph are spread over n (an integer) output channels, using the same equal-power panning algorithm as pan/panp. also works with both audio and visual outputs.
 
 ## Punctual Graph Functions Specialised for Graphics
 

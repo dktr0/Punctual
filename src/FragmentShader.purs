@@ -441,7 +441,7 @@ signalToExprs (Pan mm n p x) = do
   ys <- sequence $ combine (pan n) mm ps xs -- Matrix (Matrix Float)
   traverse assign $ mapRows castExprs $ fromMatrixMatrix ys 
 
--- signalToExprs (Splay n x) = do
+signalToExprs (Splay n x) = signalToExprs x >>= splay n >>= fromNonEmptyList >>> mapRows castExprs >>> traverse assign
 
 signalToExprs (Seq steps) = do
   steps' <- semiFlatten <$> signalToExprs steps -- :: NonEmptyList (NonEmptyList Float)
@@ -597,6 +597,22 @@ gainFromPosition pos outputPos = g
     g = case d of
           (FloatConstant d') -> FloatConstant $ Number.cos (d' * Number.pi / 2.0)
           (FloatExpr d') -> FloatExpr $ "cos(" <> d' <> "*" <> "PI/2.0)"
+
+splay :: Int -> Matrix Float -> G (NonEmptyList Float)
+splay nOutputChnls xs
+  | nOutputChnls <= 1 = pure $ pure $ sum $ flatten xs
+  | length (flatten xs) == 1 = flatten <$> pan nOutputChnls (FloatConstant 0.5) (head $ flatten xs)
+  | otherwise = do
+      let xs' = flatten xs
+      let nInputChnls = length xs'
+      let stepSize = 1.0 / toNumber (nInputChnls - 1)
+      let inputPositions = map FloatConstant $ iterateN nInputChnls (_ + stepSize) 0.0
+      xss <- sequence $ zipWith (pan nOutputChnls) inputPositions xs'
+      flatten <$> sumChannels xss
+
+-- sum over corresponding channels pairwise
+sumChannels :: NonEmptyList (Matrix Float) -> G (Matrix Float)
+sumChannels xs = foldM (\x y -> traverse assign $ combine add Pairwise x y) ((pure $ FloatConstant 0.0) :: Matrix Float) xs
 
 
 header :: Boolean -> String
