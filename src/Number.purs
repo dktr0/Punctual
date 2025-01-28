@@ -1,6 +1,9 @@
 module Number where
 
-import Prelude (min,max,(>=),(&&),(<=),($),(/),(-),(*),(<),(<>),show,otherwise)
+import Prelude (min,max,(>=),(&&),(<=),($),(/),(-),(*),(<),(<>),show,otherwise,class Semigroup,(+),(==),(>))
+import Data.Maybe (Maybe(..))
+import Data.Tuple (Tuple(..))
+import Data.Unfoldable1 (class Unfoldable1, unfoldr1, singleton)
 
 divisionSafe :: Number -> Number -> Number
 divisionSafe _ 0.0 = 0.0
@@ -38,3 +41,20 @@ showNumber :: Number -> String
 showNumber x
   | x < 0.0 = "(" <> show x <> ")"
   | otherwise = show x
+
+
+fromThenTo :: forall f. Unfoldable1 f => Semigroup (f Number) => Number -> Number -> Number -> f Number
+fromThenTo a b c
+  -- in all non-generative cases the result is a single-channel matrix with just the starting value
+  | a == b = singleton a
+  | a == c = singleton a
+  | (b > a) && (c < a) = singleton a
+  | (b < a) && (c > a) = singleton a 
+  -- in the generative case, the result is the starting value, the final value, and all values in between that are less than the final value
+  | otherwise = singleton a <> unfoldr1 (fromThenToUnfolder c (b-a)) a <> singleton c
+
+fromThenToUnfolder :: Number -> Number -> Number -> Tuple Number (Maybe Number)
+fromThenToUnfolder finalValue delta prevValue = Tuple a maybeB
+  where
+    a = prevValue + delta
+    maybeB = if (a + delta) >= finalValue then Nothing else Just a

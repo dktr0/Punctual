@@ -136,7 +136,7 @@ parseExpression (Operation p op x y) = do
   application z y'
 parseExpression (FromTo p x y) = pure $ ValueSignal p $ SignalList Combinatorial $ (Constant <<< toNumber) <$> range x y
 parseExpression (FromThenTo p _ _ _) = throwError $ ParseError "FromThenTo not supported yet" p
--- TODO: implement FromThenTo and fix implementation of FromTo to match Haskell behaviour
+-- TODO: implement FromThenTo
 parseExpression (Lambda p xs e) = embedLambdas p xs e
 parseExpression (IfThenElse p i t e) = do
   i' <- parseExpression i >>= valueToSignal
