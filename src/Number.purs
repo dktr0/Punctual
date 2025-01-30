@@ -1,9 +1,10 @@
 module Number where
 
-import Prelude (min,max,(>=),(&&),(<=),($),(/),(-),(*),(<),(<>),show,otherwise,class Semigroup,(+),(==),(>))
+import Prelude (min,max,(>=),(&&),(<=),($),(/),(-),(*),(<),(<>),show,otherwise,class Semigroup,(+),(==),(>),(<$>),class Functor)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
-import Data.Unfoldable1 (class Unfoldable1, unfoldr1, singleton)
+import Data.Unfoldable1 (class Unfoldable1, unfoldr1, singleton, range)
+import Data.Int (toNumber)
 
 divisionSafe :: Number -> Number -> Number
 divisionSafe _ 0.0 = 0.0
@@ -43,6 +44,17 @@ showNumber x
   | otherwise = show x
 
 
+fromThen :: forall f. Unfoldable1 f => Functor f => Int -> Int -> f Number
+fromThen x y = toNumber <$> range x (_fromThenLimited x y)
+
+_fromThenLimited :: Int -> Int -> Int
+_fromThenLimited x y
+  | y >= x = x + (min (y - x) 63)
+  | otherwise = x - (min (x - y) 63)
+
+_fromThenChannelLimit :: Int
+_fromThenChannelLimit = 64
+
 fromThenTo :: forall f. Unfoldable1 f => Semigroup (f Number) => Number -> Number -> Number -> f Number
 fromThenTo a b c
   -- in all non-generative cases the result is a single-channel matrix with just the starting value
@@ -51,7 +63,7 @@ fromThenTo a b c
   | b == c = singleton a <> singleton b
   | (b > a) && (c < a) = singleton a
   | (b < a) && (c > a) = singleton a 
-  | _fromThenChannels a b c > 64.0 = singleton a
+  | _fromThenChannels a b c > (toNumber _fromThenChannelLimit) = fromThenTo a b (a+((b-a)*(toNumber _fromThenChannelLimit - 1.0)))
   -- in the generative case, the result is the starting value, the final value, and all values in between that are less than the final value
   | otherwise = singleton a <> unfoldr1 (_fromThenToUnfolder c (b-a)) a <> singleton c
 
