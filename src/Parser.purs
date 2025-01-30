@@ -2,11 +2,10 @@ module Parser where
 
 import Prelude (bind, discard, pure, unit, ($), (<$>), (<<<), (<>), (>>=), max, show, Unit)
 import Control.Monad (class Monad)
-import Data.Int (toNumber)
 import Data.Tuple (Tuple(..))
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
-import Data.List (List(..), range, (:))
+import Data.List (List(..),(:))
 import Data.Traversable (traverse)
 import Data.Map (empty)
 import Control.Monad.Trans.Class (lift)
@@ -34,6 +33,7 @@ import Action (Action, setCrossFade, setOutput)
 import Output (Output)
 import Output as Output
 import SharedResources (URL)
+import Number (fromTo,fromThenTo)
 
 parseProgram :: LibraryCache -> String -> DateTime -> Aff (Either ParseError Program)
 parseProgram libCache txt eTime = do
@@ -134,9 +134,8 @@ parseExpression (Operation p op x y) = do
   y' <- parseExpression y
   z <- application f x'
   application z y'
-parseExpression (FromTo p x y) = pure $ ValueSignal p $ SignalList Combinatorial $ (Constant <<< toNumber) <$> range x y
-parseExpression (FromThenTo p _ _ _) = throwError $ ParseError "FromThenTo not supported yet" p
--- TODO: implement FromThenTo
+parseExpression (FromTo p x y) = pure $ ValueSignal p $ SignalList Combinatorial $ Constant <$> fromTo x y
+parseExpression (FromThenTo p a b c) = pure $ ValueSignal p $ SignalList Combinatorial $ Constant <$> fromThenTo a b c
 parseExpression (Lambda p xs e) = embedLambdas p xs e
 parseExpression (IfThenElse p i t e) = do
   i' <- parseExpression i >>= valueToSignal

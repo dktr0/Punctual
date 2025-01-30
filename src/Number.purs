@@ -44,16 +44,16 @@ showNumber x
   | otherwise = show x
 
 
-fromThen :: forall f. Unfoldable1 f => Functor f => Int -> Int -> f Number
-fromThen x y = toNumber <$> range x (_fromThenLimited x y)
+fromTo :: forall f. Unfoldable1 f => Functor f => Int -> Int -> f Number
+fromTo x y = toNumber <$> range x (_fromToLimited x y)
 
-_fromThenLimited :: Int -> Int -> Int
-_fromThenLimited x y
-  | y >= x = x + (min (y - x) 63)
-  | otherwise = x - (min (x - y) 63)
+_fromToLimited :: Int -> Int -> Int
+_fromToLimited x y
+  | y >= x = x + (min (y - x) (_fromToChannelLimit - 1))
+  | otherwise = x - (min (x - y) (_fromToChannelLimit -1))
 
-_fromThenChannelLimit :: Int
-_fromThenChannelLimit = 64
+_fromToChannelLimit :: Int
+_fromToChannelLimit = 64
 
 fromThenTo :: forall f. Unfoldable1 f => Semigroup (f Number) => Number -> Number -> Number -> f Number
 fromThenTo a b c
@@ -63,7 +63,7 @@ fromThenTo a b c
   | b == c = singleton a <> singleton b
   | (b > a) && (c < a) = singleton a
   | (b < a) && (c > a) = singleton a 
-  | _fromThenChannels a b c > (toNumber _fromThenChannelLimit) = fromThenTo a b (a+((b-a)*(toNumber _fromThenChannelLimit - 1.0)))
+  | _fromThenToChannels a b c > (toNumber _fromToChannelLimit) = fromThenTo a b (a+((b-a)*(toNumber _fromToChannelLimit - 1.0)))
   -- in the generative case, the result is the starting value, the final value, and all values in between that are less than the final value
   | otherwise = singleton a <> unfoldr1 (_fromThenToUnfolder c (b-a)) a <> singleton c
 
@@ -74,5 +74,5 @@ _fromThenToUnfolder finalValue delta prevValue = Tuple a maybeB
     maybeB = if (a + delta) >= (finalValue - (delta * 0.5)) then Nothing else Just a
 
 -- note: this is assumed to be correct only for the generative case
-_fromThenChannels :: Number -> Number -> Number -> Number
-_fromThenChannels a b c = ((c-a)/(b-a)) + 1.0
+_fromThenToChannels :: Number -> Number -> Number -> Number
+_fromThenToChannels a b c = ((c-a)/(b-a)) + 1.0

@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.5.1.1:
+
+-restored "from then to" ranges, e.g [0.0,0.1 .. 1.0] and established consistent limits for both from then to and from then ranges with respect to maximum resulting channels (currently 64)
+
 0.5.1:
 
 -added splay, pan, and panp (all work for both audio and visual outputs)
