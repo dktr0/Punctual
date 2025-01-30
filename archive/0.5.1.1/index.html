@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+ <meta charset="UTF-8"></meta>
+ <title>Punctual</title>
+ <link href="style.css" rel="stylesheet" type="text/css"/>
+</head>
+
+<body onLoad="window.doLaunch()">
+
+  <script type="module">
+  import * as P from "./punctual.js";
+  window.footer = true;
+  window.info = false;
+  window.doLaunch = function () {
+    var cvs = document.getElementById('canvas');
+    window.punctual = new P.Punctual();
+    window.timeOfLastFPSUpdate = Date.now()/1000.0;
+    window.framesSinceFPSUpdate = 0;
+    window.requestAnimationFrame(animate);
+    setTimeout(updateFPS,1020);
+  }
+  function animate() {
+    window.requestAnimationFrame(animate);
+    var now = Date.now()/1000.0;
+    window.punctual.preRender({canDraw: true, nowTime: now});
+    window.punctual.render({canDraw: true, zone:0, nowTime: now});
+    window.punctual.postRender({canDraw: true, nowTime: now});
+    window.framesSinceFPSUpdate += 1;
+  }
+  function updateFPS() {
+    var now = Date.now()/1000.0;
+    var elapsed = now - window.timeOfLastFPSUpdate;
+    var fps = Math.round(window.framesSinceFPSUpdate/elapsed);
+    document.getElementById('fps').textContent = fps.toString() + " FPS";
+    setTimeout(updateFPS,1020);
+  }
+  window.doEval = function () {
+    var t = document.getElementById("editorArea").value;
+    window.punctual.define({zone:0,text:t,time: Date.now()/1000.0})
+    .then( r => {
+      document.getElementById('info').textContent = r.info;
+      document.getElementById('errors').textContent = "";
+    })
+    .catch( e => {
+      var eString = e.toString();
+      document.getElementById('errors').textContent = eString;
+    });
+  }
+  window.addEventListener('keydown', function (e) {
+    e = e || window.event;
+    if(e.shiftKey && e.key=="Enter") {
+      e.preventDefault();
+      window.doEval();
+    }
+    if(e.ctrlKey && e.shiftKey && e.key=="F") {
+      window.footer = !window.footer;
+      document.getElementById('status').hidden = !window.footer;
+    }
+    if(e.ctrlKey && e.shiftKey && (e.key=="Q" || e.key=="S")) {
+      window.info = !window.info;
+      document.getElementById('info').hidden = !window.info;
+    }
+
+  });
+  </script>
+
+  <div id="canvasDiv"><canvas id="canvas"></canvas></div>
+  <div class="editorAndStatus">
+    <div class="editor">
+<textarea class="editorArea" id="editorArea">
+-- Punctual, an audiovisual live coding language, version 0.5.1.1
+-- Press Shift-Enter to (re)evaluate/activate code
+-- documentation @ https://github.com/dktr0/Punctual.git
+-- help/discussion @ Estuary discord server
+
+x1 << osc $ 0.11*[1,2]; y1 << osc $ 0.08/[3,4];
+x2 << osc $ 0.06/[5,6]; y2 << osc $ 0.04*[7,8];
+ls << mono $ iline [x1,y1] [x2,y2] 0.002;
+col << hsvrgb [osc 0.11,0.5 ~~ 1 $ osc 0.12, 1];
+mask << prox 0 ** 8;
+a << fit 1 $ ls * col * mask;
+gate 0.1 (maxp a (fb * 0.98)) >> add <> 5
+</textarea>
+    </div>
+    <pre class="info" id="info" hidden="true"></pre>
+    <div class="status" id="status">
+      <div class="errors" id="errors"></div>
+      <div class="fps" id="fps">-- FPS</div>
+    </div>
+  </div>
+</body>
+
+</html>
