@@ -48,13 +48,19 @@ fromThenTo a b c
   -- in all non-generative cases the result is a single-channel matrix with just the starting value
   | a == b = singleton a
   | a == c = singleton a
+  | b == c = singleton a <> singleton b
   | (b > a) && (c < a) = singleton a
   | (b < a) && (c > a) = singleton a 
+  | _fromThenChannels a b c > 64.0 = singleton a
   -- in the generative case, the result is the starting value, the final value, and all values in between that are less than the final value
-  | otherwise = singleton a <> unfoldr1 (fromThenToUnfolder c (b-a)) a <> singleton c
+  | otherwise = singleton a <> unfoldr1 (_fromThenToUnfolder c (b-a)) a <> singleton c
 
-fromThenToUnfolder :: Number -> Number -> Number -> Tuple Number (Maybe Number)
-fromThenToUnfolder finalValue delta prevValue = Tuple a maybeB
+_fromThenToUnfolder :: Number -> Number -> Number -> Tuple Number (Maybe Number)
+_fromThenToUnfolder finalValue delta prevValue = Tuple a maybeB
   where
     a = prevValue + delta
-    maybeB = if (a + delta) >= finalValue then Nothing else Just a
+    maybeB = if (a + delta) >= (finalValue - (delta * 0.5)) then Nothing else Just a
+
+-- note: this is assumed to be correct only for the generative case
+_fromThenChannels :: Number -> Number -> Number -> Number
+_fromThenChannels a b c = ((c-a)/(b-a)) + 1.0
