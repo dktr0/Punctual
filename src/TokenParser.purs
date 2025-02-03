@@ -66,7 +66,8 @@ functionsWithArgumentsDef = [
   "mix","mixp",
   "import",
   "aout",
-  "splay","pan","panp"
+  "splay","pan","panp",
+  "btw","btwp"
   ]
 
 otherReservedNamesDef :: Array String

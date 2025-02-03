@@ -115,6 +115,7 @@ data Signal =
   ILines MultiMode Signal Signal |
   Mesh MultiMode Signal Signal |
   Spr MultiMode Signal Signal |
+  Btw MultiMode Int Signal Signal |
   Pan MultiMode Int Signal Signal |
   Splay Int Signal |
   Seq Signal |
@@ -283,6 +284,7 @@ showIndented i (Lines mm x y) = indent i <> "Lines " <> show mm <> "\n" <> showI
 showIndented i (ILines mm x y) = indent i <> "ILines " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
 showIndented i (Mesh mm x y) = indent i <> "Mesh " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
 showIndented i (Spr mm x y) = indent i <> "Spr " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+showIndented i (Btw mm n x y) = indent i <> "Btw " <> show mm <> " " <> show n <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
 showIndented i (Pan mm n x y) = indent i <> "Pan " <> show mm <> " " <> show n <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
 showIndented i (Splay n x) = indent i <> "Splay " <> show n <> "\n" <> showIndented (i+1) x
 showIndented i (Seq x) = indent i <> "Seq\n" <> showIndented (i+1) x
@@ -548,6 +550,7 @@ subSignals (Lines _ x y) = x:y:Nil
 subSignals (ILines _ x y) = x:y:Nil
 subSignals (Mesh _ x y) = x:y:Nil
 subSignals (Spr _ x y) = x:y:Nil
+subSignals (Btw _ _ x y) = x:y:Nil
 subSignals (Pan _ _ x y) = x:y:Nil
 subSignals (Splay _ x) = x:Nil
 subSignals (Seq x) = x:Nil
@@ -684,6 +687,7 @@ dimensions (Lines mm x y) = binaryFunctionDimensions mm (nPer 1 4 $ channels x) 
 dimensions (ILines mm x y) = binaryFunctionDimensions mm (nPer 1 4 $ channels x) (channels y)
 dimensions (Mesh mm xy w) = binaryFunctionDimensions mm (meshChannels $ channels xy) (channels w)
 dimensions (Spr mm x y) = binaryFunctionDimensions mm (channels y) (dimensions x).rows
+dimensions (Btw mm n x y) = { columns: max 1 n, rows: binaryFunctionChannels mm (channels x) (channels y) }
 dimensions (Pan mm n x y) = { columns: max 1 n, rows: binaryFunctionChannels mm (channels x) (channels y) }
 dimensions (Splay n _) = { rows: 1, columns: max 1 n }
 dimensions (Seq x) = { rows: 1, columns: (dimensions x).rows }

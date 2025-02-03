@@ -3,7 +3,7 @@ module Number where
 import Prelude (min,max,(>=),(&&),(<=),($),(/),(-),(*),(<),(<>),show,otherwise,class Semigroup,(+),(==),(>),(<$>),class Functor)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
-import Data.Unfoldable1 (class Unfoldable1, unfoldr1, singleton, range)
+import Data.Unfoldable1 (class Unfoldable1, unfoldr1, singleton, range,iterateN)
 import Data.Int (toNumber)
 
 divisionSafe :: Number -> Number -> Number

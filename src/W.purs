@@ -5,13 +5,13 @@ module W where
 import Prelude (Unit, bind, discard, map, pure, show, ($), (*), (+), (-), (/), (/=), (<), (<$>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), negate, (>>>), otherwise)
 import Prelude as Prelude
 import Control.Monad.State (State,get,put,runState,modify_)
-import Data.List.NonEmpty (NonEmptyList, fromList, length, zipWith, head)
+import Data.List.NonEmpty (NonEmptyList, fromList, length, zipWith, head, last)
 import Data.Either (Either(..))
 import Data.Foldable (intercalate,foldM)
 import Data.Traversable (traverse,for,sequence)
 import Data.Tuple (Tuple(..))
 import Data.Maybe (Maybe(..))
-import Data.Unfoldable1 (iterateN, range, replicate1)
+import Data.Unfoldable1 (iterateN, range, replicate1, singleton)
 import Data.Number (acos, asin, atan, ceil, cos, exp, floor, log, pow, round, sign, sin, sqrt, tan, trunc, pi) as Number
 import Data.Ord as Ord
 import Data.Int (toNumber,round)
@@ -360,6 +360,12 @@ signalToFrame (Spr mm x y) = do
   ys <- signalToFrame y >>= traverse unipolar -- :: Matrix Sample
   sequence $ combine seq mm xs ys
 
+signalToFrame (Btw mm n x y) = do
+  xs <- signalToFrame x
+  ys <- signalToFrame y
+  zs <- sequence $ combine (btw n) mm xs ys -- Matrix Frame = Matrix (Matrix Sample)
+  pure $ fromMatrixMatrix zs
+
 signalToFrame (Pan mm n p x) = do
   ps <- signalToFrame p >>= traverse unipolar
   xs <- signalToFrame x
@@ -611,6 +617,22 @@ aout nOutputChnls channelOffset xs =
       let a = replicate1 channelOffset zero
       b <- splay nOutputChnls xs
       pure $ a <> b
+
+btw :: Int -> Sample -> Sample -> W Frame
+btw n x y 
+  | n < 2 = do 
+      z <- add x y >>= product (Left 0.5)
+      pure $ singleton z
+  | otherwise = do
+      yx <- difference y x
+      delta <- divisionUnsafe yx (Left $ toNumber $ n-1)
+      zs <- foldM _btwFolder (singleton x :: NonEmptyList Sample) (replicate1 (n-2) delta :: NonEmptyList Sample)
+      pure $ fromNonEmptyList $ zs <> singleton y
+
+_btwFolder :: NonEmptyList Sample -> Sample -> W (NonEmptyList Sample)
+_btwFolder frame delta = do
+  x <- add delta (last frame)
+  pure $ frame <> singleton x
 
 pan :: Int -> Sample -> Sample -> W Frame
 pan nOutputChnls pos i 

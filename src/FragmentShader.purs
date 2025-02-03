@@ -1,6 +1,6 @@
 module FragmentShader where
 
-import Prelude (bind, discard, flip, map, negate, pure, show, ($), (-), (<$>), (<*>), (<<<), (<>), (==), (>), (>>=), (>>>), (<=), (*), (/), otherwise, (+))
+import Prelude (bind, discard, flip, map, negate, pure, show, ($), (-), (<$>), (<*>), (<<<), (<>), (==), (>), (>>=), (>>>), (<=), (*), (/), otherwise, (+), (<))
 import Prelude as Prelude
 import Data.Functor (mapFlipped)
 import Data.Maybe (Maybe(..))
@@ -9,7 +9,7 @@ import Data.Traversable (traverse,sequence)
 import Data.Tuple (Tuple(..),fst,snd)
 import Data.Foldable (foldM)
 import Data.Unfoldable (replicate)
-import Data.Unfoldable1 (iterateN)
+import Data.Unfoldable1 (iterateN,singleton)
 import Control.Monad.State (get,modify_)
 import Data.Map (Map,lookup)
 import Data.Tempo (Tempo)
@@ -435,6 +435,12 @@ signalToExprs (Spr mm x y) = do
   ys <- (signalToExprs y :: G (Matrix Float)) >>= map unipolar >>> pure -- :: Matrix Float
   traverse assign $ mapRows castExprs $ combine (flip seq) mm xs ys
 
+signalToExprs (Btw mm n x y) = do
+  xs <- signalToExprs x :: G (Matrix Float)
+  ys <- signalToExprs y :: G (Matrix Float)
+  zs <- sequence $ combine (btw n) mm xs ys -- Matrix (Matrix Float)
+  traverse assign $ mapRows castExprs $ fromMatrixMatrix zs
+
 signalToExprs (Pan mm n p x) = do
   ps <- (signalToExprs p :: G (Matrix Float)) >>= map unipolar >>> pure
   xs <- signalToExprs x :: G (Matrix Float)
@@ -580,6 +586,13 @@ rect fxy xy wh = do
   let e = (expr $ "smoothstep(vec2(0.)," <> toExpr a <> "," <> toExpr d <> ")") :: Vec2
   f <- assign $ difference (constant 1.0) e
   assign $ product (swizzleX f) (swizzleY f)
+
+btw :: Int -> Float -> Float -> G (Matrix Float)
+btw n x y 
+  | n < 2 = pure $ pure $ product (add x y) (FloatConstant 0.5)
+  | otherwise = do
+      let delta = division (difference y x) (FloatConstant $ toNumber $ n-1)
+      pure $ iterateN (n-1) (add delta) x <> (singleton y :: Matrix Float)
 
 pan :: Int -> Float -> Float -> G (Matrix Float)
 pan nOutputChnls pos x

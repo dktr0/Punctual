@@ -1,123 +1,128 @@
 # ChangeLog
 
+0.5.1.2:
+
+- added 'btw' and 'btwp'
+- fixed bug in descending from-then-to ranges
+
 0.5.1.1:
 
--restored "from then to" ranges, e.g [0.0,0.1 .. 1.0] and established consistent limits for both from then to and from then ranges with respect to maximum resulting channels (currently 64)
+- restored "from then to" ranges, e.g [0.0,0.1 .. 1.0] and established consistent limits for both from then to and from then ranges with respect to maximum resulting channels (currently 64)
 
 0.5.1:
 
--added splay, pan, and panp (all work for both audio and visual outputs)
+- added splay, pan, and panp (all work for both audio and visual outputs)
 
 0.5.0: 
 
 Major changes relative to 0.4.x
 
--Punctual has been rewritten from the ground up in PureScript instead of Haskell, and is compiled as a JavaScript library (to be specific: an exolang for the Estuary platform)
+- Punctual has been rewritten from the ground up in PureScript instead of Haskell, and is compiled as a JavaScript library (to be specific: an exolang for the Estuary platform)
 
--Libraries: addition of 'import' to include web-located libraries of Punctual code in programs (which also makes the evaluation of punctual code an asynchronous operation)
+- Libraries: addition of 'import' to include web-located libraries of Punctual code in programs (which also makes the evaluation of punctual code an asynchronous operation)
 
--Audio: all audio synthesis now happens in AudioWorklet nodes containing generated audio callback code (each distinct audio output statement in a punctual program is translated in to distinct AudioWorklet)
+- Audio: all audio synthesis now happens in AudioWorklet nodes containing generated audio callback code (each distinct audio output statement in a punctual program is translated in to distinct AudioWorklet)
 
--Matrix semantics: previously the result of most punctual functions was essentially a non-empty *list* (a list of one or more items) of things that could be turned into time-varying signals (audio or light intensities). Now most of those same functions produce instead a non-empty two-dimensional matrix (rows and columns) of things that can be turned into time-varying signals, with rows typically representing combinatorial variations of an inner or lower level of information. Among other things, this allows for "multi-channel" use of seq.
+- Matrix semantics: previously the result of most punctual functions was essentially a non-empty *list* (a list of one or more items) of things that could be turned into time-varying signals (audio or light intensities). Now most of those same functions produce instead a non-empty two-dimensional matrix (rows and columns) of things that can be turned into time-varying signals, with rows typically representing combinatorial variations of an inner or lower level of information. Among other things, this allows for "multi-channel" use of seq.
 
--User-defined functions of any number of arguments, for example "f x y = osc [x,x+1,x*y,x*y+1];"
+- User-defined functions of any number of arguments, for example "f x y = osc [x,x+1,x*y,x*y+1];"
 
 Other changes relative to 0.4.x
 
--[a,b,c] combines a b and c combinatorially (similar to 0.4 but with matrix semantics); {a,b,c}, which is new, combines a b and c pairwise; 'zip' is now deprecated (and will be removed in 0.6) since the new { } notation generalizes it
+- [a,b,c] combines a b and c combinatorially (similar to 0.4 but with matrix semantics); {a,b,c}, which is new, combines a b and c pairwise; 'zip' is now deprecated (and will be removed in 0.6) since the new { } notation generalizes it
 
--available outputs are 'audio' 'aout' 'stereo' 'blend' 'add' 'rgba' 'rgb' (previously existing outputs like 'hsv' 'red' 'splay' 'alpha' etc have been removed). Visual outputs behave in a layer fashion similar to image editing software. Earlier statements in a Punctual program with visual outputs are like lower/earlier layers in image editing. When a later/newer layer has an alpha component (blend or rgba), that alpha value is used to determine how much of the combined result comes from the previous layer (alpha = 0) versus the new/current layer (alpha = 1). With "add" (which is RGB) the RGB of the previous and new layer are added together, and the result has an alpha of 1 everywhere. With "rgb", the result is simply the provided rgb data with an alpha of 1 everywhere. 'aout' (and 'stereo') provide more fine-grained options for directing audio signals to specific outputs and not just the entire set of available audio outputs.
+- available outputs are 'audio' 'aout' 'stereo' 'blend' 'add' 'rgba' 'rgb' (previously existing outputs like 'hsv' 'red' 'splay' 'alpha' etc have been removed). Visual outputs behave in a layer fashion similar to image editing software. Earlier statements in a Punctual program with visual outputs are like lower/earlier layers in image editing. When a later/newer layer has an alpha component (blend or rgba), that alpha value is used to determine how much of the combined result comes from the previous layer (alpha = 0) versus the new/current layer (alpha = 1). With "add" (which is RGB) the RGB of the previous and new layer are added together, and the result has an alpha of 1 everywhere. With "rgb", the result is simply the provided rgb data with an alpha of 1 everywhere. 'aout' (and 'stereo') provide more fine-grained options for directing audio signals to specific outputs and not just the entire set of available audio outputs.
 
--'step' has been re-implemented as 'spr' (for spread), with support for multi-channel results and a pairwise variant (sprp). 'seq' has also been introduced - while spr/sprp require a second, bipolar argument, seq is instead driven directly by the prevailing metre.
+- 'step' has been re-implemented as 'spr' (for spread), with support for multi-channel results and a pairwise variant (sprp). 'seq' has also been introduced - while spr/sprp require a second, bipolar argument, seq is instead driven directly by the prevailing metre.
 
--introduction of 'slow' 'fast' 'early' and 'late' for time-shifting/stretching of arbitrary punctual expressions
+- introduction of 'slow' 'fast' 'early' and 'late' for time-shifting/stretching of arbitrary punctual expressions
 
--texture access functions(img vid cam ifft fft fb) don't take position arguments (if they did before), all instead stretch their results over the range of the unit square (in the case of fft and ifft, results are stretched over the x axis), and all are masked by the unit square (0 values outside of the coordinates lower than -1 or greater than 1)
+- texture access functions(img vid cam ifft fft fb) don't take position arguments (if they did before), all instead stretch their results over the range of the unit square (in the case of fft and ifft, results are stretched over the x axis), and all are masked by the unit square (0 values outside of the coordinates lower than -1 or greater than 1)
 
--zoom now uses each channel of its first argument to scale both x and y dimensions; zoomxy, zoomx, and zoomy (new) can be used to zoom x and y axes independently
+- zoom now uses each channel of its first argument to scale both x and y dimensions; zoomxy, zoomx, and zoomy (new) can be used to zoom x and y axes independently
 
--tile now uses each channel of its first argument to modify both x and y dimensions; tilexy, tilex, and tiley (new) can be used to tile x and y axes independently
+- tile now uses each channel of its first argument to modify both x and y dimensions; tilexy, tilex, and tiley (new) can be used to tile x and y axes independently
 
--multichannel audio: ain [nChnls] [offset], with mic as a synonym for 'ain 1 0' (the former audioin is a synonym for mic but is deprecated and will be removed in 0.6)
+- multichannel audio: ain [nChnls] [offset], with mic as a synonym for 'ain 1 0' (the former audioin is a synonym for mic but is deprecated and will be removed in 0.6)
 
--the 'm' and 'db' syntaxes from early punctual have been removed (use the normal functions 'midicps' and 'dbamp' instead)
+- the 'm' and 'db' syntaxes from early punctual have been removed (use the normal functions 'midicps' and 'dbamp' instead)
 
 0.4.9.3:
 
--another bugfix affecting geometry transformations (spin, zoom, move, etc...)
+- another bugfix affecting geometry transformations (spin, zoom, move, etc...)
 
 0.4.9.2:
 
--bugfix affecting combinatorial geometry transformations (i.e. spin [x,y,z] $ tile [x,y] w)
+- bugfix affecting combinatorial geometry transformations (i.e. spin [x,y,z] $ tile [x,y] w)
 
 0.4.9.1:
 
--bugfix to cbrt (visuals)
+- bugfix to cbrt (visuals)
 
 0.4.9:
 
--'add' as synonym for rgb output, 'blend' as synonym for rgba output (to ease forthcoming transition to new punctual 0.5 output modes)
+- 'add' as synonym for rgb output, 'blend' as synonym for rgba output (to ease forthcoming transition to new punctual 0.5 output modes)
 
 0.4.8.1:
 
--bugfix affecting multiple layers of embedded arbitrary multichannel signals, eg. [[x,y],z]
+- bugfix affecting multiple layers of embedded arbitrary multichannel signals, eg. [[x,y],z]
 
 0.4.8:
 
--added lines, linesp, ilines, ilinesp, chain, chainp, mesh and meshp. fixed further bugs affecting combinatorial geometrical transformations of shape functions
+- added lines, linesp, ilines, ilinesp, chain, chainp, mesh and meshp. fixed further bugs affecting combinatorial geometrical transformations of shape functions
 
 0.4.7.1:
 
--bugfix affecting combinatorial geometrical transformations of arbitrary multichannel signals (ie. [x,y,z])
+- bugfix affecting combinatorial geometrical transformations of arbitrary multichannel signals (ie. [x,y,z])
 
 0.4.7:
 
--added smoothstep/smoothstepp
+- added smoothstep/smoothstepp
 
 0.4.4.9:
 
--fixed bugs affecting between, betweenp, clip, and clipp
+- fixed bugs affecting between, betweenp, clip, and clipp
 
 0.4.4.8:
 
--added pairwise variants: circlep, rectp, vlinep, hlinep, linep, ilinep, clipp, betweenp, lpfp, hpfp, bpfp, ~~:, +=:, linlinp
+- added pairwise variants: circlep, rectp, vlinep, hlinep, linep, ilinep, clipp, betweenp, lpfp, hpfp, bpfp, ~~:, +=:, linlinp
 
 0.4.4.7:
 
--added pairwise variants of max, min, and gate (maxp, minp, gatep)
+- added pairwise variants of max, min, and gate (maxp, minp, gatep)
 
 0.4.4.6:
 
--fixed bug affecting multichannel use of trunc, acosh, asinh, atanh, cosh, log10, sinh, and tanh
+- fixed bug affecting multichannel use of trunc, acosh, asinh, atanh, cosh, log10, sinh, and tanh
 
 0.4.4.5:
 
--fixed bug that was scrambling access to multiple image and video textures
+- fixed bug that was scrambling access to multiple image and video textures
 
 0.4.4.4:
 
--bug fixes to precedence of pairwise arithmetic operators
+- bug fixes to precedence of pairwise arithmetic operators
 
 0.4.4.3:
 
--bug fix (to [a,b .. c] expressions)
+- bug fix (to [a,b .. c] expressions)
 
 0.4.4.2:
 
--bug fix (xyt,xyrt,frt,ft)
+- bug fix (xyt,xyrt,frt,ft)
 
 0.4.4.1:
 
--bug fix (mod operators)
+- bug fix (mod operators)
 
 0.4.4:
 
--added polar coordinate queries and conversions: frt, fr, ft, xyrt, xyr, xyt, rtxy, rtx, rty 
+- added polar coordinate queries and conversions: frt, fr, ft, xyrt, xyr, xyt, rtxy, rtx, rty 
 
 0.4.3:
 
--added mod operators (% and %:), 'pi' and 20 other unary functions (basically completing coverage of JavaScript Math library's unary functions)
--added 'osc' as a synonym for the now deprecated 'sin'; as of version 0.5, 'osc' will be the oscillator, and 'sin' will be the sine function
+- added mod operators (% and %:), 'pi' and 20 other unary functions (basically completing coverage of JavaScript Math library's unary functions)
+- added 'osc' as a synonym for the now deprecated 'sin'; as of version 0.5, 'osc' will be the oscillator, and 'sin' will be the sine function
 
 0.4.2:
 

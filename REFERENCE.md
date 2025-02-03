@@ -164,7 +164,7 @@ bipolar [graph] -- input is rescaled as if input range was unipolar (0,1) and ou
 
 [centre] +- [offsetRatio] [input] -- bipolar (-1,1) input rescaled to range centre +- (offsetRatio * centre), e.g. a +- 0.5 ranges from 0.5a to 1.5a (combinatorial, for pairwise use +-:)
 
-spr [graph,graph,graph,...] [graph] -- given a list of graphs and a second, final, "modulating" graph, output the value of a selected graph from the list according to the second argument (drive with lfsaw to produce a simple step sequencer-like behaviour).
+spr/sprp [graph,graph,graph,...] [graph] -- given a list of graphs and a second, final, "modulating" graph, output the value of a selected graph from the list according to the second argument (drive with lfsaw to produce a simple step sequencer-like behaviour). (Note: in punctual 0.4, this was called 'step').
 
 seq [graph] -- given a list of graphs, outputs the value of the selected graph in such a way that it's spread over a single cycle of the metre
 
@@ -179,6 +179,8 @@ zero [graph] -- returns a graph that is always 0 regardless of the input graph (
 [graph] ++ [graph] -- appends two graphs to each other in a way that preserves the multiple channels of both graphs. For example if the graph on the left has 3 channels, and the one on the right has 2 channels, then the result will be a 5-channel graph consisting of the 3 channels from the left operand, followed by the 2 channels from the right operand.
 
 pi -- the value of PI (3.1415926535897932384626433832795)
+
+btw/btwp [n] [graph] [graph] -- function to generate n values equally-spread between the value(s) provided by the first graph, and the value(s) provided by the second graph.
 
 pan/panp [n] [graph] [graph] -- equal-power panning (cosine law) over n (an integer) channels. first graph argument is position(s), second argument is input signals to be panned. works in both audio and visual outputs, FWIW.
 
