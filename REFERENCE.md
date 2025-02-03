@@ -188,7 +188,7 @@ splay [n] [graph] -- the channels of the provided graph are spread over n (an in
 
 Punctual has the following two notations for producing lists (one-dimensional matrices) of constant values, modeled on similar functionality found in Haskell and Purescript, but with some specific semantics adapted to the live coding situations in which Punctual is expected to be used.
 
-[x ... y] -- x and y must both be constant integers. result is x and y and every integer in between them. if y < x then results will descend towards y. if the provided values would result in more than 64 results, they are limited to the first 64 results.
+[x .. y] -- x and y must both be constant integers. result is x and y and every integer in between them. if y < x then results will descend towards y. if the provided values would result in more than 64 results, they are limited to the first 64 results.
 
 [a, b .. c] -- a, b, and c must be constant floating point numbers. result is a, then b, then every value between b and c proceeding by interval of (b-a), until and including c. To account for floating point rounding errors, if the second last value is less than half of (b-a) away from c, it is excluded. the final value in the result is always exactly c (no rounding error). If the provided values would result in more than 64 results, they are limited to the first 64 results.
 

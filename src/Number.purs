@@ -65,13 +65,20 @@ fromThenTo a b c
   | (b < a) && (c > a) = singleton a 
   | _fromThenToChannels a b c > (toNumber _fromToChannelLimit) = fromThenTo a b (a+((b-a)*(toNumber _fromToChannelLimit - 1.0)))
   -- in the generative case, the result is the starting value, the final value, and all values in between that are less than the final value
-  | otherwise = singleton a <> unfoldr1 (_fromThenToUnfolder c (b-a)) a <> singleton c
+  | a < c = singleton a <> unfoldr1 (_fromThenToUnfolderAscending c (b-a)) a <> singleton c
+  | otherwise = singleton a <> unfoldr1 (_fromThenToUnfolderDescending c (b-a)) a <> singleton c
 
-_fromThenToUnfolder :: Number -> Number -> Number -> Tuple Number (Maybe Number)
-_fromThenToUnfolder finalValue delta prevValue = Tuple a maybeB
+_fromThenToUnfolderAscending :: Number -> Number -> Number -> Tuple Number (Maybe Number)
+_fromThenToUnfolderAscending finalValue delta prevValue = Tuple a maybeB
   where
     a = prevValue + delta
     maybeB = if (a + delta) >= (finalValue - (delta * 0.5)) then Nothing else Just a
+
+_fromThenToUnfolderDescending :: Number -> Number -> Number -> Tuple Number (Maybe Number)
+_fromThenToUnfolderDescending finalValue delta prevValue = Tuple a maybeB
+  where
+    a = prevValue + delta
+    maybeB = if (a + delta) <= (finalValue - (delta * 0.5)) then Nothing else Just a
 
 -- note: this is assumed to be correct only for the generative case
 _fromThenToChannels :: Number -> Number -> Number -> Number
