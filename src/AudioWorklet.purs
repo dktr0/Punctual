@@ -1,6 +1,6 @@
 module AudioWorklet where
 
-import Prelude ((<>),Unit,pure,unit,discard,($),show,(>>=),(-),bind,(+))
+import Prelude ((<>),Unit,pure,discard,($),show,(>>=),(-),bind,(+))
 import Effect (Effect)
 import Data.Nullable (Nullable,toMaybe)
 import Data.Maybe (Maybe(..))
@@ -9,7 +9,6 @@ import Data.List.NonEmpty (zipWith)
 import Data.Unfoldable1 (range)
 import Data.Foldable (fold)
 import Effect.Class.Console (log)
-import Data.Tempo (Tempo)
 
 import Signal (Signal)
 import WebAudio (WebAudioContext,WebAudioNode)
@@ -50,27 +49,14 @@ stopWorklet w fOutStart fOutDur = do
 
 foreign import setWorkletParamValue :: WebAudioNode -> String -> Number -> Effect Unit
 
-updateWorkletTempo :: AudioWorklet -> Tempo -> Effect Unit
-updateWorkletTempo w t = do
+updateWorklet :: Number -> Number -> Number -> AudioWorklet -> Effect Unit
+updateWorklet cps originAudio evalTimeAudio w = do
   case toMaybe w.audioWorklet'.audioWorkletNode of
     Nothing -> log "strange internal error in Punctual: attempt to update tempo for AudioWorklet with no valid WebAudioNode"
-	Just n -> do
-	  setWorkletParamValue n "cps" ...
-	  setWorkletParamValue n "originAudio" ...
-	  setWorkletParamValue n "evalTimeAudio" ...
-
-
-  
-  setWorkletParamValue 
-
-{-
-import Data.Tempo (Tempo, newTempo)
-
-const cps = parameters.cps[0];
-const originAudio = parameters.originAudio[0];
-const evalTimeAudio = parameters.evalTimeAudio[0];
--}
-
+    Just n -> do
+      setWorkletParamValue n "cps" cps
+      setWorkletParamValue n "originAudio" originAudio
+      setWorkletParamValue n "evalTimeAudio" evalTimeAudio
 
 generateWorkletCode :: Signal -> Int -> Int -> String -> Number -> Number -> String
 generateWorkletCode s nOutputChnls channelOffset name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> fadeCalculations <> wState.code <> outputs <> restOfClass <> registerProcessor

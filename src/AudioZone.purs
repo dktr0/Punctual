@@ -1,6 +1,6 @@
 module AudioZone where 
 
-import Prelude (Unit,map,bind,pure,($),discard,otherwise,(+),(<$>),(<>),show,(==),unit,max,(>=),(-),(<<<),(/),(>>>),(&&))
+import Prelude (Unit, bind, discard, map, max, otherwise, pure, show, unit, ($), (&&), (+), (-), (<$>), (<>), (==), (>=), (>>>))
 import Data.Maybe (Maybe(..))
 import Data.List (List(..),zipWith,length,catMaybes)
 import Effect (Effect)
@@ -10,34 +10,29 @@ import Data.Traversable (sequence,traverse,traverse_)
 import Data.Unfoldable1 (replicate1)
 import Data.DateTime (DateTime)
 import Data.Tuple (Tuple(..))
-import Effect.Now (now)
-import Data.DateTime.Instant (unInstant)
-import Data.Newtype (unwrap)
 import Data.Nullable (null,notNull)
 import Effect.Class.Console (log)
 
 import SharedResources (SharedResources, activateAudioInput, getOutputChannelCount)
 import Program (Program)
-import AudioWorklet (AudioWorklet,runWorklet,stopWorklet)
+import AudioWorklet (AudioWorklet,runWorklet,stopWorklet,updateWorklet)
 import Action (Action,actionTimesAsAudioTime,actionHasAudioInput)
 import Output (isAudioOutput)
 import WebAudio (resumeWebAudioContext,currentTime)
 
 type AudioZone = {
   sharedResources :: SharedResources,
-  worklets :: Ref (List (Maybe AudioWorklet)),
-  clockDiff :: Ref Number
+  worklets :: Ref (List (Maybe AudioWorklet))
   }
 
 newAudioZone :: SharedResources -> Program -> Effect AudioZone
 newAudioZone sharedResources p = do
   resumeWebAudioContext sharedResources.webAudioContext
-  clockDiff' <- calculateClockDiff sharedResources
+  clockDiff <- read sharedResources.clockDiff
   let actions' = map justAudioActions p.actions
-  worklets' <- traverse (addOrRemoveWorklet sharedResources p.evalTime clockDiff' Nothing) actions'
+  worklets' <- traverse (addOrRemoveWorklet sharedResources p.evalTime clockDiff Nothing) actions'
   worklets <- new worklets'
-  clockDiff <- new clockDiff'
-  pure { sharedResources, worklets, clockDiff }
+  pure { sharedResources, worklets }
 
 justAudioActions :: Maybe Action -> Maybe Action
 justAudioActions Nothing = Nothing
@@ -85,13 +80,6 @@ calculateAudioZoneInfo z = do
   ws <- catMaybes <$> read z.worklets
   pure $ fold $ map (_.code >>> (_ <> "\n")) ws
 
--- to convert audio to POSIX, add clockdiff; to convert POSIX to audio, subtract clockdiff
-calculateClockDiff :: SharedResources -> Effect Number
-calculateClockDiff sharedResources = do
-  tAudio <- currentTime sharedResources.webAudioContext
-  tNow <- ((_/1000.0) <<< unwrap <<< unInstant) <$> now -- :: Number (in POSIX 1970 seconds)
-  pure $ tNow - tAudio 
-  
 {- calculateEvalTimeAudio :: SharedResources -> DateTime -> Effect Number
 calculateEvalTimeAudio sharedResources evalTime = do
   tAudio <- currentTime sharedResources.webAudioContext
@@ -106,7 +94,7 @@ redefineAudioZone audioZone p = do
   let n = max (length worklets) (length p.actions)
   let worklets' = extendByPadding Nothing n worklets
   let actions' = extendByPadding Nothing n p.actions 
-  clockDiff <- read audioZone.clockDiff
+  clockDiff <- read audioZone.sharedResources.clockDiff
   worklets'' <- sequence $ zipWith (addOrRemoveWorklet audioZone.sharedResources p.evalTime clockDiff) worklets' (map justAudioActions actions')
   write worklets'' audioZone.worklets
 
@@ -115,10 +103,18 @@ extendByPadding a n xs
   | length xs >= n = xs
   | otherwise = xs <> replicate1 (n - length xs) a
 
--- renderAudioZone :: AudioZone -> Effect Unit
--- possibly nothing to do now, but soon it will be responsible for sync updates
-
-
+updateAudioZone :: AudioZone -> Effect Unit
+updateAudioZone audioZone = do
+  tempo <- read audioZone.sharedResources.tempo
+  clockDiff <- read audioZone.sharedResources.clockDiff
+  -- tempo.freq :: Rational -- needs to be converted to Number
+  -- origin Tempo :: DateTime -- needs to be converted to audio clock in same way that eval time needs to
+  let cps = 0.0 -- PLACEHOLDER
+  let originAudio = 0.0 -- PLACEHOLDER
+  let evalTimeAudio = 0.0 -- PLACEHOLDER
+  worklets <- catMaybes <$> read audioZone.worklets
+  traverse_ (updateWorklet cps originAudio evalTimeAudio) worklets
+  
 deleteAudioZone :: AudioZone -> Effect Unit
 deleteAudioZone audioZone = do
   worklets <- read audioZone.worklets
