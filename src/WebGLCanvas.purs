@@ -1,6 +1,6 @@
 module WebGLCanvas where
 
-import Prelude (Unit, bind, discard, pure, unit, (/=), (<$>), (||))
+import Prelude (Unit, bind, discard, pure, show, unit, ($), (/=), (<$>), (<>), (||))
 import Effect
 import Effect.Console (log)
 import Effect.Ref (Ref,new,read,write)
@@ -40,6 +40,8 @@ setupWebGLCanvas :: HTMLCanvasElement -> WebGLContext -> Boolean -> Effect WebGL
 setupWebGLCanvas canvas gl webGL2 = do
   w <- _getCanvasWidth canvas
   h <- _getCanvasHeight canvas
+  dpr <- getDevicePixelRatio
+  log $ " setupWebGLCanvas: canvasWidth=" <> show w <> " canvasHeight=" <> show h <> " devicePixelRatio=" <> show dpr
   width <- new w
   height <- new h
   case webGL2 of
@@ -304,6 +306,8 @@ configureFrameBufferTextures glc = do
   case (wPrev /= w || hPrev /= h) of
     false -> pure unit
     true -> do
+      dpr <- getDevicePixelRatio
+      log $ " configureFrameBufferTextures: canvasWidth=" <> show w <> " canvasHeight=" <> show h <> " devicePixelRatio=" <> show dpr
       _reinitializeFrameBufferTexture glc.gl glc.frameBufferTexture0 w h
       _reinitializeFrameBufferTexture glc.gl glc.frameBufferTexture1 w h
       write w glc.width
@@ -389,6 +393,8 @@ foreign import _getCanvasWidth :: HTMLCanvasElement -> Effect Int
 
 getCanvasHeight :: WebGLCanvas -> Effect Int
 getCanvasHeight glc = _getCanvasHeight glc.canvas
+
+foreign import getDevicePixelRatio :: Effect Number
 
 foreign import _getCanvasHeight :: HTMLCanvasElement -> Effect Int
 

@@ -1,5 +1,8 @@
 # ChangeLog
 
+0.5.1.3:
+- probable fix to "moving feedback" bug
+
 0.5.1.2:
 
 - added 'btw' and 'btwp'
