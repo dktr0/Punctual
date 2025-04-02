@@ -1,6 +1,6 @@
 module AudioZone where 
 
-import Prelude (Unit, bind, discard, map, max, otherwise, pure, show, unit, ($), (&&), (+), (-), (<$>), (<>), (==), (>=), (>>>))
+import Prelude (Unit, bind, discard, map, max, otherwise, pure, show, unit, ($), (&&), (+), (-), (<$>), (<>), (==), (>=), (>>>), (>>=))
 import Data.Maybe (Maybe(..))
 import Data.List (List(..),zipWith,length,catMaybes)
 import Effect (Effect)
@@ -12,8 +12,10 @@ import Data.DateTime (DateTime)
 import Data.Tuple (Tuple(..))
 import Data.Nullable (null,notNull)
 import Effect.Class.Console (log)
+import Data.Rational (toNumber)
+import Data.Tempo (origin)
 
-import SharedResources (SharedResources, activateAudioInput, getOutputChannelCount)
+import SharedResources (SharedResources, activateAudioInput, getOutputChannelCount, dateTimeToAudioTime)
 import Program (Program)
 import AudioWorklet (AudioWorklet,runWorklet,stopWorklet,updateWorklet)
 import Action (Action,actionTimesAsAudioTime,actionHasAudioInput)
@@ -22,6 +24,7 @@ import WebAudio (resumeWebAudioContext,currentTime)
 
 type AudioZone = {
   sharedResources :: SharedResources,
+  evalTime :: Ref DateTime,
   worklets :: Ref (List (Maybe AudioWorklet))
   }
 
@@ -30,9 +33,10 @@ newAudioZone sharedResources p = do
   resumeWebAudioContext sharedResources.webAudioContext
   clockDiff <- read sharedResources.clockDiff
   let actions' = map justAudioActions p.actions
+  evalTime <- new p.evalTime
   worklets' <- traverse (addOrRemoveWorklet sharedResources p.evalTime clockDiff Nothing) actions'
   worklets <- new worklets'
-  pure { sharedResources, worklets }
+  pure { sharedResources, evalTime, worklets }
 
 justAudioActions :: Maybe Action -> Maybe Action
 justAudioActions Nothing = Nothing
@@ -97,6 +101,7 @@ redefineAudioZone audioZone p = do
   clockDiff <- read audioZone.sharedResources.clockDiff
   worklets'' <- sequence $ zipWith (addOrRemoveWorklet audioZone.sharedResources p.evalTime clockDiff) worklets' (map justAudioActions actions')
   write worklets'' audioZone.worklets
+  write p.evalTime audioZone.evalTime
 
 extendByPadding :: forall a. a -> Int -> List a -> List a
 extendByPadding a n xs
@@ -106,12 +111,9 @@ extendByPadding a n xs
 updateAudioZone :: AudioZone -> Effect Unit
 updateAudioZone audioZone = do
   tempo <- read audioZone.sharedResources.tempo
-  clockDiff <- read audioZone.sharedResources.clockDiff
-  -- tempo.freq :: Rational -- needs to be converted to Number
-  -- origin Tempo :: DateTime -- needs to be converted to audio clock in same way that eval time needs to
-  let cps = 0.0 -- PLACEHOLDER
-  let originAudio = 0.0 -- PLACEHOLDER
-  let evalTimeAudio = 0.0 -- PLACEHOLDER
+  let cps = toNumber tempo.freq
+  originAudio <- dateTimeToAudioTime audioZone.sharedResources $ origin tempo
+  evalTimeAudio <- read audioZone.evalTime >>= dateTimeToAudioTime audioZone.sharedResources
   worklets <- catMaybes <$> read audioZone.worklets
   traverse_ (updateWorklet cps originAudio evalTimeAudio) worklets
   

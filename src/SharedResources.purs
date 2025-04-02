@@ -14,7 +14,8 @@ import Data.Map (Map, empty, lookup, insert)
 import Data.Monoid.Disj (Disj)
 import Data.Newtype (unwrap)
 import Effect.Now (now)
-import Data.DateTime.Instant (unInstant)
+import Data.DateTime (DateTime)
+import Data.DateTime.Instant (unInstant,fromDateTime)
 
 import WebGLCanvas (WebGLCanvas, WebGLContext, WebGLTexture)
 import WebAudio
@@ -105,6 +106,13 @@ updateClockDiff :: SharedResources -> Effect Unit
 updateClockDiff sharedResources = do
   clockDiff <- _getClockDiff sharedResources.webAudioContext
   write clockDiff sharedResources.clockDiff
+
+dateTimeToAudioTime :: SharedResources -> DateTime -> Effect Number
+dateTimeToAudioTime sr dt = do
+  clockDiff <- read sr.clockDiff
+  let tPosix = (unwrap $ unInstant $ fromDateTime dt) / 1000.0
+  pure $ tPosix - clockDiff
+
 
 -- Tempo
 

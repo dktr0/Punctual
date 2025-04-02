@@ -27,7 +27,7 @@ import DateTime (numberToDateTime)
 import SharedResources (SharedResources)
 import SharedResources as SharedResources
 import WebGL (WebGL, newWebGL, updateWebGL, deleteWebGL, drawWebGL)
-import AudioZone (AudioZone,newAudioZone,redefineAudioZone,deleteAudioZone,calculateAudioZoneInfo)
+import AudioZone (AudioZone,newAudioZone,redefineAudioZone,updateAudioZone,deleteAudioZone,calculateAudioZoneInfo)
 import WebAudio (WebAudioNode,WebAudioContext)
   
 type Punctual = {
@@ -167,6 +167,11 @@ render punctual args = do
         Just w -> do
           brightness <- read punctual.sharedResources.brightness
           drawWebGL w (numberToDateTime args.nowTime) brightness
+      audioZones <- read punctual.audioZones
+      case lookup args.zone audioZones of
+        Nothing -> pure unit
+        Just az -> do
+          updateAudioZone az
         
         
 postRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number } -> Effect Unit
