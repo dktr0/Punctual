@@ -32,6 +32,7 @@ newAudioZone :: SharedResources -> Program -> Effect AudioZone
 newAudioZone sharedResources p = do
   resumeWebAudioContext sharedResources.webAudioContext
   clockDiff <- read sharedResources.clockDiff
+  -- log $ "newAudioZone clockDiff=" <> show clockDiff
   let actions' = map justAudioActions p.actions
   evalTime <- new p.evalTime
   worklets' <- traverse (addOrRemoveWorklet sharedResources p.evalTime clockDiff Nothing) actions'
@@ -99,6 +100,7 @@ redefineAudioZone audioZone p = do
   let worklets' = extendByPadding Nothing n worklets
   let actions' = extendByPadding Nothing n p.actions 
   clockDiff <- read audioZone.sharedResources.clockDiff
+  -- log $ "redefineAudioZone clockDiff=" <> show clockDiff
   worklets'' <- sequence $ zipWith (addOrRemoveWorklet audioZone.sharedResources p.evalTime clockDiff) worklets' (map justAudioActions actions')
   write worklets'' audioZone.worklets
   write p.evalTime audioZone.evalTime

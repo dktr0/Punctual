@@ -3,7 +3,7 @@ module SharedResources where
 -- management of all resources (tempo, images, videos, webcam, audio analysis, audio files, etc)
 -- that are shared across different Punctual zones (and between different WebGL contexts, so no WebGL types)
 
-import Prelude (bind,discard,pure,Unit,unit,(>>=),($),(<$>),(<<<),(/),(-))
+import Prelude (bind,discard,pure,Unit,unit,(>>=),($),(<$>),(<<<),(/),(-),(<=),(+),(<>),show)
 import Data.Rational ((%))
 import Effect (Effect)
 import Effect.Console (log)
@@ -16,6 +16,8 @@ import Data.Newtype (unwrap)
 import Effect.Now (now)
 import Data.DateTime (DateTime)
 import Data.DateTime.Instant (unInstant,fromDateTime)
+import Data.List.NonEmpty as NonEmptyList
+import Data.Semigroup.Foldable (foldl1)
 
 import WebGLCanvas (WebGLCanvas, WebGLContext, WebGLTexture)
 import WebAudio
@@ -32,6 +34,7 @@ type SharedResources = {
   libraries :: LibraryCache,
   webAudioContext :: WebAudioContext,
   clockDiff :: Ref Number,
+  clockDiffList :: Ref (NonEmptyList.NonEmptyList Number),
   audioInputGetter :: Ref (Effect WebAudioNode), -- client environment provides function to get external audio input node
   mExternalAudioInputNode :: Ref (Maybe WebAudioNode), -- cached audio input node returned by function above (dropped/Nothing when audio input not active)
   externalAudioOutputNode :: Ref WebAudioNode, -- cached audio output node 
@@ -54,7 +57,9 @@ newSharedResources mWebAudioContext = do
   webAudioContext <- case mWebAudioContext of
                        Nothing -> defaultWebAudioContext
                        Just x -> pure x
-  clockDiff <- _getClockDiff webAudioContext >>= new
+  immediateClockDiff <- _getImmediateClockDiff webAudioContext
+  clockDiff <- new immediateClockDiff
+  clockDiffList <- new $ NonEmptyList.singleton immediateClockDiff
   audioInputGetter <- new $ _defaultAudioInputNode webAudioContext
   mExternalAudioInputNode <- new Nothing
   defaultAudioOutputNode <- destination webAudioContext
@@ -75,6 +80,7 @@ newSharedResources mWebAudioContext = do
     libraries,
     webAudioContext,
     clockDiff,
+    clockDiffList,
     audioInputGetter,
     mExternalAudioInputNode,
     externalAudioOutputNode,
@@ -96,16 +102,24 @@ updateAudioInputAndAnalysers sr needs = do
   updateAnalyser sr.outputAnalyser needs
 
 -- to convert audio to POSIX, add clockdiff; to convert POSIX to audio, subtract clockdiff
-_getClockDiff :: WebAudioContext -> Effect Number
-_getClockDiff webAudioContext = do
+_getImmediateClockDiff :: WebAudioContext -> Effect Number
+_getImmediateClockDiff webAudioContext = do
   tAudio <- currentTime webAudioContext
   tNow <- ((_/1000.0) <<< unwrap <<< unInstant) <$> now -- :: Number (in POSIX 1970 seconds)
   pure $ tNow - tAudio 
 
 updateClockDiff :: SharedResources -> Effect Unit
 updateClockDiff sharedResources = do
-  clockDiff <- _getClockDiff sharedResources.webAudioContext
-  write clockDiff sharedResources.clockDiff
+  immediateClockDiff <- _getImmediateClockDiff sharedResources.webAudioContext
+  clockDiffList <- read sharedResources.clockDiffList
+  let newList = case NonEmptyList.length clockDiffList <= 9 of
+                  true -> NonEmptyList.cons immediateClockDiff clockDiffList
+                  false -> NonEmptyList.cons' immediateClockDiff (NonEmptyList.init clockDiffList)
+  write newList sharedResources.clockDiffList
+  let avg = (foldl1 (+) newList) / 10.0
+  write avg sharedResources.clockDiff
+  -- log $ "updateClockDiff " <> show avg
+
 
 dateTimeToAudioTime :: SharedResources -> DateTime -> Effect Number
 dateTimeToAudioTime sr dt = do

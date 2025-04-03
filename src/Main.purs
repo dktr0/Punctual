@@ -3,9 +3,6 @@ module Main where
 import Prelude
 
 import Effect (Effect)
--- import Effect.Now (nowDateTime)
--- import Data.Time.Duration (Milliseconds)
--- import Data.DateTime (diff)
 import Data.Either (Either(..))
 import Data.Map (Map, empty, lookup, insert, delete)
 import Effect.Ref (Ref, new, read, write)
@@ -24,7 +21,7 @@ import Signal (SignalInfo,emptySignalInfo)
 import Program (Program,emptyProgram,programHasVisualOutput,programHasAudioOutput,programInfo,showProgram)
 import Parser (parseProgram)
 import DateTime (numberToDateTime)
-import SharedResources (SharedResources)
+import SharedResources (SharedResources,updateClockDiff)
 import SharedResources as SharedResources
 import WebGL (WebGL, newWebGL, updateWebGL, deleteWebGL, drawWebGL)
 import AudioZone (AudioZone,newAudioZone,redefineAudioZone,updateAudioZone,deleteAudioZone,calculateAudioZoneInfo)
@@ -53,7 +50,7 @@ launch args = do
   combinedProgramInfo <- new emptySignalInfo
   webGLs <- new empty
   audioZones <- new empty
-  log "punctual 0.5.1.3 initialization complete"
+  log "punctual 0.5.1.4 initialization complete"
   pure { sharedResources, programs, previousPrograms, programInfos, previousProgramInfos, combinedProgramInfo, webGLs, audioZones }
 
 
@@ -146,10 +143,12 @@ clear punctual args = do
   
   
 preRender :: Punctual -> { canDraw :: Boolean, nowTime :: Number } -> Effect Unit
-preRender punctual args = when args.canDraw $ _updateSharedResources punctual
+preRender punctual args = do
+  when args.canDraw $ _updateSharedWebGLResources punctual
+  updateClockDiff punctual.sharedResources
 
-_updateSharedResources :: Punctual -> Effect Unit
-_updateSharedResources punctual = do
+_updateSharedWebGLResources :: Punctual -> Effect Unit
+_updateSharedWebGLResources punctual = do
   combinedInfo <- read punctual.combinedProgramInfo
   SharedResources.setWebcamActive punctual.sharedResources $ unwrap combinedInfo.webcam
   SharedResources.updateAudioInputAndAnalysers punctual.sharedResources combinedInfo

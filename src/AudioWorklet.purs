@@ -1,6 +1,6 @@
 module AudioWorklet where
 
-import Prelude ((<>),Unit,pure,discard,($),show,(>>=),(-),bind,(+))
+import Prelude ((<>),Unit,pure,discard,($),show,(>>=),(-),bind,(+),unit)
 import Effect (Effect)
 import Data.Nullable (Nullable,toMaybe)
 import Data.Maybe (Maybe(..))
@@ -52,7 +52,7 @@ foreign import setWorkletParamValue :: WebAudioNode -> String -> Number -> Effec
 updateWorklet :: Number -> Number -> Number -> AudioWorklet -> Effect Unit
 updateWorklet cps originAudio evalTimeAudio w = do
   case toMaybe w.audioWorklet'.audioWorkletNode of
-    Nothing -> log "strange internal error in Punctual: attempt to update tempo for AudioWorklet with no valid WebAudioNode"
+    Nothing -> pure unit -- EXPERIMENT log "strange internal error in Punctual: attempt to update tempo for AudioWorklet with no valid WebAudioNode"
     Just n -> do
       setWorkletParamValue n "cps" cps
       setWorkletParamValue n "originAudio" originAudio
