@@ -50,7 +50,7 @@ launch args = do
   combinedProgramInfo <- new emptySignalInfo
   webGLs <- new empty
   audioZones <- new empty
-  log "punctual 0.5.1.4 initialization complete"
+  log "punctual 0.5.1.5 initialization complete"
   pure { sharedResources, programs, previousPrograms, programInfos, previousProgramInfos, combinedProgramInfo, webGLs, audioZones }
 
 

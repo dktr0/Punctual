@@ -558,7 +558,15 @@ between (Tuple e0 e1) x = assign $ "(" <> showSample x <> ">=" <> min' <> "&&" <
   where
     min' = "Math.min(" <> showSample e0 <> "," <> showSample e1 <> ")"
     max' = "Math.max(" <> showSample e0 <> "," <> showSample e1 <> ")"
-    
+
+-- variant of between that is inclusive on left end of interval, exclusive on right end of interval (e.g. for use in seq)
+between' :: Tuple Sample Sample -> Sample -> W Sample
+between' (Tuple (Left e0) (Left e1)) (Left x) = pure $ Left $ Number.between e0 e1 x
+between' (Tuple e0 e1) x = assign $ "(" <> showSample x <> ">=" <> min' <> "&&" <> showSample x <> "<" <> max' <> ")?1:0"
+  where
+    min' = "Math.min(" <> showSample e0 <> "," <> showSample e1 <> ")"
+    max' = "Math.max(" <> showSample e0 <> "," <> showSample e1 <> ")"
+
 smoothStep :: Tuple Sample Sample -> Sample -> W Sample
 smoothStep (Tuple (Left e0) (Left e1)) (Left x) = pure $ Left $ Number.smoothStep e0 e1 x
 smoothStep (Tuple e0 e1) x = do
@@ -572,7 +580,7 @@ seq steps x = do
   let nSteps = length steps
   let stepSize = 1.0 / toNumber nSteps
   let stepStarts = iterateN nSteps (_ + stepSize) 0.0
-  let f val stepStart = between (Tuple (Left stepStart) (Left $ stepStart+stepSize)) x >>= product val
+  let f val stepStart = between' (Tuple (Left stepStart) (Left $ stepStart+stepSize)) x >>= product val
   sequence (zipWith f steps stepStarts) >>= (sum <<< fromNonEmptyList)
   
 sum :: Frame -> W Sample

@@ -1,9 +1,15 @@
 # ChangeLog
 
+0.5.1.5:
+
+- bug fix to seq on audio side
+
 0.5.1.4:
+
 - mechanism to compensate for drift between audio and system clocks
 
 0.5.1.3:
+
 - probable fix to "moving feedback" bug
 
 0.5.1.2:
