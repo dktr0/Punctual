@@ -231,7 +231,7 @@ vec3sToVec4s :: NonEmptyList Vec3 -> NonEmptyList Vec4
 vec3sToVec4s = concat <<< unfoldr1 unconsVec3sToVec4s
 
 vec4sToFloats :: NonEmptyList Vec4 -> NonEmptyList Float
-vec4sToFloats = concat <<< map (\a -> swizzleX a `cons` (swizzleY a `cons` (swizzleZ a `cons` singleton (swizzleZ a))))
+vec4sToFloats = concat <<< map (\a -> swizzleX a `cons` (swizzleY a `cons` (swizzleZ a `cons` singleton (swizzleW a))))
 
 vec4sToVec2s :: NonEmptyList Vec4 -> NonEmptyList Vec2
 vec4sToVec2s = concat <<< map (\a -> swizzleXY a `cons` singleton (swizzleZW a))

@@ -62,7 +62,7 @@ functionsWithArgumentsDef = [
   "lpf","lpfp","hpf","hpfp","bpf","bpfp","delay",
   "linlin","linlinp",
   "rep",
-  "img","vid",
+  "img","vid","imga","vida","gdm",
   "mix","mixp",
   "import",
   "aout",

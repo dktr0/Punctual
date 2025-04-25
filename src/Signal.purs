@@ -34,8 +34,9 @@ data Signal =
   IFFT |
   Fb |
   Cam |
-  Img String |
-  Vid String |
+  Img String | Imga String |
+  Vid String | Vida String |
+  Gdm String |
   Bipolar Signal |
   Unipolar Signal |
   Blend Signal | Add Signal | Mul Signal |
@@ -181,6 +182,9 @@ showIndented i Fb = indent i <> "Fb\n"
 showIndented i Cam = indent i <> "Cam\n"
 showIndented i (Img url) = indent i <> "Img " <> url <> "\n"
 showIndented i (Vid url) = indent i <> "Vid " <> url <> "\n"
+showIndented i (Imga url) = indent i <> "Imga " <> url <> "\n"
+showIndented i (Vida url) = indent i <> "Vida " <> url <> "\n"
+showIndented i (Gdm x) = indent i <> "Gdm " <> x <> "\n"
 showIndented i (Bipolar x) = indent i <> "Bipolar\n" <> showIndented (i+1) x
 showIndented i (Unipolar x) = indent i <> "Unipolar\n" <> showIndented (i+1) x
 showIndented i (Blend x) = indent i <> "Blend\n" <> showIndented (i+1) x
@@ -374,7 +378,8 @@ type SignalInfo = {
   ihi :: Disj Boolean,
   ain :: Disj Boolean,
   imgURLs :: Set String,
-  vidURLs :: Set String
+  vidURLs :: Set String,
+  gdmIDs :: Set String
   }
 
 emptySignalInfo :: SignalInfo
@@ -390,7 +395,8 @@ emptySignalInfo = {
   ihi: pure false,
   ain: pure false,
   imgURLs: mempty,
-  vidURLs: mempty
+  vidURLs: mempty,
+  gdmIDs: mempty
   }
 
 signalInfo :: Signal -> SignalInfo
@@ -406,6 +412,9 @@ signalInfo Hi = emptySignalInfo { hi = pure true }
 signalInfo FFT = emptySignalInfo { fft = pure true }
 signalInfo (Img x) = emptySignalInfo { imgURLs = singleton x }
 signalInfo (Vid x) = emptySignalInfo { vidURLs = singleton x }
+signalInfo (Imga x) = emptySignalInfo { imgURLs = singleton x }
+signalInfo (Vida x) = emptySignalInfo { vidURLs = singleton x }
+signalInfo (Gdm x) = emptySignalInfo { gdmIDs = singleton x }
 signalInfo x = foldMap signalInfo $ subSignals x
 
 -- given a Signal return the list of the component Signals it is dependent on
@@ -447,6 +456,9 @@ subSignals Fb = Nil
 subSignals Cam = Nil
 subSignals (Img _) = Nil
 subSignals (Vid _) = Nil
+subSignals (Imga _) = Nil
+subSignals (Vida _) = Nil
+subSignals (Gdm _) = Nil
 subSignals (Bipolar x) = x:Nil
 subSignals (Unipolar x) = x:Nil
 subSignals (Blend x) = x:Nil
@@ -585,6 +597,9 @@ dimensions Fb = { rows: 1, columns: 3 }
 dimensions Cam = { rows: 1, columns: 3 }
 dimensions (Img _) = { rows: 1, columns: 3 }
 dimensions (Vid _) = { rows: 1, columns: 3 }
+dimensions (Imga _) = { rows: 1, columns: 4 }
+dimensions (Vida _) = { rows: 1, columns: 4 }
+dimensions (Gdm _) = { rows: 1, columns: 3 }
 dimensions (Bipolar x) = dimensions x
 dimensions (Unipolar x) = dimensions x
 dimensions (Blend _) = { rows: 1, columns: 4 }

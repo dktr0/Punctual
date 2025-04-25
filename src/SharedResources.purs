@@ -3,7 +3,7 @@ module SharedResources where
 -- management of all resources (tempo, images, videos, webcam, audio analysis, audio files, etc)
 -- that are shared across different Punctual zones (and between different WebGL contexts, so no WebGL types)
 
-import Prelude (bind,discard,pure,Unit,unit,(>>=),($),(<$>),(<<<),(/),(-),(<=),(+),(<>),show)
+import Prelude (Unit, bind, discard, pure, unit, ($), (+), (-), (/), (<$>), (<<<), (<=), (>>=))
 import Data.Rational ((%))
 import Effect (Effect)
 import Effect.Console (log)
@@ -31,6 +31,7 @@ type SharedResources = {
   mWebcamElementRef :: Ref (Maybe WebcamElement),
   images :: Ref (Map URL Image),
   videos :: Ref (Map URL Video),
+  gdms :: Ref (Map String GDM),
   libraries :: LibraryCache,
   webAudioContext :: WebAudioContext,
   clockDiff :: Ref Number,
@@ -53,6 +54,7 @@ newSharedResources mWebAudioContext = do
   mWebcamElementRef <- new Nothing
   images <- new empty
   videos <- new empty
+  gdms <- new empty
   libraries <- new empty
   webAudioContext <- case mWebAudioContext of
                        Nothing -> defaultWebAudioContext
@@ -77,6 +79,7 @@ newSharedResources mWebAudioContext = do
     mWebcamElementRef,
     images,
     videos,
+    gdms,
     libraries,
     webAudioContext,
     clockDiff,
@@ -216,6 +219,28 @@ getVideo sr url = do
 foreign import _newVideo :: String -> Effect Video
 
 foreign import _videoIsPlaying :: Video -> Effect Boolean
+
+-- GDM (i.e. window/display capture via getDisplayMedia)
+
+foreign import data GDM :: Type
+
+getGDM :: SharedResources -> String -> Effect (Maybe GDM)
+getGDM sr x = do
+  gdms <- read sr.gdms
+  case lookup x gdms of
+    Nothing -> do
+      gdm <- _newGDM
+      write (insert x gdm gdms) sr.gdms
+      pure Nothing
+    Just gdm -> do
+      isPlaying <- _gdmIsPlaying gdm
+      case isPlaying of
+        true -> pure $ Just gdm
+        false -> pure Nothing
+
+foreign import _newGDM :: Effect GDM
+
+foreign import _gdmIsPlaying :: GDM -> Effect Boolean
 
 
 -- Audio Input and Output

@@ -47,3 +47,12 @@ export const _newVideo = url => () => {
 
 export const _videoIsPlaying = v => () => v.isPlaying;
 
+export const _newGDM = () => {
+  var r = document.createElement('video');
+  r.width = 2048; r.height = 2048; r.autoplay = true; r.isPlaying = false;
+  r.addEventListener('playing',function() { r.isPlaying = true; });
+  navigator.mediaDevices.getDisplayMedia({video: true, monitorTypeSurfaces: "include", surfaceSwitching: "include"}).then( function(stream) { r.srcObject = stream; } );
+  return r;
+  }
+
+export const _gdmIsPlaying = gdm => () => gdm.isPlaying;

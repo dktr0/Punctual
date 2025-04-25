@@ -8,7 +8,7 @@ import Data.Traversable (for)
 import Data.Tuple (Tuple)
 
 import Matrix (Matrix, concat)
-import Expr (class Expr, Float(..), Vec2(..), Vec3(..), expr, showType, toExpr)
+import Expr (class Expr, Float(..), Vec2(..), Vec3(..), Vec4(..), expr, showType, toExpr)
 
 type GState = {
   webGl2 :: Boolean,
@@ -87,3 +87,9 @@ texture2D texName xy = do
     true -> assign $ Vec3Expr $ "texture(" <> texName <> "," <> toExpr xy <> ").xyz"
     false -> assign $ Vec3Expr $ "texture2D(" <> texName <> "," <> toExpr xy <> ").xyz"
 
+texture2Da :: String -> Vec2 -> G Vec4
+texture2Da texName xy = do
+  s <- get
+  case s.webGl2 of
+    true -> assign $ Vec4Expr $ "texture(" <> texName <> "," <> toExpr xy <> ")"
+    false -> assign $ Vec4Expr $ "texture2D(" <> texName <> "," <> toExpr xy <> ")"

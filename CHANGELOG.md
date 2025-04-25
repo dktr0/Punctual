@@ -1,5 +1,10 @@
 # ChangeLog
 
+0.5.2:
+
+- added imga and vida for loading images and videos with access to alpha/transparency channel
+- added gdm for access to window/display capture (via browser's getDisplayMedia pathway)
+
 0.5.1.5:
 
 - bug fix to seq on audio side
