@@ -11,7 +11,7 @@ import Data.Foldable (foldM)
 import Data.Unfoldable (replicate)
 import Data.Unfoldable1 (iterateN,singleton)
 import Control.Monad.State (get,modify_)
-import Data.Map (Map,lookup)
+import Data.Map (lookup)
 import Data.Tempo (Tempo)
 import Data.DateTime (DateTime)
 import Data.Int (toNumber)
@@ -26,7 +26,7 @@ import Output (Output)
 import Output as Output
 import Program (Program)
 import Expr (class Expr, Float(..), Vec2(..), Vec3, Vec4, abs, acos, add, ampdb, asin, atan, between, bipolar, blend, castExprs, cbrt, ceil, circle, clip, constant, cos, cpsmidi, dbamp, difference, distance, division, divisionExprFloat, dotSum, equal, exp, expr, fadeIn, fadeOut, floatFloatToVec2, floor, fract, fromFloat, fromFloats, fromVec2s, function1, gate, greaterThan, greaterThanEqual, hline, hsvrgb, iline, lessThan, lessThanEqual, line, linlin, log, log10, log2, max, midicps, min, mix, mixFloat, mod, notEqual, pi, point, pow, product, productExprFloat, productFloatExpr, prox, pxy, rgbaFade, rgbhsv, rtx, rtxy, rty, seq, setX, setY, sign, sin, smoothStep, sqrt, sum, swizzleW, swizzleX, swizzleXY, swizzleXYZ, swizzleY, swizzleZ, swizzleZW, tan, tile, toExpr, unaryFunction, unipolar, vec3FloatToVec4, vline, xyr, xyrt, xyt, zero)
-import G (G, assign, runG, texture2D, texture2Da, textureFFT, withAlteredTime, withFxys)
+import G (G, assign, runG, texture2D, texture2Da, textureFFT, withAlteredTime, withFxys, TextureMap)
 import Matrix (Matrix(..),fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3,semiFlatten,fromMatrixMatrix)
 import Number (acosh, asinh, atanh, cosh, sinh, tanh) as Number
 
@@ -130,7 +130,7 @@ signalToExprs Cam = get >>= _.fxy >>> unipolar >>> texture2D "w" >>= exprToExprs
 
 signalToExprs (Img url) = do
   s <- get
-  case lookup url s.imgMap of
+  case lookup url s.textureMap.imgs of
     Just n -> do
       t <- texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
       maskUnitSquare $ exprToExprs t
@@ -138,7 +138,7 @@ signalToExprs (Img url) = do
 
 signalToExprs (Vid url) = do
   s <- get
-  case lookup url s.vidMap of
+  case lookup url s.textureMap.vids of
     Just n -> do
       t <- texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
       maskUnitSquare $ exprToExprs t
@@ -146,7 +146,7 @@ signalToExprs (Vid url) = do
 
 signalToExprs (Imga url) = do
   s <- get
-  case lookup url s.imgMap of
+  case lookup url s.textureMap.imgs of
     Just n -> do
       t <- texture2Da ("t" <> show n) (unipolar s.fxy) -- :: Vec4
       maskUnitSquare $ exprToExprs t
@@ -154,13 +154,19 @@ signalToExprs (Imga url) = do
 
 signalToExprs (Vida url) = do
   s <- get
-  case lookup url s.vidMap of
+  case lookup url s.textureMap.vids of
     Just n -> do
       t <- texture2Da ("t" <> show n) (unipolar s.fxy) -- :: Vec4
       maskUnitSquare $ exprToExprs t
     Nothing -> pure $ pure $ zero
 
--- TODO: insert Gdm handling here
+signalToExprs (Gdm x) = do
+  s <- get
+  case lookup x s.textureMap.gdms of
+    Just n -> do
+      t <- texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
+      maskUnitSquare $ exprToExprs t
+    Nothing -> pure $ pure $ zero
 
 signalToExprs (Blend x) = do
   xs <- flatten <$> (signalToExprs x :: G (Matrix Vec4))
@@ -843,10 +849,10 @@ crossFadeRGBsMul t0 t1 prevRGBs newRGBs = do
     Just xs -> pure $ rgbsInCommon <> xs
     Nothing -> pure rgbsInCommon
 
-fragmentShader :: Boolean -> Tempo -> Map String Int -> Map String Int -> Program -> Program -> String
-fragmentShader webGl2 tempo imgMap vidMap oldProgram newProgram = header webGl2 <> st.code <> gl_FragColor <> "}"
+fragmentShader :: Boolean -> Tempo -> TextureMap -> Program -> Program -> String
+fragmentShader webGl2 tempo textureMap oldProgram newProgram = header webGl2 <> st.code <> gl_FragColor <> "}"
   where
-    (Tuple v4 st) = runG webGl2 imgMap vidMap $ programsToGLSL tempo oldProgram newProgram
+    (Tuple v4 st) = runG webGl2 textureMap $ programsToGLSL tempo oldProgram newProgram
     fragColorVarName = if webGl2 then "fragColor" else "gl_FragColor"
     preMulAlpha = vec3FloatToVec4 (productExprFloat (swizzleXYZ v4) (swizzleW v4)) (swizzleW v4)
     gl_FragColor = fragColorVarName <> " = " <> toExpr preMulAlpha <> ";\n"

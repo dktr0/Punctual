@@ -50,8 +50,8 @@ newWebGL sharedResources prog prevProg = do
       triangleStripBuffer <- newDefaultTriangleStrip glc
       tempo <- getTempo sharedResources
       let newProgInfo = programInfo prog <> programInfo prevProg
-      let (Tuple imgMap vidMap) = calculateTextureSlots newProgInfo
-      Tuple shaderSrc' shader' <- updateFragmentShader glc tempo imgMap vidMap prevProg prog
+      let tSlots = calculateTextureSlots newProgInfo
+      Tuple shaderSrc' shader' <- updateFragmentShader glc tempo tSlots prevProg prog
       program <- new prog
       programInfo <- new newProgInfo
       shaderSrc <- new shaderSrc'
@@ -94,10 +94,10 @@ updateWebGL webGL program previousProgram = do
   write vidMap webGL.videoTextureSlots
   
   
-updateFragmentShader :: WebGLCanvas -> Tempo -> Map String Int -> Map String Int -> Program -> Program -> Effect (Tuple String WebGLProgram)
-updateFragmentShader glc tempo imgMap vidMap oldProg newProg = do
+updateFragmentShader :: WebGLCanvas -> Tempo -> Map String Int -> Map String Int -> Map String Int -> Program -> Program -> Effect (Tuple String WebGLProgram)
+updateFragmentShader glc tempo imgMap vidMap gdmMap oldProg newProg = do
   -- t0 <- nowDateTime
-  let shaderSrc = fragmentShader glc.webGL2 tempo imgMap vidMap oldProg newProg
+  let shaderSrc = fragmentShader glc.webGL2 tempo imgMap vidMap gdmMap oldProg newProg
   -- t1 <- nowDateTime
   -- log $ " GLSL transpile time = " <> show (diff t1 t0 :: Milliseconds)
   glProg <- createProgram glc
@@ -127,13 +127,12 @@ updateFragmentShader glc tempo imgMap vidMap oldProg newProg = do
   pure $ Tuple shaderSrc glProg
 
   
-calculateTextureSlots :: SignalInfo -> Tuple (Map String Int) (Map String Int)
-calculateTextureSlots progInfo = Tuple (fromFoldable $ zip imgURLs imgSlots) (fromFoldable $ zip vidURLs vidSlots)
+calculateTextureSlots :: SignalInfo -> { imgMap :: Map String Int, vidMap :: Map String Int, gdmMap :: Map String Int }
+calculateTextureSlots progInfo = { imgMap, vidMap, gdmMap } 
   where
-    imgURLs = toUnfoldable progInfo.imgURLs :: List String
-    imgSlots = range 4 15
-    vidURLs = toUnfoldable progInfo.vidURLs :: List String
-    vidSlots = range (4 + length imgURLs) 15 
+    imgMap = fromFoldable $ zip (toUnfoldable progInfo.imgURLs) (range 4 15)
+    vidMap = fromFoldable $ zip (toUnfoldable progInfo.vidURLs) (range (4 + length progInfo.imgURLs) 15)
+    gdmMap = fromFoldable $ zip (toUnfoldable progInfo.gdmIDs) (range (4 + length progInfo.imgURLs + length progInfo.vidURLs) 15)
      
   
 deleteWebGL :: WebGL -> Effect Unit

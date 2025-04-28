@@ -10,10 +10,11 @@ import Data.Tuple (Tuple)
 import Matrix (Matrix, concat)
 import Expr (class Expr, Float(..), Vec2(..), Vec3(..), Vec4(..), expr, showType, toExpr)
 
+type TextureMap = { imgs :: Map String Int, vids :: Map String Int, gdms :: Map String Int }
+   
 type GState = {
   webGl2 :: Boolean,
-  imgMap :: Map String Int,
-  vidMap :: Map String Int,
+  textureMap :: TextureMap,
   allocation :: Int,
   code :: String,
   fxy :: Vec2,
@@ -25,11 +26,10 @@ type GState = {
 
 type G = State GState
 
-runG :: forall a. Boolean -> Map String Int -> Map String Int -> G a -> Tuple a GState
-runG webGl2 imgMap vidMap x = runState x {
+runG :: forall a. Boolean -> TextureMap -> G a -> Tuple a GState
+runG webGl2 textureMap x = runState x {
   webGl2,
-  imgMap,
-  vidMap,
+  textureMap,
   allocation: 0,
   code: "",
   fxy: Vec2Expr "((gl_FragCoord.xy/res)*2.-1.)", 
