@@ -257,7 +257,11 @@ mesh [x1,y1,x2,y2,...] [w] -- returns 1 when current fragment is within w of a m
 
 img "https://url-to-image-file" -- accesses a texture built from the image file in question as red-green-blue (3-channel signal).
 
+imga "https://url-to-image-file" -- accesses a texture built from the image file in question as red-green-blue-alpha (4-channel signal).
+
 vid "https://url-to-video-file" -- accesses a texture built from the video file in question as red-green-blue (3-channel signal).
+
+vida "https://url-to-video-file" -- accesses a texture built from the video file in question as red-green-blue-alpha (4-channel signal).
 
 cam -- accesses a texture built from the webcam as red-green-blue (3-channel signal).
 
