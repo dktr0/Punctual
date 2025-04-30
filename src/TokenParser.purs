@@ -35,7 +35,7 @@ functionsWithNoArgumentsDef :: Array String
 functionsWithNoArgumentsDef = [
   "pi","mic","audioin","cps","time","beat","etime","ebeat","rnd",
   "fx","fy","fxy","px","py","pxy","frt","fr","ft","aspect",
-  "lo","mid","hi","ilo","imid","ihi","fft","ifft","fb","cam",
+  "lo","mid","hi","ilo","imid","ihi","fft","ifft","fb","cam","cama",
   "audio","stereo","blend","rgba","add","mul","rgb"
   ]
   
@@ -62,7 +62,7 @@ functionsWithArgumentsDef = [
   "lpf","lpfp","hpf","hpfp","bpf","bpfp","delay",
   "linlin","linlinp",
   "rep",
-  "img","vid","imga","vida","gdm",
+  "img","vid","imga","vida","gdm","gdma",
   "mix","mixp",
   "import",
   "aout",

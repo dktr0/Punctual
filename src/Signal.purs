@@ -33,10 +33,10 @@ data Signal =
   FFT |
   IFFT |
   Fb |
-  Cam |
+  Cam | Cama | 
   Img String | Imga String |
   Vid String | Vida String |
-  Gdm String |
+  Gdm String | Gdma String |
   Bipolar Signal |
   Unipolar Signal |
   Blend Signal | Add Signal | Mul Signal |
@@ -180,11 +180,13 @@ showIndented i FFT = indent i <> "FFT\n"
 showIndented i IFFT = indent i <> "IFFT\n"
 showIndented i Fb = indent i <> "Fb\n"
 showIndented i Cam = indent i <> "Cam\n"
+showIndented i Cama = indent i <> "Cama\n"
 showIndented i (Img url) = indent i <> "Img " <> url <> "\n"
 showIndented i (Vid url) = indent i <> "Vid " <> url <> "\n"
 showIndented i (Imga url) = indent i <> "Imga " <> url <> "\n"
 showIndented i (Vida url) = indent i <> "Vida " <> url <> "\n"
 showIndented i (Gdm x) = indent i <> "Gdm " <> x <> "\n"
+showIndented i (Gdma x) = indent i <> "Gdma " <> x <> "\n"
 showIndented i (Bipolar x) = indent i <> "Bipolar\n" <> showIndented (i+1) x
 showIndented i (Unipolar x) = indent i <> "Unipolar\n" <> showIndented (i+1) x
 showIndented i (Blend x) = indent i <> "Blend\n" <> showIndented (i+1) x
@@ -401,6 +403,7 @@ emptySignalInfo = {
 
 signalInfo :: Signal -> SignalInfo
 signalInfo Cam = emptySignalInfo { webcam = pure true }
+signalInfo Cama = emptySignalInfo { webcam = pure true }
 signalInfo ILo = emptySignalInfo { ilo = pure true, ain = pure true }
 signalInfo IMid = emptySignalInfo { imid = pure true, ain = pure true }
 signalInfo IHi = emptySignalInfo { ihi = pure true, ain = pure true }
@@ -411,10 +414,11 @@ signalInfo Mid = emptySignalInfo { mid = pure true }
 signalInfo Hi = emptySignalInfo { hi = pure true }
 signalInfo FFT = emptySignalInfo { fft = pure true }
 signalInfo (Img x) = emptySignalInfo { imgURLs = singleton x }
-signalInfo (Vid x) = emptySignalInfo { vidURLs = singleton x }
 signalInfo (Imga x) = emptySignalInfo { imgURLs = singleton x }
+signalInfo (Vid x) = emptySignalInfo { vidURLs = singleton x }
 signalInfo (Vida x) = emptySignalInfo { vidURLs = singleton x }
 signalInfo (Gdm x) = emptySignalInfo { gdmIDs = singleton x }
+signalInfo (Gdma x) = emptySignalInfo { gdmIDs = singleton x }
 signalInfo x = foldMap signalInfo $ subSignals x
 
 -- given a Signal return the list of the component Signals it is dependent on
@@ -454,11 +458,13 @@ subSignals FFT = Nil
 subSignals IFFT = Nil
 subSignals Fb = Nil
 subSignals Cam = Nil
+subSignals Cama = Nil
 subSignals (Img _) = Nil
-subSignals (Vid _) = Nil
 subSignals (Imga _) = Nil
+subSignals (Vid _) = Nil
 subSignals (Vida _) = Nil
 subSignals (Gdm _) = Nil
+subSignals (Gdma _) = Nil
 subSignals (Bipolar x) = x:Nil
 subSignals (Unipolar x) = x:Nil
 subSignals (Blend x) = x:Nil
@@ -595,11 +601,13 @@ dimensions Fxy = { rows: 1, columns: 2 }
 dimensions FRt = { rows: 1, columns: 2 }
 dimensions Fb = { rows: 1, columns: 3 }
 dimensions Cam = { rows: 1, columns: 3 }
+dimensions Cama = { rows: 1, columns: 4 }
 dimensions (Img _) = { rows: 1, columns: 3 }
-dimensions (Vid _) = { rows: 1, columns: 3 }
 dimensions (Imga _) = { rows: 1, columns: 4 }
+dimensions (Vid _) = { rows: 1, columns: 3 }
 dimensions (Vida _) = { rows: 1, columns: 4 }
 dimensions (Gdm _) = { rows: 1, columns: 3 }
+dimensions (Gdma _) = { rows: 1, columns: 4 }
 dimensions (Bipolar x) = dimensions x
 dimensions (Unipolar x) = dimensions x
 dimensions (Blend _) = { rows: 1, columns: 4 }

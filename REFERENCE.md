@@ -265,9 +265,13 @@ vida "https://url-to-video-file" -- accesses a texture built from the video file
 
 cam -- accesses a texture built from the webcam as red-green-blue (3-channel signal).
 
-fb [x1,y1,...] -- accesses feedback (Punctual video output from the previous frame) as red-green-blue (3-channel signal per 2 channels of input argument)
+cama -- accesses a texture built from the webcam as red-green-blue-alpha (4-channel signal).
 
-tex "https://url-to-image-file" [x,y,...] -- accesses a texture built from the image file in question as red-green-blue (3-channel signal). *Deprecated* (use ```img "url"``` instead).
+gdm "identifier" -- accesses window/display capture as red-green-blue (3-channel signal). The identifier can be anything and can be used to allow different zones of Punctual code (e.g. in Estuary) to share the same existing display capture that has been established.
+
+gdma "identifier" -- accesses window/display capture as red-green-blue-alpha (4-channel signal). The identifier can be anything and can be used to allow different zones of Punctual code (e.g. in Estuary) to share the same existing display capture that has been established.
+
+fb [x1,y1,...] -- accesses feedback (Punctual video output from the previous frame) as red-green-blue (3-channel signal per 2 channels of input argument)
 
 hi -- analysis of how much power there is in the highest frequencies of the spectrum of the current sound output. Result is unipolar (0 to 1).
 

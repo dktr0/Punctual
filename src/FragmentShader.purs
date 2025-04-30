@@ -126,22 +126,13 @@ signalToExprs IFFT = get >>= _.fxy >>> unipolar >>> swizzleX >>> textureFFT "i" 
 
 signalToExprs Fb = get >>= _.fxy >>> unipolar >>> texture2D "f" >>= exprToExprs >>> maskUnitSquare
 
-signalToExprs Cam = get >>= _.fxy >>> unipolar >>> texture2D "w" >>= exprToExprs >>> maskUnitSquare
-
 signalToExprs (Img url) = do
   s <- get
   case lookup url s.textureMap.imgs of
     Just n -> do
       t <- texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
-      maskUnitSquare $ exprToExprs t
-    Nothing -> pure $ pure $ zero
-
-signalToExprs (Vid url) = do
-  s <- get
-  case lookup url s.textureMap.vids of
-    Just n -> do
-      t <- texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
-      maskUnitSquare $ exprToExprs t
+      v3 <- maskUnitSquareRGB t 
+      pure $ exprToExprs v3
     Nothing -> pure $ pure $ zero
 
 signalToExprs (Imga url) = do
@@ -149,7 +140,17 @@ signalToExprs (Imga url) = do
   case lookup url s.textureMap.imgs of
     Just n -> do
       t <- texture2Da ("t" <> show n) (unipolar s.fxy) -- :: Vec4
-      maskUnitSquare $ exprToExprs t
+      v4 <- maskUnitSquareRGBA t
+      pure $ exprToExprs v4
+    Nothing -> pure $ pure $ zero
+
+signalToExprs (Vid url) = do
+  s <- get
+  case lookup url s.textureMap.vids of
+    Just n -> do
+      t <- texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
+      v3 <- maskUnitSquareRGB t 
+      pure $ exprToExprs v3
     Nothing -> pure $ pure $ zero
 
 signalToExprs (Vida url) = do
@@ -157,15 +158,38 @@ signalToExprs (Vida url) = do
   case lookup url s.textureMap.vids of
     Just n -> do
       t <- texture2Da ("t" <> show n) (unipolar s.fxy) -- :: Vec4
-      maskUnitSquare $ exprToExprs t
+      v4 <- maskUnitSquareRGBA t
+      pure $ exprToExprs v4
     Nothing -> pure $ pure $ zero
+
+signalToExprs Cam = do
+  s <- get
+  t <- texture2D "w" (unipolar s.fxy) -- :: Vec3
+  v3 <- maskUnitSquareRGB t 
+  pure $ exprToExprs v3
+  
+signalToExprs Cama = do
+  s <- get
+  t <- texture2D "w" (unipolar s.fxy) -- :: Vec3
+  v4 <- maskUnitSquareRGBtoRGBA t 
+  pure $ exprToExprs v4
 
 signalToExprs (Gdm x) = do
   s <- get
   case lookup x s.textureMap.gdms of
     Just n -> do
       t <- texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
-      maskUnitSquare $ exprToExprs t
+      v3 <- maskUnitSquareRGB t 
+      pure $ exprToExprs v3
+    Nothing -> pure $ pure $ zero
+
+signalToExprs (Gdma x) = do
+  s <- get
+  case lookup x s.textureMap.gdms of
+    Just n -> do
+      t <- texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
+      v4 <- maskUnitSquareRGBtoRGBA t
+      pure $ exprToExprs v4
     Nothing -> pure $ pure $ zero
 
 signalToExprs (Blend x) = do
@@ -510,12 +534,31 @@ combineG f mm x y = do
   zs <- traverse assign $ combine f mm xs ys -- :: Matrix c
   traverse assign $ mapRows castExprs zs -- TODO later: optimize to avoid redundant assignment
 
+unitSquare :: G Float
+unitSquare = do
+  fxy <- _.fxy <$> get
+  v2 <- assign $ lessThanEqual (abs fxy) (constant 1.0) -- :: Vec2
+  assign $ product (swizzleX v2) (swizzleY v2) -- :: Float
+
 maskUnitSquare :: forall a. Expr a => Matrix a -> G (Matrix a)
 maskUnitSquare xs = do
-  fxy <- _.fxy <$> get
-  mask <- assign $ lessThanEqual (abs fxy) (constant 1.0) -- :: Vec2
-  mask' <- assign $ product (swizzleX mask) (swizzleY mask) -- :: Float
-  traverse (assign <<< productFloatExpr mask') xs
+  mask <- unitSquare
+  traverse (assign <<< productFloatExpr mask) xs
+
+maskUnitSquareRGB :: Vec3 -> G Vec3
+maskUnitSquareRGB v3 = do
+  mask <- unitSquare
+  assign $ productFloatExpr mask v3
+
+maskUnitSquareRGBA :: Vec4 -> G Vec4
+maskUnitSquareRGBA v4 = do
+  mask <- unitSquare
+  assign $ productFloatExpr mask v4
+
+maskUnitSquareRGBtoRGBA :: Vec3 -> G Vec4
+maskUnitSquareRGBtoRGBA v3 = do
+  mask <- unitSquare
+  assign $ vec3FloatToVec4 (productFloatExpr mask v3) mask
 
 osc :: forall a. Expr a => a -> G a
 osc f = do

@@ -3,7 +3,9 @@
 0.5.2:
 
 - added imga and vida for loading images and videos with access to alpha/transparency channel
-- added gdm for access to window/display capture (via browser's getDisplayMedia pathway)
+- added gdm and gdma for access to window/display capture (via browser's getDisplayMedia pathway)
+- added cama as an RGBA variant of cam (RGB) that is transparent outside of the unit square
+- fixed a bug in which video textures would interfere with simultaneous image textures
 
 0.5.1.5:
 
