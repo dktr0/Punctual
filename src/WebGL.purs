@@ -5,7 +5,6 @@ import Effect (Effect)
 import Effect.Ref (Ref, new, write, read)
 import Data.Maybe (Maybe(..))
 import Data.Tempo (Tempo,origin,timeToCount)
--- import Effect.Now (nowDateTime)
 import Data.Time.Duration (Seconds)
 import Data.DateTime (DateTime,diff)
 import Data.Tuple (Tuple(..))
@@ -13,17 +12,18 @@ import Data.Newtype (unwrap)
 import Data.Rational (toNumber)
 import Data.Map (Map, empty, lookup, insert, fromFoldable)
 import Data.TraversableWithIndex (traverseWithIndex)
-import Data.Set (toUnfoldable)
+import Data.Set (toUnfoldable,size)
 import Data.Unfoldable1 (range)
-import Data.List (List,zip,length)
+import Data.List (zip)
 import Data.Int as Int
 import Data.Monoid.Disj (Disj(..))
 
 import Signal (SignalInfo)
 import Program (Program,programInfo)
 import FragmentShader (fragmentShader)
+import G (TextureMap)
 import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLContext, WebGLProgram, WebGLTexture, attachShader, bindBufferArray, bindFrameBuffer, bindTexture, compileShader, configureFrameBufferTextures, createFragmentShader, createProgram, createTexture, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, drawPostProgram, enableVertexAttribArray, flush, getAttribLocation, getCanvasHeight, getCanvasWidth, getFeedbackTexture, getOutputFrameBuffer, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport)
-import SharedResources (SharedResources,getTempo,getImage,updateWebcamTexture,Image,Video,getVideo)
+import SharedResources (SharedResources,getTempo,getImage,updateWebcamTexture,Image,Video,GDM,getVideo,getGDM)
 import AudioAnalyser (AnalyserArray)
 
 type WebGL = {
@@ -32,12 +32,12 @@ type WebGL = {
   triangleStripBuffer :: WebGLBuffer,
   program :: Ref Program,
   programInfo :: Ref SignalInfo, -- note: combined info of past and current programs
+  textureMap :: Ref TextureMap,
   shaderSrc :: Ref String,
   shader :: Ref WebGLProgram,
   imageTextures :: Ref (Map String WebGLTexture),
   videoTextures :: Ref (Map String WebGLTexture),
-  imageTextureSlots :: Ref (Map String Int),
-  videoTextureSlots :: Ref (Map String Int),
+  gdmTextures :: Ref (Map String WebGLTexture),
   fftTexture :: WebGLTexture,
   ifftTexture :: WebGLTexture
   }  
@@ -49,17 +49,17 @@ newWebGL sharedResources prog prevProg = do
     Just glc -> do
       triangleStripBuffer <- newDefaultTriangleStrip glc
       tempo <- getTempo sharedResources
-      let newProgInfo = programInfo prog <> programInfo prevProg
-      let tSlots = calculateTextureSlots newProgInfo
-      Tuple shaderSrc' shader' <- updateFragmentShader glc tempo tSlots prevProg prog
+      let pInfo' = programInfo prog <> programInfo prevProg
+      let textureMap' = calculateTextureMap pInfo'
+      Tuple shaderSrc' shader' <- updateFragmentShader glc tempo textureMap' prevProg prog
       program <- new prog
-      programInfo <- new newProgInfo
+      programInfo <- new pInfo'
+      textureMap <- new textureMap'
       shaderSrc <- new shaderSrc'
       shader <- new shader'
       imageTextures <- new empty
       videoTextures <- new empty
-      imageTextureSlots <- new imgMap
-      videoTextureSlots <- new vidMap
+      gdmTextures <- new empty
       fftTexture <- createTexture glc
       ifftTexture <- createTexture glc
       let webGL = {
@@ -68,12 +68,12 @@ newWebGL sharedResources prog prevProg = do
         triangleStripBuffer,
         program,
         programInfo,
+        textureMap,
         shaderSrc,
         shader,
         imageTextures,
         videoTextures,
-        imageTextureSlots,
-        videoTextureSlots,
+        gdmTextures,
         fftTexture,
         ifftTexture
         }
@@ -83,21 +83,20 @@ newWebGL sharedResources prog prevProg = do
 updateWebGL :: WebGL -> Program -> Program -> Effect Unit
 updateWebGL webGL program previousProgram = do
   tempo <- getTempo webGL.sharedResources
-  let progInfo = programInfo program <> programInfo previousProgram
-  let (Tuple imgMap vidMap) = calculateTextureSlots progInfo
-  Tuple shaderSrc shader <- updateFragmentShader webGL.glc tempo imgMap vidMap previousProgram program 
+  let pInfo = programInfo program <> programInfo previousProgram
+  let textureMap = calculateTextureMap pInfo
+  Tuple shaderSrc shader <- updateFragmentShader webGL.glc tempo textureMap previousProgram program 
   write program webGL.program
-  write progInfo webGL.programInfo
+  write pInfo webGL.programInfo
   write shaderSrc webGL.shaderSrc
   write shader webGL.shader
-  write imgMap webGL.imageTextureSlots
-  write vidMap webGL.videoTextureSlots
-  
-  
-updateFragmentShader :: WebGLCanvas -> Tempo -> Map String Int -> Map String Int -> Map String Int -> Program -> Program -> Effect (Tuple String WebGLProgram)
-updateFragmentShader glc tempo imgMap vidMap gdmMap oldProg newProg = do
+  write textureMap webGL.textureMap
+
+
+updateFragmentShader :: WebGLCanvas -> Tempo -> TextureMap -> Program -> Program -> Effect (Tuple String WebGLProgram)
+updateFragmentShader glc tempo textureMap oldProg newProg = do
   -- t0 <- nowDateTime
-  let shaderSrc = fragmentShader glc.webGL2 tempo imgMap vidMap gdmMap oldProg newProg
+  let shaderSrc = fragmentShader glc.webGL2 tempo textureMap oldProg newProg
   -- t1 <- nowDateTime
   -- log $ " GLSL transpile time = " <> show (diff t1 t0 :: Milliseconds)
   glProg <- createProgram glc
@@ -127,12 +126,12 @@ updateFragmentShader glc tempo imgMap vidMap gdmMap oldProg newProg = do
   pure $ Tuple shaderSrc glProg
 
   
-calculateTextureSlots :: SignalInfo -> { imgMap :: Map String Int, vidMap :: Map String Int, gdmMap :: Map String Int }
-calculateTextureSlots progInfo = { imgMap, vidMap, gdmMap } 
+calculateTextureMap :: SignalInfo -> TextureMap
+calculateTextureMap progInfo = { imgs, vids, gdms } 
   where
-    imgMap = fromFoldable $ zip (toUnfoldable progInfo.imgURLs) (range 4 15)
-    vidMap = fromFoldable $ zip (toUnfoldable progInfo.vidURLs) (range (4 + length progInfo.imgURLs) 15)
-    gdmMap = fromFoldable $ zip (toUnfoldable progInfo.gdmIDs) (range (4 + length progInfo.imgURLs + length progInfo.vidURLs) 15)
+    imgs = fromFoldable $ zip (toUnfoldable progInfo.imgURLs) (range 4 15)
+    vids = fromFoldable $ zip (toUnfoldable progInfo.vidURLs) (range (4 + size progInfo.imgURLs) 15)
+    gdms = fromFoldable $ zip (toUnfoldable progInfo.gdmIDs) (range (4 + size progInfo.imgURLs + size progInfo.vidURLs) 15)
      
   
 deleteWebGL :: WebGL -> Effect Unit
@@ -179,14 +178,12 @@ drawWebGL webGL now brightness = do
     _fftToTexture glc.gl webGL.sharedResources.inputAnalyser.analyserArray webGL.ifftTexture
   updateWebcamTexture webGL.sharedResources glc
   bindTexture glc shader glc.webcamTexture 3 "w"
-  
-  -- update image textures
-  imgMap <- read webGL.imageTextureSlots
-  _ <- traverseWithIndex (bindImageTexture webGL shader) imgMap  
-  
-  -- update video textures
-  vidMap <- read webGL.videoTextureSlots
-  _ <- traverseWithIndex (bindVideoTexture webGL shader) vidMap
+
+  -- update image, video, and GDM (display capture) textures
+  textureMap <- read webGL.textureMap
+  _ <- traverseWithIndex (bindImageTexture webGL shader) textureMap.imgs
+  _ <- traverseWithIndex (bindVideoTexture webGL shader) textureMap.vids
+  _ <- traverseWithIndex (bindGDMTexture webGL shader) textureMap.gdms
   
   -- draw
   pLoc <- getAttribLocation glc shader "p"
@@ -207,13 +204,13 @@ drawWebGL webGL now brightness = do
 
 bindImageTexture :: WebGL -> WebGLProgram -> String -> Int -> Effect Unit
 bindImageTexture webGL shader url n = do
-  mTexture <- getImageTexture webGL url
+  mTexture <- getImageTexture webGL url n
   case mTexture of
     Just t -> bindTexture webGL.glc shader t n ("t" <> show n)
     Nothing -> pure unit
 
-getImageTexture :: WebGL -> String -> Effect (Maybe WebGLTexture)
-getImageTexture webGL url = do
+getImageTexture :: WebGL -> String -> Int -> Effect (Maybe WebGLTexture)
+getImageTexture webGL url n = do
   imageTextures <- read webGL.imageTextures
   case lookup url imageTextures of
     Just t -> pure $ Just t
@@ -222,23 +219,23 @@ getImageTexture webGL url = do
       case mImg of
         Just img -> do
           t <- createTexture webGL.glc
-          _imageToTexture webGL.glc.gl img t  
+          _imageToTexture webGL.glc.gl img t n  
           write (insert url t imageTextures) webGL.imageTextures
           pure $ Just t
         Nothing -> pure Nothing
         
-foreign import _imageToTexture :: WebGLContext -> Image -> WebGLTexture -> Effect Unit
+foreign import _imageToTexture :: WebGLContext -> Image -> WebGLTexture -> Int -> Effect Unit
 
 
 bindVideoTexture :: WebGL -> WebGLProgram -> String -> Int -> Effect Unit
 bindVideoTexture webGL shader url n = do
-  mTexture <- getVideoTexture webGL url
+  mTexture <- getVideoTexture webGL url n
   case mTexture of
     Just t -> bindTexture webGL.glc shader t n ("t" <> show n)
     Nothing -> pure unit
 
-getVideoTexture :: WebGL -> String -> Effect (Maybe WebGLTexture)
-getVideoTexture webGL url = do
+getVideoTexture :: WebGL -> String -> Int -> Effect (Maybe WebGLTexture)
+getVideoTexture webGL url n = do
   videoTextures <- read webGL.videoTextures
   case lookup url videoTextures of
     Just t -> do
@@ -246,19 +243,49 @@ getVideoTexture webGL url = do
       case mVid of
         Nothing -> pure Nothing
         Just vid -> do
-          _videoToTexture webGL.glc.gl vid t      
+          _videoToTexture webGL.glc.gl vid t n
           pure $ Just t
     Nothing -> do
       mVid <- getVideo webGL.sharedResources url
       case mVid of
         Just vid -> do
           t <- createTexture webGL.glc
-          _videoToTexture webGL.glc.gl vid t  
+          _videoToTexture webGL.glc.gl vid t n
           write (insert url t videoTextures) webGL.videoTextures
           pure $ Just t
         Nothing -> pure Nothing
           
-foreign import _videoToTexture :: WebGLContext -> Video -> WebGLTexture -> Effect Unit
+foreign import _videoToTexture :: WebGLContext -> Video -> WebGLTexture -> Int -> Effect Unit
 
 foreign import _fftToTexture :: WebGLContext -> AnalyserArray -> WebGLTexture -> Effect Unit
 
+
+bindGDMTexture :: WebGL -> WebGLProgram -> String -> Int -> Effect Unit
+bindGDMTexture webGL shader x n = do
+  mTexture <- getGDMTexture webGL x n
+  case mTexture of
+    Just t -> bindTexture webGL.glc shader t n ("t" <> show n)
+    Nothing -> pure unit
+
+getGDMTexture :: WebGL -> String -> Int -> Effect (Maybe WebGLTexture)
+getGDMTexture webGL x n = do
+  gdmTextures <- read webGL.gdmTextures
+  case lookup x gdmTextures of
+    Just t -> do
+      mGDM <- getGDM webGL.sharedResources x
+      case mGDM of 
+        Nothing -> pure Nothing
+        Just gdm -> do
+          _gdmToTexture webGL.glc.gl gdm t n
+          pure $ Just t
+    Nothing -> do
+      mGdm <- getGDM webGL.sharedResources x
+      case mGdm of
+        Just gdm -> do
+          t <- createTexture webGL.glc
+          _gdmToTexture webGL.glc.gl gdm t n
+          write (insert x t gdmTextures) webGL.gdmTextures
+          pure $ Just t
+        Nothing -> pure Nothing
+
+foreign import _gdmToTexture :: WebGLContext -> GDM -> WebGLTexture -> Int -> Effect Unit

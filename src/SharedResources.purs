@@ -220,6 +220,7 @@ foreign import _newVideo :: String -> Effect Video
 
 foreign import _videoIsPlaying :: Video -> Effect Boolean
 
+
 -- GDM (i.e. window/display capture via getDisplayMedia)
 
 foreign import data GDM :: Type

@@ -1,6 +1,7 @@
 "use strict";
 
-export const _imageToTexture = gl => img => t => () => {
+export const _imageToTexture = gl => img => t => n => () => {
+  gl.activeTexture(gl.TEXTURE0 + n);
   gl.bindTexture(gl.TEXTURE_2D, t);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -9,6 +10,8 @@ export const _imageToTexture = gl => img => t => () => {
   }
 
 export const _videoToTexture = _imageToTexture;
+
+export const _gdmToTexture = _imageToTexture;
 
 export const _fftToTexture = gl => array => texture => () => {
   gl.bindTexture(gl.TEXTURE_2D, texture);
