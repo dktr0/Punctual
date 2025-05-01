@@ -2,13 +2,15 @@
 
 export const _newWebcamElement = () => {
   var r = document.createElement('video');
-  r.width = 2048; r.height = 2048; r.autoplay = true; r.isPlaying = false;
+  r.autoplay = true; r.isPlaying = false;
   r.addEventListener('playing',function() { r.isPlaying = true; });
   navigator.mediaDevices.getUserMedia({video: true}).then( function(stream) { r.srcObject = stream; } );
   return r;
   }
   
 export const _stopWebcamElement = e => () => e.srcObject.getTracks().forEach(function(track) { track.stop(); });
+
+
 
 export const _updateWebcamTexture = gl => t => e => () => {
   if(e.isPlaying) {
@@ -49,10 +51,15 @@ export const _videoIsPlaying = v => () => v.isPlaying;
 
 export const _newGDM = () => {
   var r = document.createElement('video');
-  r.width = 2048; r.height = 2048; r.autoplay = true; r.isPlaying = false;
+  r.autoplay = true; r.isPlaying = false;
   r.addEventListener('playing',function() { r.isPlaying = true; });
   navigator.mediaDevices.getDisplayMedia({video: true, monitorTypeSurfaces: "include", surfaceSwitching: "include"}).then( function(stream) { r.srcObject = stream; } );
   return r;
   }
 
 export const _gdmIsPlaying = gdm => () => gdm.isPlaying;
+
+export const _imageAspectRatio = r => () => { if(r.loaded) return r.width/r.height; else return 1; }
+export const _videoAspectRatio = r => () => { if(r.isPlaying) return r.videoWidth/r.videoHeight; else return 1; }
+export const _webcamAspectRatio = _videoAspectRatio;
+export const _gdmAspectRatio = _videoAspectRatio;

@@ -55,6 +55,14 @@ allocate = do
 writeCode :: String -> G Unit
 writeCode x = modify_ $ \s -> s { code = s.code <> x } 
 
+withFxy :: forall a. Vec2 -> G a -> G a
+withFxy fxy a = do
+  cachedFxy <- _.fxy <$> get
+  modify_ $ \s -> s { fxy = fxy }
+  r <- a
+  modify_ $ \s -> s { fxy = cachedFxy }
+  pure r
+
 withFxys :: forall a. Expr a => NonEmptyList Vec2 -> G (Matrix a) -> G (Matrix a)
 withFxys fxys a = do
   cachedFxy <- _.fxy <$> get

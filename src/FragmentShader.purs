@@ -26,7 +26,7 @@ import Output (Output)
 import Output as Output
 import Program (Program)
 import Expr (class Expr, Float(..), Vec2(..), Vec3, Vec4, abs, acos, add, ampdb, asin, atan, between, bipolar, blend, castExprs, cbrt, ceil, circle, clip, constant, cos, cpsmidi, dbamp, difference, distance, division, divisionExprFloat, dotSum, equal, exp, expr, fadeIn, fadeOut, floatFloatToVec2, floor, fract, fromFloat, fromFloats, fromVec2s, function1, gate, greaterThan, greaterThanEqual, hline, hsvrgb, iline, lessThan, lessThanEqual, line, linlin, log, log10, log2, max, midicps, min, mix, mixFloat, mod, notEqual, pi, point, pow, product, productExprFloat, productFloatExpr, prox, pxy, rgbaFade, rgbhsv, rtx, rtxy, rty, seq, setX, setY, sign, sin, smoothStep, sqrt, sum, swizzleW, swizzleX, swizzleXY, swizzleXYZ, swizzleY, swizzleZ, swizzleZW, tan, tile, toExpr, unaryFunction, unipolar, vec3FloatToVec4, vline, xyr, xyrt, xyt, zero)
-import G (G, assign, runG, texture2D, texture2Da, textureFFT, withAlteredTime, withFxys, TextureMap)
+import G (G, assign, runG, texture2D, texture2Da, textureFFT, withAlteredTime, withFxy, withFxys, TextureMap)
 import Matrix (Matrix(..),fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3,semiFlatten,fromMatrixMatrix)
 import Number (acosh, asinh, atanh, cosh, sinh, tanh) as Number
 
@@ -129,8 +129,9 @@ signalToExprs Fb = get >>= _.fxy >>> unipolar >>> texture2D "f" >>= exprToExprs 
 signalToExprs (Img url) = do
   s <- get
   case lookup url s.textureMap.imgs of
-    Just n -> do
-      t <- texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
+    Just n -> fitG (FloatExpr $ "ar" <> show n) $ do
+      s2 <- get
+      t <- texture2D ("t" <> show n) (unipolar s2.fxy) -- :: Vec3
       v3 <- maskUnitSquareRGB t 
       pure $ exprToExprs v3
     Nothing -> pure $ pure $ zero
@@ -138,8 +139,9 @@ signalToExprs (Img url) = do
 signalToExprs (Imga url) = do
   s <- get
   case lookup url s.textureMap.imgs of
-    Just n -> do
-      t <- texture2Da ("t" <> show n) (unipolar s.fxy) -- :: Vec4
+    Just n -> fitG (FloatExpr $ "ar" <> show n) $ do
+      s2 <- get
+      t <- texture2Da ("t" <> show n) (unipolar s2.fxy) -- :: Vec4
       v4 <- maskUnitSquareRGBA t
       pure $ exprToExprs v4
     Nothing -> pure $ pure $ zero
@@ -147,8 +149,9 @@ signalToExprs (Imga url) = do
 signalToExprs (Vid url) = do
   s <- get
   case lookup url s.textureMap.vids of
-    Just n -> do
-      t <- texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
+    Just n -> fitG (FloatExpr $ "ar" <> show n) $ do
+      s2 <- get
+      t <- texture2D ("t" <> show n) (unipolar s2.fxy) -- :: Vec3
       v3 <- maskUnitSquareRGB t 
       pure $ exprToExprs v3
     Nothing -> pure $ pure $ zero
@@ -156,19 +159,20 @@ signalToExprs (Vid url) = do
 signalToExprs (Vida url) = do
   s <- get
   case lookup url s.textureMap.vids of
-    Just n -> do
-      t <- texture2Da ("t" <> show n) (unipolar s.fxy) -- :: Vec4
+    Just n -> fitG (FloatExpr $ "ar" <> show n) $ do
+      s2 <- get
+      t <- texture2Da ("t" <> show n) (unipolar s2.fxy) -- :: Vec4
       v4 <- maskUnitSquareRGBA t
       pure $ exprToExprs v4
     Nothing -> pure $ pure $ zero
 
-signalToExprs Cam = do
+signalToExprs Cam = fitG (FloatExpr "war") $ do
   s <- get
   t <- texture2D "w" (unipolar s.fxy) -- :: Vec3
   v3 <- maskUnitSquareRGB t 
   pure $ exprToExprs v3
   
-signalToExprs Cama = do
+signalToExprs Cama = fitG (FloatExpr "war") $ do
   s <- get
   t <- texture2D "w" (unipolar s.fxy) -- :: Vec3
   v4 <- maskUnitSquareRGBtoRGBA t 
@@ -177,8 +181,9 @@ signalToExprs Cama = do
 signalToExprs (Gdm x) = do
   s <- get
   case lookup x s.textureMap.gdms of
-    Just n -> do
-      t <- texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
+    Just n -> fitG (FloatExpr $ "ar" <> show n) $ do
+      s2 <- get
+      t <- texture2D ("t" <> show n) (unipolar s2.fxy) -- :: Vec3
       v3 <- maskUnitSquareRGB t 
       pure $ exprToExprs v3
     Nothing -> pure $ pure $ zero
@@ -186,8 +191,9 @@ signalToExprs (Gdm x) = do
 signalToExprs (Gdma x) = do
   s <- get
   case lookup x s.textureMap.gdms of
-    Just n -> do
-      t <- texture2D ("t" <> show n) (unipolar s.fxy) -- :: Vec3
+    Just n -> fitG (FloatExpr $ "ar" <> show n) $ do
+      s2 <- get
+      t <- texture2D ("t" <> show n) (unipolar s2.fxy) -- :: Vec3
       v4 <- maskUnitSquareRGBtoRGBA t
       pure $ exprToExprs v4
     Nothing -> pure $ pure $ zero
@@ -505,6 +511,17 @@ signalToExprs (Seq steps) = do
 
 signalToExprs _ = pure $ exprToExprs $ FloatConstant 0.0
 
+
+fitG :: forall e. Float -> G e -> G e
+fitG desiredAspectRatio e = do
+  let screenAspectRatio = FloatExpr "(res.x/res.y)"
+  let screenOverDesired = division screenAspectRatio desiredAspectRatio
+  let desiredOverScreen = division desiredAspectRatio screenAspectRatio
+  let zoomFactor = max (floatFloatToVec2 screenOverDesired desiredOverScreen) (constant 1.0)
+  s <- get
+  zoomedXy <- assign $ product s.fxy zoomFactor
+  withFxy zoomedXy e
+
 {-
 -- for preserving alignment requests through intermediate calculations that are Float -> G Float
 -- created during matrix refactor but currently unused???
@@ -712,6 +729,7 @@ webGL1HeaderPrefix = """precision mediump float;
 commonHeader :: String
 commonHeader = """uniform lowp vec2 res;
 uniform sampler2D f,o,i,w,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14,t15;
+uniform float war,ar4,ar5,ar6,ar7,ar8,ar9,ar10,ar11,ar12,ar13,ar14,ar15;
 uniform float lo,mid,hi,ilo,imid,ihi,_defaultAlpha,_cps,_time,_etime,_beat,_ebeat;
 #define PI 3.1415926535897932384626433832795
 float div(float x,float y) { return (y != 0. ? x/y : 0.); }
