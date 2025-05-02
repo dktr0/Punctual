@@ -255,21 +255,21 @@ chain [x1,y1,x2,y2,x3,y3,...] [w] -- returns 1 when current fragment is within w
 
 mesh [x1,y1,x2,y2,...] [w] -- returns 1 when current fragment is within w of a mesh of lines that go between every pair of x1,y1 x2,y2 etc; otherwise 0 (combinatorial, for pairwise use meshp)
 
-img "https://url-to-image-file" -- accesses a texture built from the image file in question as red-green-blue (3-channel signal).
+img "https://url-to-image-file" -- accesses a texture built from the image file in question as red-green-blue (3-channel signal). The texture is implicitly fit based on an aspect ratio presumed from its resolution in pixels.
 
-imga "https://url-to-image-file" -- accesses a texture built from the image file in question as red-green-blue-alpha (4-channel signal).
+imga "https://url-to-image-file" -- accesses a texture built from the image file in question as red-green-blue-alpha (4-channel signal). The texture is implicitly fit based on an aspect ratio presumed from its resolution in pixels.
 
-vid "https://url-to-video-file" -- accesses a texture built from the video file in question as red-green-blue (3-channel signal).
+vid "https://url-to-video-file" -- accesses a texture built from the video file in question as red-green-blue (3-channel signal). The texture is implicitly fit based on an aspect ratio presumed from its resolution in pixels.
 
-vida "https://url-to-video-file" -- accesses a texture built from the video file in question as red-green-blue-alpha (4-channel signal).
+vida "https://url-to-video-file" -- accesses a texture built from the video file in question as red-green-blue-alpha (4-channel signal). The texture is implicitly fit based on an aspect ratio presumed from its resolution in pixels.
 
-cam -- accesses a texture built from the webcam as red-green-blue (3-channel signal).
+cam -- accesses a texture built from the webcam as red-green-blue (3-channel signal). The texture is implicitly fit based on an aspect ratio presumed from its resolution in pixels.
 
-cama -- accesses a texture built from the webcam as red-green-blue-alpha (4-channel signal).
+cama -- accesses a texture built from the webcam as red-green-blue-alpha (4-channel signal). The texture is implicitly fit based on an aspect ratio presumed from its resolution in pixels.
 
-gdm "identifier" -- accesses window/display capture as red-green-blue (3-channel signal). The identifier can be anything and can be used to allow different zones of Punctual code (e.g. in Estuary) to share the same existing display capture that has been established.
+gdm "identifier" -- accesses window/display capture as red-green-blue (3-channel signal). The identifier can be anything and can be used to allow different zones of Punctual code (e.g. in Estuary) to share the same existing display capture that has been established. The texture is implicitly fit based on an aspect ratio presumed from its resolution in pixels.
 
-gdma "identifier" -- accesses window/display capture as red-green-blue-alpha (4-channel signal). The identifier can be anything and can be used to allow different zones of Punctual code (e.g. in Estuary) to share the same existing display capture that has been established.
+gdma "identifier" -- accesses window/display capture as red-green-blue-alpha (4-channel signal). The identifier can be anything and can be used to allow different zones of Punctual code (e.g. in Estuary) to share the same existing display capture that has been established. The texture is implicitly fit based on an aspect ratio presumed from its resolution in pixels.
 
 fb [x1,y1,...] -- accesses feedback (Punctual video output from the previous frame) as red-green-blue (3-channel signal per 2 channels of input argument)
 

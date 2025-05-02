@@ -23,7 +23,7 @@ import Program (Program,programInfo)
 import FragmentShader (fragmentShader)
 import G (TextureMap)
 import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLContext, WebGLProgram, WebGLTexture, attachShader, bindBufferArray, bindFrameBuffer, bindTexture, compileShader, configureFrameBufferTextures, createFragmentShader, createProgram, createTexture, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, drawPostProgram, enableVertexAttribArray, flush, getAttribLocation, getCanvasHeight, getCanvasWidth, getFeedbackTexture, getOutputFrameBuffer, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport)
-import SharedResources (SharedResources,getTempo,getImage,updateWebcamTexture,Image,Video,GDM,getVideo,getGDM)
+import SharedResources (SharedResources,getTempo,getImage,updateWebcamTexture,Image,Video,GDM,getVideo,getGDM,webcamAspectRatio,_imageAspectRatio,_videoAspectRatio,_gdmAspectRatio)
 import AudioAnalyser (AnalyserArray)
 
 type WebGL = {
@@ -178,12 +178,13 @@ drawWebGL webGL now brightness = do
     _fftToTexture glc.gl webGL.sharedResources.inputAnalyser.analyserArray webGL.ifftTexture
   updateWebcamTexture webGL.sharedResources glc
   bindTexture glc shader glc.webcamTexture 3 "w"
+  webcamAspectRatio webGL.sharedResources >>= setUniform1f glc shader "war"
 
   -- update image, video, and GDM (display capture) textures
   textureMap <- read webGL.textureMap
-  _ <- traverseWithIndex (bindImageTexture webGL shader) textureMap.imgs
-  _ <- traverseWithIndex (bindVideoTexture webGL shader) textureMap.vids
-  _ <- traverseWithIndex (bindGDMTexture webGL shader) textureMap.gdms
+  _ <- traverseWithIndex (updateImageTexture webGL shader) textureMap.imgs
+  _ <- traverseWithIndex (updateVideoTexture webGL shader) textureMap.vids
+  _ <- traverseWithIndex (updateGDMTexture webGL shader) textureMap.gdms
   
   -- draw
   pLoc <- getAttribLocation glc shader "p"
@@ -202,90 +203,64 @@ drawWebGL webGL now brightness = do
   pure unit
 
 
-bindImageTexture :: WebGL -> WebGLProgram -> String -> Int -> Effect Unit
-bindImageTexture webGL shader url n = do
-  mTexture <- getImageTexture webGL url n
-  case mTexture of
-    Just t -> bindTexture webGL.glc shader t n ("t" <> show n)
+updateImageTexture :: WebGL -> WebGLProgram -> String -> Int -> Effect Unit
+updateImageTexture webGL shader url n = do
+  mImg <- getImage webGL.sharedResources url
+  case mImg of
     Nothing -> pure unit
-
-getImageTexture :: WebGL -> String -> Int -> Effect (Maybe WebGLTexture)
-getImageTexture webGL url n = do
-  imageTextures <- read webGL.imageTextures
-  case lookup url imageTextures of
-    Just t -> pure $ Just t
-    Nothing -> do
-      mImg <- getImage webGL.sharedResources url
-      case mImg of
-        Just img -> do
-          t <- createTexture webGL.glc
-          _imageToTexture webGL.glc.gl img t n  
-          write (insert url t imageTextures) webGL.imageTextures
-          pure $ Just t
-        Nothing -> pure Nothing
+    Just image -> do
+      imageTextures <- read webGL.imageTextures
+      texture <- case lookup url imageTextures of
+                   Just texture -> pure texture
+                   Nothing -> do
+                     texture <- createTexture webGL.glc
+                     _imageToTexture webGL.glc.gl image texture n
+                     write (insert url texture imageTextures) webGL.imageTextures
+                     pure texture
+      bindTexture webGL.glc shader texture n ("t" <> show n)
+      _imageAspectRatio image >>= setUniform1f webGL.glc shader ("ar" <> show n)
         
 foreign import _imageToTexture :: WebGLContext -> Image -> WebGLTexture -> Int -> Effect Unit
 
 
-bindVideoTexture :: WebGL -> WebGLProgram -> String -> Int -> Effect Unit
-bindVideoTexture webGL shader url n = do
-  mTexture <- getVideoTexture webGL url n
-  case mTexture of
-    Just t -> bindTexture webGL.glc shader t n ("t" <> show n)
+updateVideoTexture :: WebGL -> WebGLProgram -> String -> Int -> Effect Unit
+updateVideoTexture webGL shader url n = do
+  mVid <- getVideo webGL.sharedResources url
+  case mVid of
     Nothing -> pure unit
-
-getVideoTexture :: WebGL -> String -> Int -> Effect (Maybe WebGLTexture)
-getVideoTexture webGL url n = do
-  videoTextures <- read webGL.videoTextures
-  case lookup url videoTextures of
-    Just t -> do
-      mVid <- getVideo webGL.sharedResources url
-      case mVid of
-        Nothing -> pure Nothing
-        Just vid -> do
-          _videoToTexture webGL.glc.gl vid t n
-          pure $ Just t
-    Nothing -> do
-      mVid <- getVideo webGL.sharedResources url
-      case mVid of
-        Just vid -> do
-          t <- createTexture webGL.glc
-          _videoToTexture webGL.glc.gl vid t n
-          write (insert url t videoTextures) webGL.videoTextures
-          pure $ Just t
-        Nothing -> pure Nothing
+    Just video -> do
+      videoTextures <- read webGL.videoTextures
+      texture <- case lookup url videoTextures of
+                   Just texture -> pure texture
+                   Nothing -> do
+                     texture <- createTexture webGL.glc
+                     write (insert url texture videoTextures) webGL.videoTextures
+                     pure texture
+      _videoToTexture webGL.glc.gl video texture n
+      bindTexture webGL.glc shader texture n ("t" <> show n)
+      _videoAspectRatio video >>= setUniform1f webGL.glc shader ("ar" <> show n)
           
 foreign import _videoToTexture :: WebGLContext -> Video -> WebGLTexture -> Int -> Effect Unit
+
 
 foreign import _fftToTexture :: WebGLContext -> AnalyserArray -> WebGLTexture -> Effect Unit
 
 
-bindGDMTexture :: WebGL -> WebGLProgram -> String -> Int -> Effect Unit
-bindGDMTexture webGL shader x n = do
-  mTexture <- getGDMTexture webGL x n
-  case mTexture of
-    Just t -> bindTexture webGL.glc shader t n ("t" <> show n)
+updateGDMTexture :: WebGL -> WebGLProgram -> String -> Int -> Effect Unit
+updateGDMTexture webGL shader x n = do
+  mGDM <- getGDM webGL.sharedResources x
+  case mGDM of
     Nothing -> pure unit
-
-getGDMTexture :: WebGL -> String -> Int -> Effect (Maybe WebGLTexture)
-getGDMTexture webGL x n = do
-  gdmTextures <- read webGL.gdmTextures
-  case lookup x gdmTextures of
-    Just t -> do
-      mGDM <- getGDM webGL.sharedResources x
-      case mGDM of 
-        Nothing -> pure Nothing
-        Just gdm -> do
-          _gdmToTexture webGL.glc.gl gdm t n
-          pure $ Just t
-    Nothing -> do
-      mGdm <- getGDM webGL.sharedResources x
-      case mGdm of
-        Just gdm -> do
-          t <- createTexture webGL.glc
-          _gdmToTexture webGL.glc.gl gdm t n
-          write (insert x t gdmTextures) webGL.gdmTextures
-          pure $ Just t
-        Nothing -> pure Nothing
+    Just gdm -> do
+      gdmTextures <- read webGL.gdmTextures
+      texture <- case lookup x gdmTextures of
+                   Just texture -> pure texture
+                   Nothing -> do
+                     texture <- createTexture webGL.glc
+                     write (insert x texture gdmTextures) webGL.gdmTextures
+                     pure texture
+      _gdmToTexture webGL.glc.gl gdm texture n
+      bindTexture webGL.glc shader texture n ("t" <> show n)
+      _gdmAspectRatio gdm >>= setUniform1f webGL.glc shader ("ar" <> show n)
 
 foreign import _gdmToTexture :: WebGLContext -> GDM -> WebGLTexture -> Int -> Effect Unit

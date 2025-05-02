@@ -174,7 +174,14 @@ updateWebcamTexture sr glc = do
     Just e -> _updateWebcamTexture glc.gl glc.webcamTexture e
     Nothing -> pure unit
 
-foreign import _webcamAspectRatio :: Image -> Effect Number
+foreign import _webcamAspectRatio :: WebcamElement -> Effect Number
+
+webcamAspectRatio :: SharedResources -> Effect Number
+webcamAspectRatio sr = do
+  mWebcamElement <- read sr.mWebcamElementRef
+  case mWebcamElement of 
+    Just e -> _webcamAspectRatio e
+    Nothing -> pure 1.0
 
 
 -- Images
@@ -224,7 +231,7 @@ foreign import _newVideo :: String -> Effect Video
 
 foreign import _videoIsPlaying :: Video -> Effect Boolean
 
-foreign import _videoAspectRatio :: Image -> Effect Number
+foreign import _videoAspectRatio :: Video -> Effect Number
 
 
 -- GDM (i.e. window/display capture via getDisplayMedia)
@@ -249,7 +256,7 @@ foreign import _newGDM :: Effect GDM
 
 foreign import _gdmIsPlaying :: GDM -> Effect Boolean
 
-foreign import _gdmAspectRatio :: Image -> Effect Number
+foreign import _gdmAspectRatio :: GDM -> Effect Number
 
 
 -- Audio Input and Output

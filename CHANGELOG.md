@@ -6,6 +6,7 @@
 - added gdm and gdma for access to window/display capture (via browser's getDisplayMedia pathway)
 - added cama as an RGBA variant of cam (RGB) that is transparent outside of the unit square
 - fixed a bug in which video textures would interfere with simultaneous image textures
+- all image textures (img,img,vid,vida,cam,cama,gdm,gdma) are implicitly 'fit' to aspect ratio (based on their resolution in pixels)
 
 0.5.1.5:
 
