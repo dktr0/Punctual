@@ -37,6 +37,15 @@ data Signal =
   Img String | Imga String |
   Vid String | Vida String |
   Gdm String | Gdma String |
+  Rows Signal |
+  Cols Signal |
+  Chns Signal |
+  Flat Signal |
+  Tspo Signal |
+  Get Int Int Signal |
+  Set MultiMode Int Signal Signal |
+  Map (Signal -> Signal) Signal |
+  Rmap (Signal -> Signal) Signal |
   Bipolar Signal |
   Unipolar Signal |
   Blend Signal | Add Signal | Mul Signal |
@@ -187,6 +196,15 @@ showIndented i (Imga url) = indent i <> "Imga " <> url <> "\n"
 showIndented i (Vida url) = indent i <> "Vida " <> url <> "\n"
 showIndented i (Gdm x) = indent i <> "Gdm " <> x <> "\n"
 showIndented i (Gdma x) = indent i <> "Gdma " <> x <> "\n"
+showIndented i (Rows x) = indent i <> "Rows\n" <> showIndented (i+1) x
+showIndented i (Cols x) = indent i <> "Cols\n" <> showIndented (i+1) x
+showIndented i (Chns x) = indent i <> "Chns\n" <> showIndented (i+1) x
+showIndented i (Flat x) = indent i <> "Flat\n" <> showIndented (i+1) x
+showIndented i (Tspo x) = indent i <> "Tspo\n" <> showIndented (i+1) x
+showIndented i (Get m n x) = indent i <> "Get " <> show m <> " " <> show n <> "\n" <> showIndented (i+1) x
+showIndented i (Set mm m n x) = indent i <> "Set " <> show mm <> " " <> show m <> " " <> show n <> "\n" <> showIndented (i+1) x
+showIndented i (Map _ x) = indent i <> "Map (Signal->Signal)\n" <> showIndented (i+1) x
+showIndented i (Rmap _ x) = indent i <> "Rmap (Signal->Signal)\n" <> showIndented (i+1) x
 showIndented i (Bipolar x) = indent i <> "Bipolar\n" <> showIndented (i+1) x
 showIndented i (Unipolar x) = indent i <> "Unipolar\n" <> showIndented (i+1) x
 showIndented i (Blend x) = indent i <> "Blend\n" <> showIndented (i+1) x
@@ -465,6 +483,15 @@ subSignals (Vid _) = Nil
 subSignals (Vida _) = Nil
 subSignals (Gdm _) = Nil
 subSignals (Gdma _) = Nil
+subSignals (Rows x) = x:Nil
+subSignals (Cols x) = x:Nil
+subSignals (Chns x) = x:Nil
+subSignals (Flat x) = x:Nil
+subSignals (Tspo x) = x:Nil
+subSignals (Get _ _ x) = x:Nil
+subSignals (Set _ _ x y) = x:y:Nil
+subSignals (Map _ x) = x:Nil
+subSignals (Rmap _ x) = x:Nil
 subSignals (Bipolar x) = x:Nil
 subSignals (Unipolar x) = x:Nil
 subSignals (Blend x) = x:Nil
@@ -608,6 +635,20 @@ dimensions (Vid _) = { rows: 1, columns: 3 }
 dimensions (Vida _) = { rows: 1, columns: 4 }
 dimensions (Gdm _) = { rows: 1, columns: 3 }
 dimensions (Gdma _) = { rows: 1, columns: 4 }
+dimensions (Rows _) = { rows: 1, columns: 1 }
+dimensions (Cols _) = { rows: 1, columns: 1 }
+dimensions (Chns _) = { rows: 1, columns: 1 }
+dimensions (Flat x) = { rows: 1, columns: channels x }
+dimensions (Tspo x) = { rows: d.columns, columns: d.rows }
+  where d = dimensions x
+dimensions (Get m n x) = { rows: (dimensions x).rows, columns: max 1 n }
+dimensions (Set mm n x y) = { rows: binaryFunctionChannels mm dx.rows dy.rows, columns: max (dx.columns + n) dy.columns } 
+  where
+    dx = dimensions x
+    dy = dimensions y
+dimensions (Map f x) = { rows: channels x, columns: channels (f $ Constant 0.0) }
+dimensions (Rmap f x) = { rows: d.rows, columns: channels (f $ Rep d.columns (Constant 0.0)) }
+  where d = dimensions x
 dimensions (Bipolar x) = dimensions x
 dimensions (Unipolar x) = dimensions x
 dimensions (Blend _) = { rows: 1, columns: 4 }
