@@ -1,6 +1,6 @@
 module Signal where
 
-import Prelude (class Eq, class Show, map, max, mempty, negate, otherwise, pure, show, ($), (*), (+), (-), (/), (<=), (<>))
+import Prelude (class Eq, class Show, map, max, mempty, negate, otherwise, pure, show, ($), (*), (+), (-), (/), (<=), (<>), eq)
 import Data.Generic.Rep (class Generic)
 -- import Data.Show.Generic (genericShow)
 import Data.List (List(..),(:))
@@ -14,6 +14,7 @@ import Data.Maybe (Maybe(..))
 
 import MultiMode (MultiMode(..))
 import Channels (class Channels, channels)
+import AST (Expression(..))
 
 data Signal =
   Constant Number |
@@ -44,8 +45,8 @@ data Signal =
   Tspo Signal |
   Get Int Int Signal |
   Set MultiMode Int Signal Signal |
-  Map (Signal -> Signal) Signal |
-  Rmap (Signal -> Signal) Signal |
+  Map SignalSignal Signal |
+  Rmap SignalSignal Signal |
   Bipolar Signal |
   Unipolar Signal |
   Blend Signal | Add Signal | Mul Signal |
@@ -140,15 +141,14 @@ derive instance Eq Signal
 derive instance Generic Signal _
 instance Show Signal where
   show x = showIndented 0 x
-  -- show (SignalList mm xs) = showList mm xs
-  -- show x = genericShow x
 
-{- showList :: forall a. Show a => MultiMode -> List a -> String
-showList mm xs = beginning <> middle <> end
-  where
-    beginning = if mm == Combinatorial then "[" else "{"
-    middle = intercalate "," $ map show xs
-    end = if mm == Combinatorial then "]" else "}" -}
+
+data SignalSignal = SignalSignal { signalSignal :: Signal -> Signal, expression :: Expression }
+
+-- a function from Signal to Signal is equal to another one if they are defined by the same expression
+instance Eq SignalSignal where
+  eq (SignalSignal x) (SignalSignal y) = eq x.expression y.expression
+
 
 indent :: Int -> String
 indent n = fold (replicate n " " :: List String)
@@ -646,8 +646,8 @@ dimensions (Set mm n x y) = { rows: binaryFunctionChannels mm dx.rows dy.rows, c
   where
     dx = dimensions x
     dy = dimensions y
-dimensions (Map f x) = { rows: channels x, columns: channels (f $ Constant 0.0) }
-dimensions (Rmap f x) = { rows: d.rows, columns: channels (f $ Rep d.columns (Constant 0.0)) }
+dimensions (Map (SignalSignal f) x) = { rows: channels x, columns: channels (f.signalSignal $ Constant 0.0) }
+dimensions (Rmap (SignalSignal f) x) = { rows: d.rows, columns: channels (f.signalSignal $ Rep d.columns (Constant 0.0)) }
   where d = dimensions x
 dimensions (Bipolar x) = dimensions x
 dimensions (Unipolar x) = dimensions x

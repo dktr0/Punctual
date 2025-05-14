@@ -42,6 +42,20 @@ derive instance Generic Expression _
 instance Show Expression where
   show x = genericShow x
 
+expressionPosition :: Expression -> Position
+expressionPosition (Reserved p _) = p
+expressionPosition (Identifier p _) = p
+expressionPosition (LiteralInt p _) = p
+expressionPosition (LiteralNumber p _) = p
+expressionPosition (LiteralString p _) = p
+expressionPosition (ListExpression p _ _) = p
+expressionPosition (Application p _ _) = p
+expressionPosition (Operation p _ _ _) = p
+expressionPosition (FromTo p _ _) = p
+expressionPosition (FromThenTo p _ _ _) = p
+expressionPosition (Lambda p _ _) = p
+expressionPosition (IfThenElse p _ _ _) = p
+
 parseAST :: String -> Either ParseError AST
 parseAST x = runParser x ast
 
