@@ -18,11 +18,11 @@ import Effect.Ref (Ref)
 import Data.Map (Map)
 import Data.Either (Either(..))
 
-import Signal (Signal(..))
+import Signal (Signal(..),SignalSignal(..))
 import Action (Action,signalToAction)
 import Output (Output)
 import MultiMode (MultiMode)
-import AST (Expression,expressionPosition)
+import AST (Expression(..),expressionPosition)
 
 type Library = Map.Map String Value
 
@@ -33,17 +33,18 @@ type P a = StateT Library (ReaderT LibraryCache (ExceptT ParseError Aff)) a
 runP :: forall a. LibraryCache -> Map.Map String Value -> P a -> Aff (Either ParseError (Tuple a Library))
 runP libCache lib p = runExceptT $ runReaderT (runStateT p lib) libCache 
 
+newtype VariantFunction = VariantFunction (Variant -> Either String Variant)
 
 data Variant =
   Signal Signal |
   String String |
   Int Int |
   Number Number |
-  Function (Value -> P Value) |
   Output Output |
   Action Action |
-  SignalSignal_v (Signal -> Signal) |
-  OutputOrSignalSignal Output (Signal -> Signal)
+  VariantFunction_v VariantFunction |
+  SignalSignal_v SignalSignal |
+  OutputOrSignalSignal Output SignalSignal
 
 {-  
 instance Show Variant where
@@ -63,9 +64,9 @@ variantType (Signal _)  = "Signal"
 variantType (String _) = "String"
 variantType (Int _) = "Int"
 variantType (Number _) = "Number"
-variantType (Function _) = "Function"
 variantType (Output _) = "Output"
 variantType (Action _) = "Action"
+variantType (VariantFunction_v _) = "VariantFunction"
 variantType (SignalSignal_v _) = "Signal -> Signal"
 variantType (OutputOrSignalSignal _ _) = "Output or (Signal -> Signal)"
 
@@ -92,9 +93,17 @@ instance FromVariant Output where
   fromVariant (OutputOrSignalSignal x _) = Right x
   fromVariant v = Left $ "expected Output, found " <> variantType v
 
-variantToFunction :: Variant -> Either String (Value -> P Value)
-variantToFunction (Function x) = Right x
-variantToFunction v = Left $ "expected Function, found " <> variantType v
+instance FromVariant VariantFunction where
+  fromVariant (VariantFunction_v x) = Right x
+  fromVariant (SignalSignal_v x) = Right $ signalSignalToVariantFunction x
+  fromVariant (OutputOrSignalSignal _ x) = Right $ signalSignalToVariantFunction x
+  fromVariant v = Left $ "expected VariantFunction, found " <> variantType v
+
+signalSignalToVariantFunction :: SignalSignal -> VariantFunction
+signalSignalToVariantFunction (SignalSignal f) = VariantFunction $ \v ->
+  case fromVariant v of
+    Left err -> Left err
+    Right x -> Right $ toVariant $ f.signalSignal x
 
 instance FromVariant String where
   fromVariant (String x) = Right x
@@ -109,17 +118,17 @@ instance FromVariant Int where
   fromVariant (Int x) = Right x
   fromVariant v = Left $ "expected Int, found " <> variantType v
 
-variantToAction :: Variant -> Either String Action
-variantToAction (Action x) = Right x
-variantToAction (Signal x) = Right $ signalToAction x
-variantToAction (Number x) = Right $ signalToAction $ Constant x
-variantToAction (Int x) = Right $ signalToAction $ Constant $ toNumber x
-variantToAction v = Left $ "expected Action, found " <> variantType v
+instance FromVariant Action where
+  fromVariant (Action x) = Right x
+  fromVariant (Signal x) = Right $ signalToAction x
+  fromVariant (Number x) = Right $ signalToAction $ Constant x
+  fromVariant (Int x) = Right $ signalToAction $ Constant $ toNumber x
+  fromVariant v = Left $ "expected Action, found " <> variantType v
 
-variantToSignalSignal :: Variant -> Either String (Signal -> Signal)
-variantToSignalSignal (SignalSignal_v x) = Right x
-variantToSignalSignal (OutputOrSignalSignal _ x) = Right x
-variantToSignalSignal v = Left $ "expected Signal -> Signal, found " <> variantType v
+instance FromVariant SignalSignal where
+  fromVariant (SignalSignal_v x) = Right x
+  fromVariant (OutputOrSignalSignal _ x) = Right x
+  fromVariant v = Left $ "expected Signal -> Signal, found " <> variantType v
 
 
 class ToVariant a where
@@ -140,10 +149,19 @@ instance ToVariant Number where
 instance ToVariant Int where
   toVariant = Int
 
+instance ToVariant VariantFunction where
+  toVariant = VariantFunction_v
+
+instance ToVariant SignalSignal where
+  toVariant = SignalSignal_v
+
+instance ToVariant Action where
+  toVariant = Action
+
 
 type Value = { expression :: Expression, variant :: Variant }
 
-toValue :: forall a. ToVariant a => Expression -> a -> Value  
+toValue :: forall a. ToVariant a => Expression -> a -> Value
 toValue e a = { expression: e, variant: toVariant a }
 
 fromValue :: forall a. FromVariant a => Value -> Either ParseError a
@@ -152,20 +170,15 @@ fromValue v =
     Left err -> Left $ ParseError err (expressionPosition v.expression)
     Right x -> Right x
 
-valueToFunction :: Value -> Either ParseError (Value -> P Value)
-valueToFunction v = 
-  case variantToFunction v.variant of
-    Left err -> Left $ ParseError err (expressionPosition v.expression)
-    Right x -> Right x
 
-valueToSignalSignal :: Value -> Either ParseError (Signal -> Signal)
-valueToSignalSignal v = 
-  case variantToSignalSignal v.variant of
-    Left err -> Left $ ParseError err (expressionPosition v.expression)
-    Right x -> Right x
-
+variantFunction :: forall a b. FromVariant a => ToVariant b => (a -> b) -> Variant
+variantFunction f = VariantFunction_v $ VariantFunction $ \v ->
+  case fromVariant v of
+    Left err -> Left err
+    Right a -> Right $ toVariant $ f a 
+             
 
 -- convert a list of Values to a single value that is a multi-channel Signal
 -- succeeds only if each of the provided values can be meaningfully cast to a Signal
-listValueToValueSignal :: forall m. Applicative m => MonadThrow ParseError m => Expression -> MultiMode -> List Value -> m Value
+listValueToValueSignal :: Expression -> MultiMode -> List Value -> Either ParseError Value
 listValueToValueSignal e mm xs = traverse fromValue xs >>= (pure <<< toValue e <<< SignalList mm)

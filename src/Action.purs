@@ -15,24 +15,36 @@ import Transition (Transition(..), transitionToXfade)
 import Duration (Duration(..))
 import Output (Output(..),isVisualOutput,isAudioOutput)
 
-type Action = {
+newtype Action = Action {
   signal :: Signal,
   defTime :: DefTime,
   transition :: Transition,
   output :: Output
   }
+
+signal :: Action -> Signal
+signal (Action x) = x.signal
+
+defTime :: Action -> DefTime
+defTime (Action x) = x.defTime
+
+transition :: Action -> Transition
+transition (Action x) = x.transition
+
+output :: Action -> Output
+output (Action x) = x.output
   
 signalToAction :: Signal -> Action
-signalToAction x = { signal: x, defTime: Quant one (InSeconds zero), transition: DefaultCrossFade, output: Audio }
+signalToAction x = Action { signal: x, defTime: Quant one (InSeconds zero), transition: DefaultCrossFade, output: Audio }
 
 setOutput :: Action -> Output -> Action
-setOutput x o = x { output = o }
+setOutput (Action x) o = Action $ x { output = o }
 
 setCrossFade :: Action -> Number -> Action
-setCrossFade x t = x { transition = CrossFade (InSeconds t) }
+setCrossFade (Action x) t = Action $ x { transition = CrossFade (InSeconds t) }
 
 actionTimesAsDateTime :: Tempo -> DateTime -> Action -> Tuple DateTime DateTime
-actionTimesAsDateTime tempo eTime x = Tuple t1 t2
+actionTimesAsDateTime tempo eTime (Action x) = Tuple t1 t2
   where
     t1 = calculateT1 tempo eTime x.defTime
     t2 = maybe eTime identity $ adjust (transitionToXfade tempo x.transition) t1
@@ -56,16 +68,16 @@ actionTimesAsAudioTime tempo eTime clockDiff x = Tuple t1Audio t2Audio
     t2Audio = t2Posix - clockDiff
         
 actionHasVisualOutput :: Action -> Boolean
-actionHasVisualOutput a = isVisualOutput a.output
+actionHasVisualOutput (Action a) = isVisualOutput a.output
 
 actionHasAudioOutput :: Action -> Boolean
-actionHasAudioOutput a = isAudioOutput a.output
+actionHasAudioOutput (Action a) = isAudioOutput a.output
 
 actionHasAudioInput :: Action -> Boolean
-actionHasAudioInput a = unwrap (signalInfo a.signal).ain
+actionHasAudioInput (Action a) = unwrap (signalInfo a.signal).ain
 
 showAction :: Action -> String
-showAction x = "  " <> show x.output <> ": " <> showDimensions <> showIndented 4 x.signal
+showAction (Action x) = "  " <> show x.output <> ": " <> showDimensions <> showIndented 4 x.signal
   where
     ds = dimensions x.signal
     showDimensions = show (ds.rows * ds.columns) <> " channels (" <> show ds.columns <> " cols x " <> show ds.rows <> " rows)\n"

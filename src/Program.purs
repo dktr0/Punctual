@@ -8,7 +8,7 @@ import Data.Foldable (foldMap,any)
 import Effect
 import Effect.Now (nowDateTime)
 
-import Action (Action,actionHasVisualOutput,actionHasAudioOutput,showAction)
+import Action (Action,actionHasVisualOutput,actionHasAudioOutput,showAction,signal)
 import Signal (SignalInfo,signalInfo)
 
 type Program = {
@@ -17,7 +17,7 @@ type Program = {
   }
 
 programInfo :: forall z. { actions :: List (Maybe Action) | z } -> SignalInfo
-programInfo x = foldMap signalInfo $ map _.signal $ catMaybes x.actions
+programInfo x = foldMap signalInfo $ map signal $ catMaybes x.actions
 
 emptyProgram :: Effect Program
 emptyProgram = do

@@ -21,7 +21,7 @@ import Data.List as List
 import NonEmptyList (zipWithEqualLength,everyPair,everyAdjacentPair,pairwise)
 import MultiMode (MultiMode(..))
 import Signal (Signal(..))
-import Action (Action,actionTimesAsSecondsSinceEval)
+import Action (Action,actionTimesAsSecondsSinceEval,signal,output)
 import Output (Output)
 import Output as Output
 import Program (Program)
@@ -785,7 +785,7 @@ appendActions :: Tempo -> DateTime -> Maybe Vec4 -> Tuple (Maybe Action) (Maybe 
 appendActions _ _ mPrevOutput (Tuple _ Nothing) = pure mPrevOutput
 appendActions tempo eTime mPrevOutput (Tuple mPrevAction (Just newAction)) = do
   let Tuple t0 t1 = actionTimesAsSecondsSinceEval tempo eTime newAction
-  appendSignals newAction.output t0 t1 mPrevOutput (_.signal <$> mPrevAction) newAction.signal
+  appendSignals (output newAction) t0 t1 mPrevOutput (signal <$> mPrevAction) (signal newAction)
 
 
 appendSignals :: Output -> Number -> Number -> Maybe Vec4 -> Maybe Signal -> Signal -> G (Maybe Vec4)
