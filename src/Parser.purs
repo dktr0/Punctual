@@ -11,7 +11,7 @@ import Data.Traversable (traverse)
 import Data.Map (empty)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.State.Trans (get, modify_, put)
-import Control.Monad.Error.Class (throwError)
+import Control.Monad.Error.Class (throwError,class MonadThrow)
 import Control.Monad.Reader (ask)
 import Parsing (ParseError(..), Position)
 import Data.Map as Map
@@ -28,8 +28,8 @@ import Effect.Now (nowDateTime)
 import AST (AST, Expression(..), Statement, parseAST, expressionPosition)
 import Program (Program)
 import MultiMode (MultiMode(..))
-import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus,fit,fast,late,zero)
-import Value (Library, LibraryCache, P, Value(..), fromValue, listValueToValueSignal, runP, toValue, Variant(..), class ToVariant, class FromVariant, toVariant, fromVariant)
+import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus,fit,fast,late,zero,SignalSignal(..))
+import Value (Library, LibraryCache, P, Value(..), fromValue, listValueToValueSignal, runP, toValue, Variant(..), class ToVariant, class FromVariant, toVariant, fromVariant, variantFunction, variantFunction2, variantFunction3, application)
 import Action (Action, setCrossFade, setOutput)
 import Output (Output)
 import Output as Output
@@ -148,13 +148,13 @@ parseExpression e@(IfThenElse _ i t el) = do
   el' <- parseExpression el >>= fromValue
   pure $ toValue e $ Mix Combinatorial el' t' i'
 
-
+{-
 -- application :: forall m. Applicative m => MonadThrow ParseError m => Value -> Value -> m Value
 application :: Value -> Value -> P Value
 application f x = do
   f' <- fromValue f
   f' x
-
+-}
 
 parseReserved :: Expression -> String -> P Value
 parseReserved p "append" = signalSignalSignal p Append
@@ -350,7 +350,7 @@ parseReserved p "rgba" = pure $ toValue p Output.RGBA -- TODO: rework FragmentSh
 parseReserved p "add" = pure $ { expression: p, variant: OutputOrSignalSignal Output.Add Add }
 parseReserved p "mul" = pure $ { expression: p, variant: OutputOrSignalSignal Output.Mul Mul }
 parseReserved p "rgb" = pure $ toValue p Output.RGB -- TODO: rework FragmentShader.purs with support for RGB as a Signal that accesses previous output
-parseReserved p "import" = pure $ { expression: p, variant: Function (importLibrary p) }
+parseReserved p "import" = ab p (importLibrary p)
 parseReserved p x = throwError $ ParseError ("internal error in Punctual: parseReserved called with unknown reserved word " <> x) p
 
 parseOperator :: Position -> String -> P Value
@@ -389,50 +389,84 @@ parseOperator p "<=:" = signalSignalSignal p $ LessThanEqual Pairwise
 parseOperator p x = throwError $ ParseError ("internal error in Punctual: parseOperator called with unsupported operator " <> x) p
 
 
-ab :: forall a b m. Applicative m => FromVariant a => ToVariant b => Expression -> (a -> b) -> m Value
-ab e f = pure { expression: e, variant: variantFunction f }
-
-{-
-abc :: forall a b c. FromVariant a => FromVariant b => ToVariant c => Expression -> (a -> b -> c) -> Value
-abc e f = { expression: }
-
-abc :: forall a b c m. Applicative m => FromVariant a => FromVariant b => ToVariant c => Expression -> (a -> b -> c) -> m Value
-abc e f = pure { expression: e, variant: Function $ \v -> 
-ValueFunction p (\v -> fromValue v >>= (pure <<< ab p <<< f ))
-
-abcd :: forall a b c d. FromValue a => FromValue b => FromValue c => ToValue d => Position -> (a -> b -> c -> d) -> Value
-abcd p f = ValueFunction p (\v -> fromValue v >>= (pure <<< abc p <<< f ))
--}
+-- * 
 
 signal :: forall m. Applicative m => Expression -> Signal -> m Value
-signal e x = pure $ toValue e x
+signal e x = pure $ toVariant e x
 
-signalSignal :: forall m. Applicative m => Expression -> (Signal -> Signal) -> m Value
+
+-- * -> *
+
+ab :: forall a b m. Applicative m => FromVariant a => ToVariant b => Expression -> (a -> b) -> m Variant
+ab e f = pure $ variantFunction e f
+
+signalSignal :: forall m. Applicative m => Expression -> (Signal -> Signal) -> m Variant
 signalSignal e f = pure { expression: e, variant: SignalSignal_v f }
+
+stringSignal :: forall m. Applicative m => Expression -> (String -> Signal) -> m Variant
+stringSignal = ab
+
+aAction :: forall a m. Applicative m => FromVariant a => Expression -> (a -> Action) -> m Variant
+aAction = ab
+
+outputAction :: forall m. Applicative m => Expression -> (Output -> Action) -> m Variant
+outputAction = ab
+
+numberAction :: forall m. Applicative m => Expression -> (Number -> Action) -> m Variant
+numberAction = ab
+
+
+-- * -> * -> *
+
+abc :: forall a b c m. Applicative m => FromVariant a => FromVariant b => ToVariant c => Expression -> (a -> b -> c) -> m Value
+abc e f = pure { expression: e, variant: variantFunction2 f }
 
 signalSignalSignal :: forall m. Applicative m => Expression -> (Signal -> Signal -> Signal) -> m Value
 signalSignalSignal e f = aSignalSignal
 
-intSignalSignal :: forall m. Monad m => Position -> (Int -> Signal -> Signal) -> m Value
+intSignalSignal :: forall m. Applicative m => Position -> (Int -> Signal -> Signal) -> m Value
 intSignalSignal e f = aSignalSignal
 
-intIntSignal :: forall m. Monad m => Expression -> (Int -> Int -> Signal) -> m Value
+intIntSignal :: forall m. Applicative m => Expression -> (Int -> Int -> Signal) -> m Value
 intIntSignal = abc
 
-aSignalSignal :: forall a m. FromVariant a => Applicative m => MonadThrow ParseError m => Expression -> (a -> Signal -> Signal) -> m Value
-aSignalSignal e f = pure { expression: e, variant: v }
-  where 
-    v = Function $ \v' -> case fromValue v' of
-                            Left err -> throwError err
-                            Right x -> pure $ { expression: e, variant: SignalSignal_v (f x) }
+aSignalSignal :: forall a m. Applicative m => FromVariant a => Expression -> (a -> Signal -> Signal) -> m Value
+aSignalSignal e f = ab e $ \a -> SignalSignal { signalSignal: f a, expression: Application (...position...) e ...but we don't have expression for a?
 
-mapForRmapRfor :: forall m. Applicative m => MonadThrow ParseError m => Expression -> ((Signal -> Signal) -> Signal -> Signal) -> m Value
-mapForRmapRfor e f = pure { expression: e, variant: v }
-  where 
-    v = Function $ \v' -> case valueToSignalSignal v' of
-                            Left err -> throwError err
-                            Right x -> pure $ { expression: e, variant: SignalSignal_v (f x) }
 
+temp :: (a -> Signal -> Signal) -> (a -> SignalSignal)
+temp f = \a -> 
+
+aSignalSignal e f = 
+
+
+we made SignalSignal that includes an expression so that we can have an Eq instance for things that include Signal -> Signal
+this appears to be introduce additional difficulties, just moving the problem around
+going back to this approach for a moment: can map be implemented without including it in the Signal representation?
+I don't think so
+
+map :: (Signal -> Signal) -> Signal -> Signal
+map f x = 
+
+
+
+
+
+
+
+pure { expression: e, variant: ? }
+
+
+
+
+mapForRmapRfor :: forall m. Applicative m => Expression -> ((Signal -> Signal) -> Signal -> Signal) -> m Value
+mapForRmapRfor e f = ab e $ \a -> SignalSignal { signalSignal: f a.signalSignal, expression: 
+
+
+-- * -> * -> * -> *
+
+abcd :: forall a b c d m. Applicative m => FromVariant a => FromVariant b => FromVariant c => ToVariant d => Expression -> (a -> b -> c -> d) -> m Value
+abcd e f = pure { expression: e, variant: variantFunction3 f }
 
 signalSignalSignalSignal :: forall m. Applicative m => Expression -> (Signal -> Signal -> Signal -> Signal) -> m Value
 signalSignalSignalSignal = abSignalSignal
@@ -443,17 +477,9 @@ intIntSignalSignal = abSignalSignal
 intSignalSignalSignal :: forall m. Applicative m => Expression -> (Int -> Signal -> Signal -> Signal) -> m Value
 intSignalSignalSignal = abSignalSignal
 
-stringSignal :: forall m. Monad m => Position -> (String -> Signal) -> m Value
-stringSignal p f = pure $ ab p f
+abSignalSignal :: forall a b m. Applicative m => FromVariant a => FromVariant b => (a -> b -> Signal -> Signal) -> m Value
+abSignalSignal e f = abc e $ \a b -> SignalSignal { signalSignal: f a b, expression: e }
 
-aAction :: forall a. FromValue a => Position -> (a -> Action) -> Value
-aAction p f = ValueFunction p (\v -> fromValue v >>= (pure <<< ValueAction p <<< f))
-
-outputAction :: forall m. Monad m => Position -> (Output -> Action) -> m Value
-outputAction p f = pure $ aAction p f
-
-numberAction :: forall m. Monad m => Position -> (Number -> Action) -> m Value
-numberAction p f = pure $ aAction p f
 
 
 actionAAction :: forall a. FromValue a => Position -> (Action -> a -> Action) -> Value
