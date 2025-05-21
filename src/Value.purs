@@ -39,10 +39,9 @@ data Variant =
   Int Expression Int |
   Number Expression Number |
   Output Expression Output |
-  Action Expression Action |
+  Action_v Expression Action |
   VariantFunction_v Expression VariantFunction |
-  SignalSignal_v Expression SignalSignal |
-  OutputOrSignalSignal Expression Output SignalSignal
+  OutputOrVariantFunction Expression Output VariantFunction
 
 {-  
 instance Show Variant where
@@ -63,10 +62,9 @@ variantType (String _ _) = "String"
 variantType (Int _ _) = "Int"
 variantType (Number _ _) = "Number"
 variantType (Output _ _) = "Output"
-variantType (Action _ _) = "Action"
+variantType (Action_v _ _) = "Action"
 variantType (VariantFunction_v _ _) = "VariantFunction"
-variantType (SignalSignal_v _ _) = "Signal -> Signal"
-variantType (OutputOrSignalSignal _ _ _) = "Output or (Signal -> Signal)"
+variantType (OutputOrVariantFunction _ _ _) = "Output or VariantFunction"
 
 variantExpression :: Variant -> Expression
 variantExpression (Signal e _)  = e
@@ -74,10 +72,9 @@ variantExpression (String e _)  = e
 variantExpression (Int e _)  = e
 variantExpression (Number e _)  = e
 variantExpression (Output e _)  = e
-variantExpression (Action e _)  = e
+variantExpression (Action_v e _)  = e
 variantExpression (VariantFunction_v e _)  = e
-variantExpression (SignalSignal_v e _)  = e
-variantExpression (OutputOrSignalSignal e _ _)  = e
+variantExpression (OutputOrVariantFunction e _ _)  = e
 
 variantPosition :: Variant -> Position
 variantPosition (Signal e _)  = expressionPosition e
@@ -85,10 +82,9 @@ variantPosition (String e _)  = expressionPosition e
 variantPosition (Int e _)  = expressionPosition e
 variantPosition (Number e _)  = expressionPosition e
 variantPosition (Output e _)  = expressionPosition e
-variantPosition (Action e _)  = expressionPosition e
+variantPosition (Action_v e _)  = expressionPosition e
 variantPosition (VariantFunction_v e _)  = expressionPosition e
-variantPosition (SignalSignal_v e _)  = expressionPosition e
-variantPosition (OutputOrSignalSignal e _ _)  = expressionPosition e
+variantPosition (OutputOrVariantFunction e _ _)  = expressionPosition e
 
 
 {-
@@ -102,6 +98,9 @@ valueToValueSignal x = ValueSignal (valuePosition x) <$> valueToSignal x
 class FromVariant a where
   fromVariant :: forall m. Applicative m => MonadThrow ParseError m => Variant -> m a
 
+instance FromVariant Variant where
+  fromVariant x = pure x
+
 instance FromVariant Signal where
   fromVariant (Signal _ x) = pure x
   fromVariant (Int _ x) = pure $ Constant $ toNumber x
@@ -110,11 +109,12 @@ instance FromVariant Signal where
 
 instance FromVariant Output where 
   fromVariant (Output _ x) = pure x
-  fromVariant (OutputOrSignalSignal _ x _) = pure x
+  fromVariant (OutputOrVariantFunction _ x _) = pure x
   fromVariant v = throwError $ ParseError ("expected Output, found " <> variantType v) (variantPosition v)
 
 instance FromVariant VariantFunction where
   fromVariant (VariantFunction_v _ x) = pure x
+  fromVariant (OutputOrVariantFunction _ _ x) = pure x
   fromVariant v = throwError $ ParseError ("expected VariantFunction, found " <> variantType v) (variantPosition v)
 
 instance FromVariant String where
@@ -131,20 +131,38 @@ instance FromVariant Int where
   fromVariant v = throwError $ ParseError ("expected Int, found " <> variantType v) (variantPosition v)
 
 instance FromVariant Action where
-  fromVariant (Action _ x) = pure x
+  fromVariant (Action_v _ x) = pure x
   fromVariant (Signal _ x) = pure $ signalToAction x
   fromVariant (Number _ x) = pure $ signalToAction $ Constant x
   fromVariant (Int _ x) = pure $ signalToAction $ Constant $ toNumber x
   fromVariant v = throwError $ ParseError ("expected Action, found " <> variantType v) (variantPosition v)
 
 instance FromVariant SignalSignal where
-  fromVariant (SignalSignal_v _ x) = pure x
-  fromVariant (OutputOrSignalSignal _ _ x) = pure x
+  fromVariant (VariantFunction_v e (VariantFunction f)) = do
+    let t = f $ Signal e $ Constant 0.0 -- note: e is not right but it doesn't matter because it has no impact on the overall result here
+    case t of
+      Left _ -> throwError $ ParseError "expected Signal -> Signal but function doesn't accept a Signal argument" (expressionPosition e)
+      Right r -> do
+        case (fromVariant r :: Either ParseError Signal) of
+          Left _ -> throwError $ ParseError "expected Signal -> Signal but function doesn't produce a Signal result" (expressionPosition e)
+          Right _ -> pure $ variantFunctionToSignalSignal e f
   fromVariant v = throwError $ ParseError ("expected Signal -> Signal, found " <> variantType v) (variantPosition v)
+
+variantFunctionToSignalSignal :: Expression -> (Variant -> Either ParseError Variant) -> SignalSignal
+variantFunctionToSignalSignal e f = SignalSignal { expression: e, signalSignal: f' }
+  where f' x = case f (toVariant e x) of -- note: e is not right but it doesn't matter because it has no impact on the overall result here
+                 Left _ -> Constant 0.0
+                 Right v -> do
+                   case (fromVariant v :: Either ParseError Signal) of
+                     Left _ -> Constant 0.0
+                     Right s -> s
 
 
 class ToVariant a where
   toVariant :: Expression -> a -> Variant
+
+instance ToVariant Variant where
+  toVariant _ a = a
 
 instance ToVariant Signal where
   toVariant = Signal
@@ -164,44 +182,41 @@ instance ToVariant Int where
 instance ToVariant VariantFunction where
   toVariant = VariantFunction_v
 
-instance ToVariant SignalSignal where
-  toVariant = SignalSignal_v
-
 instance ToVariant Action where
-  toVariant = Action
+  toVariant = Action_v
 
+
+abVariantFunction :: forall a b. FromVariant a => ToVariant b => Expression -> (a -> b) -> VariantFunction
+abVariantFunction e f = VariantFunction $ \v -> do
+  a <- fromVariant v
+  let e' = Application (expressionPosition e) e (variantExpression v)
+  pure $ toVariant e' $ f a 
 
 variantFunction :: forall a b. FromVariant a => ToVariant b => Expression -> (a -> b) -> Variant
-variantFunction e f = VariantFunction_v e $ VariantFunction $ \v ->
-  case fromVariant v of
-    Left err -> Left err
-    Right a -> do
-      let e' = Application (expressionPosition e) e (variantExpression v)
-      Right $ toVariant e' $ f a 
+variantFunction e f = VariantFunction_v e $ VariantFunction $ \v -> do
+  a <- fromVariant v
+  let e' = Application (expressionPosition e) e (variantExpression v)
+  pure $ toVariant e' $ f a 
 
 variantFunction2 :: forall a b c. FromVariant a => FromVariant b => ToVariant c => Expression -> (a -> b -> c) -> Variant
-variantFunction2 e f = VariantFunction_v e $ VariantFunction $ \v ->
-  case fromVariant v of
-    Left err -> Left err
-    Right a -> do
-      let e' = Application (expressionPosition e) e (variantExpression v)
-      Right $ variantFunction e' $ f a
+variantFunction2 e f = VariantFunction_v e $ VariantFunction $ \v -> do
+  a <- fromVariant v
+  let e' = Application (expressionPosition e) e (variantExpression v)
+  pure $ variantFunction e' $ f a
 
 variantFunction3 :: forall a b c d. FromVariant a => FromVariant b => FromVariant c => ToVariant d => Expression -> (a -> b -> c -> d) -> Variant
-variantFunction3 e f = VariantFunction_v e $ VariantFunction $ \v ->
-  case fromVariant v of
-    Left err -> Left err
-    Right a -> do
-      let e' = Application (expressionPosition e) e (variantExpression v)
-      Right $ variantFunction2 e' $ f a
+variantFunction3 e f = VariantFunction_v e $ VariantFunction $ \v -> do
+  a <- fromVariant v
+  let e' = Application (expressionPosition e) e (variantExpression v)
+  pure $ variantFunction2 e' $ f a
 
-application :: forall m. Applicative m => MonadThrow ParseError m => Variant -> Variant -> m Variant
+application :: Variant -> Variant -> Either ParseError Variant
 application f x = do
   let e = Application (variantPosition f) (variantExpression f) (variantExpression x)
   case f of
-    (SignalSignal_v _ (SignalSignal f')) -> do
+    {- (SignalSignal_v _ (SignalSignal f')) -> do
       x' <- fromVariant x
-      pure $ toVariant e $ f'.signalSignal x'
+      pure $ toVariant e $ f'.signalSignal x' -}
     (VariantFunction_v _ (VariantFunction f')) -> do
       case f' x of
         Left err -> throwError err
@@ -210,5 +225,5 @@ application f x = do
 
 -- convert a list of Values to a single value that is a multi-channel Signal
 -- succeeds only if each of the provided values can be meaningfully cast to a Signal
-listVariantToVariantSignal :: forall m. Applicative m => MonadThrow ParseError m => Expression -> MultiMode -> List Variant -> m Variant
+listVariantToVariantSignal :: Expression -> MultiMode -> List Variant -> P Variant
 listVariantToVariantSignal e mm xs = traverse fromVariant xs >>= (pure <<< toVariant e <<< SignalList mm)

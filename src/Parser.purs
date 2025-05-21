@@ -11,7 +11,7 @@ import Data.Traversable (traverse)
 import Data.Map (empty)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.State.Trans (get, modify_, put)
-import Control.Monad.Error.Class (throwError,class MonadThrow)
+import Control.Monad.Error.Class (throwError,class MonadThrow,liftEither)
 import Control.Monad.Reader (ask)
 import Parsing (ParseError(..), Position)
 import Data.Map as Map
@@ -29,8 +29,9 @@ import AST (AST, Expression(..), Statement, parseAST, expressionPosition)
 import Program (Program)
 import MultiMode (MultiMode(..))
 import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus,fit,fast,late,zero,SignalSignal(..))
-import Value (Library, LibraryCache, P, Variant(..), fromVariant, listVariantToVariantSignal, runP, toVariant, class ToVariant, class FromVariant, variantFunction, variantFunction2, variantFunction3, application, VariantFunction(..), variantExpression, variantPosition)
+import Value (Library, LibraryCache, P, Variant(..), fromVariant, listVariantToVariantSignal, runP, toVariant, class ToVariant, class FromVariant, variantFunction, variantFunction2, variantFunction3, application, VariantFunction(..), variantExpression, variantPosition, abVariantFunction)
 import Action (Action, setCrossFade, setOutput)
+import Action (signal) as Action
 import Output (Output)
 import Output as Output
 import SharedResources (URL)
@@ -105,8 +106,8 @@ parseMaybeStatement (Just stmt) = do
     Nil -> parseExpression stmt.expression
     (x:Nil) -> do
       v <- parseExpression stmt.expression
-      let vForDefs = case v.variant of
-                       Action a -> Signal a.signal
+      let vForDefs = case v of
+                       Action_v e a -> Signal e (Action.signal a)
                        anythingElse -> anythingElse
       modify_ $ Map.insert x vForDefs
       pure v
@@ -114,12 +115,12 @@ parseMaybeStatement (Just stmt) = do
       v <- embedLambdas stmt.position xs stmt.expression
       modify_ $ Map.insert x v
       pure v
-  case v.variant of
-      Action a -> pure $ Just a
+  case v of
+      Action_v _ a -> pure $ Just a
       _ -> pure Nothing
 
 parseExpression :: Expression -> P Variant
-parseExpression (Reserved p x) = parseReserved p x
+parseExpression e@(Reserved _ x) = parseReserved e x
 parseExpression (Identifier p x) = do
   s <- get
   case Map.lookup x s of
@@ -128,17 +129,17 @@ parseExpression (Identifier p x) = do
 parseExpression e@(LiteralInt _ x) = pure $ toVariant e x
 parseExpression e@(LiteralNumber _ x) = pure $ toVariant e x
 parseExpression e@(LiteralString _ x) = pure $ toVariant e x
-parseExpression (ListExpression p mm xs) = traverse parseExpression xs >>= listVariantToVariantSignal p mm
+parseExpression e@(ListExpression _ mm xs) = traverse parseExpression xs >>= listVariantToVariantSignal e mm
 parseExpression (Application _ f x) = do
   f' <- parseExpression f
   x' <- parseExpression x
-  application f' x'
-parseExpression (Operation p op x y) = do
-  f <- parseOperator p op
+  applicationP f' x'
+parseExpression e@(Operation _ op x y) = do
+  f <- parseOperator e op
   x' <- parseExpression x
   y' <- parseExpression y
-  z <- application f x'
-  application z y'
+  z <- applicationP f x'
+  applicationP z y'
 parseExpression e@(FromTo _ x y) = pure $ toVariant e $ SignalList Combinatorial $ Constant <$> fromTo x y
 parseExpression e@(FromThenTo _ a b c) = pure $ toVariant e $ SignalList Combinatorial $ Constant <$> fromThenTo a b c
 parseExpression (Lambda p xs e) = embedLambdas p xs e
@@ -148,13 +149,8 @@ parseExpression e@(IfThenElse _ i t el) = do
   el' <- parseExpression el >>= fromVariant
   pure $ toVariant e $ Mix Combinatorial el' t' i'
 
-{-
--- application :: forall m. Applicative m => MonadThrow ParseError m => Value -> Value -> m Value
-application :: Value -> Value -> P Value
-application f x = do
-  f' <- fromValue f
-  f' x
--}
+applicationP :: Variant -> Variant -> P Variant
+applicationP x y = liftEither $ application x y
 
 parseReserved :: Expression -> String -> P Variant
 parseReserved p "append" = signalSignalSignal p Append
@@ -214,10 +210,10 @@ parseReserved p "tspo" = signalSignal p Tspo
 parseReserved p "get" = intIntSignalSignal p Get
 parseReserved p "set" = intSignalSignalSignal p (Set Combinatorial)
 parseReserved p "setp" = intSignalSignalSignal p (Set Pairwise)
-parseReserved p "map" = mapForRmapRfor p Map
-parseReserved p "for" = mapForRmapRfor p (flip Map)
-parseReserved p "rmap" = mapForRmapRfor p Rmap
-parseReserved p "rfor" = mapForRmapRfor p (flip Rmap)
+parseReserved p "map" = mapRmap p Map
+parseReserved p "for" = forRfor p (flip Map)
+parseReserved p "rmap" = mapRmap p Rmap
+parseReserved p "rfor" = forRfor p (flip Rmap)
 parseReserved p "bipolar" = signalSignal p Bipolar
 parseReserved p "unipolar" = signalSignal p Unipolar
 parseReserved p "fb" = signal p Fb
@@ -320,10 +316,10 @@ parseReserved p "mesh" = signalSignalSignal p $ Mesh Combinatorial
 parseReserved p "meshp" = signalSignalSignal p $ Mesh Pairwise
 parseReserved p "spr" = signalSignalSignal p $ Spr Combinatorial
 parseReserved p "sprp" = signalSignalSignal p $ Spr Pairwise
-parseReserved p "btw" = signalSignalSignalSignal p $ Btw Combinatorial
-parseReserved p "btwp" = signalSignalSignalSignal p $ Btw Pairwise
-parseReserved p "pan" = signalSignalSignalSignal p $ Pan Combinatorial
-parseReserved p "panp" = signalSignalSignalSignal p $ Pan Pairwise
+parseReserved p "btw" = intSignalSignalSignal p $ Btw Combinatorial
+parseReserved p "btwp" = intSignalSignalSignal p $ Btw Pairwise
+parseReserved p "pan" = intSignalSignalSignal p $ Pan Combinatorial
+parseReserved p "panp" = intSignalSignalSignal p $ Pan Pairwise
 parseReserved p "splay" = intSignalSignal p $ Splay
 parseReserved p "seq" = signalSignal p Seq
 parseReserved p "fit" = signalSignalSignal p fit
@@ -344,16 +340,16 @@ parseReserved p "bpfp" = signalSignalSignalSignal p $ BPF Pairwise
 parseReserved p "delay" = numberSignalSignalSignal p Delay
 parseReserved p "audio" = pure $ toVariant p Output.Audio
 parseReserved p "stereo" = pure $ toVariant p (Output.AOut 0 2)
-parseReserved p "aout" = pure $ abc p Output.AOut
-parseReserved p "blend" = pure $ { expression: p, variant: OutputOrSignalSignal Output.Blend Blend }
+parseReserved p "aout" = abc p Output.AOut
+parseReserved p "blend" = outputOrSignalSignal p Output.Blend Blend
 parseReserved p "rgba" = pure $ toVariant p Output.RGBA -- TODO: rework FragmentShader.purs with support for RGBA as a Signal that accesses previous output
-parseReserved p "add" = pure $ { expression: p, variant: OutputOrSignalSignal Output.Add Add }
-parseReserved p "mul" = pure $ { expression: p, variant: OutputOrSignalSignal Output.Mul Mul }
+parseReserved p "add" = outputOrSignalSignal p Output.Add Add
+parseReserved p "mul" = outputOrSignalSignal p Output.Mul Mul
 parseReserved p "rgb" = pure $ toVariant p Output.RGB -- TODO: rework FragmentShader.purs with support for RGB as a Signal that accesses previous output
-parseReserved p "import" = ab p (importLibrary p)
+parseReserved p "import" = ab p (importLibrary p) -- importLibrary :: Variant -> P Variant
 parseReserved p x = throwError $ ParseError ("internal error in Punctual: parseReserved called with unknown reserved word " <> x) p
 
-parseOperator :: Position -> String -> P Variant
+parseOperator :: Expression -> String -> P Variant
 parseOperator p ">>" = actionOutputAction p setOutput
 parseOperator p "<>" = actionNumberAction p setCrossFade
 parseOperator p "$" = applicationOperator p
@@ -386,18 +382,22 @@ parseOperator p ">:" = signalSignalSignal p $ GreaterThan Pairwise
 parseOperator p "<:" = signalSignalSignal p $ LessThan Pairwise
 parseOperator p ">=:" = signalSignalSignal p $ GreaterThanEqual Pairwise
 parseOperator p "<=:" = signalSignalSignal p $ LessThanEqual Pairwise
-parseOperator p x = throwError $ ParseError ("internal error in Punctual: parseOperator called with unsupported operator " <> x) p
+parseOperator p x = throwError $ ParseError ("internal error in Punctual: parseOperator called with unsupported operator " <> x) (expressionPosition p)
 
-applicationOperator :: Expression -> m Variant
-applicationOperator e = pure $ toVariant e $ VariantFunction $ \v -> application v
+applicationOperator :: forall m. Applicative m => Expression -> m Variant
+applicationOperator e = pure $ variantFunction e $ \v -> VariantFunction (application v)
 
-reverseApplicationOperator :: Expression -> m Variant
-reverseApplicationOperator e = pure $ toVariant e $ VariantFunction $ \v -> (flip application) v
+reverseApplicationOperator :: forall m. Applicative m => Expression -> m Variant
+reverseApplicationOperator e = pure $ variantFunction e $ \v -> VariantFunction (flip application $ v)
+
 
 -- * 
 
 signal :: forall m. Applicative m => Expression -> Signal -> m Variant
 signal e x = pure $ toVariant e x
+
+outputOrSignalSignal :: forall m. Applicative m => Expression -> Output -> (Signal -> Signal) -> m Variant
+outputOrSignalSignal e o f = pure $ OutputOrVariantFunction e o (abVariantFunction e f)
 
 
 -- * -> *
@@ -406,7 +406,7 @@ ab :: forall a b m. Applicative m => FromVariant a => ToVariant b => Expression 
 ab e f = pure $ variantFunction e f
 
 signalSignal :: forall m. Applicative m => Expression -> (Signal -> Signal) -> m Variant
-signalSignal e f = pure { expression: e, variant: SignalSignal_v f }
+signalSignal = ab
 
 stringSignal :: forall m. Applicative m => Expression -> (String -> Signal) -> m Variant
 stringSignal = ab
@@ -427,29 +427,22 @@ abc :: forall a b c m. Applicative m => FromVariant a => FromVariant b => ToVari
 abc e f = pure $ variantFunction2 e f
 
 signalSignalSignal :: forall m. Applicative m => Expression -> (Signal -> Signal -> Signal) -> m Variant
-signalSignalSignal = aSignalSignal
+signalSignalSignal = abc
 
-intSignalSignal :: forall m. Applicative m => Position -> (Int -> Signal -> Signal) -> m Variant
-intSignalSignal = aSignalSignal
+intSignalSignal :: forall m. Applicative m => Expression -> (Int -> Signal -> Signal) -> m Variant
+intSignalSignal = abc
 
 intIntSignal :: forall m. Applicative m => Expression -> (Int -> Int -> Signal) -> m Variant
 intIntSignal = abc
 
 aSignalSignal :: forall a m. Applicative m => FromVariant a => Expression -> (a -> Signal -> Signal) -> m Variant
-aSignalSignal e f = pure $ VariantFunction_v e $ VariantFunction $ \v ->
-  case fromVariant v of
-    Left err -> Left err
-    Right a -> do
-      let e' = Application (expressionPosition e) e (variantExpression v)
-      Right $ toVariant e' $ SignalSignal { signalSignal: f a, expression: e' }
+aSignalSignal = abc
 
-mapForRmapRfor :: forall m. Applicative m => Expression -> ((Signal -> Signal) -> Signal -> Signal) -> m Variant
-mapForRmapRfor e f = pure $ VariantFunction_v e $ VariantFunction $ \v ->
-  case fromVariant v of
-    Left err -> Left err
-    Right (SignalSignal a) -> do
-      let e' = Application (expressionPosition e) e (variantExpression v)
-      Right $ toVariant e' $ SignalSignal { signalSignal: f a.signalSignal, expression: e' }
+mapRmap :: forall m. Applicative m => Expression -> (SignalSignal -> Signal -> Signal) -> m Variant
+mapRmap = abc
+
+forRfor :: forall m. Applicative m => Expression -> (Signal -> SignalSignal -> Signal) -> m Variant
+forRfor = abc
 
 actionAAction :: forall a m. Applicative m => FromVariant a => Expression -> (Action -> a -> Action) -> m Variant
 actionAAction = abc 
@@ -475,10 +468,7 @@ intIntSignalSignal = abSignalSignal
 intSignalSignalSignal :: forall m. Applicative m => Expression -> (Int -> Signal -> Signal -> Signal) -> m Variant
 intSignalSignalSignal = abSignalSignal
 
-signalSignalSignalSignal :: forall m. Applicative m => Expression -> (Signal -> Signal -> Signal -> Signal) -> m Variant
-signalSignalSignalSignal = abSignalSignal
-
-numberSignalSignalSignal :: forall m. Applicative m => Position -> (Number -> Signal -> Signal -> Signal) -> m Variant
+numberSignalSignalSignal :: forall m. Applicative m => Expression -> (Number -> Signal -> Signal -> Signal) -> m Variant
 numberSignalSignalSignal = abSignalSignal
 
 abSignalSignal :: forall a b m. Applicative m => FromVariant a => FromVariant b => Expression -> (a -> b -> Signal -> Signal) -> m Variant
@@ -493,16 +483,18 @@ abSignalSignal e f = pure $ VariantFunction_v e $ VariantFunction $ \v ->
 embedLambdas :: Position -> List String -> Expression -> P Variant
 embedLambdas p ks e = do 
   s <- get
-  _embedLambdas s p ks e
+  case _embedLambdas s p ks e of
+    Left err -> throwError err
+    Right r -> pure r
  
-_embedLambdas :: Library -> Position -> List String -> Expression -> P Variant
+_embedLambdas :: Library -> Position -> List String -> Expression -> Either ParseError Variant
 _embedLambdas s _ Nil e = do
   cachedS <- get
   put s
   a <- parseExpression e
   put cachedS
   pure a
-_embedLambdas s p (k:ks) e = pure $ ValueFunction p (\v -> _embedLambdas (Map.insert k v s) p ks e)
+_embedLambdas s p (k:ks) e = pure $ VariantFunction_v e $ VariantFunction p (\v -> _embedLambdas (Map.insert k v s) p ks e)
 
 
 importLibrary :: Variant -> P Variant
@@ -514,7 +506,7 @@ importLibrary v = do
    Left err -> throwError err
    Right lib -> do
      modify_ $ \s -> Map.union lib s
-     pure $ toVariant v.expression 0
+     pure $ toVariant (variantExpression v) 0
 
 
 loadLibrary :: LibraryCache -> Position -> URL -> Aff (Either ParseError Library)
