@@ -10,9 +10,10 @@ import Data.List (List(..),(:))
 import Data.Traversable (traverse)
 import Data.Map (empty)
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.State.Trans (get, modify_, put)
+import Control.Monad.State.Trans (get, modify_, put,class MonadState)
 import Control.Monad.Error.Class (throwError,class MonadThrow,liftEither)
 import Control.Monad.Reader (ask)
+import Control.Monad.Reader.Trans (class MonadReader)
 import Parsing (ParseError(..), Position)
 import Data.Map as Map
 import Data.DateTime (DateTime)
@@ -24,18 +25,47 @@ import Effect.Class (liftEffect)
 import Fetch (fetch)
 import Effect.Class.Console (log)
 import Effect.Now (nowDateTime)
+import Control.Monad.State.Trans (StateT, runStateT)
+import Control.Monad.Except.Trans (ExceptT,runExceptT)
+import Control.Monad.Reader (ReaderT,runReaderT)
 
 import AST (AST, Expression(..), Statement, parseAST, expressionPosition)
 import Program (Program)
 import MultiMode (MultiMode(..))
 import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus,fit,fast,late,zero,SignalSignal(..))
-import Value (Library, LibraryCache, P, Variant(..), fromVariant, listVariantToVariantSignal, runP, toVariant, class ToVariant, class FromVariant, variantFunction, variantFunction2, variantFunction3, application, VariantFunction(..), variantExpression, variantPosition, abVariantFunction)
+import Variant (V,Library,LibraryCache,Variant(..), fromVariant, listVariantToVariantSignal, toVariant, class ToVariant, class FromVariant, variantFunction, variantFunction2, variantFunction3, application, VariantFunction(..), variantExpression, variantPosition, abVariantFunction)
 import Action (Action, setCrossFade, setOutput)
 import Action (signal) as Action
 import Output (Output)
 import Output as Output
 import SharedResources (URL)
 import Number (fromTo,fromThenTo)
+
+
+type L a = ReaderT Library (Either ParseError) a 
+
+runL :: forall a. Library -> L a -> V a -- V a == Either ParseError a
+runL lib x = runReaderT x lib
+
+embedLambdas :: List String -> Expression -> L Variant
+embedLambdas Nil e = parseExpression e
+embedLambdas (k:ks) e = do
+  lib <- ask
+  pure $ VariantFunction_v e $ VariantFunction $ \v -> runL (Map.insert k v lib) $ embedLambdas ks e  
+  
+
+type P a = StateT Library (ReaderT LibraryCache (ExceptT ParseError Aff)) a
+
+runP :: forall a. LibraryCache -> Library -> P a -> Aff (Either ParseError (Tuple a Library))
+runP libCache lib p = runExceptT $ runReaderT (runStateT p lib) libCache
+
+embedL :: forall a m. MonadState Library m => MonadThrow ParseError m => L a -> m a 
+embedL x = do
+  lib <- get
+  case runL lib x of
+    Left err -> throwError err
+    Right a -> pure a
+
 
 parseProgram :: LibraryCache -> String -> DateTime -> Aff (Either ParseError Program)
 parseProgram libCache txt eTime = do
@@ -47,11 +77,13 @@ parseProgram libCache txt eTime = do
         Left err -> pure (Left err)
         Right (Tuple xs _) -> pure $ Right { actions: xs, evalTime: eTime }
 
+{-
 parseProgramTest :: String -> Effect Unit
 parseProgramTest txt = do
   libCache <- new empty
   eTime <- nowDateTime
   runAff_ (log <<< show) $ parseProgram libCache txt eTime
+-}
 
 parseLibrary :: LibraryCache -> String -> Aff (Either ParseError Library)
 parseLibrary libCache txt = do
@@ -101,28 +133,34 @@ astToListMaybeAction = do
 
 parseMaybeStatement :: Maybe Statement -> P (Maybe Action)
 parseMaybeStatement Nothing = pure Nothing
-parseMaybeStatement (Just stmt) = do
-  v <- case stmt.identifiers of
-    Nil -> parseExpression stmt.expression
+parseMaybeStatement (Just x) = parseStatement x.position x.identifiers x.expression
+
+parseStatement :: Position -> List String -> Expression -> P (Maybe Action)
+parseStatement p _ (Application _ (Reserved _ "import") (LiteralString _ url)) = do
+  importLibrary p url
+  pure Nothing 
+parseStatement p ks e = do
+  v <- case ks of
+    Nil -> embedL $ parseExpression e
     (x:Nil) -> do
-      v <- parseExpression stmt.expression
+      v <- embedL $ parseExpression e
       let vForDefs = case v of
-                       Action_v e a -> Signal e (Action.signal a)
+                       Action_v e' a -> Signal e' (Action.signal a)
                        anythingElse -> anythingElse
       modify_ $ Map.insert x vForDefs
       pure v
     (x:xs) -> do
-      v <- embedLambdas stmt.position xs stmt.expression
+      v <- embedL $ embedLambdas xs e
       modify_ $ Map.insert x v
       pure v
   case v of
       Action_v _ a -> pure $ Just a
       _ -> pure Nothing
 
-parseExpression :: Expression -> P Variant
+parseExpression :: Expression -> L Variant
 parseExpression e@(Reserved _ x) = parseReserved e x
 parseExpression (Identifier p x) = do
-  s <- get
+  s <- ask
   case Map.lookup x s of
     Just v -> pure v
     Nothing -> throwError $ ParseError ("unrecognized identifier " <> x) p
@@ -133,26 +171,26 @@ parseExpression e@(ListExpression _ mm xs) = traverse parseExpression xs >>= lis
 parseExpression (Application _ f x) = do
   f' <- parseExpression f
   x' <- parseExpression x
-  applicationP f' x'
+  applicationL f' x'
 parseExpression e@(Operation _ op x y) = do
   f <- parseOperator e op
   x' <- parseExpression x
   y' <- parseExpression y
-  z <- applicationP f x'
-  applicationP z y'
+  z <- applicationL f x'
+  applicationL z y'
 parseExpression e@(FromTo _ x y) = pure $ toVariant e $ SignalList Combinatorial $ Constant <$> fromTo x y
 parseExpression e@(FromThenTo _ a b c) = pure $ toVariant e $ SignalList Combinatorial $ Constant <$> fromThenTo a b c
-parseExpression (Lambda p xs e) = embedLambdas p xs e
+parseExpression (Lambda _ xs e) = embedLambdas xs e
 parseExpression e@(IfThenElse _ i t el) = do
   i' <- parseExpression i >>= fromVariant
   t' <- parseExpression t >>= fromVariant
   el' <- parseExpression el >>= fromVariant
   pure $ toVariant e $ Mix Combinatorial el' t' i'
 
-applicationP :: Variant -> Variant -> P Variant
-applicationP x y = liftEither $ application x y
+applicationL :: Variant -> Variant -> L Variant
+applicationL x y = liftEither $ application x y
 
-parseReserved :: Expression -> String -> P Variant
+parseReserved :: Expression -> String -> L Variant
 parseReserved p "append" = signalSignalSignal p Append
 parseReserved p "zip" = signalSignalSignal p Zip
 parseReserved p "pi" = signal p Pi
@@ -346,10 +384,10 @@ parseReserved p "rgba" = pure $ toVariant p Output.RGBA -- TODO: rework Fragment
 parseReserved p "add" = outputOrSignalSignal p Output.Add Add
 parseReserved p "mul" = outputOrSignalSignal p Output.Mul Mul
 parseReserved p "rgb" = pure $ toVariant p Output.RGB -- TODO: rework FragmentShader.purs with support for RGB as a Signal that accesses previous output
-parseReserved p "import" = ab p (importLibrary p) -- importLibrary :: Variant -> P Variant
-parseReserved p x = throwError $ ParseError ("internal error in Punctual: parseReserved called with unknown reserved word " <> x) p
+-- parseReserved p "import" = ab p (importLibrary p) -- importLibrary :: Variant -> P Variant
+parseReserved p x = throwError $ ParseError ("internal error in Punctual: parseReserved called with unknown reserved word " <> x) (expressionPosition p)
 
-parseOperator :: Expression -> String -> P Variant
+parseOperator :: Expression -> String -> L Variant
 parseOperator p ">>" = actionOutputAction p setOutput
 parseOperator p "<>" = actionNumberAction p setCrossFade
 parseOperator p "$" = applicationOperator p
@@ -480,34 +518,15 @@ abSignalSignal e f = pure $ VariantFunction_v e $ VariantFunction $ \v ->
       aSignalSignal e' $ f a
       
 
-embedLambdas :: Position -> List String -> Expression -> P Variant
-embedLambdas p ks e = do 
-  s <- get
-  case _embedLambdas s p ks e of
-    Left err -> throwError err
-    Right r -> pure r
- 
-_embedLambdas :: Library -> Position -> List String -> Expression -> Either ParseError Variant
-_embedLambdas s _ Nil e = do
-  cachedS <- get
-  put s
-  a <- parseExpression e
-  put cachedS
-  pure a
-_embedLambdas s p (k:ks) e = pure $ VariantFunction_v e $ VariantFunction p (\v -> _embedLambdas (Map.insert k v s) p ks e)
+-- implementation of library loading
 
-
-importLibrary :: Variant -> P Variant
-importLibrary v = do
-  url <- fromVariant v
+importLibrary :: Position -> URL -> P Unit
+importLibrary p url = do
   libCache <- ask
-  eErrLib <- liftAff $ loadLibrary libCache (variantPosition v) url
+  eErrLib <- liftAff $ loadLibrary libCache p url
   case eErrLib of
    Left err -> throwError err
-   Right lib -> do
-     modify_ $ \s -> Map.union lib s
-     pure $ toVariant (variantExpression v) 0
-
+   Right lib -> modify_ $ \s -> Map.union lib s
 
 loadLibrary :: LibraryCache -> Position -> URL -> Aff (Either ParseError Library)
 loadLibrary libCache p url = do
@@ -530,7 +549,6 @@ loadLibrary libCache p url = do
               log $ "successfully parsed library " <> url
               liftEffect $ write (Map.insert url lib libraries) libCache
               pure $ Right $ lib
-
 
 loadTextFile :: URL -> Aff (Either String String)
 loadTextFile url = do

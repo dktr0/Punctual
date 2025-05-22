@@ -22,7 +22,7 @@ import Data.Semigroup.Foldable (foldl1)
 import WebGLCanvas (WebGLCanvas, WebGLContext, WebGLTexture)
 import WebAudio
 import AudioAnalyser (AudioAnalyser,newAudioAnalyser,updateAnalyser,setSourceNode)
-import Value (LibraryCache) 
+import Variant (LibraryCache) 
 
 type URL = String
 
