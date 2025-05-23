@@ -1,8 +1,8 @@
 module Matrix where
 
-import Prelude (class Applicative, class Apply, class Eq, class Functor, class Show, map, pure, show, ($), (<>), (==), (<$>), (<<<), (&&), otherwise)
-import Data.Semigroup (class Semigroup, append)
-import Data.List.NonEmpty (NonEmptyList, cons, intercalate, singleton, length, head)
+import Prelude (class Applicative, class Apply, class Eq, class Functor, class Show, map, pure, show, ($), (<>), (==), (<$>), (<<<), (&&), otherwise, (>>>),max,(-))
+import Data.Semigroup (class Semigroup)
+import Data.List.NonEmpty (NonEmptyList, cons, intercalate, singleton, length, head, fromList, catMaybes, tail, drop)
 import Data.List.NonEmpty as L
 import Control.Apply (lift2,lift3)
 import Data.Foldable (class Foldable, foldMapDefaultL, foldl, foldr)
@@ -10,6 +10,8 @@ import Data.Traversable (class Traversable,traverse,sequenceDefault)
 import Data.Unfoldable1 (class Unfoldable1, replicate1, unfoldr1)
 import Data.Tuple (Tuple(..))
 import Data.Maybe (Maybe(..))
+import Data.List as List
+import Data.Unfoldable (replicate)
 
 import NonEmptyList (multi,zipWithEqualLength,unconsTuple)
 import MultiMode (MultiMode(..))
@@ -113,3 +115,30 @@ toTuples xs = unfoldr1 unconsTuple (flatten xs)
 
 pp :: forall a. Show a => Matrix a -> String
 pp (Matrix xss) = "[" <> intercalate "," (map (\xs -> "[" <> intercalate "," (map show xs) <> "]" ) xss) <> "]"
+
+-- **** IMPORTANT TODO: refactor to use tranpose in NonEmptyList.purs and add add guard against 1xn matrices ****
+-- turn rows into columns and vice versa (in corrupt case where columns not of same length, just returns the input unchanged)
+transpose :: forall a. Matrix a -> Matrix a
+transpose (Matrix xss) = 
+  case (fromList $ catMaybes $ map (tail >>> fromList) xss) of
+    Just yss -> Matrix yss
+    Nothing -> Matrix xss
+
+getFromRows :: forall a. a -> Int -> Int -> Matrix a -> Matrix a
+getFromRows itemToExtendWith n m x = mapRows (getFromRow itemToExtendWith n m) x
+
+getFromRow :: forall a. a -> Int -> Int -> NonEmptyList a -> NonEmptyList a
+getFromRow itemToExtendWith n m xs = 
+  case zs of
+    Just zs' -> zs'
+    Nothing -> singleton itemToExtendWith
+  where
+    n' = max 0 n
+    m' = max 1 m
+    ys = List.take m' $ drop n' xs -- :: List a
+    additionalNeeded = max (List.length ys - m') 0
+    additionalItems = replicate additionalNeeded itemToExtendWith
+    zs = fromList $ ys <> additionalItems
+
+getRows :: forall a. Matrix a -> NonEmptyList (NonEmptyList a)
+getRows (Matrix xss) = xss

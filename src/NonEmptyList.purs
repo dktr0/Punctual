@@ -2,8 +2,8 @@ module NonEmptyList where
 
 -- utility functions over PureScript's NonEmptyList
 
-import Prelude (max,($),(+),(/),bind,pure,map,(>=),(==),otherwise,(<<<))
-import Data.List.NonEmpty (NonEmptyList,length,concat,zipWith,singleton,fromList,init,tail,head,cons,drop,catMaybes,cons',toList)
+import Prelude (max,($),(+),(/),bind,pure,map,(>=),(==),otherwise,(<<<),(-),(<>),(>))
+import Data.List.NonEmpty (NonEmptyList,length,concat,zipWith,singleton,fromList,init,tail,head,cons,drop,catMaybes,cons',toList,take)
 import Data.Tuple (Tuple(..))
 import Data.Foldable (indexl)
 import Data.Semigroup.Foldable (maximum)
@@ -26,7 +26,7 @@ extendToEqualLength xs ys = Tuple (extendByRepetition n xs) (extendByRepetition 
 extendNonEmptyListsByRepetition :: forall a. NonEmptyList (NonEmptyList a) -> NonEmptyList (NonEmptyList a)
 extendNonEmptyListsByRepetition xss = map (extendByRepetition n) xss
   where n = maximum $ map length xss 
-    
+
 extendByRepetition :: forall a. Int -> NonEmptyList a -> NonEmptyList a
 extendByRepetition n xs = zipWith (\x _ -> x) xs' ys
   where
@@ -121,3 +121,24 @@ pairwise = transpose <<< extendNonEmptyListsByRepetition
 transpose :: forall a. NonEmptyList (NonEmptyList a) -> NonEmptyList (NonEmptyList a)
 transpose xss = cons' (map head xss) (List.catMaybes $ map fromList transposedList)
   where transposedList = List.transpose $ toList $ map tail xss -- :: List (List a)
+
+setInRow :: forall a. a -> Int -> NonEmptyList a -> NonEmptyList a -> NonEmptyList a
+setInRow itemToExtendWith n xs ys = 
+  case fromList beginningMiddleEnd of
+    Just zs -> zs
+    Nothing -> singleton itemToExtendWith
+  where
+    n' = max 0 n
+    beginning = take n' $ extendToLengthWith itemToExtendWith n' ys -- n items from ys (which is extended if necessary)
+    middle = toList xs
+    end = drop (n' + length xs) ys
+    beginningMiddleEnd = beginning <> middle <> end
+
+extendToLengthWith :: forall a. a -> Int -> NonEmptyList a -> NonEmptyList a
+extendToLengthWith itemToExtendWith n xs = xs'
+  where
+    n' = max 1 n
+    additionalNeeded = max 0 (n' - length xs)
+    xs' = case additionalNeeded > 0 of
+            false -> xs
+            true -> replicate1 additionalNeeded itemToExtendWith 

@@ -18,17 +18,19 @@ import Data.Int (toNumber)
 import Data.Number (round, trunc, cos, pi) as Number
 import Data.List as List
 
-import NonEmptyList (zipWithEqualLength,everyPair,everyAdjacentPair,pairwise)
+import NonEmptyList (zipWithEqualLength,everyPair,everyAdjacentPair,pairwise,setInRow)
+import NonEmptyList (combine) as NonEmptyList
 import MultiMode (MultiMode(..))
-import Signal (Signal(..))
+import Signal (Signal(..),dimensions)
 import Action (Action,actionTimesAsSecondsSinceEval,signal,output)
 import Output (Output)
 import Output as Output
 import Program (Program)
 import Expr (class Expr, Float(..), Vec2(..), Vec3, Vec4, abs, acos, add, ampdb, asin, atan, between, bipolar, blend, castExprs, cbrt, ceil, circle, clip, constant, cos, cpsmidi, dbamp, difference, distance, division, divisionExprFloat, dotSum, equal, exp, expr, fadeIn, fadeOut, floatFloatToVec2, floor, fract, fromFloat, fromFloats, fromVec2s, function1, gate, greaterThan, greaterThanEqual, hline, hsvrgb, iline, lessThan, lessThanEqual, line, linlin, log, log10, log2, max, midicps, min, mix, mixFloat, mod, notEqual, pi, point, pow, product, productExprFloat, productFloatExpr, prox, pxy, rgbaFade, rgbhsv, rtx, rtxy, rty, seq, setX, setY, sign, sin, smoothStep, sqrt, sum, swizzleW, swizzleX, swizzleXY, swizzleXYZ, swizzleY, swizzleZ, swizzleZW, tan, tile, toExpr, unaryFunction, unipolar, vec3FloatToVec4, vline, xyr, xyrt, xyt, zero)
 import G (G, assign, runG, texture2D, texture2Da, textureFFT, withAlteredTime, withFxy, withFxys, TextureMap)
-import Matrix (Matrix(..),fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3,semiFlatten,fromMatrixMatrix)
+import Matrix (Matrix(..),fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3,semiFlatten,fromMatrixMatrix,transpose,getFromRows,getRows)
 import Number (acosh, asinh, atanh, cosh, sinh, tanh) as Number
+import Channels (channels)
 
 exprToExprs :: forall a b. Expr a => Expr b => a -> Matrix b
 exprToExprs x = mapRows castExprs $ pure x
@@ -197,6 +199,37 @@ signalToExprs (Gdma x) = do
       v4 <- maskUnitSquareRGBtoRGBA t
       pure $ exprToExprs v4
     Nothing -> pure $ pure $ zero
+
+signalToExprs (Rows x) = pure $ exprToExprs $ FloatConstant $ toNumber (dimensions x).rows
+
+signalToExprs (Cols x) = pure $ exprToExprs $ FloatConstant $ toNumber (dimensions x).columns
+
+signalToExprs (Chns x) = pure $ exprToExprs $ FloatConstant $ toNumber (channels x)
+
+signalToExprs (Flat x) = do
+  x' <- signalToExprs x
+  traverse assign $ fromNonEmptyList $ flatten x'
+
+signalToExprs (Trsp x) = do
+  x' <- signalToExprs x :: G (Matrix Float)
+  traverse assign (transpose x') >>= mapRows castExprs >>> pure
+  
+signalToExprs (Get n m x) = do -- get m channels from each row of x starting at nth channel
+  x' <- signalToExprs x :: G (Matrix Float)
+  traverse assign (getFromRows zero n m x') >>= mapRows castExprs >>> pure
+
+signalToExprs (Set mm n x y) = do -- in each row of y, starting at n-th column, overwrite with values from x (potentially extending number of columns)
+  xss <- signalToExprs x :: G (Matrix Float)
+  yss <- signalToExprs y :: G (Matrix Float)
+  let zss = NonEmptyList.combine mm (setInRow zero n) (getRows xss) (getRows yss)
+  traverse assign (Matrix zss) >>= mapRows castExprs >>> pure
+
+
+{-
+  Map SignalSignal Signal |
+  Rmap SignalSignal Signal |
+-}
+
 
 signalToExprs (Blend x) = do
   xs <- flatten <$> (signalToExprs x :: G (Matrix Vec4))

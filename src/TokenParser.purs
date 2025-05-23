@@ -68,7 +68,7 @@ functionsWithArgumentsDef = [
   "aout",
   "splay","pan","panp",
   "btw","btwp",
-  "rows","cols","chns","flat","tspo","get","set","setp","map","for","rmap","rfor"
+  "rows","cols","chns","flat","trsp","get","set","setp","map","for","rmap","rfor"
   ]
 
 otherReservedNamesDef :: Array String

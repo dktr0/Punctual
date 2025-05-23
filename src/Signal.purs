@@ -42,7 +42,7 @@ data Signal =
   Cols Signal |
   Chns Signal |
   Flat Signal |
-  Tspo Signal |
+  Trsp Signal |
   Get Int Int Signal |
   Set MultiMode Int Signal Signal |
   Map SignalSignal Signal |
@@ -200,7 +200,7 @@ showIndented i (Rows x) = indent i <> "Rows\n" <> showIndented (i+1) x
 showIndented i (Cols x) = indent i <> "Cols\n" <> showIndented (i+1) x
 showIndented i (Chns x) = indent i <> "Chns\n" <> showIndented (i+1) x
 showIndented i (Flat x) = indent i <> "Flat\n" <> showIndented (i+1) x
-showIndented i (Tspo x) = indent i <> "Tspo\n" <> showIndented (i+1) x
+showIndented i (Trsp x) = indent i <> "Trsp\n" <> showIndented (i+1) x
 showIndented i (Get m n x) = indent i <> "Get " <> show m <> " " <> show n <> "\n" <> showIndented (i+1) x
 showIndented i (Set mm m n x) = indent i <> "Set " <> show mm <> " " <> show m <> " " <> show n <> "\n" <> showIndented (i+1) x
 showIndented i (Map _ x) = indent i <> "Map (Signal->Signal)\n" <> showIndented (i+1) x
@@ -487,7 +487,7 @@ subSignals (Rows x) = x:Nil
 subSignals (Cols x) = x:Nil
 subSignals (Chns x) = x:Nil
 subSignals (Flat x) = x:Nil
-subSignals (Tspo x) = x:Nil
+subSignals (Trsp x) = x:Nil
 subSignals (Get _ _ x) = x:Nil
 subSignals (Set _ _ x y) = x:y:Nil
 subSignals (Map _ x) = x:Nil
@@ -639,9 +639,9 @@ dimensions (Rows _) = { rows: 1, columns: 1 }
 dimensions (Cols _) = { rows: 1, columns: 1 }
 dimensions (Chns _) = { rows: 1, columns: 1 }
 dimensions (Flat x) = { rows: 1, columns: channels x }
-dimensions (Tspo x) = { rows: d.columns, columns: d.rows }
+dimensions (Trsp x) = { rows: d.columns, columns: d.rows }
   where d = dimensions x
-dimensions (Get m n x) = { rows: (dimensions x).rows, columns: max 1 n }
+dimensions (Get _ n x) = { rows: (dimensions x).rows, columns: max 1 n }
 dimensions (Set mm n x y) = { rows: binaryFunctionChannels mm dx.rows dy.rows, columns: max (dx.columns + n) dy.columns } 
   where
     dx = dimensions x
