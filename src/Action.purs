@@ -1,6 +1,6 @@
 module Action where
 
-import Prelude (identity,($),one,zero,(==),(||),(/),(-),(<>),show,(*))
+import Prelude (identity,($),one,zero,(==),(||),(/),(-),(<>),show,(*),identity,map)
 import Data.Tuple (Tuple(..))
 import Data.Tempo (Tempo)
 import Data.DateTime (DateTime, adjust, diff)
@@ -8,22 +8,24 @@ import Data.DateTime.Instant (unInstant,fromDateTime)
 import Data.Time.Duration (Seconds)
 import Data.Maybe (maybe)
 import Data.Newtype (unwrap)
+import Data.Foldable (any)
 
-import Signal (Signal,signalInfo,dimensions,showIndented)
+import Signal (Signal(..),info)
+import Matrix (Matrix)
 import DefTime (DefTime(..), calculateT1)
 import Transition (Transition(..), transitionToXfade)
 import Duration (Duration(..))
 import Output (Output(..),isVisualOutput,isAudioOutput)
 
 newtype Action = Action {
-  signal :: Signal,
+  matrix :: Matrix Signal,
   defTime :: DefTime,
   transition :: Transition,
   output :: Output
   }
 
-signal :: Action -> Signal
-signal (Action x) = x.signal
+matrix :: Action -> Matrix Signal
+matrix (Action x) = x.matrix
 
 defTime :: Action -> DefTime
 defTime (Action x) = x.defTime
@@ -34,8 +36,8 @@ transition (Action x) = x.transition
 output :: Action -> Output
 output (Action x) = x.output
   
-signalToAction :: Signal -> Action
-signalToAction x = Action { signal: x, defTime: Quant one (InSeconds zero), transition: DefaultCrossFade, output: Audio }
+matrixSignalToAction :: Matrix Signal -> Action
+matrixSignalToAction x = Action { matrix: x, defTime: Quant one (InSeconds zero), transition: DefaultCrossFade, output: Audio }
 
 setOutput :: Action -> Output -> Action
 setOutput (Action x) o = Action $ x { output = o }
@@ -74,10 +76,13 @@ actionHasAudioOutput :: Action -> Boolean
 actionHasAudioOutput (Action a) = isAudioOutput a.output
 
 actionHasAudioInput :: Action -> Boolean
-actionHasAudioInput (Action a) = unwrap (signalInfo a.signal).ain
+-- actionHasAudioInput (Action a) = unwrap (signalInfo a.signal).ain
+actionHasAudioInput x = any identity $ map (\s -> unwrap $ (info s).ain) $ matrix x
 
+{-
 showAction :: Action -> String
 showAction (Action x) = "  " <> show x.output <> ": " <> showDimensions <> showIndented 4 x.signal
   where
     ds = dimensions x.signal
     showDimensions = show (ds.rows * ds.columns) <> " channels (" <> show ds.columns <> " cols x " <> show ds.rows <> " rows)\n"
+-}

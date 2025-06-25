@@ -17,7 +17,6 @@ import Data.Ord as Ord
 import Data.Int (toNumber,round)
 
 import NonEmptyList (zipWithEqualLength,pairwise)
-import Signal (Signal(..))
 import MultiMode (MultiMode(..))
 import Matrix (Matrix(..),flatten,semiFlatten,fromNonEmptyListMulti,zip,rep,combine,combine3,concat,toTuples,fromNonEmptyList,fromMatrixMatrix)
 import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, divisionSafe, divisionUnsafe, smoothStep, showNumber) as Number 
@@ -222,6 +221,7 @@ tri f = phasor f >>= wavetable "tri" 4096
 
 type Frame = Matrix Sample
 
+{-
 signalToFrame :: Signal -> W Frame
 
 signalToFrame (Constant x) = pure $ pure $ Left x
@@ -418,6 +418,7 @@ signalToFrame (Delay maxT t x) = do
 
 signalToFrame _ = pure $ pure $ Left 0.0
 
+-}
 
 withAlteredTime :: NonEmptyList { time :: Sample, beat :: Sample, etime :: Sample, ebeat :: Sample }  -> W Frame -> W Frame
 withAlteredTime xs a = do
@@ -428,6 +429,7 @@ withAlteredTime xs a = do
   modify_ $ \s -> s { time = cached.time, beat = cached.beat, etime = cached.etime, ebeat = cached.ebeat }
   pure $ concat rs
 
+{-
 unaryFunction :: (Number -> Number) -> String -> Signal -> W Frame
 unaryFunction f name s = do
   xs <- signalToFrame s
@@ -435,11 +437,13 @@ unaryFunction f name s = do
               Left x' -> pure $ Left $ f x'
               Right x' -> assign $ name <> "(" <> x' <> ")"
   traverse g xs
+-}
 
 unaryFunction' :: (Number -> Number) -> String -> Sample -> Sample
 unaryFunction' f _ (Left x) = Left $ f x
 unaryFunction' _ name (Right x) = Right $ name <> "(" <> x <> ")"
 
+{-
 binaryFunction :: (Sample -> Sample -> W Sample) -> MultiMode -> Signal -> Signal -> W Frame
 binaryFunction f mm x y = do
   xs <- signalToFrame x
@@ -451,7 +455,7 @@ binaryFunctionWithRange f mm x y = do
   xs <- toTuples <$> signalToFrame x
   ys <- signalToFrame y
   sequence $ combine f mm xs ys
-
+-}
 
 bipolar :: Sample -> W Sample
 bipolar x = assign $ showSample x <> "*2-1"

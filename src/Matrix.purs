@@ -2,7 +2,7 @@ module Matrix where
 
 import Prelude (class Applicative, class Apply, class Eq, class Functor, class Show, map, pure, show, ($), (<>), (==), (<$>), (<<<), (&&), otherwise, (>>>),max,(-))
 import Data.Semigroup (class Semigroup)
-import Data.List.NonEmpty (NonEmptyList, cons, intercalate, singleton, length, head, fromList, catMaybes, tail, drop)
+import Data.List.NonEmpty (NonEmptyList, cons, intercalate, length, head, fromList, catMaybes, tail, drop)
 import Data.List.NonEmpty as L
 import Control.Apply (lift2,lift3)
 import Data.Foldable (class Foldable, foldMapDefaultL, foldl, foldr)
@@ -17,6 +17,9 @@ import NonEmptyList (multi,zipWithEqualLength,unconsTuple)
 import MultiMode (MultiMode(..))
 
 newtype Matrix a = Matrix (NonEmptyList (NonEmptyList a)) -- outer dimension is rows, inner dimension is columns
+
+singleton :: forall a. a -> Matrix a
+singleton x = Matrix $ pure $ pure x
 
 isSingleton :: forall a. Matrix a -> Boolean
 isSingleton (Matrix xs) = length xs == 1 && length (head xs) == 1
@@ -89,7 +92,7 @@ instance Unfoldable1 Matrix where
 
 -- to be used, for example, in implementation of Zip
 zip :: forall a. Matrix a -> Matrix a -> Matrix a
-zip xs ys = Matrix $ zipWithEqualLength (\x y -> x `cons` singleton y) (flatten xs) (flatten ys)
+zip xs ys = Matrix $ zipWithEqualLength (\x y -> x `cons` L.singleton y) (flatten xs) (flatten ys)
 
 -- note: the provided Multis should have the same dimensions, or else all hell breaks loose
 concat :: forall a. NonEmptyList (Matrix a) -> Matrix a
@@ -131,7 +134,7 @@ getFromRow :: forall a. a -> Int -> Int -> NonEmptyList a -> NonEmptyList a
 getFromRow itemToExtendWith n m xs = 
   case zs of
     Just zs' -> zs'
-    Nothing -> singleton itemToExtendWith
+    Nothing -> L.singleton itemToExtendWith
   where
     n' = max 0 n
     m' = max 1 m

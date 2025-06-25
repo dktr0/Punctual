@@ -11,11 +11,33 @@ import Data.Set (Set,singleton)
 import Data.Monoid.Disj (Disj)
 import Data.Semigroup.Foldable (foldl1)
 import Data.Maybe (Maybe(..))
+import Data.Either (Either(..))
+import Data.Int (toNumber)
 
 import MultiMode (MultiMode(..))
 import Channels (class Channels, channels)
 import AST (Expression(..))
+import G (G)
+import W (W)
 
+newtype Signal = Signal { audio :: W (Either Number String), video :: G (Either Number String), info :: SignalInfo }
+
+audio :: Signal -> W (Either Number String)
+audio (Signal x) = x.audio
+
+video :: Signal -> G (Either Number String)
+video (Signal x) = x.video
+
+info :: Signal -> SignalInfo
+info (Signal x) = x.info
+
+fromInt :: Int -> Signal
+fromInt x = fromNumber $ toNumber x
+
+fromNumber :: Number -> Signal
+fromNumber x = Signal { audio: pure $ Left x, video: pure $ Left x, info: emptySignalInfo }
+
+{-
 data Signal =
   Constant Number |
   SignalList MultiMode (List Signal) |
@@ -136,23 +158,29 @@ data Signal =
   LinLin MultiMode Signal Signal Signal |
   LPF MultiMode Signal Signal Signal | HPF MultiMode Signal Signal Signal | BPF MultiMode Signal Signal Signal |
   Delay Number Signal Signal
+-}
 
+{-
 derive instance Eq Signal
 derive instance Generic Signal _
 instance Show Signal where
   show x = showIndented 0 x
+-}
 
-
+{-
 data SignalSignal = SignalSignal { signalSignal :: Signal -> Signal, expression :: Expression }
 
 -- a function from Signal to Signal is equal to another one if they are defined by the same expression
 instance Eq SignalSignal where
   eq (SignalSignal x) (SignalSignal y) = eq x.expression y.expression
+-}
 
-
+{-
 indent :: Int -> String
 indent n = fold (replicate n " " :: List String)
+-}
 
+{-
 showIndented :: Int -> Signal -> String
 showIndented i (Constant x) = indent i <> "Constant " <> show x <> "\n"
 showIndented i (SignalList Combinatorial xs) = indent i <> "[\n" <> fold (map (showIndented (i+1)) xs) <> indent i <> "]\n"
@@ -320,8 +348,9 @@ showIndented i (LPF mm x y z) = indent i <> "LPF " <> show mm <> "\n" <> showInd
 showIndented i (HPF mm x y z) = indent i <> "HPF " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y <> showIndented (i+1) z
 showIndented i (BPF mm x y z) = indent i <> "BPF " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y <> showIndented (i+1) z
 showIndented i (Delay maxTime x y) = indent i <> "Delay " <> show maxTime <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+-}
 
-
+{-
 -- Miscellaneous functions over Signals:
 
 modulatedRangeLowHigh :: MultiMode -> Signal -> Signal -> Signal -> Signal
@@ -335,6 +364,8 @@ modulatedRangePlusMinus a b = modulatedRangeLowHigh Pairwise low high
   where
     low = Difference Pairwise a b
     high = Addition Pairwise a b
+
+-}
 
 {-
 
@@ -372,6 +403,7 @@ to return to later...
 
 -}
 
+{-
 fit :: Signal -> Signal -> Signal
 fit ar x = ZoomXy z x
   where
@@ -385,6 +417,7 @@ fast x = Slow (Division Pairwise (Constant 1.0) x)
 
 late :: Signal -> Signal -> Signal
 late x = Early (Difference Pairwise (Constant 0.0) x)
+-}
 
 type SignalInfo = {
   webcam :: Disj Boolean,
@@ -419,6 +452,7 @@ emptySignalInfo = {
   gdmIDs: mempty
   }
 
+{-
 signalInfo :: Signal -> SignalInfo
 signalInfo Cam = emptySignalInfo { webcam = pure true }
 signalInfo Cama = emptySignalInfo { webcam = pure true }
@@ -438,7 +472,9 @@ signalInfo (Vida x) = emptySignalInfo { vidURLs = singleton x }
 signalInfo (Gdm x) = emptySignalInfo { gdmIDs = singleton x }
 signalInfo (Gdma x) = emptySignalInfo { gdmIDs = singleton x }
 signalInfo x = foldMap signalInfo $ subSignals x
+-}
 
+{-
 -- given a Signal return the list of the component Signals it is dependent on
 -- for example, Add x y is dependent on x and y, Bipolar x is dependent on x
 subSignals :: Signal -> List Signal
@@ -608,7 +644,9 @@ subSignals (HPF _ x y z) = x:y:z:Nil
 subSignals (BPF _ x y z) = x:y:z:Nil
 subSignals (Delay _ x y)  = x:y:Nil
 -- subSignals _ = Nil
+-}
 
+{-
 -- determine the dimensions of a Signal according to Punctual's multichannel matrix semantics
 dimensions :: Signal -> { rows :: Int, columns :: Int }
 dimensions (SignalList Combinatorial xs) = 
@@ -796,3 +834,4 @@ binaryFunctionChannels Pairwise x y = max x y
 
 zero :: forall a. a -> Signal
 zero _ = Constant 0.0
+-}
