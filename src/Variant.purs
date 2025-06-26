@@ -1,27 +1,21 @@
 module Variant where
 
-import Prelude (class Applicative, bind, pure, ($), (<>),(>>=),(<<<),class Monad,(<$>))
+import Prelude (class Applicative, bind, pure, ($), (<$>), (<>))
 import Parsing (ParseError(..),Position)
 import Data.Int (toNumber)
-import Control.Monad.State.Trans (StateT, runStateT)
 import Control.Monad.Error.Class (class MonadThrow,throwError)
 import Control.Monad.Except.Trans (ExceptT,runExceptT)
-import Control.Monad.Reader (ReaderT,runReaderT)
 import Data.Map as Map
-import Effect.Aff (Aff)
-import Data.Tuple (Tuple)
 import Effect.Ref (Ref)
 import Data.Map (Map)
 import Data.Either (Either(..))
-import Data.List (List)
 import Data.Traversable (traverse)
 import Data.Newtype (class Newtype,unwrap)
 
-import MultiMode (MultiMode)
 import Action (Action,matrixSignalToAction)
 import Output (Output)
 import AST (Expression(..),expressionPosition)
-import Signal (Signal(..),fromInt,fromNumber)
+import Signal (Signal,fromInt,fromNumber)
 import Matrix (Matrix,singleton)
 
 type Library = Map.Map String Variant

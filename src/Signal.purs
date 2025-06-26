@@ -1,26 +1,19 @@
 module Signal where
 
-import Prelude (class Eq, class Show, map, max, mempty, negate, otherwise, pure, show, ($), (*), (+), (-), (/), (<=), (<>), eq)
-import Data.Generic.Rep (class Generic)
--- import Data.Show.Generic (genericShow)
-import Data.List (List(..),(:))
-import Data.List.NonEmpty (fromList, length)
-import Data.Foldable (fold, foldMap)
-import Data.Unfoldable (replicate)
-import Data.Set (Set,singleton)
+import Prelude (class Show, mempty, pure, show, ($))
+import Data.Set (Set)
 import Data.Monoid.Disj (Disj)
-import Data.Semigroup.Foldable (foldl1)
-import Data.Maybe (Maybe(..))
 import Data.Either (Either(..))
 import Data.Int (toNumber)
 
-import MultiMode (MultiMode(..))
-import Channels (class Channels, channels)
-import AST (Expression(..))
 import G (G)
 import W (W)
 
-newtype Signal = Signal { audio :: W (Either Number String), video :: G (Either Number String), info :: SignalInfo }
+
+newtype Signal = Signal { audio :: W (Either Number String), video :: G (Either Number String), info :: SignalInfo, toShow :: String }
+
+instance Show Signal where
+  show (Signal x) = x.toShow
 
 audio :: Signal -> W (Either Number String)
 audio (Signal x) = x.audio
@@ -35,7 +28,42 @@ fromInt :: Int -> Signal
 fromInt x = fromNumber $ toNumber x
 
 fromNumber :: Number -> Signal
-fromNumber x = Signal { audio: pure $ Left x, video: pure $ Left x, info: emptySignalInfo }
+fromNumber x = Signal { audio: pure $ Left x, video: pure $ Left x, info: emptySignalInfo, toShow: show x }
+
+
+type SignalInfo = {
+  webcam :: Disj Boolean,
+  fft :: Disj Boolean,
+  lo :: Disj Boolean,
+  mid :: Disj Boolean,
+  hi :: Disj Boolean,
+  ifft :: Disj Boolean,
+  ilo :: Disj Boolean,
+  imid :: Disj Boolean,
+  ihi :: Disj Boolean,
+  ain :: Disj Boolean,
+  imgURLs :: Set String,
+  vidURLs :: Set String,
+  gdmIDs :: Set String
+  }
+
+emptySignalInfo :: SignalInfo
+emptySignalInfo = {
+  webcam: pure false,
+  fft: pure false,
+  lo: pure false,
+  mid: pure false,
+  hi: pure false,
+  ifft: pure false,
+  ilo: pure false,
+  imid: pure false,
+  ihi: pure false,
+  ain: pure false,
+  imgURLs: mempty,
+  vidURLs: mempty,
+  gdmIDs: mempty
+  }
+
 
 {-
 data Signal =
@@ -418,39 +446,6 @@ fast x = Slow (Division Pairwise (Constant 1.0) x)
 late :: Signal -> Signal -> Signal
 late x = Early (Difference Pairwise (Constant 0.0) x)
 -}
-
-type SignalInfo = {
-  webcam :: Disj Boolean,
-  fft :: Disj Boolean,
-  lo :: Disj Boolean,
-  mid :: Disj Boolean,
-  hi :: Disj Boolean,
-  ifft :: Disj Boolean,
-  ilo :: Disj Boolean,
-  imid :: Disj Boolean,
-  ihi :: Disj Boolean,
-  ain :: Disj Boolean,
-  imgURLs :: Set String,
-  vidURLs :: Set String,
-  gdmIDs :: Set String
-  }
-
-emptySignalInfo :: SignalInfo
-emptySignalInfo = {
-  webcam: pure false,
-  fft: pure false,
-  lo: pure false,
-  mid: pure false,
-  hi: pure false,
-  ifft: pure false,
-  ilo: pure false,
-  imid: pure false,
-  ihi: pure false,
-  ain: pure false,
-  imgURLs: mempty,
-  vidURLs: mempty,
-  gdmIDs: mempty
-  }
 
 {-
 signalInfo :: Signal -> SignalInfo

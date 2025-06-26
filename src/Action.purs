@@ -1,6 +1,6 @@
 module Action where
 
-import Prelude (identity,($),one,zero,(==),(||),(/),(-),(<>),show,(*),identity,map)
+import Prelude (identity, map, one, zero, ($), (-), (/), class Show)
 import Data.Tuple (Tuple(..))
 import Data.Tempo (Tempo)
 import Data.DateTime (DateTime, adjust, diff)
@@ -23,6 +23,12 @@ newtype Action = Action {
   transition :: Transition,
   output :: Output
   }
+
+instance Show Action where
+  show (Action x) = " " <> show x.output <> " " <> show x.defTime <> " " <> showDimensions <> ": " <> show x.matrix
+    where
+      ds = dimensions x.matrix
+      showDimensions = show (ds.rows * ds.columns) <> " channels (" <> show ds.columns <> " cols x " <> show ds.rows <> " rows)"
 
 matrix :: Action -> Matrix Signal
 matrix (Action x) = x.matrix
@@ -78,11 +84,3 @@ actionHasAudioOutput (Action a) = isAudioOutput a.output
 actionHasAudioInput :: Action -> Boolean
 -- actionHasAudioInput (Action a) = unwrap (signalInfo a.signal).ain
 actionHasAudioInput x = any identity $ map (\s -> unwrap $ (info s).ain) $ matrix x
-
-{-
-showAction :: Action -> String
-showAction (Action x) = "  " <> show x.output <> ": " <> showDimensions <> showIndented 4 x.signal
-  where
-    ds = dimensions x.signal
-    showDimensions = show (ds.rows * ds.columns) <> " channels (" <> show ds.columns <> " cols x " <> show ds.rows <> " rows)\n"
--}
