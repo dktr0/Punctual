@@ -64,12 +64,12 @@ emptySignalInfo = {
   gdmIDs: mempty
   }
 
-
 {-
 data Signal =
   Constant Number |
   SignalList MultiMode (List Signal) |
-  Append Signal Signal |
+  -- WORKING/THINKING HERE
+  Append Signal Signal | -- note: Append will not be Signal -> Signal -> Signal if Matrix representation is deferred to a higher level (e.g. Action); append :: Matrix Value -> Matrix Value -> Matrix Value OR Matrix Signal -> Matrix Signal -> Matrix Signal OR EVEN Matrix a -> Matrix a -> Matrix a ???
   Zip Signal Signal |
   Mono Signal |
   Rep Int Signal |
