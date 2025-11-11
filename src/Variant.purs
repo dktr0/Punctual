@@ -35,6 +35,7 @@ data Variant =
   Int Expression Int | -- can also be used as Number and Signal_v
   Number Expression Number | -- can also be used as Signal_v
   Signal_v Expression Signal |
+  -- *** TODO, WORKING HERE: matrices need to be strictly typed so need a variant for each type of matrix
   VariantMatrix_v Expression VariantMatrix | -- note: any of the other Variant types can also be used as VariantMatrix_v
   Output Expression Output | 
   Action_v Expression Action |

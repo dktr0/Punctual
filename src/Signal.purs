@@ -66,36 +66,35 @@ emptySignalInfo = {
 
 {-
 data Signal =
-  Constant Number |
-  SignalList MultiMode (List Signal) |
-  -- WORKING/THINKING HERE
-  Append Signal Signal | -- note: Append will not be Signal -> Signal -> Signal if Matrix representation is deferred to a higher level (e.g. Action); append :: Matrix Value -> Matrix Value -> Matrix Value OR Matrix Signal -> Matrix Signal -> Matrix Signal OR EVEN Matrix a -> Matrix a -> Matrix a ???
-  Zip Signal Signal |
-  Mono Signal |
-  Rep Int Signal |
-  Pi |
-  Px | Py | Pxy | Aspect |
-  Fx | Fy | Fxy | -- cartesian coordinates of current fragment
-  FRt | FR | FT | -- polar coordinates of current fragment
-  Lo | Mid | Hi | ILo | IMid | IHi |
-  Cps | Time | Beat | EBeat | ETime |
-  Rnd |
-  AIn Int Int |
-  FFT |
-  IFFT |
-  Fb |
-  Cam | Cama | 
-  Img String | Imga String |
-  Vid String | Vida String |
-  Gdm String | Gdma String |
-  Rows Signal |
-  Cols Signal |
-  Chns Signal |
-  Flat Signal |
-  Trsp Signal |
-  Get Int Int Signal |
-  Set MultiMode Int Signal Signal |
-  Map SignalSignal Signal |
+  Constant Number | -- this is replaced by just Number
+  SignalList MultiMode (List Signal) | -- ???
+  Append Signal Signal | -- append :: Matrix a -> Matrix a -> Matrix a  
+  Zip Signal Signal | -- zip :: Matrix a -> Matrix a -> Matrix a
+  Mono Signal | -- mono :: Matrix Signal -> Signal
+  Rep Int Signal | -- rep :: Int -> Matrix a -> Matrix a
+  Pi | -- pi :: Number
+  Px | Py | Pxy | Aspect | -- px, py, aspect :: Signal; Pxy :: Matrix Signal
+  Fx | Fy | Fxy | -- cartesian coordinates of current fragment -- fx, fy :: Signal, fxy :: Matrix Signal
+  FRt | FR | FT | -- polar coordinates of current fragment -- fr, ft :: Signal, frt :: Matrix Signal
+  Lo | Mid | Hi | ILo | IMid | IHi | -- :: Signal
+  Cps | Time | Beat | EBeat | ETime | -- :: Signal
+  Rnd | -- :: Signal
+  AIn Int Int | -- :: Signal
+  FFT | -- :: Signal
+  IFFT | -- :: Signal
+  Fb | -- :: Matrix Signal
+  Cam | Cama |  -- :: Matrix Signal
+  Img String | Imga String | -- :: Matrix Signal
+  Vid String | Vida String | -- :: Matrix Signal
+  Gdm String | Gdma String | -- :: Matrix Signal
+  Rows Signal | -- :: Matrix a -> Int
+  Cols Signal | -- :: Matrix a -> Int
+  Chns Signal | -- :: Matrix a -> Int
+  Flat Signal | -- :: Matrix a -> Matrix a
+  Trsp Signal | -- :: Matrix a -> Matrix a
+  Get Int Int Signal | -- :: Int -> Int -> Matrix a -> Matrix a
+  Set MultiMode Int Signal Signal | -- set :: Int -> Matrix a -> Matrix a -> Matrix a; setp :: Int -> Matrix a -> Matrix a -> Matrix a
+  Map SignalSignal Signal | -- CONTINUE HERE
   Rmap SignalSignal Signal |
   Bipolar Signal |
   Unipolar Signal |
