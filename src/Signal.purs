@@ -8,27 +8,31 @@ import Data.Int (toNumber)
 
 import G (G)
 import W (W)
+import Matrix (Matrix)
 
+type AudioSignal = W (Matrix (Either Number String))
 
-newtype Signal = Signal { audio :: W (Either Number String), video :: G (Either Number String), info :: SignalInfo, toShow :: String }
+type VideoSignal = G (Matrix (Either Number String))
 
-instance Show Signal where
-  show (Signal x) = x.toShow
+newtype Signal = Signal { audioSignal :: AudioSignal, videoSignal :: VideoSignal, info :: SignalInfo, toShow :: String }
 
-audio :: Signal -> W (Either Number String)
-audio (Signal x) = x.audio
+audioSignal :: Signal -> AudioSignal
+audioSignal (Signal x) = x.audioSignal
 
-video :: Signal -> G (Either Number String)
-video (Signal x) = x.video
+videoSignal :: Signal -> VideoSignal
+videoSignal (Signal x) = x.videoSignal
 
 info :: Signal -> SignalInfo
 info (Signal x) = x.info
+
+instance Show Signal where
+  show (Signal x) = x.toShow
 
 fromInt :: Int -> Signal
 fromInt x = fromNumber $ toNumber x
 
 fromNumber :: Number -> Signal
-fromNumber x = Signal { audio: pure $ Left x, video: pure $ Left x, info: emptySignalInfo, toShow: show x }
+fromNumber x = Signal { audioSignal: pure $ pure $ Left x, videoSignal: pure $ pure $ Left x, info: emptySignalInfo, toShow: show x }
 
 
 type SignalInfo = {
@@ -68,34 +72,62 @@ emptySignalInfo = {
 data Signal =
   Constant Number | -- this is replaced by just Number
   SignalList MultiMode (List Signal) | -- ???
-  Append Signal Signal | -- append :: Matrix a -> Matrix a -> Matrix a  
-  Zip Signal Signal | -- zip :: Matrix a -> Matrix a -> Matrix a
-  Mono Signal | -- mono :: Matrix Signal -> Signal
-  Rep Int Signal | -- rep :: Int -> Matrix a -> Matrix a
+-}
+
+{-
+  Append Signal Signal | -- append :: Signal -> Signal -> Signal
+
+append :: Signal -> Signal -> Signal
+append x y = Signal { audioSignal, videoSignal, info, toShow }
+  where
+    audioSignal = do -- in W monad
+      x' <- x -- x' :: Matrix (Either Number String)
+      y' <- y -- y' :: Matrix (Either Number String)
+      pure $ ... append the two matrices as a pure operation defined in Matrix.purs ...
+    videoSignal = -- similar to audioSignal above
+    info = mappend (info x) (info y),
+    toShow = "(append " <> show x <> " " <> show y <> ")"
+
+rmap :: (Signal -> Signal) -> Signal -> Signal
+rmap f x = Signal { audioSignal, videoSignal, info, toShow }
+  where
+    audioSignal = do -- in W monad
+      x' <- x -- x' :: Matrix (Either Number String)
+      ... from each row of x' make a Signal where the videoSignal, info and toShow are empty...
+      ... then apply f to each of those signals to get a NonEmptyList Signal ...
+      ... map into that to extract the AudioSignal component ... so NonEmptyList AudioSignal = NonEmptyList (Matrix (Either Number String))
+      ... reduce that to two dimensions as the result.
+    ... do the same thing for the video signal ... 
+-}
+
+{-
+  Zip Signal Signal | -- zip :: Signal -> Signal -> Signal
+  Mono Signal | -- mono :: Signal -> Signal
+  Rep Int Signal | -- rep :: Int -> Signal -> Signal
   Pi | -- pi :: Number
-  Px | Py | Pxy | Aspect | -- px, py, aspect :: Signal; Pxy :: Matrix Signal
-  Fx | Fy | Fxy | -- cartesian coordinates of current fragment -- fx, fy :: Signal, fxy :: Matrix Signal
-  FRt | FR | FT | -- polar coordinates of current fragment -- fr, ft :: Signal, frt :: Matrix Signal
+  Px | Py | Pxy | Aspect | -- :: Signal
+  Fx | Fy | Fxy | -- cartesian coordinates of current fragment -- :: Signal
+  FRt | FR | FT | -- polar coordinates of current fragment -- :: Signal
   Lo | Mid | Hi | ILo | IMid | IHi | -- :: Signal
   Cps | Time | Beat | EBeat | ETime | -- :: Signal
   Rnd | -- :: Signal
   AIn Int Int | -- :: Signal
   FFT | -- :: Signal
   IFFT | -- :: Signal
-  Fb | -- :: Matrix Signal
-  Cam | Cama |  -- :: Matrix Signal
-  Img String | Imga String | -- :: Matrix Signal
-  Vid String | Vida String | -- :: Matrix Signal
-  Gdm String | Gdma String | -- :: Matrix Signal
-  Rows Signal | -- :: Matrix a -> Int
-  Cols Signal | -- :: Matrix a -> Int
-  Chns Signal | -- :: Matrix a -> Int
-  Flat Signal | -- :: Matrix a -> Matrix a
-  Trsp Signal | -- :: Matrix a -> Matrix a
-  Get Int Int Signal | -- :: Int -> Int -> Matrix a -> Matrix a
-  Set MultiMode Int Signal Signal | -- set :: Int -> Matrix a -> Matrix a -> Matrix a; setp :: Int -> Matrix a -> Matrix a -> Matrix a
-  Map SignalSignal Signal | -- CONTINUE HERE
-  Rmap SignalSignal Signal |
+  Fb | -- :: Signal
+  Cam | Cama |  -- :: Signal
+  Img String | Imga String | -- :: Signal
+  Vid String | Vida String | -- :: Signal
+  Gdm String | Gdma String | -- :: Signal
+  Rows Signal | -- :: Signal -> Int
+  Cols Signal | -- :: Signal -> Int
+  Chns Signal | -- :: Signal -> Int
+  Flat Signal | -- :: Signal -> Signal
+  Trsp Signal | -- :: Signal -> Signal
+  Get Int Int Signal | -- :: Int -> Int -> Signal -> Signal
+  Set MultiMode Int Signal Signal | -- set :: Int -> Signal -> Signal -> Signal; setp :: Int -> Signal -> Signal -> Signal
+  Map SignalSignal Signal | -- map :: (Signal -> Signal) -> Signal -> Signal
+  Rmap SignalSignal Signal | -- rmap :: (Signal -> Signal) -> Signal -> Signal
   Bipolar Signal |
   Unipolar Signal |
   Blend Signal | Add Signal | Mul Signal |

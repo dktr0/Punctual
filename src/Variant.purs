@@ -35,8 +35,6 @@ data Variant =
   Int Expression Int | -- can also be used as Number and Signal_v
   Number Expression Number | -- can also be used as Signal_v
   Signal_v Expression Signal |
-  -- *** TODO, WORKING HERE: matrices need to be strictly typed so need a variant for each type of matrix
-  VariantMatrix_v Expression VariantMatrix | -- note: any of the other Variant types can also be used as VariantMatrix_v
   Output Expression Output | 
   Action_v Expression Action |
   VariantFunction_v Expression VariantFunction |
@@ -47,7 +45,6 @@ variantType (String _ _) = "String"
 variantType (Int _ _) = "Int"
 variantType (Number _ _) = "Number"
 variantType (Signal_v _ _)  = "Signal"
-variantType (VariantMatrix_v _ _) = "VariantMatrix"
 variantType (Output _ _) = "Output"
 variantType (Action_v _ _) = "Action"
 variantType (VariantFunction_v _ _) = "VariantFunction"
@@ -58,7 +55,6 @@ variantExpression (String e _)  = e
 variantExpression (Int e _)  = e
 variantExpression (Number e _)  = e
 variantExpression (Signal_v e _)  = e
-variantExpression (VariantMatrix_v e _)  = e
 variantExpression (Output e _)  = e
 variantExpression (Action_v e _)  = e
 variantExpression (VariantFunction_v e _)  = e
@@ -69,7 +65,6 @@ variantPosition (String e _)  = expressionPosition e
 variantPosition (Int e _)  = expressionPosition e
 variantPosition (Number e _)  = expressionPosition e
 variantPosition (Signal_v e _)  = expressionPosition e
-variantPosition (VariantMatrix_v e _)  = expressionPosition e
 variantPosition (Output e _)  = expressionPosition e
 variantPosition (Action_v e _)  = expressionPosition e
 variantPosition (VariantFunction_v e _)  = expressionPosition e
@@ -101,10 +96,6 @@ instance FromVariant Signal where
   fromVariant (Signal_v _ x) = pure x
   fromVariant v = throwError $ ParseError ("expected Signal, found " <> variantType v) (variantPosition v)
 
-instance FromVariant VariantMatrix where
-  fromVariant (VariantMatrix_v _ x)  = pure x
-  fromVariant v = pure $ VariantMatrix $ singleton v
-  
 instance FromVariant Output where 
   fromVariant (Output _ x) = pure x
   fromVariant (OutputOrVariantFunction _ x _) = pure x
@@ -115,7 +106,6 @@ instance FromVariant Action where
   fromVariant (Int _ x) = pure $ matrixSignalToAction $ singleton $ fromInt x
   fromVariant (Number _ x) = pure $ matrixSignalToAction $ singleton $ fromNumber x
   fromVariant (Signal_v _ x) = pure $ matrixSignalToAction $ singleton $ x
-  fromVariant (VariantMatrix_v _ x) = matrixSignalToAction <$> traverse fromVariant (unwrap x)
   fromVariant v = throwError $ ParseError ("expected Action, found " <> variantType v) (variantPosition v)
 
 instance FromVariant VariantFunction where
@@ -141,9 +131,6 @@ instance ToVariant Number where
 
 instance ToVariant Signal where
   toVariant = Signal_v
-
-instance ToVariant VariantMatrix where
-  toVariant = VariantMatrix_v
 
 instance ToVariant Output where
   toVariant = Output
