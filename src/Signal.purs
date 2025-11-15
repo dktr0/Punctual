@@ -88,16 +88,19 @@ append x y = Signal { audioSignal, videoSignal, info, toShow }
     info = mappend (info x) (info y),
     toShow = "(append " <> show x <> " " <> show y <> ")"
 
+rowsOfSignal :: Signal -> NonEmptyList Signal
+
 rmap :: (Signal -> Signal) -> Signal -> Signal
-rmap f x = Signal { audioSignal, videoSignal, info, toShow }
+rmap f x = Signal { audioSignal: as, videoSignal: vs, info: i, toShow: ts }
   where
-    audioSignal = do -- in W monad
-      x' <- x -- x' :: Matrix (Either Number String)
-      ... from each row of x' make a Signal where the videoSignal, info and toShow are empty...
-      ... then apply f to each of those signals to get a NonEmptyList Signal ...
-      ... map into that to extract the AudioSignal component ... so NonEmptyList AudioSignal = NonEmptyList (Matrix (Either Number String))
-      ... reduce that to two dimensions as the result.
-    ... do the same thing for the video signal ... 
+    ys = map f (rowsOfSignal x) -- :: NonEmptyList Signal
+    audioRows = map audioSignal ys -- :: NonEmptyList AudioSignal 
+    videoRows = map videoSignal ys -- :: NonEmptyList VideoSignal
+    audioSignal = pure $ ... reduce NonEmptyList (Matrix ...) to Matrix ...
+    videoSignal = pure $ ... reduce NonEmptyList (Matrix ...) to Matrix ...
+    info = ... union of info from ys ...
+    toShow = ???? considering going without showability...
+
 -}
 
 {-
