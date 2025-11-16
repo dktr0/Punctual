@@ -69,70 +69,74 @@ emptySignalInfo = {
   }
 
 {-
+
+1 :: Int
+2.3 :: Number
+fx :: Signal (one-channel only, variable and/or execution-context-dependent)
+fxy :: Vec2 ( = Vec2 Signal )
+cam :: Vec3 ( = Vec3 Signal )
+cama :: Vec4 ( = Vec4 Signal )
+[1,2] :: Matrix Int
+[1,2,3,4.5] :: Matrix Number
+[1,fx,fxy,cama] :: Matrix Signal
+-- note: no reason to use Vec2 Vec3 Vec4 for Int and Number, I think?
+
+type Signal = { audio :: W String, video :: G String }
+
+-- similar to existing function mapRows; belongs in Matrix.purs
+rmap :: (Matrix a -> Matrix a) -> Matrix a -> Matrix a
+rmap f x = map f $ getRows x
+
 data Signal =
-  Constant Number | -- this is replaced by just Number
-  SignalList MultiMode (List Signal) | -- ???
--}
-
-{-
-  Append Signal Signal | -- append :: Signal -> Signal -> Signal
-
-append :: Signal -> Signal -> Signal
-append x y = Signal { audioSignal, videoSignal, info, toShow }
-  where
-    audioSignal = do -- in W monad
-      x' <- x -- x' :: Matrix (Either Number String)
-      y' <- y -- y' :: Matrix (Either Number String)
-      pure $ ... append the two matrices as a pure operation defined in Matrix.purs ...
-    videoSignal = -- similar to audioSignal above
-    info = mappend (info x) (info y),
-    toShow = "(append " <> show x <> " " <> show y <> ")"
-
-rowsOfSignal :: Signal -> NonEmptyList Signal
-
-rmap :: (Signal -> Signal) -> Signal -> Signal
-rmap f x = Signal { audioSignal: as, videoSignal: vs, info: i, toShow: ts }
-  where
-    ys = map f (rowsOfSignal x) -- :: NonEmptyList Signal
-    audioRows = map audioSignal ys -- :: NonEmptyList AudioSignal 
-    videoRows = map videoSignal ys -- :: NonEmptyList VideoSignal
-    audioSignal = pure $ ... reduce NonEmptyList (Matrix ...) to Matrix ...
-    videoSignal = pure $ ... reduce NonEmptyList (Matrix ...) to Matrix ...
-    info = ... union of info from ys ...
-    toShow = ???? considering going without showability...
-
--}
-
-{-
-  Zip Signal Signal | -- zip :: Signal -> Signal -> Signal
-  Mono Signal | -- mono :: Signal -> Signal
-  Rep Int Signal | -- rep :: Int -> Signal -> Signal
+  Constant Number |
+    -- replaced by just Int and Number
+  SignalList MultiMode (List Signal) |
+    -- signalList :: List (Matrix a) -> Matrix a
+    -- signalListP :: List (Matrix a) -> Matrix a 
+  Append Signal Signal |
+    -- append :: Matrix a -> Matrix a -> Matrix a
+  Zip Signal Signal |
+    -- zip :: Matrix a -> Matrix a -> Matrix a
+  Mono Signal |
+    -- mono :: Matrix Signal -> Signal
+    -- technically could also be polymorphic anything with a + operation
+    -- (because it is really a "sum" operation)
+  Rep Int Signal |
+    -- rep :: Int -> Matrix a -> Matrix a
   Pi | -- pi :: Number
-  Px | Py | Pxy | Aspect | -- :: Signal
-  Fx | Fy | Fxy | -- cartesian coordinates of current fragment -- :: Signal
-  FRt | FR | FT | -- polar coordinates of current fragment -- :: Signal
+  Px | Py | Pxy | Aspect | -- px, py:: Signal; pxy :: Vec2
+  Fx | Fy | Fxy | -- fx, fy :: Signal; fxy :: Vec2
+  FRt | FR | FT | -- fr, ft :: Signal; frt :: Vec2
   Lo | Mid | Hi | ILo | IMid | IHi | -- :: Signal
   Cps | Time | Beat | EBeat | ETime | -- :: Signal
   Rnd | -- :: Signal
-  AIn Int Int | -- :: Signal
+  AIn Int Int | -- :: Matrix Signal
   FFT | -- :: Signal
   IFFT | -- :: Signal
-  Fb | -- :: Signal
-  Cam | Cama |  -- :: Signal
-  Img String | Imga String | -- :: Signal
-  Vid String | Vida String | -- :: Signal
-  Gdm String | Gdma String | -- :: Signal
-  Rows Signal | -- :: Signal -> Int
-  Cols Signal | -- :: Signal -> Int
-  Chns Signal | -- :: Signal -> Int
-  Flat Signal | -- :: Signal -> Signal
-  Trsp Signal | -- :: Signal -> Signal
-  Get Int Int Signal | -- :: Int -> Int -> Signal -> Signal
-  Set MultiMode Int Signal Signal | -- set :: Int -> Signal -> Signal -> Signal; setp :: Int -> Signal -> Signal -> Signal
-  Map SignalSignal Signal | -- map :: (Signal -> Signal) -> Signal -> Signal
-  Rmap SignalSignal Signal | -- rmap :: (Signal -> Signal) -> Signal -> Signal
+  Fb | -- :: Vec3
+  Cam | Cama |  -- :: Vec3
+  Img String | Imga String | -- :: Vec3/4
+  Vid String | Vida String | -- :: Vec3/4
+  Gdm String | Gdma String | -- :: Vec3/4
+  Rows Signal | -- :: Matrix a -> Int
+  Cols Signal | -- :: Matrix a -> Int
+  Chns Signal | -- :: Matrix a -> Int
+  Flat Signal | -- :: Matrix a -> Matrix a
+  Trsp Signal | -- :: Matrix a -> Matrix a
+  Get Int Int Signal |
+    -- :: Int -> Int -> Matrix a -> Matrix a
+    -- could be polymorphic to support cases where exactly 1,2,3,4 items requested?
+    -- or maybe that's not important?
+  Set MultiMode Int Signal Signal |
+    -- set :: Int -> Matrix a -> Matrix a -> Matrix a; setp :: Int -> Signal -> Signal -> Signal
+  Map SignalSignal Signal |
+    -- cmap :: (Signal -> Matrix a) -> Matrix a -> Matrix a
+  Rmap SignalSignal Signal |
+    -- rmap :: (Matrix a -> Signal) -> Signal -> Signal
   Bipolar Signal |
+    -- should exist in variants for Number, Signal, Vec2/3/4, Matrix Signal
   Unipolar Signal |
+    -- ditto
   Blend Signal | Add Signal | Mul Signal |
   RgbHsv Signal | HsvRgb Signal | HsvR Signal | HsvG Signal | HsvB Signal | RgbH Signal | RgbS Signal | RgbV Signal | RgbR Signal | RgbG Signal | RgbB Signal |
   -- oscillators

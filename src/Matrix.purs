@@ -95,6 +95,7 @@ zip :: forall a. Matrix a -> Matrix a -> Matrix a
 zip xs ys = Matrix $ zipWithEqualLength (\x y -> x `cons` L.singleton y) (flatten xs) (flatten ys)
 
 -- note: the provided Multis should have the same dimensions, or else all hell breaks loose
+-- ? when rows are only of 1 item do they need to be combined into a single row
 concat :: forall a. NonEmptyList (Matrix a) -> Matrix a
 concat xs = Matrix $ map flatten xs
 
