@@ -1,0 +1,12 @@
+-- dktr0's collection of random Punctual stuff
+
+-- stretch n discrete sequence points over l cycles...
+tgrid l n = slow l $ seq (btw n (-1.0) 1.0);
+
+-- images from the open web
+spongeboba = imga "https://upload.wikimedia.org/wikipedia/commons/7/7a/SpongeBob_SquarePants_character.png";
+garya = imga "https://upload.wikimedia.org/wikipedia/commons/4/4a/Gary_%28SpongeBob%29_character.png";
+
+-- geometric patterns
+rainbowcols n = hsvrgb [unipolar fx * n % n,1,1];
+rainbowrows n = hsvrgb [unipolar fy * n % n,1,1];
