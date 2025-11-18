@@ -1,6 +1,6 @@
 module Matrix where
 
-import Prelude (class Applicative, class Apply, class Eq, class Functor, class Show, map, pure, show, ($), (<>), (==), (<$>), (<<<), (&&), otherwise, (>>>),max,(-))
+import Prelude (class Applicative, class Apply, class Eq, class Functor, class Show, map, pure, show, ($), (*), (<>), (==), (<$>), (<<<), (&&), otherwise, (>>>),max,(-))
 import Data.Semigroup (class Semigroup)
 import Data.List.NonEmpty (NonEmptyList, cons, intercalate, length, head, fromList, catMaybes, tail, drop)
 import Data.List.NonEmpty as L
@@ -15,6 +15,7 @@ import Data.Unfoldable (replicate)
 
 import NonEmptyList (multi,zipWithEqualLength,unconsTuple)
 import MultiMode (MultiMode(..))
+import Channels (class Channels)
 
 newtype Matrix a = Matrix (NonEmptyList (NonEmptyList a)) -- outer dimension is rows, inner dimension is columns
 
@@ -146,3 +147,13 @@ getFromRow itemToExtendWith n m xs =
 
 getRows :: forall a. Matrix a -> NonEmptyList (NonEmptyList a)
 getRows (Matrix xss) = xss
+
+rows :: forall a. Matrix a -> Int
+rows (Matrix xss) = length xss
+
+columns :: forall a. Matrix a -> Int
+columns (Matrix xss) = length (head xss)
+
+instance Channels (Matrix a) where
+  channels x = rows x * columns x
+

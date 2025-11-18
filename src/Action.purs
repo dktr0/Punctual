@@ -1,6 +1,6 @@
 module Action where
 
-import Prelude (identity, map, one, zero, ($), (-), (/), class Show)
+import Prelude (identity, map, one, zero, ($), (-), (/), (<>), class Show, show)
 import Data.Tuple (Tuple(..))
 import Data.Tempo (Tempo)
 import Data.DateTime (DateTime, adjust, diff)
@@ -8,10 +8,11 @@ import Data.DateTime.Instant (unInstant,fromDateTime)
 import Data.Time.Duration (Seconds)
 import Data.Maybe (maybe)
 import Data.Newtype (unwrap)
-import Data.Foldable (any)
+import Data.Foldable (foldMap)
 
-import Signal (Signal(..),info)
-import Matrix (Matrix)
+import Signal (Signal, SignalInfo)
+import Channels (channels)
+import Matrix (Matrix(..),rows,columns)
 import DefTime (DefTime(..), calculateT1)
 import Transition (Transition(..), transitionToXfade)
 import Duration (Duration(..))
@@ -25,10 +26,9 @@ newtype Action = Action {
   }
 
 instance Show Action where
-  show (Action x) = " " <> show x.output <> " " <> show x.defTime <> " " <> showDimensions <> ": " <> show x.matrix
+  show (Action x) = " " <> show x.output <> " " <> show x.defTime <> " " <> showDimensions -- <> ": " <> show x.matrix
     where
-      ds = dimensions x.matrix
-      showDimensions = show (ds.rows * ds.columns) <> " channels (" <> show ds.columns <> " cols x " <> show ds.rows <> " rows)"
+      showDimensions = show (channels x.matrix) <> " channels (" <> show (columns x.matrix) <> " cols x " <> show (rows x.matrix) <> " rows)"
 
 matrix :: Action -> Matrix Signal
 matrix (Action x) = x.matrix
@@ -83,4 +83,8 @@ actionHasAudioOutput (Action a) = isAudioOutput a.output
 
 actionHasAudioInput :: Action -> Boolean
 -- actionHasAudioInput (Action a) = unwrap (signalInfo a.signal).ain
-actionHasAudioInput x = any identity $ map (\s -> unwrap $ (info s).ain) $ matrix x
+-- actionHasAudioInput x = any identity $ map (\m -> unwrap $ (matrixSignalInfo m).ain) $ matrix x
+actionHasAudioInput x = unwrap (matrixSignalInfo $ matrix x).ain
+
+matrixSignalInfo :: Matrix Signal -> SignalInfo
+matrixSignalInfo (Matrix xss) = foldMap (foldMap _.info) xss

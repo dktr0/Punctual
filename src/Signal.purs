@@ -8,32 +8,15 @@ import Data.Int (toNumber)
 
 import G (G)
 import W (W)
-import Matrix (Matrix)
+import Number (showNumber)
 
-type AudioSignal = W (Matrix (Either Number String))
-
-type VideoSignal = G (Matrix (Either Number String))
-
-newtype Signal = Signal { audioSignal :: AudioSignal, videoSignal :: VideoSignal, info :: SignalInfo, toShow :: String }
-
-audioSignal :: Signal -> AudioSignal
-audioSignal (Signal x) = x.audioSignal
-
-videoSignal :: Signal -> VideoSignal
-videoSignal (Signal x) = x.videoSignal
-
-info :: Signal -> SignalInfo
-info (Signal x) = x.info
-
-instance Show Signal where
-  show (Signal x) = x.toShow
+type Signal = { audio :: W String, video :: G String, info :: SignalInfo }
 
 fromInt :: Int -> Signal
 fromInt x = fromNumber $ toNumber x
 
 fromNumber :: Number -> Signal
-fromNumber x = Signal { audioSignal: pure $ pure $ Left x, videoSignal: pure $ pure $ Left x, info: emptySignalInfo, toShow: show x }
-
+fromNumber x = { audio: pure $ showNumber x, video: pure $ showNumber x, info: emptySignalInfo }
 
 type SignalInfo = {
   webcam :: Disj Boolean,
@@ -69,30 +52,12 @@ emptySignalInfo = {
   }
 
 {-
-
-1 :: Int
-2.3 :: Number
-fx :: Signal (one-channel only, variable and/or execution-context-dependent)
-fxy :: Vec2 ( = Vec2 Signal )
-cam :: Vec3 ( = Vec3 Signal )
-cama :: Vec4 ( = Vec4 Signal )
-[1,2] :: Matrix Int
-[1,2,3,4.5] :: Matrix Number
-[1,fx,fxy,cama] :: Matrix Signal
--- note: no reason to use Vec2 Vec3 Vec4 for Int and Number, I think?
-
-type Signal = { audio :: W String, video :: G String }
-
--- similar to existing function mapRows; belongs in Matrix.purs
-rmap :: (Matrix a -> Matrix a) -> Matrix a -> Matrix a
-rmap f x = map f $ getRows x
-
 data Signal =
   Constant Number |
     -- replaced by just Int and Number
   SignalList MultiMode (List Signal) |
-    -- signalList :: List (Matrix a) -> Matrix a
-    -- signalListP :: List (Matrix a) -> Matrix a 
+    -- list :: List (Matrix a) -> Matrix a
+    -- listp :: List (Matrix a) -> Matrix a 
   Append Signal Signal |
     -- append :: Matrix a -> Matrix a -> Matrix a
   Zip Signal Signal |
@@ -130,13 +95,13 @@ data Signal =
   Set MultiMode Int Signal Signal |
     -- set :: Int -> Matrix a -> Matrix a -> Matrix a; setp :: Int -> Signal -> Signal -> Signal
   Map SignalSignal Signal |
-    -- cmap :: (Signal -> Matrix a) -> Matrix a -> Matrix a
+    -- map :: (Signal -> Matrix a) -> Matrix a -> Matrix a
   Rmap SignalSignal Signal |
-    -- rmap :: (Matrix a -> Signal) -> Signal -> Signal
+    -- rmap :: (Matrix a -> Matrix a) -> Matrix a -> Matrix a
   Bipolar Signal |
-    -- should exist in variants for Number, Signal, Vec2/3/4, Matrix Signal
+    -- should exist in variants for Number, Signal, Matrix Signal
   Unipolar Signal |
-    -- ditto
+    -- ditto for this one and all of the other univariate functions
   Blend Signal | Add Signal | Mul Signal |
   RgbHsv Signal | HsvRgb Signal | HsvR Signal | HsvG Signal | HsvB Signal | RgbH Signal | RgbS Signal | RgbV Signal | RgbR Signal | RgbG Signal | RgbB Signal |
   -- oscillators
