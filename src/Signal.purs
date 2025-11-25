@@ -1,22 +1,21 @@
 module Signal where
 
-import Prelude (class Show, mempty, pure, show, ($))
+import Prelude (mempty, pure, ($))
 import Data.Set (Set)
 import Data.Monoid.Disj (Disj)
-import Data.Either (Either(..))
 import Data.Int (toNumber)
 
 import G (G)
 import W (W)
 import Number (showNumber)
 
-type Signal = { audio :: W String, video :: G String, info :: SignalInfo }
+newtype Signal = Signal { audio :: W String, video :: G String, info :: SignalInfo }
 
 fromInt :: Int -> Signal
 fromInt x = fromNumber $ toNumber x
 
 fromNumber :: Number -> Signal
-fromNumber x = { audio: pure $ showNumber x, video: pure $ showNumber x, info: emptySignalInfo }
+fromNumber x = Signal { audio: pure $ showNumber x, video: pure $ showNumber x, info: emptySignalInfo }
 
 type SignalInfo = {
   webcam :: Disj Boolean,

@@ -1,6 +1,6 @@
 module Variant where
 
-import Prelude (class Applicative, bind, pure, ($), (<$>), (<>))
+import Prelude (class Applicative, bind, pure, ($), (<$>), (<>), map)
 import Parsing (ParseError(..),Position)
 import Data.Int (toNumber)
 import Control.Monad.Error.Class (class MonadThrow,throwError)
@@ -30,14 +30,20 @@ type V a = Either ParseError a
 
 newtype VariantFunction = VariantFunction (Variant -> V Variant)
 
+newtype IntMatrix = IntMatrix (Matrix Int)
+
+newtype NumberMatrix = NumberMatrix (Matrix Number)
+
+newtype SignalMatrix = SignalMatrix (Matrix Signal)
+
 data Variant = 
   String Expression String |
   Int Expression Int | -- can also be used as Number and Signal_v
   Number Expression Number | -- can also be used as Signal_v
   Signal_v Expression Signal |
-  MatrixInt Expression (Matrix Int) |
-  MatrixNumber Expression (Matrix Number) |
-  MatrixSignal Expression (Matrix Signal) |
+  MatrixInt Expression IntMatrix |
+  MatrixNumber Expression NumberMatrix |
+  MatrixSignal Expression SignalMatrix |
   Output Expression Output | 
   Action_v Expression Action |
   VariantFunction_v Expression VariantFunction |
@@ -48,9 +54,9 @@ variantType (String _ _) = "String"
 variantType (Int _ _) = "Int"
 variantType (Number _ _) = "Number"
 variantType (Signal_v _ _)  = "Signal"
-variantType (MatrixInt _ _) = "Matrix Int"
-variantType (MatrixNumber _ _) = "Matrix Number"
-variantType (MatrixSignal _ _) = "Matrix Signal"
+variantType (MatrixInt _ _) = "IntMatrix"
+variantType (MatrixNumber _ _) = "NumberMatrix"
+variantType (MatrixSignal _ _) = "SignalMatrix"
 variantType (Output _ _) = "Output"
 variantType (Action_v _ _) = "Action"
 variantType (VariantFunction_v _ _) = "VariantFunction"
@@ -108,26 +114,26 @@ instance FromVariant Signal where
   fromVariant (Signal_v _ x) = pure x
   fromVariant v = throwError $ ParseError ("expected Signal, found " <> variantType v) (variantPosition v)
 
-matrixIntFromVariant :: forall m. Applicative m => MonadThrow ParseError m => Variant -> m (Matrix Int)
-matrixIntFromVariant (Int _ x) = *** TODO ***
-matrixIntFromVariant (MatrixInt _ x) = pure x
-matrixIntFromVariant v = throwError $ ParseError ("expected Matrix Int, found " <> variantType v) (variantPosition v)
+instance FromVariant IntMatrix where
+  fromVariant (Int _ x) = pure $ pure x
+  fromVariant (MatrixInt _ x) = pure x
+  fromVariant v = throwError $ ParseError ("expected Matrix Int, found " <> variantType v) (variantPosition v)
 
-matrixNumberFromVariant :: forall m. Applicative m => MonadThrow ParseError m => Variant -> m (Matrix Int)
-matrixNumberFromVariant (Int _ x) = *** TODO ***
-matrixNumberFromVariant (Number _ x) = *** TODO ***
-matrixNumberFromVariant (MatrixInt _ x) = *** TODO ***
-matrixNumberFromVariant (MatrixNumber _ x) = pure x
-matrixNumberFromVariant v = throwError $ ParseError ("expected Matrix Number, found " <> variantType v) (variantPosition v)
+instance FromVariant NumberMatrix where
+  fromVariant (Int _ x) = pure $ pure $ toNumber x
+  fromVariant (Number _ x) = pure $ pure x
+  fromVariant (MatrixInt _ (IntMatrix x)) = pure $ NumberMatrix $ map toNumber x
+  fromVariant (MatrixNumber _ x) = pure x
+  fromVariant v = throwError $ ParseError ("expected Matrix Number, found " <> variantType v) (variantPosition v)
 
-matrixSignalFromVariant :: forall m. Applicative m => MonadThrow ParseError m => Variant -> m (Matrix Int)
-matrixSignalFromVariant (Int _ x) = *** TODO ***
-matrixSignalFromVariant (Number _ x) = *** TODO ***
-matrixSignalFromVariant (Signal_v _ x) = *** TODO ***
-matrixSignalFromVariant (MatrixInt _ x) = *** TODO ***
-matrixSignalFromVariant (MatrixNumber _ x) = *** TODO ***
-matrixSignalFromVariant (MatrixSignal _ x) = pure x
-matrixSignalFromVariant v = throwError $ ParseError ("expected Matrix Signal, found " <> variantType v) (variantPosition v)
+instance FromVariant SignalMatrix where
+  fromVariant (Int _ x) = pure $ pure $ fromInt x
+  fromVariant (Number _ x) = pure $ pure $ fromNumber x
+  fromVariant (Signal_v _ x) = pure $ pure x
+  fromVariant (MatrixInt _ (IntMatrix x)) = pure $ SignalMatrix $ map fromInt x
+  fromVariant (MatrixNumber _ (NumberMatrix x)) = pure $ SignalMatrix $ map fromNumber x
+  fromVariant (MatrixSignal _ x) = pure x
+  fromVariant v = throwError $ ParseError ("expected Matrix Signal, found " <> variantType v) (variantPosition v)
 
 instance FromVariant Output where 
   fromVariant (Output _ x) = pure x
@@ -139,9 +145,9 @@ instance FromVariant Action where
   fromVariant (Int _ x) = pure $ matrixSignalToAction $ singleton $ fromInt x
   fromVariant (Number _ x) = pure $ matrixSignalToAction $ singleton $ fromNumber x
   fromVariant (Signal_v _ x) = pure $ matrixSignalToAction $ singleton $ x
-  fromVariant (MatrixInt _ x) = *** TODO ***
-  fromVariant (MatrixNumber _ x) = *** TODO ***
-  fromVariant (MatrixSignal _ x) = *** TODO ***
+  fromVariant (MatrixInt _ (IntMatrix x)) = pure $ matrixSignalToAction $ map fromInt x
+  fromVariant (MatrixNumber _ (NumberMatrix x)) = pure $ matrixSignalToAction $ map fromNumber x
+  fromVariant (MatrixSignal _ (SignalMatrix x)) = pure $ matrixSignalToAction x
   fromVariant v = throwError $ ParseError ("expected Action, found " <> variantType v) (variantPosition v)
 
 instance FromVariant VariantFunction where
@@ -167,6 +173,15 @@ instance ToVariant Number where
 
 instance ToVariant Signal where
   toVariant = Signal_v
+
+instance ToVariant IntMatrix where
+  toVariant = MatrixInt
+
+instance ToVariant NumberMatrix where
+  toVariant = MatrixNumber
+
+instance ToVariant SignalMatrix where
+  toVariant = MatrixSignal
 
 instance ToVariant Output where
   toVariant = Output
