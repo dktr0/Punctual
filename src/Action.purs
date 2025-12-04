@@ -1,6 +1,6 @@
 module Action where
 
-import Prelude (identity, map, one, zero, ($), (-), (/), (<>), class Show, show)
+import Prelude (class Show, identity, one, show, zero, ($), (-), (/), (<>))
 import Data.Tuple (Tuple(..))
 import Data.Tempo (Tempo)
 import Data.DateTime (DateTime, adjust, diff)
@@ -10,9 +10,9 @@ import Data.Maybe (maybe)
 import Data.Newtype (unwrap)
 import Data.Foldable (foldMap)
 
-import Signal (Signal, SignalInfo)
+import Signal (Signal, SignalInfo, info)
 import Channels (channels)
-import Matrix (Matrix(..),rows,columns)
+import Matrix (Matrix, columns, rows)
 import DefTime (DefTime(..), calculateT1)
 import Transition (Transition(..), transitionToXfade)
 import Duration (Duration(..))
@@ -87,4 +87,5 @@ actionHasAudioInput :: Action -> Boolean
 actionHasAudioInput x = unwrap (matrixSignalInfo $ matrix x).ain
 
 matrixSignalInfo :: Matrix Signal -> SignalInfo
-matrixSignalInfo (Matrix xss) = foldMap (foldMap _.info) xss
+matrixSignalInfo = foldMap info
+-- matrixSignalInfo (Matrix xss) = foldMap (foldMap _.info) xss

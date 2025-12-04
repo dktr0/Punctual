@@ -1,16 +1,14 @@
 module Variant where
 
-import Prelude (class Applicative, bind, pure, ($), (<$>), (<>), map)
+import Prelude (class Applicative, bind, map, pure, ($), (<>))
 import Parsing (ParseError(..),Position)
 import Data.Int (toNumber)
 import Control.Monad.Error.Class (class MonadThrow,throwError)
-import Control.Monad.Except.Trans (ExceptT,runExceptT)
 import Data.Map as Map
 import Effect.Ref (Ref)
 import Data.Map (Map)
 import Data.Either (Either(..))
-import Data.Traversable (traverse)
-import Data.Newtype (class Newtype,unwrap)
+import Data.Newtype (class Newtype)
 
 import Action (Action,matrixSignalToAction)
 import Output (Output)
@@ -115,21 +113,21 @@ instance FromVariant Signal where
   fromVariant v = throwError $ ParseError ("expected Signal, found " <> variantType v) (variantPosition v)
 
 instance FromVariant IntMatrix where
-  fromVariant (Int _ x) = pure $ pure x
+  fromVariant (Int _ x) = pure $ IntMatrix $ pure x
   fromVariant (MatrixInt _ x) = pure x
   fromVariant v = throwError $ ParseError ("expected Matrix Int, found " <> variantType v) (variantPosition v)
 
 instance FromVariant NumberMatrix where
-  fromVariant (Int _ x) = pure $ pure $ toNumber x
-  fromVariant (Number _ x) = pure $ pure x
+  fromVariant (Int _ x) = pure $ NumberMatrix $ pure $ toNumber x
+  fromVariant (Number _ x) = pure $ NumberMatrix $ pure x
   fromVariant (MatrixInt _ (IntMatrix x)) = pure $ NumberMatrix $ map toNumber x
   fromVariant (MatrixNumber _ x) = pure x
   fromVariant v = throwError $ ParseError ("expected Matrix Number, found " <> variantType v) (variantPosition v)
 
 instance FromVariant SignalMatrix where
-  fromVariant (Int _ x) = pure $ pure $ fromInt x
-  fromVariant (Number _ x) = pure $ pure $ fromNumber x
-  fromVariant (Signal_v _ x) = pure $ pure x
+  fromVariant (Int _ x) = pure $ SignalMatrix $ pure $ fromInt x
+  fromVariant (Number _ x) = pure $ SignalMatrix $ pure $ fromNumber x
+  fromVariant (Signal_v _ x) = pure $ SignalMatrix $ pure x
   fromVariant (MatrixInt _ (IntMatrix x)) = pure $ SignalMatrix $ map fromInt x
   fromVariant (MatrixNumber _ (NumberMatrix x)) = pure $ SignalMatrix $ map fromNumber x
   fromVariant (MatrixSignal _ x) = pure x

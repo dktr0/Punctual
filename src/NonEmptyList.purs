@@ -3,7 +3,7 @@ module NonEmptyList where
 -- utility functions over PureScript's NonEmptyList
 
 import Prelude (max,($),(+),(/),bind,pure,map,(>=),(==),otherwise,(<<<),(-),(<>),(>))
-import Data.List.NonEmpty (NonEmptyList,length,concat,zipWith,singleton,fromList,init,tail,head,cons,drop,catMaybes,cons',toList,take)
+import Data.List.NonEmpty (NonEmptyList, concat, cons, cons', drop, fromList, head, init, length, singleton, tail, take, toList, zipWith)
 import Data.Tuple (Tuple(..))
 import Data.Foldable (indexl)
 import Data.Semigroup.Foldable (maximum)

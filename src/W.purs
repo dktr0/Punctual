@@ -2,24 +2,22 @@ module W where
 
 -- A monad and associated functions for generating the code of a WebAudio audio worklet.
 
-import Prelude (Unit, bind, discard, map, pure, show, ($), (*), (+), (-), (/), (/=), (<), (<$>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), negate, (>>>), otherwise)
+import Prelude (Unit, bind, discard, map, negate, otherwise, pure, show, ($), (*), (+), (-), (/), (/=), (<), (<$>), (<<<), (<=), (<>), (==), (>), (>=), (>>=))
 import Prelude as Prelude
 import Control.Monad.State (State,get,put,runState,modify_)
-import Data.List.NonEmpty (NonEmptyList, fromList, length, zipWith, head, last)
+import Data.List.NonEmpty (NonEmptyList, head, last, length, zipWith)
 import Data.Either (Either(..))
 import Data.Foldable (intercalate,foldM)
 import Data.Traversable (traverse,for,sequence)
 import Data.Tuple (Tuple(..))
-import Data.Maybe (Maybe(..))
-import Data.Unfoldable1 (iterateN, range, replicate1, singleton)
-import Data.Number (acos, asin, atan, ceil, cos, exp, floor, log, pow, round, sign, sin, sqrt, tan, trunc, pi) as Number
+import Data.Unfoldable1 (iterateN, replicate1, singleton)
+import Data.Number (cos, pi, pow, sin) as Number
 import Data.Ord as Ord
 import Data.Int (toNumber,round)
 
-import NonEmptyList (zipWithEqualLength,pairwise)
 import MultiMode (MultiMode(..))
-import Matrix (Matrix(..),flatten,semiFlatten,fromNonEmptyListMulti,zip,rep,combine,combine3,concat,toTuples,fromNonEmptyList,fromMatrixMatrix)
-import Number (acosh, asinh, atanh, between, cbrt, clip, cosh, log10, log2, sinh, tanh, divisionSafe, divisionUnsafe, smoothStep, showNumber) as Number 
+import Matrix (Matrix, combine, concat, flatten, fromNonEmptyList)
+import Number (between, clip, divisionSafe, divisionUnsafe, showNumber, smoothStep) as Number
 
 type W = State WState
 
