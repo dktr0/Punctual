@@ -1,23 +1,25 @@
 module AudioWorklet where
 
-import Prelude ((<>),Unit,pure,discard,($),show,(>>=),(-),bind,(+),unit)
+import Prelude (Unit, bind, discard, map, pure, show, unit, ($), (+), (-), (<>))
 import Effect (Effect)
 import Data.Nullable (Nullable,toMaybe)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Data.List.NonEmpty (zipWith)
 import Data.Unfoldable1 (range)
+import Data.Traversable (sequence)
 import Data.Foldable (fold)
 import Effect.Class.Console (log)
 
-import Signal (Signal)
+import Signal (Signal, audio)
 import WebAudio (WebAudioContext,WebAudioNode)
 import W
 import Output (Output,audioOutputChannels,audioOutputOffset)
+import Matrix (Matrix)
 
 type AudioWorklet = {
   name :: String,
-  signal :: Signal,
+  matrix :: Matrix Signal,
   output :: Output,
   code :: String,
   audioWorklet' :: AudioWorklet'
@@ -28,13 +30,13 @@ type AudioWorklet' = {
   audioWorkletNode :: Nullable WebAudioNode
   }
 
-runWorklet :: WebAudioContext -> Nullable WebAudioNode -> WebAudioNode -> String -> Signal -> Int -> Output -> Number -> Number -> Effect AudioWorklet
-runWorklet ctx ain aout name signal maxChnls output fInStart fInDur = do
+runWorklet :: WebAudioContext -> Nullable WebAudioNode -> WebAudioNode -> String -> Matrix Signal -> Int -> Output -> Number -> Number -> Effect AudioWorklet
+runWorklet ctx ain aout name matrix maxChnls output fInStart fInDur = do
   let nOutputChnls = audioOutputChannels maxChnls output 
   let channelOffset = audioOutputOffset output
-  let code = generateWorkletCode signal nOutputChnls channelOffset name fInStart fInDur
+  let code = generateWorkletCode matrix nOutputChnls channelOffset name fInStart fInDur
   audioWorklet' <- _runWorklet ctx ain aout name code (nOutputChnls+channelOffset)
-  pure { name, signal, output, code, audioWorklet' }
+  pure { name, matrix, output, code, audioWorklet' }
 
 foreign import _runWorklet :: WebAudioContext -> Nullable WebAudioNode -> WebAudioNode -> String -> String -> Int -> Effect AudioWorklet'
 
@@ -58,12 +60,13 @@ updateWorklet cps originAudio evalTimeAudio w = do
       setWorkletParamValue n "originAudio" originAudio
       setWorkletParamValue n "evalTimeAudio" evalTimeAudio
 
-generateWorkletCode :: Signal -> Int -> Int -> String -> Number -> Number -> String
-generateWorkletCode s nOutputChnls channelOffset name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> fadeCalculations <> wState.code <> outputs <> restOfClass <> registerProcessor
+generateWorkletCode :: Matrix Signal -> Int -> Int -> String -> Number -> Number -> String
+generateWorkletCode ms nOutputChnls channelOffset name fInStart fInDur = prefix <> classHeader <> getParameterDescriptors <> constructor <> innerLoopPrefix <> fadeCalculations <> wState.code <> outputs <> restOfClass <> registerProcessor
   where
-    Tuple frame wState = runW $ signalToFrame s >>= aout nOutputChnls channelOffset
+    Tuple frame wState = runW $ do
+      xs <- sequence $ map audio ms -- :: W (Matrix String)
+      aout nOutputChnls channelOffset xs -- :: W (NonEmptyList String)
     prefix = """'use strict';
-
 function clamp(min,max,x) { return Math.max(Math.min(max,x),min); }
 function ain(input,n) { return (n >= input.length ? 0.0 : input[n]); }
 function genSin() {
@@ -141,7 +144,7 @@ const tri = this.tri;
 """
     fadeCalculations = "const fIn = clamp(0,1,(t-" <> show fInStart <> ")/" <> show fInDur <> ");\nconst fade = Math.min(fIn,fOut);\n"
     outputIndices = range 0 (nOutputChnls + channelOffset - 1)
-    outputF i x = "if(output[" <> show i <> "]!=null){output[" <> show i <> "][n] = " <> showSample x <> "*fade};\n"
+    outputF i x = "if(output[" <> show i <> "]!=null){output[" <> show i <> "][n] = " <> x <> "*fade};\n"
     outputs = fold $ zipWith outputF outputIndices frame
     restOfClass = """}
 this.framesOut += blockSize;

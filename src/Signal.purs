@@ -11,6 +11,12 @@ import Number (showNumber)
 
 newtype Signal = Signal { audio :: W String, video :: G String, info :: SignalInfo }
 
+audio :: Signal -> W String
+audio (Signal x) = x.audio
+
+video :: Signal -> G String
+video (Signal x) = x.video
+
 info :: Signal -> SignalInfo
 info (Signal x) = x.info
 

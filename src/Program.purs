@@ -8,8 +8,8 @@ import Data.Foldable (foldMap,any)
 import Effect
 import Effect.Now (nowDateTime)
 
-import Action (Action,actionHasVisualOutput,actionHasAudioOutput,showAction,signal)
-import Signal (SignalInfo,signalInfo)
+import Action (Action,actionHasVisualOutput,actionHasAudioOutput)
+import Signal (SignalInfo)
 
 type Program = {
   actions :: List (Maybe Action),
