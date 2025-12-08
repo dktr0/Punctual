@@ -82,10 +82,10 @@ actionHasAudioOutput :: Action -> Boolean
 actionHasAudioOutput (Action a) = isAudioOutput a.output
 
 actionHasAudioInput :: Action -> Boolean
--- actionHasAudioInput (Action a) = unwrap (signalInfo a.signal).ain
--- actionHasAudioInput x = any identity $ map (\m -> unwrap $ (matrixSignalInfo m).ain) $ matrix x
 actionHasAudioInput x = unwrap (matrixSignalInfo $ matrix x).ain
 
 matrixSignalInfo :: Matrix Signal -> SignalInfo
 matrixSignalInfo = foldMap info
--- matrixSignalInfo (Matrix xss) = foldMap (foldMap _.info) xss
+
+actionSignalInfo :: Action -> SignalInfo
+actionSignalInfo (Action x) = matrixSignalInfo x.matrix

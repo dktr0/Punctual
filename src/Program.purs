@@ -1,14 +1,14 @@
 module Program where
 
-import Prelude (($),map,bind,pure,(<>),(+))
+import Prelude (bind, pure, show, ($), (+), (<>))
 import Data.DateTime (DateTime)
-import Data.List (List(..),catMaybes,filter,length,concat)
+import Data.List (List(..), catMaybes, filter, length)
 import Data.Maybe (Maybe)
 import Data.Foldable (foldMap,any)
 import Effect
 import Effect.Now (nowDateTime)
 
-import Action (Action,actionHasVisualOutput,actionHasAudioOutput)
+import Action (Action,actionHasVisualOutput,actionHasAudioOutput,actionSignalInfo)
 import Signal (SignalInfo)
 
 type Program = {
@@ -16,8 +16,8 @@ type Program = {
   evalTime :: DateTime
   }
 
-programInfo :: forall z. { actions :: List (Maybe Action) | z } -> SignalInfo
-programInfo x = foldMap signalInfo $ map signal $ catMaybes x.actions
+programSignalInfo :: Program -> SignalInfo
+programSignalInfo x = foldMap actionSignalInfo $ catMaybes x.actions
 
 emptyProgram :: Effect Program
 emptyProgram = do
@@ -39,11 +39,11 @@ showProgram p = showAudioActions <> showVisualActions <> showNoActions
     showAudioActions = 
       case length audioActions of 
         0 -> ""
-        _ -> " audio:\n" <> foldMap showAction audioActions <> "\n"
+        _ -> " audio:\n" <> foldMap show audioActions <> "\n"
     showVisualActions =
       case length visualActions of
         0 -> ""
-        _ -> " visual:\n" <> foldMap showAction visualActions <> "\n"
+        _ -> " visual:\n" <> foldMap show visualActions <> "\n"
     showNoActions =
       case (length audioActions + length visualActions) of
         0 -> "(program has no actions)\n"

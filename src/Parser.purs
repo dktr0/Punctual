@@ -139,7 +139,7 @@ parseStatement :: Position -> List String -> Expression -> P (Maybe Action)
 parseStatement p _ (Application _ (Reserved _ "import") (LiteralString _ url)) = do
   importLibrary p url
   pure Nothing 
-parseStatement p ks e = do
+parseStatement _ ks e = do
   v <- case ks of
     Nil -> embedL $ parseExpression e
     (x:Nil) -> do

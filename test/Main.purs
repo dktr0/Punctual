@@ -20,7 +20,7 @@ import Data.HeytingAlgebra (ff,tt)
 
 -- import Parser
 import Signal (Signal(..))
-import Program (programInfo)
+import Program (programSignalInfo)
 
 {-
 main :: Effect Unit
