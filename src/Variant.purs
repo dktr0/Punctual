@@ -10,11 +10,11 @@ import Data.Map (Map)
 import Data.Either (Either(..))
 import Data.Newtype (class Newtype)
 
-import Action (Action,matrixSignalToAction)
+import Action (Action,signalToAction)
 import Output (Output)
 import AST (Expression(..),expressionPosition)
-import Signal (Signal,fromInt,fromNumber)
-import Matrix (Matrix,singleton)
+import Signal (Signal,fromInt,fromNumber,fromMatrixInt,fromMatrixNumber)
+import Matrix (Matrix)
 
 type Library = Map.Map String Variant
 
@@ -36,12 +36,11 @@ newtype SignalMatrix = SignalMatrix (Matrix Signal)
 
 data Variant = 
   String Expression String |
-  Int Expression Int | -- can also be used as Number and Signal_v
-  Number Expression Number | -- can also be used as Signal_v
-  Signal_v Expression Signal |
+  Int Expression Int |
+  Number Expression Number |
   MatrixInt Expression IntMatrix |
   MatrixNumber Expression NumberMatrix |
-  MatrixSignal Expression SignalMatrix |
+  Signal_v Expression Signal |
   Output Expression Output | 
   Action_v Expression Action |
   VariantFunction_v Expression VariantFunction |
@@ -51,10 +50,9 @@ variantType :: Variant -> String
 variantType (String _ _) = "String"
 variantType (Int _ _) = "Int"
 variantType (Number _ _) = "Number"
-variantType (Signal_v _ _)  = "Signal"
 variantType (MatrixInt _ _) = "IntMatrix"
 variantType (MatrixNumber _ _) = "NumberMatrix"
-variantType (MatrixSignal _ _) = "SignalMatrix"
+variantType (Signal_v _ _)  = "Signal"
 variantType (Output _ _) = "Output"
 variantType (Action_v _ _) = "Action"
 variantType (VariantFunction_v _ _) = "VariantFunction"
@@ -64,10 +62,9 @@ variantExpression :: Variant -> Expression
 variantExpression (String e _)  = e
 variantExpression (Int e _)  = e
 variantExpression (Number e _)  = e
-variantExpression (Signal_v e _)  = e
 variantExpression (MatrixInt e _) = e
 variantExpression (MatrixNumber e _) = e
-variantExpression (MatrixSignal e _) = e
+variantExpression (Signal_v e _)  = e
 variantExpression (Output e _)  = e
 variantExpression (Action_v e _)  = e
 variantExpression (VariantFunction_v e _)  = e
@@ -77,10 +74,9 @@ variantPosition :: Variant -> Position
 variantPosition (String e _)  = expressionPosition e
 variantPosition (Int e _)  = expressionPosition e
 variantPosition (Number e _)  = expressionPosition e
-variantPosition (Signal_v e _)  = expressionPosition e
 variantPosition (MatrixInt e _)  = expressionPosition e
 variantPosition (MatrixNumber e _)  = expressionPosition e
-variantPosition (MatrixSignal e _)  = expressionPosition e
+variantPosition (Signal_v e _)  = expressionPosition e
 variantPosition (Output e _)  = expressionPosition e
 variantPosition (Action_v e _)  = expressionPosition e
 variantPosition (VariantFunction_v e _)  = expressionPosition e
@@ -106,12 +102,6 @@ instance FromVariant Number where
   fromVariant (Number _ x) = pure x
   fromVariant v = throwError $ ParseError ("expected Number, found " <> variantType v) (variantPosition v)
 
-instance FromVariant Signal where
-  fromVariant (Int _ x) = pure $ fromInt x
-  fromVariant (Number _ x) = pure $ fromNumber x
-  fromVariant (Signal_v _ x) = pure x
-  fromVariant v = throwError $ ParseError ("expected Signal, found " <> variantType v) (variantPosition v)
-
 instance FromVariant IntMatrix where
   fromVariant (Int _ x) = pure $ IntMatrix $ pure x
   fromVariant (MatrixInt _ x) = pure x
@@ -124,14 +114,13 @@ instance FromVariant NumberMatrix where
   fromVariant (MatrixNumber _ x) = pure x
   fromVariant v = throwError $ ParseError ("expected Matrix Number, found " <> variantType v) (variantPosition v)
 
-instance FromVariant SignalMatrix where
-  fromVariant (Int _ x) = pure $ SignalMatrix $ pure $ fromInt x
-  fromVariant (Number _ x) = pure $ SignalMatrix $ pure $ fromNumber x
-  fromVariant (Signal_v _ x) = pure $ SignalMatrix $ pure x
-  fromVariant (MatrixInt _ (IntMatrix x)) = pure $ SignalMatrix $ map fromInt x
-  fromVariant (MatrixNumber _ (NumberMatrix x)) = pure $ SignalMatrix $ map fromNumber x
-  fromVariant (MatrixSignal _ x) = pure x
-  fromVariant v = throwError $ ParseError ("expected Matrix Signal, found " <> variantType v) (variantPosition v)
+instance FromVariant Signal where
+  fromVariant (Int _ x) = pure $ fromInt x
+  fromVariant (Number _ x) = pure $ fromNumber x
+  fromVariant (MatrixInt _ (IntMatrix x)) = pure $ fromMatrixInt x
+  fromVariant (MatrixNumber _ (NumberMatrix x)) = pure $ fromMatrixNumber x
+  fromVariant (Signal_v _ x) = pure x
+  fromVariant v = throwError $ ParseError ("expected Signal, found " <> variantType v) (variantPosition v)
 
 instance FromVariant Output where 
   fromVariant (Output _ x) = pure x
@@ -140,12 +129,11 @@ instance FromVariant Output where
 
 instance FromVariant Action where
   fromVariant (Action_v _ x) = pure x
-  fromVariant (Int _ x) = pure $ matrixSignalToAction $ singleton $ fromInt x
-  fromVariant (Number _ x) = pure $ matrixSignalToAction $ singleton $ fromNumber x
-  fromVariant (Signal_v _ x) = pure $ matrixSignalToAction $ singleton $ x
-  fromVariant (MatrixInt _ (IntMatrix x)) = pure $ matrixSignalToAction $ map fromInt x
-  fromVariant (MatrixNumber _ (NumberMatrix x)) = pure $ matrixSignalToAction $ map fromNumber x
-  fromVariant (MatrixSignal _ (SignalMatrix x)) = pure $ matrixSignalToAction x
+  fromVariant (Int _ x) = pure $ signalToAction $ fromInt x
+  fromVariant (Number _ x) = pure $ signalToAction $ fromNumber x
+  fromVariant (MatrixInt _ (IntMatrix x)) = pure $ signalToAction $ fromMatrixInt x
+  fromVariant (MatrixNumber _ (NumberMatrix x)) = pure $ signalToAction $ fromMatrixNumber x
+  fromVariant (Signal_v _ x) = pure $ signalToAction x
   fromVariant v = throwError $ ParseError ("expected Action, found " <> variantType v) (variantPosition v)
 
 instance FromVariant VariantFunction where
@@ -169,17 +157,14 @@ instance ToVariant Int where
 instance ToVariant Number where
   toVariant = Number
 
-instance ToVariant Signal where
-  toVariant = Signal_v
-
 instance ToVariant IntMatrix where
   toVariant = MatrixInt
 
 instance ToVariant NumberMatrix where
   toVariant = MatrixNumber
 
-instance ToVariant SignalMatrix where
-  toVariant = MatrixSignal
+instance ToVariant Signal where
+  toVariant = Signal_v
 
 instance ToVariant Output where
   toVariant = Output

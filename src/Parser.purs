@@ -35,7 +35,7 @@ import MultiMode (MultiMode(..))
 import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus,fit,fast,late,zero,SignalSignal(..))
 import Variant (V,Library,LibraryCache,Variant(..), fromVariant, listVariantToVariantSignal, toVariant, class ToVariant, class FromVariant, variantFunction, variantFunction2, variantFunction3, application, VariantFunction(..), variantExpression, variantPosition, abVariantFunction)
 import Action (Action, setCrossFade, setOutput)
-import Action (signal) as Action
+-- import Action () as Action
 import Output (Output)
 import Output as Output
 import SharedResources (URL)

@@ -8,18 +8,16 @@ import Data.DateTime.Instant (unInstant,fromDateTime)
 import Data.Time.Duration (Seconds)
 import Data.Maybe (maybe)
 import Data.Newtype (unwrap)
-import Data.Foldable (foldMap)
 
-import Signal (Signal, SignalInfo, info)
+import Signal (Signal, SignalInfo, columns, info, rows)
 import Channels (channels)
-import Matrix (Matrix, columns, rows)
 import DefTime (DefTime(..), calculateT1)
 import Transition (Transition(..), transitionToXfade)
 import Duration (Duration(..))
 import Output (Output(..),isVisualOutput,isAudioOutput)
 
 newtype Action = Action {
-  matrix :: Matrix Signal,
+  signal :: Signal,
   defTime :: DefTime,
   transition :: Transition,
   output :: Output
@@ -28,10 +26,10 @@ newtype Action = Action {
 instance Show Action where
   show (Action x) = " " <> show x.output <> " " <> show x.defTime <> " " <> showDimensions -- <> ": " <> show x.matrix
     where
-      showDimensions = show (channels x.matrix) <> " channels (" <> show (columns x.matrix) <> " cols x " <> show (rows x.matrix) <> " rows)"
+      showDimensions = show (channels x.signal) <> " channels (" <> show (columns x.signal) <> " cols x " <> show (rows x.signal) <> " rows)"
 
-matrix :: Action -> Matrix Signal
-matrix (Action x) = x.matrix
+signal :: Action -> Signal
+signal (Action x) = x.signal
 
 defTime :: Action -> DefTime
 defTime (Action x) = x.defTime
@@ -42,8 +40,8 @@ transition (Action x) = x.transition
 output :: Action -> Output
 output (Action x) = x.output
   
-matrixSignalToAction :: Matrix Signal -> Action
-matrixSignalToAction x = Action { matrix: x, defTime: Quant one (InSeconds zero), transition: DefaultCrossFade, output: Audio }
+signalToAction :: Signal -> Action
+signalToAction x = Action { signal: x, defTime: Quant one (InSeconds zero), transition: DefaultCrossFade, output: Audio }
 
 setOutput :: Action -> Output -> Action
 setOutput (Action x) o = Action $ x { output = o }
@@ -82,10 +80,7 @@ actionHasAudioOutput :: Action -> Boolean
 actionHasAudioOutput (Action a) = isAudioOutput a.output
 
 actionHasAudioInput :: Action -> Boolean
-actionHasAudioInput x = unwrap (matrixSignalInfo $ matrix x).ain
-
-matrixSignalInfo :: Matrix Signal -> SignalInfo
-matrixSignalInfo = foldMap info
+actionHasAudioInput x = unwrap (info $ signal x).ain
 
 actionSignalInfo :: Action -> SignalInfo
-actionSignalInfo (Action x) = matrixSignalInfo x.matrix
+actionSignalInfo (Action x) = info x.signal

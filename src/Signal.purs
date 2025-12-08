@@ -1,6 +1,6 @@
 module Signal where
 
-import Prelude (mempty, pure, ($))
+import Prelude (mempty, pure, ($), class Show, show, class Eq, eq, (<>), map, (*))
 import Data.Set (Set)
 import Data.Monoid.Disj (Disj)
 import Data.Int (toNumber)
@@ -8,23 +8,9 @@ import Data.Int (toNumber)
 import G (G)
 import W (W)
 import Number (showNumber)
-
-newtype Signal = Signal { audio :: W String, video :: G String, info :: SignalInfo }
-
-audio :: Signal -> W String
-audio (Signal x) = x.audio
-
-video :: Signal -> G String
-video (Signal x) = x.video
-
-info :: Signal -> SignalInfo
-info (Signal x) = x.info
-
-fromInt :: Int -> Signal
-fromInt x = fromNumber $ toNumber x
-
-fromNumber :: Number -> Signal
-fromNumber x = Signal { audio: pure $ showNumber x, video: pure $ showNumber x, info: emptySignalInfo }
+import Matrix (Matrix)
+import Matrix (columns,rows) as Matrix
+import Channels (class Channels)
 
 type SignalInfo = {
   webcam :: Disj Boolean,
@@ -58,6 +44,99 @@ emptySignalInfo = {
   vidURLs: mempty,
   gdmIDs: mempty
   }
+
+
+newtype Signal = Signal { _audio :: W (Matrix String), _video :: G (Matrix String), _asString :: String, _info :: SignalInfo, _columns :: Int, _rows :: Int }
+
+instance Show Signal where
+  show (Signal x) = x._asString
+
+instance Eq Signal where
+  eq (Signal x) (Signal y) = eq x._asString y._asString
+
+instance Channels Signal where
+  channels (Signal x) = x._columns * x._rows
+
+audio :: Signal -> W (Matrix String)
+audio (Signal x) = x._audio
+
+video :: Signal -> G (Matrix String)
+video (Signal x) = x._video
+
+info :: Signal -> SignalInfo
+info (Signal x) = x._info
+
+columns :: Signal -> Int
+columns (Signal x) = x._columns
+
+rows :: Signal -> Int
+rows (Signal x) = x._rows
+
+
+fromInt :: Int -> Signal
+fromInt x = fromNumber $ toNumber x
+
+fromNumber :: Number -> Signal
+fromNumber n = Signal { _audio, _video, _asString, _info, _columns, _rows }
+  where 
+    _audio = pure $ pure $ showNumber n
+    _video = pure $ pure $ showNumber n
+    _asString = showNumber n
+    _info = emptySignalInfo
+    _columns = 1
+    _rows = 1
+
+fromMatrixInt :: Matrix Int -> Signal
+fromMatrixInt m = fromMatrixNumber $ map toNumber m
+
+fromMatrixNumber :: Matrix Number -> Signal
+fromMatrixNumber m = Signal { _audio, _video, _asString, _info, _columns, _rows }
+  where
+    m' = map showNumber m
+    _audio = pure m'
+    _video = pure m'
+    _asString = show m'
+    _info = emptySignalInfo
+    _columns = Matrix.columns m
+    _rows = Matrix.rows m
+
+fract :: Signal -> Signal
+fract x = Signal { _audio, _video, _asString, _info, _columns, _rows }
+  where
+    _audio = map (map $ unipolarFunction "fract") $ audio x
+    _video = map (map $ unipolarFunction "fract") $ video x
+    _asString = "fract (" <> show x <> ")"
+    _info = info x
+    _columns = columns x
+    _rows = rows x
+
+unipolarFunction :: String -> String -> String
+unipolarFunction fName fArg = fName <> "(" <> fArg <> ")"
+
+{-
+cmap :: (Signal -> Signal) -> Signal -> Signal
+cmap f x = Signal { audio, video, asString, info }
+  where
+    -- signalToChannels :: Signal -> Matrix Signal
+    -- channelsToSignal :: Matrix Signal -> Signal
+    y = map f $ signalToChannels x -- :: Matrix Signal
+    z = channelsToSignal y -- :: Signal
+    audio = audio z
+    video = video z
+    asString = ... concatenation of channel by channel .asString of result ...
+      
+rmap :: (Signal -> Signal) -> Signal -> Signal
+rmap f x = Signal { audio, video, asString, info }
+  where
+    -- signalToRows :: Signal -> NonEmptyList Signal
+    y = map f $ signalToRows x -- :: NonEmptyList Signal
+    z = matrixSignalToSignal y -- :: Signal
+    audio = audio z
+    video = video z
+    asString = 
+
+-}
+
 
 {-
 data Signal =

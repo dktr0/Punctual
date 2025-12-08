@@ -21,8 +21,8 @@ import Data.List as List
 import NonEmptyList (zipWithEqualLength,everyPair,everyAdjacentPair,pairwise,setInRow)
 import NonEmptyList (combine) as NonEmptyList
 import MultiMode (MultiMode(..))
-import Signal (Signal(..),dimensions)
-import Action (Action,actionTimesAsSecondsSinceEval,signal,output)
+import Signal (Signal(..))
+import Action (Action,actionTimesAsSecondsSinceEval,matrix,output)
 import Output (Output)
 import Output as Output
 import Program (Program)
@@ -32,6 +32,7 @@ import Matrix (Matrix(..),fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList
 import Number (acosh, asinh, atanh, cosh, sinh, tanh) as Number
 import Channels (channels)
 
+{-
 exprToExprs :: forall a b. Expr a => Expr b => a -> Matrix b
 exprToExprs x = mapRows castExprs $ pure x
 
@@ -224,13 +225,13 @@ signalToExprs (Set mm n x y) = do -- in each row of y, starting at n-th column, 
   let zss = NonEmptyList.combine mm (setInRow zero n) (getRows xss) (getRows yss)
   traverse assign (Matrix zss) >>= mapRows castExprs >>> pure
 
-
+-}
 {-
   Map SignalSignal Signal |
   Rmap SignalSignal Signal |
 -}
 
-
+{-
 signalToExprs (Blend x) = do
   xs <- flatten <$> (signalToExprs x :: G (Matrix Vec4))
   y <- (foldM (\a b -> assign $ blend a b) (head xs) (tail xs) :: G Vec4)
@@ -554,7 +555,7 @@ fitG desiredAspectRatio e = do
   s <- get
   zoomedXy <- assign $ product s.fxy zoomFactor
   withFxy zoomedXy e
-
+-}
 {-
 -- for preserving alignment requests through intermediate calculations that are Float -> G Float
 -- created during matrix refactor but currently unused???
@@ -563,7 +564,7 @@ splitFloatsApplyReassemble f xs = do
   xs'' <- traverse f $ mapRows toFloats xs
   pure $ mapRows fromFloats xs''
 -}
-
+{-
 -- underlying functions exist in many variations, restricting it to float to prioritize semantics over optimization
 arithmeticModel :: forall a. Expr a => (Float -> Float -> Float) -> MultiMode -> Signal -> Signal -> G (Matrix a)
 arithmeticModel = combineG
@@ -950,3 +951,4 @@ fragmentShader webGl2 tempo textureMap oldProgram newProgram = header webGl2 <> 
     fragColorVarName = if webGl2 then "fragColor" else "gl_FragColor"
     preMulAlpha = vec3FloatToVec4 (productExprFloat (swizzleXYZ v4) (swizzleW v4)) (swizzleW v4)
     gl_FragColor = fragColorVarName <> " = " <> toExpr preMulAlpha <> ";\n"
+-}
