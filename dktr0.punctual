@@ -10,3 +10,4 @@ garya = imga "https://upload.wikimedia.org/wikipedia/commons/4/4a/Gary_%28Sponge
 -- geometric patterns
 rainbowcols n = hsvrgb [unipolar fx * n % n,1,1];
 rainbowrows n = hsvrgb [unipolar fy * n % n,1,1];
+triangle = vline 0 (1 ~~ 0 $ fy) * rect 0 2;
