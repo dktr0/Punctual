@@ -556,7 +556,7 @@ linlin (Tuple r1x r1y) (Tuple r2x r2y) x = do
   r2 <- difference r2y r2x
   difference r1y r1x >>= divisionSafe x' >>= product r2 >>= add r2x
   
-splay :: Int -> Frame -> W (NonEmptyList Sample)
+splay :: Int -> Matrix Sample -> W (NonEmptyList Sample)
 splay nOutputChnls xs
   | nOutputChnls <= 1 = pure <$> sum xs
   | length (flatten xs) == 1 = flatten <$> pan nOutputChnls "0.5" (head $ flatten xs)
@@ -568,7 +568,7 @@ splay nOutputChnls xs
       xss <- sequence $ zipWith (pan nOutputChnls) inputPositions xs' -- :: NonEmptyList Frame -- one Frame per input, each Frame has nOutputChnls Samples
       flatten <$> sumChannels xss
 
-aout :: Int -> Int -> Frame -> W (NonEmptyList Sample)
+aout :: Int -> Int -> Matrix Sample -> W (NonEmptyList Sample)
 aout nOutputChnls channelOffset xs = do
   xs' <- splay nOutputChnls xs
   case channelOffset <= 0 of

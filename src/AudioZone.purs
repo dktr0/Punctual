@@ -18,7 +18,7 @@ import Data.Tempo (origin)
 import SharedResources (SharedResources, activateAudioInput, getOutputChannelCount, dateTimeToAudioTime)
 import Program (Program)
 import AudioWorklet (AudioWorklet,runWorklet,stopWorklet,updateWorklet)
-import Action (Action,actionTimesAsAudioTime,actionHasAudioInput,output,matrix)
+import Action (Action,actionTimesAsAudioTime,actionHasAudioInput,output,signal)
 import Output (isAudioOutput)
 import WebAudio (resumeWebAudioContext,currentTime)
 
@@ -56,7 +56,7 @@ addOrRemoveWorklet sharedResources _ _ (Just prevWorklet) Nothing = do
   stopWorklet prevWorklet (t+0.25) 0.1
   pure Nothing
 addOrRemoveWorklet sharedResources evalTime clockDiff (Just prevWorklet) (Just action) = do
-  case (prevWorklet.matrix == (matrix action) && prevWorklet.output == (output action)) of
+  case (prevWorklet.signal == (signal action) && prevWorklet.output == (output action)) of
     true -> pure (Just prevWorklet) -- no change in signal/output, maintain existing worklet
     false -> do
       tempo <- read sharedResources.tempo
@@ -78,7 +78,7 @@ addWorklet sharedResources action t1 t2 = do
               log "worklet does not have audio input"
               pure null
   maxChnls <- getOutputChannelCount sharedResources
-  runWorklet sharedResources.webAudioContext nAin sharedResources.internalAudioOutputNode ("W" <> show i) (matrix action) maxChnls (output action) t1 (t2-t1)
+  runWorklet sharedResources.webAudioContext nAin sharedResources.internalAudioOutputNode ("W" <> show i) (signal action) maxChnls (output action) t1 (t2-t1)
 
 calculateAudioZoneInfo :: AudioZone -> Effect String
 calculateAudioZoneInfo z = do

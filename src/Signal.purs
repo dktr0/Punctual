@@ -110,6 +110,17 @@ fract x = Signal { _audio, _video, _asString, _info, _columns, _rows }
     _columns = columns x
     _rows = rows x
 
+-- but lingering on this point... fract is actually polymorphic - it can be Number -> Number, and even for that matter Number -> Int
+-- (the latter possibility could be implemented by a semantics of allowing Number to be cast to Int with silent loss of information, I think)
+-- so this would go somewhere else, perhaps in Variant.purs or another file that is a bunch of functions (imported by Parser.purs)
+
+fract :: Variant -> Variant
+fract x
+  | isSignal x =
+  | isMatrixNumber =
+  | isNumber x = 
+  | otherwise = 
+
 unipolarFunction :: String -> String -> String
 unipolarFunction fName fArg = fName <> "(" <> fArg <> ")"
 
@@ -466,6 +477,17 @@ showIndented i (LPF mm x y z) = indent i <> "LPF " <> show mm <> "\n" <> showInd
 showIndented i (HPF mm x y z) = indent i <> "HPF " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y <> showIndented (i+1) z
 showIndented i (BPF mm x y z) = indent i <> "BPF " <> show mm <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y <> showIndented (i+1) z
 showIndented i (Delay maxTime x y) = indent i <> "Delay " <> show maxTime <> "\n" <> showIndented (i+1) x <> showIndented (i+1) y
+-}
+
+{-
+modulatedRangeLowHigh :: MultiMode -> Signal -> Signal -> Signal -> Signal
+modulatedRangeLowHigh mm low high x = linlin mm inputRange outputRange x
+  where
+    inputRange = 
+    outputRange = 
+
+linlin :: MultiMode -> Signal -> Signal -> Signal -> Signal
+linlin mm inputRange outputRange  
 -}
 
 {-

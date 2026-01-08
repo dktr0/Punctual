@@ -22,7 +22,7 @@ import NonEmptyList (zipWithEqualLength,everyPair,everyAdjacentPair,pairwise,set
 import NonEmptyList (combine) as NonEmptyList
 import MultiMode (MultiMode(..))
 import Signal (Signal(..))
-import Action (Action,actionTimesAsSecondsSinceEval,matrix,output)
+import Action (Action,actionTimesAsSecondsSinceEval,signal,output)
 import Output (Output)
 import Output as Output
 import Program (Program)

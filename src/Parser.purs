@@ -28,6 +28,7 @@ import Effect.Now (nowDateTime)
 import Control.Monad.State.Trans (StateT, runStateT)
 import Control.Monad.Except.Trans (ExceptT,runExceptT)
 import Control.Monad.Reader (ReaderT,runReaderT)
+import Data.Number (pi)
 
 import AST (AST, Expression(..), Statement, parseAST, expressionPosition)
 import Program (Program)
@@ -193,7 +194,7 @@ applicationL x y = liftEither $ application x y
 parseReserved :: Expression -> String -> L Variant
 parseReserved p "append" = signalSignalSignal p Append
 parseReserved p "zip" = signalSignalSignal p Zip
-parseReserved p "pi" = signal p Pi
+parseReserved e "pi" = pure $ toVariant e pi
 parseReserved p "px" = signal p Px
 parseReserved p "py" = signal p Py
 parseReserved p "pxy" = signal p Pxy
