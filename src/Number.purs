@@ -5,6 +5,10 @@ import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Data.Unfoldable1 (class Unfoldable1, unfoldr1, singleton, range,iterateN)
 import Data.Int (toNumber)
+import Data.Number as Number
+
+fract :: Number -> Number
+fract x = x - Number.floor x
 
 divisionSafe :: Number -> Number -> Number
 divisionSafe _ 0.0 = 0.0

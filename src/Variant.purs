@@ -1,6 +1,6 @@
 module Variant where
 
-import Prelude (class Applicative, bind, map, pure, ($), (<>))
+import Prelude (class Applicative, bind, map, pure, ($), (<>), (==), (||), class Monad, (>>>), (>>=), (<$>), otherwise)
 import Parsing (ParseError(..),Position)
 import Data.Int (toNumber)
 import Control.Monad.Error.Class (class MonadThrow,throwError)
@@ -8,12 +8,14 @@ import Data.Map as Map
 import Effect.Ref (Ref)
 import Data.Map (Map)
 import Data.Either (Either(..))
-import Data.Newtype (class Newtype)
+import Data.Newtype (class Newtype, modify)
+import Number as Number
 
 import Action (Action,signalToAction)
 import Output (Output)
 import AST (Expression(..),expressionPosition)
 import Signal (Signal,fromInt,fromNumber,fromMatrixInt,fromMatrixNumber)
+import Signal (fract) as Signal
 import Matrix (Matrix)
 
 type Library = Map.Map String Variant
@@ -30,7 +32,11 @@ newtype VariantFunction = VariantFunction (Variant -> V Variant)
 
 newtype IntMatrix = IntMatrix (Matrix Int)
 
+derive instance Newtype IntMatrix _
+
 newtype NumberMatrix = NumberMatrix (Matrix Number)
+
+derive instance Newtype NumberMatrix _
 
 newtype SignalMatrix = SignalMatrix (Matrix Signal)
 
@@ -57,6 +63,33 @@ variantType (Output _ _) = "Output"
 variantType (Action_v _ _) = "Action"
 variantType (VariantFunction_v _ _) = "VariantFunction"
 variantType (OutputOrVariantFunction _ _ _) = "Output or VariantFunction"
+
+isString :: Variant -> Boolean
+isString v = variantType v == "String"
+
+isInt :: Variant -> Boolean
+isInt v = variantType v == "Int"
+
+isNumber :: Variant -> Boolean
+isNumber v = variantType v == "Number" || variantType v == "Int"
+
+isMatrixInt :: Variant -> Boolean
+isMatrixInt v = variantType v == "IntMatrix" || variantType v == "Int"
+
+isMatrixNumber :: Variant -> Boolean
+isMatrixNumber v = variantType v == "NumberMatrix" || variantType v == "IntMatrix" || variantType v == "Int" || variantType v == "Number"
+
+isSignal :: Variant -> Boolean
+isSignal v = variantType v == "Signal" || variantType v == "NumberMatrix" || variantType v == "IntMatrix" || variantType v == "Int" || variantType v == "Number"
+
+isOutput :: Variant -> Boolean
+isOutput v = variantType v == "Output" || variantType v == "Output or VariantFunction"
+
+isAction :: Variant -> Boolean
+isAction v = variantType v == "Action" || isSignal v
+
+isVariantFunction :: Variant -> Boolean
+isVariantFunction v = variantType v == "VariantFunction" || variantType v == "Output or VariantFunction"
 
 variantExpression :: Variant -> Expression
 variantExpression (String e _)  = e
@@ -216,3 +249,15 @@ application f x = do
 listVariantToVariantSignal :: forall m. Monad m => MonadThrow ParseError m => Expression -> MultiMode -> List Variant -> m Variant
 listVariantToVariantSignal e mm xs = traverse fromVariant xs >>= (pure <<< toVariant e <<< SignalList mm)
 -}
+
+-- miscellaneous functions over Variant
+
+-- TODO: could potentially also define this for Action (would map fract into the Signal contained within the Action)
+fract :: forall m. Monad m => MonadThrow ParseError m => Expression -> Variant -> m Variant
+fract e v
+  | isInt v = pure v
+  | isNumber v = (Number.fract <$> fromVariant v) >>= Number e >>> pure
+  | isMatrixInt v = pure v
+  | isMatrixNumber v = (modify (map Number.fract) <$> fromVariant v) >>= MatrixNumber e >>> pure
+  | isSignal v = (Signal.fract <$> fromVariant v) >>= Signal_v e >>> pure
+  | otherwise = throwError $ ParseError ("fract cannot take an argument of type " <> variantType v) (variantPosition v)

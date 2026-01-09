@@ -110,17 +110,6 @@ fract x = Signal { _audio, _video, _asString, _info, _columns, _rows }
     _columns = columns x
     _rows = rows x
 
--- but lingering on this point... fract is actually polymorphic - it can be Number -> Number, and even for that matter Number -> Int
--- (the latter possibility could be implemented by a semantics of allowing Number to be cast to Int with silent loss of information, I think)
--- so this would go somewhere else, perhaps in Variant.purs or another file that is a bunch of functions (imported by Parser.purs)
-
-fract :: Variant -> Variant
-fract x
-  | isSignal x =
-  | isMatrixNumber =
-  | isNumber x = 
-  | otherwise = 
-
 unipolarFunction :: String -> String -> String
 unipolarFunction fName fArg = fName <> "(" <> fArg <> ")"
 
