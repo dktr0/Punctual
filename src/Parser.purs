@@ -34,6 +34,7 @@ import AST (AST, Expression(..), Statement, parseAST, expressionPosition)
 import Program (Program)
 import MultiMode (MultiMode(..))
 import Signal (Signal(..),modulatedRangeLowHigh,modulatedRangePlusMinus,fit,fast,late,zero,SignalSignal(..))
+import Signal as Signal
 import Variant (V,Library,LibraryCache,Variant(..), fromVariant, listVariantToVariantSignal, toVariant, class ToVariant, class FromVariant, variantFunction, variantFunction2, variantFunction3, application, VariantFunction(..), variantExpression, variantPosition, abVariantFunction)
 import Action (Action, setCrossFade, setOutput)
 -- import Action () as Action
@@ -199,8 +200,8 @@ parseReserved p "px" = signal p Px
 parseReserved p "py" = signal p Py
 parseReserved p "pxy" = signal p Pxy
 parseReserved p "aspect" = signal p Aspect
-parseReserved p "fx" = signal p Fx
-parseReserved p "fy" = signal p Fy
+parseReserved e "fx" = Signal_v e Signal.fx
+parseReserved e "fy" = Signal_v e Signal.fy
 parseReserved p "fxy" = signal p Fxy
 parseReserved p "frt" = signal p FRt
 parseReserved p "fr" = signal p FR
