@@ -1,14 +1,14 @@
 module G where
 
-import Prelude (Unit, bind, discard, pure, show, ($), (+), (<$>), (<>))
+import Prelude (Unit, bind, discard, pure, show, ($), (+), (<$>), (<>), (>>=), (>>>))
 import Data.Map (Map)
 import Data.List.NonEmpty (NonEmptyList)
 import Control.Monad.State (State,get,put,runState,modify_)
 import Data.Traversable (for)
-import Data.Tuple (Tuple)
+import Data.Tuple (Tuple(..))
 
 import Matrix (Matrix, concat)
-import Expr (class Expr, Float(..), Vec2(..), Vec3(..), Vec4(..), expr, showType, toExpr)
+import Expr (class Expr, Float(..), Vec2(..), Vec3(..), Vec4(..), expr, showType, toExpr, toExprSafe, swizzleX, swizzleY)
 
 type TextureMap = { imgs :: Map String Int, vids :: Map String Int, gdms :: Map String Int }
    
@@ -53,12 +53,23 @@ allocate = do
   pure s.allocation
   
 writeCode :: String -> G Unit
-writeCode x = modify_ $ \s -> s { code = s.code <> x } 
+writeCode x = modify_ $ \s -> s { code = s.code <> x }
 
+fx :: G String
+fx = get >>= _.fxy >>> swizzleX >>> toExprSafe >>> pure
+
+fy :: G String
+fy = get >>= _.fxy >>> swizzleY >>> toExprSafe >>> pure
+
+fxy :: G (Tuple String String)
+fxy = do
+  s <- get
+  pure $ Tuple (toExprSafe $ swizzleX $ s.fxy) (toExprSafe $ swizzleY $ s.fxy)
+ 
 withFxy :: forall a. Vec2 -> G a -> G a
-withFxy fxy a = do
+withFxy newFxy a = do
   cachedFxy <- _.fxy <$> get
-  modify_ $ \s -> s { fxy = fxy }
+  modify_ $ \s -> s { fxy = newFxy }
   r <- a
   modify_ $ \s -> s { fxy = cachedFxy }
   pure r
@@ -66,8 +77,8 @@ withFxy fxy a = do
 withFxys :: forall a. Expr a => NonEmptyList Vec2 -> G (Matrix a) -> G (Matrix a)
 withFxys fxys a = do
   cachedFxy <- _.fxy <$> get
-  rs <- for fxys $ \fxy -> do
-    modify_ $ \s -> s { fxy = fxy }
+  rs <- for fxys $ \newFxy -> do
+    modify_ $ \s -> s { fxy = newFxy }
     a
   modify_ $ \s -> s { fxy = cachedFxy }
   pure $ concat rs

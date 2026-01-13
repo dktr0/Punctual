@@ -1,11 +1,12 @@
 module Signal where
 
-import Prelude (mempty, pure, ($), class Show, show, class Eq, eq, (<>), map, (*))
+import Prelude (mempty, pure, ($), class Show, show, class Eq, eq, (<>), map, (*), (<$>))
 import Data.Set (Set)
 import Data.Monoid.Disj (Disj)
 import Data.Int (toNumber)
 
 import G (G)
+import G as G
 import W (W)
 import Number (showNumber)
 import Matrix (Matrix)
@@ -140,8 +141,7 @@ rmap f x = Signal { audio, video, asString, info }
 
 {-
 data Signal =
-  Constant Number |
-    -- replaced by just Int and Number
+
   SignalList MultiMode (List Signal) |
     -- list :: List (Matrix a) -> Matrix a
     -- listp :: List (Matrix a) -> Matrix a 
@@ -155,10 +155,44 @@ data Signal =
     -- (because it is really a "sum" operation)
   Rep Int Signal |
     -- rep :: Int -> Matrix a -> Matrix a
-  Pi | -- pi :: Number
-  Px | Py | Pxy | Aspect | -- px, py:: Signal; pxy :: Vec2
-  Fx | Fy | Fxy | -- fx, fy :: Signal; fxy :: Vec2
-  FRt | FR | FT | -- fr, ft :: Signal; frt :: Vec2
+-}
+
+fx :: Signal
+fx = Signal { _audio, _video, _asString, _info, _columns, _rows }
+  where
+    _audio = pure $ pure "0.0"
+    _video = pure <$> G.fx
+    _asString = "fx"
+    _info = emptySignalInfo
+    _columns = 1
+    _rows = 1
+
+fy :: Signal
+fy = Signal { _audio, _video, _asString, _info, _columns, _rows }
+  where
+    _audio = pure $ pure "0.0"
+    _video = pure <$> G.fy
+    _asString = "fy"
+    _info = emptySignalInfo
+    _columns = 1
+    _rows = 1
+
+{-
+WORKING HERE (1) make sure _audio has 2 channels of 0, and that _video uses G.fxy
+fxy :: Signal
+fxy = Signal { _audio, _video, _asString, _info, _columns, _rows }
+  where
+    _audio = pure $ pure "0.0"
+    _video = pure $ pure "0.0"
+    _asString = "px"
+    _info = emptySignalInfo
+    _columns = 2
+    _rows = 1
+-}
+
+{-
+  Px | Py | Pxy | Aspect | -- :: Signal
+  FRt | FR | FT | -- :: Signal
   Lo | Mid | Hi | ILo | IMid | IHi | -- :: Signal
   Cps | Time | Beat | EBeat | ETime | -- :: Signal
   Rnd | -- :: Signal
