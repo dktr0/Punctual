@@ -1,5 +1,8 @@
 -- dktr0's collection of random Punctual stuff
 
+deflector x = osc $ (x % 0.00315) * 0.3 / 0.00315;
+defsaw x = (lpf (2500 ~~ 5000 $ deflector (midicps x)) 1 $ saw $ midicps x) * dbamp (-20);
+
 -- stretch n discrete sequence points over l cycles...
 tgrid l n = slow l $ seq (btw n (-1.0) 1.0);
 
