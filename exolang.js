@@ -49,3 +49,20 @@ Punctual.prototype.setOutputChannelCount = function(n) {
   console.log("punctual setOutputChannelCount " + n);
   return P.setOutputChannelCount(this.punctual)(n)();
 }
+
+Punctual.prototype.startAnimation = function() {
+    this.timeOfStartAnimation = Date.now()/1000.0;
+    this.framesSinceStartAnimation = 0;
+    var p = this;
+    window.requestAnimationFrame(function(){p.animate();});
+}
+
+Punctual.prototype.animate = function() {
+    var p = this;
+    window.requestAnimationFrame(function(){p.animate();});
+    var now = Date.now()/1000.0;
+    this.preRender({canDraw: true, nowTime: now});
+    this.render({canDraw: true, zone:0, nowTime: now});
+    this.postRender({canDraw: true, nowTime: now});
+    this.framesSinceStartAnimation += 1;
+}
