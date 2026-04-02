@@ -22,8 +22,8 @@ import Signal (SignalInfo)
 import Program (Program,programInfo)
 import FragmentShader (fragmentShader)
 import G (TextureMap)
-import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLContext, WebGLProgram, WebGLTexture, attachShader, bindBufferArray, bindFrameBuffer, bindTexture, compileShader, configureFrameBufferTextures, createFragmentShader, createProgram, createTexture, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, drawPostProgram, enableVertexAttribArray, flush, getAttribLocation, getCanvasHeight, getCanvasWidth, getFeedbackTexture, getOutputFrameBuffer, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport)
-import SharedResources (SharedResources,getTempo,getImage,updateWebcamTexture,Image,Video,GDM,getVideo,getGDM,webcamAspectRatio,_imageAspectRatio,_videoAspectRatio,_gdmAspectRatio)
+import WebGLCanvas (WebGLBuffer, WebGLCanvas, WebGLContext, WebGLProgram, WebGLTexture, attachShader, bindBufferArray, bindFrameBuffer, bindTexture, compileShader, configureFrameBufferTextures, createFragmentShader, createProgram, createTexture, createVertexShader, deleteWebGLCanvas, drawDefaultTriangleStrip, drawPostProgram, enableVertexAttribArray, flush, getAttribLocation, getCanvasHeight, getCanvasWidth, getFeedbackTexture, getOutputFrameBuffer, linkProgram, newDefaultTriangleStrip, newWebGLCanvas, setUniform1f, setUniform2f, shaderSource, useProgram, vertexAttribPointer, viewport, FillMode, setWebGLCanvasFillMode)
+import SharedResources (SharedResources,getTempo,getImage,updateWebcamTexture,Image,Video,GDM,getVideo,getGDM,webcamAspectRatio,_imageAspectRatio,_videoAspectRatio,_gdmAspectRatio,getFillMode)
 import AudioAnalyser (AnalyserArray)
 
 type WebGL = {
@@ -44,7 +44,8 @@ type WebGL = {
 
 newWebGL :: SharedResources -> Program -> Program -> Effect (Maybe WebGL)
 newWebGL sharedResources prog prevProg = do
-  mglc <- newWebGLCanvas
+  fillMode <- getFillMode sharedResources
+  mglc <- newWebGLCanvas fillMode
   case mglc of 
     Just glc -> do
       triangleStripBuffer <- newDefaultTriangleStrip glc
@@ -264,3 +265,6 @@ updateGDMTexture webGL shader x n = do
       _gdmAspectRatio gdm >>= setUniform1f webGL.glc shader ("ar" <> show n)
 
 foreign import _gdmToTexture :: WebGLContext -> GDM -> WebGLTexture -> Int -> Effect Unit
+
+setFillMode :: WebGL -> FillMode -> Effect Unit
+setFillMode webGL fm = setWebGLCanvasFillMode webGL.glc fm

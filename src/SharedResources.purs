@@ -19,7 +19,7 @@ import Data.DateTime.Instant (unInstant,fromDateTime)
 import Data.List.NonEmpty as NonEmptyList
 import Data.Semigroup.Foldable (foldl1)
 
-import WebGLCanvas (WebGLCanvas, WebGLContext, WebGLTexture)
+import WebGLCanvas (WebGLCanvas, WebGLContext, WebGLTexture, FillMode(..))
 import WebAudio
 import AudioAnalyser (AudioAnalyser,newAudioAnalyser,updateAnalyser,setSourceNode)
 import Value (LibraryCache) 
@@ -27,6 +27,7 @@ import Value (LibraryCache)
 type URL = String
 
 type SharedResources = {
+  fillMode :: Ref FillMode,
   tempo :: Ref Tempo,
   mWebcamElementRef :: Ref (Maybe WebcamElement),
   images :: Ref (Map URL Image),
@@ -50,6 +51,7 @@ type SharedResources = {
 
 newSharedResources :: Maybe WebAudioContext -> Effect SharedResources
 newSharedResources mWebAudioContext = do
+  fillMode <- new FillScreen
   tempo <- newTempo (1 % 1) >>= new
   mWebcamElementRef <- new Nothing
   images <- new empty
@@ -75,6 +77,7 @@ newSharedResources mWebAudioContext = do
   brightness <- new 1.0
   outputChannelCount <- new 2
   pure {
+    fillMode,
     tempo,
     mWebcamElementRef,
     images,
@@ -326,3 +329,13 @@ setOutputChannelCount sr b = write b sr.outputChannelCount
 
 getOutputChannelCount :: SharedResources -> Effect Int
 getOutputChannelCount sr = read sr.outputChannelCount
+
+
+-- fill mode
+
+setFillMode :: SharedResources -> FillMode -> Effect Unit
+setFillMode sr m = write m sr.fillMode
+
+getFillMode :: SharedResources -> Effect FillMode
+getFillMode sr = read sr.fillMode
+

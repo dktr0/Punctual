@@ -66,3 +66,11 @@ Punctual.prototype.animate = function() {
     this.postRender({canDraw: true, nowTime: now});
     this.framesSinceStartAnimation += 1;
 }
+
+Punctual.prototype.setFillModeScreen = function() {
+  return P.setFillModeScreen(this.punctual)();
+}
+
+Punctual.prototype.setFillModePage = function() {
+  return P.setFillModePage(this.punctual)();
+}

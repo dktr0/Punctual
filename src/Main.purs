@@ -16,6 +16,7 @@ import Effect.Class (liftEffect)
 import Control.Monad.Error.Class (throwError)
 import Effect.Exception (error)
 import Data.Nullable (Nullable,toMaybe)
+import Data.Traversable (traverse_)
 
 import Signal (SignalInfo,emptySignalInfo)
 import Program (Program,emptyProgram,programHasVisualOutput,programHasAudioOutput,programInfo,showProgram)
@@ -23,7 +24,8 @@ import Parser (parseProgram)
 import DateTime (numberToDateTime)
 import SharedResources (SharedResources,updateClockDiff)
 import SharedResources as SharedResources
-import WebGL (WebGL, newWebGL, updateWebGL, deleteWebGL, drawWebGL)
+import WebGL (WebGL, newWebGL, updateWebGL, deleteWebGL, drawWebGL, setFillMode)
+import WebGLCanvas (FillMode(..))
 import AudioZone (AudioZone,newAudioZone,redefineAudioZone,updateAudioZone,deleteAudioZone,calculateAudioZoneInfo)
 import WebAudio (WebAudioNode,WebAudioContext)
   
@@ -242,3 +244,15 @@ deleteAudioForZone punctual z = do
       write (delete z audioZones) punctual.audioZones
     Nothing -> pure unit
 
+
+setFillModeScreen :: Punctual -> Effect Unit
+setFillModeScreen punctual = do
+  webGLs <- read punctual.webGLs
+  traverse_ (\x -> setFillMode x FillScreen) webGLs
+  SharedResources.setFillMode punctual.sharedResources FillScreen
+
+setFillModePage :: Punctual -> Effect Unit
+setFillModePage punctual = do
+  webGLs <- read punctual.webGLs
+  traverse_ (\x -> setFillMode x FillPage) webGLs
+  SharedResources.setFillMode punctual.sharedResources FillPage
