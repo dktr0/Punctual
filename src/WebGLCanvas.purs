@@ -8,6 +8,8 @@ import Data.Nullable (Nullable, toMaybe, null, notNull)
 import Data.Maybe (Maybe(..),isJust)
 import Data.Int (toNumber)
 
+data FillMode = FillScreen | FillPage
+
 type WebGLCanvas = {
   canvas :: HTMLCanvasElement,
   width :: Ref Int,
@@ -24,9 +26,12 @@ type WebGLCanvas = {
   frameBufferIndex :: Ref Int -- the index of the frame buffer to which drawing should be directed
   }
 
-newWebGLCanvas :: Effect (Maybe WebGLCanvas)
-newWebGLCanvas = do
+newWebGLCanvas :: FillMode -> Effect (Maybe WebGLCanvas)
+newWebGLCanvas fillMode = do
   canvas <- createHTMLCanvasElement
+  case fillMode of
+    FillScreen -> _setHTMLCanvasElementStyleFillScreen canvas
+    FillPage -> _setHTMLCanvasElementStyleFillPage canvas
   m2 <- getWebGL2Context canvas
   case m2 of
     Just gl -> Just <$> setupWebGLCanvas canvas gl true
@@ -86,6 +91,14 @@ deleteWebGLCanvas webGL = deleteCanvasFromDocumentBody webGL.canvas
 foreign import data HTMLCanvasElement :: Type
 
 foreign import createHTMLCanvasElement :: Effect HTMLCanvasElement
+
+foreign import _setHTMLCanvasElementStyleFillPage :: HTMLCanvasElement -> Effect Unit
+
+foreign import _setHTMLCanvasElementStyleFillScreen :: HTMLCanvasElement -> Effect Unit
+
+setWebGLCanvasFillMode :: WebGLCanvas -> FillMode -> Effect Unit
+setWebGLCanvasFillMode c FillScreen = _setHTMLCanvasElementStyleFillScreen c.canvas
+setWebGLCanvasFillMode c FillPage = _setHTMLCanvasElementStyleFillPage c.canvas
 
 foreign import appendCanvasToDocumentBody :: HTMLCanvasElement -> Effect Unit
 

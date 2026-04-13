@@ -2,10 +2,17 @@
 
 export const createHTMLCanvasElement = () => {
   var r = document.createElement('canvas');
-//  r.setAttribute("width","1000");
-//  r.setAttribute("height","1000");
-  r.setAttribute("style","z-index: -1; position: absolute; width: 100%; height: 100%; left: 0px; top:0px; pointer-events: none");
   return r;
+  }
+
+export const _setHTMLCanvasElementStyleFillScreen = canvas => () => {
+  canvas.setAttribute("style","z-index: -1; position: absolute; width: 100%; height: 100%; left: 0px; top:0px; pointer-events: none");
+  canvas.fillMode = "screen";
+  }
+
+export const _setHTMLCanvasElementStyleFillPage = canvas => () => {
+  canvas.setAttribute("style","z-index: -1; position: absolute; width: stretch; height: stretch; left: 0px; top:0px; pointer-events: none");
+  canvas.fillMode = "page";
   }
 
 export const appendCanvasToDocumentBody = canvas => () => document.body.appendChild(canvas);
@@ -116,14 +123,24 @@ export const _reinitializeFrameBufferTexture = gl => texture => width => height 
   
 export const _bindFrameBuffer = gl => x => () => gl.bindFramebuffer(gl.FRAMEBUFFER,x);
 
-export const _getCanvasWidth = c => () => Math.ceil(c.clientWidth * window.devicePixelRatio);
+export const _getCanvasWidth = c => () => {
+  if(c.fillMode == "screen") return Math.ceil(c.clientWidth * window.devicePixelRatio);
+  else return Math.ceil(document.body.scrollWidth * window.devicePixelRatio);
+  }
 
-export const _getCanvasHeight = c => () => Math.ceil(c.clientHeight * window.devicePixelRatio);
+export const _getCanvasHeight = c => () => {
+  if(c.fillMode == "screen") return Math.ceil(c.clientHeight * window.devicePixelRatio);
+  else return Math.ceil(document.body.scrollHeight * window.devicePixelRatio);
+  }
 
 export const getDevicePixelRatio = () => window.devicePixelRatio;
 
 export const _harmonizeCanvasDimensions = c => () => {
-  c.width = c.clientWidth * window.devicePixelRatio;
-  c.height = c.clientHeight * window.devicePixelRatio;
+  if(c.fillMode == "screen") {
+    c.width = c.clientWidth * window.devicePixelRatio;
+    c.height = c.clientHeight * window.devicePixelRatio;
+  } else {
+    c.width = document.body.scrollWidth * window.devicePixelRatio;
+    c.height = document.body.scrollHeight * window.devicePixelRatio;
   }
-
+}

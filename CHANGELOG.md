@@ -1,5 +1,10 @@
 # ChangeLog
 
+0.5.2.2:
+
+- added startAnimation to Punctual JS API to facilitate use in websites, e.g. as a way to render generative art in the background of a website
+- added setFillModePage and setFillModeScreen to facilitate different uses in websites
+
 0.5.2:
 
 - added imga and vida for loading images and videos with access to alpha/transparency channel
