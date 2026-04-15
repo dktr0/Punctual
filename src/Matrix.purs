@@ -43,6 +43,9 @@ fromNonEmptyListMulti xs
 fromMatrixMatrix :: forall a. Matrix (Matrix a) -> Matrix a
 fromMatrixMatrix x = Matrix $ flatten $ map flatten x
 
+fromTuple :: forall a. Tuple a a -> Matrix a
+fromTuple (Tuple x y) = Matrix $ pure $ x `cons` (pure y)
+
 -- to be used, for example, in implementation of Seq
 semiFlatten :: forall a. Matrix a -> NonEmptyList (NonEmptyList a)
 semiFlatten (Matrix xs) = xs

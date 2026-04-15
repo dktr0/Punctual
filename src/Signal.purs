@@ -4,12 +4,13 @@ import Prelude (mempty, pure, ($), class Show, show, class Eq, eq, (<>), map, (*
 import Data.Set (Set)
 import Data.Monoid.Disj (Disj)
 import Data.Int (toNumber)
+import Data.Tuple (Tuple(..))
 
 import G (G)
 import G as G
 import W (W)
 import Number (showNumber)
-import Matrix (Matrix)
+import Matrix (Matrix,fromTuple)
 import Matrix (columns,rows) as Matrix
 import Channels (class Channels)
 
@@ -177,18 +178,15 @@ fy = Signal { _audio, _video, _asString, _info, _columns, _rows }
     _columns = 1
     _rows = 1
 
-{-
-WORKING HERE (1) make sure _audio has 2 channels of 0, and that _video uses G.fxy
 fxy :: Signal
 fxy = Signal { _audio, _video, _asString, _info, _columns, _rows }
   where
-    _audio = pure $ pure "0.0"
-    _video = pure $ pure "0.0"
+    _audio = pure $ fromTuple $ Tuple "0.0" "0.0"
+    _video = fromTuple <$> G.fxy
     _asString = "px"
     _info = emptySignalInfo
     _columns = 2
     _rows = 1
--}
 
 {-
   Px | Py | Pxy | Aspect | -- :: Signal
