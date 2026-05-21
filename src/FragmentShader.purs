@@ -354,9 +354,29 @@ signalToExprs (TileY q z) = do
 
 signalToExprs (Spin q z) = do
   fxy <- _.fxy <$> get
+  let resX = FloatExpr "res.x"
+  let resY = FloatExpr "res.y"
+  let xMult = max (FloatExpr "1.0") (division resX resY)
+  let yMult = max (FloatExpr "1.0") (division resY resX)
+  let mult = floatFloatToVec2 xMult yMult
+  fxy' <- assign $ product fxy mult 
   qs <- signalToExprs q -- :: G (Matrix Float)
-  fxys <- traverse (spin fxy) $ flatten qs
-  withFxys fxys $ signalToExprs z
+  fxys <- traverse (spin fxy') $ flatten qs
+  fxys' <- traverse (\xy -> assign $ division xy mult) fxys 
+  withFxys fxys' $ signalToExprs z
+
+{- 
+fitG :: forall e. Float -> G e -> G e
+fitG desiredAspectRatio e = do
+  let screenAspectRatio = FloatExpr "(res.x/res.y)"
+  let screenOverDesired = division screenAspectRatio desiredAspectRatio
+  let desiredOverScreen = division desiredAspectRatio screenAspectRatio
+  let zoomFactor = max (floatFloatToVec2 screenOverDesired desiredOverScreen) (constant 1.0)
+  s <- get
+  zoomedXy <- assign $ product s.fxy zoomFactor
+  withFxy zoomedXy e
+-}
+
 
 signalToExprs (Early q z) = do
   qs <- flatten <$> signalToExprs q -- :: NonEmptyList Float
