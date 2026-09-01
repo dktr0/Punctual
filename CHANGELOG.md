@@ -1,5 +1,9 @@
 # ChangeLog
 
+0.5.2.3:
+
+- fixed bug in spin to do with aspect ratio (i.e. spin now takes account of aspect ratio)
+
 0.5.2.2:
 
 - added startAnimation to Punctual JS API to facilitate use in websites, e.g. as a way to render generative art in the background of a website
