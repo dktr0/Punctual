@@ -1,119 +1,92 @@
 module Signal where
 
-import Prelude (mempty, pure, ($), class Show, show, class Eq, eq, (<>), map, (*), (<$>))
-import Data.Set (Set)
-import Data.Monoid.Disj (Disj)
-import Data.Int (toNumber)
-import Data.Tuple (Tuple(..))
+import Prelude ((<>), class Eq, eq, (&&), (+),(*),class Show,show)
+import Data.Number (sin) as Number
+-- import Number as Number
+import Data.Either (Either(..))
+import Data.Semiring (class Semiring, zero, one)
 
-import G (G)
-import G as G
-import W (W)
-import Number (showNumber)
-import Matrix (Matrix,fromTuple)
-import Matrix (columns,rows) as Matrix
-import Channels (class Channels)
+import SignalInfo
 
-type SignalInfo = {
-  webcam :: Disj Boolean,
-  fft :: Disj Boolean,
-  lo :: Disj Boolean,
-  mid :: Disj Boolean,
-  hi :: Disj Boolean,
-  ifft :: Disj Boolean,
-  ilo :: Disj Boolean,
-  imid :: Disj Boolean,
-  ihi :: Disj Boolean,
-  ain :: Disj Boolean,
-  imgURLs :: Set String,
-  vidURLs :: Set String,
-  gdmIDs :: Set String
+-- a Signal is something that can be realized in different ways in audio vs video
+-- additionally the audio and video realizations may be constant (represented by some
+-- unvarying underlying type) or may be context-/time-varying (represented by a string
+-- expression in JavaScript for audio, in GLSL for video). And a Signal may depend on 
+-- some external resource such as a named texture, access to audio input, etc (SignalInfo). 
+
+data Signal a = Signal { 
+  audio :: Either a String,
+  video :: Either a String,
+  signalInfo :: SignalInfo
   }
 
-emptySignalInfo :: SignalInfo
-emptySignalInfo = {
-  webcam: pure false,
-  fft: pure false,
-  lo: pure false,
-  mid: pure false,
-  hi: pure false,
-  ifft: pure false,
-  ilo: pure false,
-  imid: pure false,
-  ihi: pure false,
-  ain: pure false,
-  imgURLs: mempty,
-  vidURLs: mempty,
-  gdmIDs: mempty
+instance Eq a => Eq (Signal a) where
+  eq (Signal x) (Signal y) = eq x.audio y.audio && eq x.video y.video && eq x.signalInfo y.signalInfo
+
+namedFunction :: String -> String -> String
+namedFunction fName x = fName <> "(" <> x <> ")"
+
+-- first string is name of audio-side (JavaScript) function
+-- second string is name of GLSL function
+unaryFunction :: forall a. (a -> a) -> (String -> String) -> (String -> String) -> Signal a -> Signal a
+unaryFunction f1 f2 f3 (Signal x) = Signal {
+  audio: case x.audio of
+           Left a -> Left (f1 a)
+           Right s -> Right (f2 s),
+  video: case x.video of
+           Left a -> Left (f1 a)
+           Right s -> Right (f3 s),
+  signalInfo: x.signalInfo
   }
 
 
-newtype Signal = Signal { _audio :: W (Matrix String), _video :: G (Matrix String), _asString :: String, _info :: SignalInfo, _columns :: Int, _rows :: Int }
+-- functions specific to Signal Number
 
-instance Show Signal where
-  show (Signal x) = x._asString
-
-instance Eq Signal where
-  eq (Signal x) (Signal y) = eq x._asString y._asString
-
-instance Channels Signal where
-  channels (Signal x) = x._columns * x._rows
-
-audio :: Signal -> W (Matrix String)
-audio (Signal x) = x._audio
-
-video :: Signal -> G (Matrix String)
-video (Signal x) = x._video
-
-info :: Signal -> SignalInfo
-info (Signal x) = x._info
-
-columns :: Signal -> Int
-columns (Signal x) = x._columns
-
-rows :: Signal -> Int
-rows (Signal x) = x._rows
+fromNumber :: Number -> Signal Number
+fromNumber n = Signal { audio: Left n, video: Left n, signalInfo: emptySignalInfo }
 
 
-fromInt :: Int -> Signal
-fromInt x = fromNumber $ toNumber x
+-- Semiring instance (for Signal Int and Signal Number)
 
-fromNumber :: Number -> Signal
-fromNumber n = Signal { _audio, _video, _asString, _info, _columns, _rows }
-  where 
-    _audio = pure $ pure $ showNumber n
-    _video = pure $ pure $ showNumber n
-    _asString = showNumber n
-    _info = emptySignalInfo
-    _columns = 1
-    _rows = 1
+instance (Show a, Semiring a) => Semiring (Signal a) where
+  zero = Signal { audio: Left zero, video: Left zero, signalInfo: emptySignalInfo }
+  one = Signal { audio: Left one, video: Left one, signalInfo: emptySignalInfo }
+  add (Signal x) (Signal y) = Signal {
+    audio: addEithers x.audio y.audio,
+    video: addEithers x.video y.video,
+    signalInfo: x.signalInfo <> y.signalInfo
+  }
+  mul (Signal x) (Signal y) = Signal {
+    audio: mulEithers x.audio y.audio,
+    video: mulEithers x.video y.video,
+    signalInfo: x.signalInfo <> y.signalInfo
+  }
+  
+-- !!! TODO: this has to take care of some special cases still to do with number formatting!
+addEithers :: forall a. Semiring a => Show a => Either a String -> Either a String -> Either a String
+addEithers (Left x) (Left y) = Left (x+y)
+addEithers (Left x) (Right y) = Right ("(" <> show x <> "+" <> y <> ")")
+addEithers (Right x) (Left y) = Right ("(" <> x <> "+" <> show y <> ")")
+addEithers (Right x) (Right y) = Right ("(" <> x <> "+" <> y <> ")")
 
-fromMatrixInt :: Matrix Int -> Signal
-fromMatrixInt m = fromMatrixNumber $ map toNumber m
+-- !!! TODO: this has to take care of some special cases still to do with number formatting!
+mulEithers :: forall a. Semiring a => Show a => Either a String -> Either a String -> Either a String
+mulEithers (Left x) (Left y) = Left (x*y)
+mulEithers (Left x) (Right y) = Right ("(" <> show x <> "*" <> y <> ")")
+mulEithers (Right x) (Left y) = Right ("(" <> x <> "*" <> show y <> ")")
+mulEithers (Right x) (Right y) = Right ("(" <> x <> "*" <> y <> ")")
 
-fromMatrixNumber :: Matrix Number -> Signal
-fromMatrixNumber m = Signal { _audio, _video, _asString, _info, _columns, _rows }
-  where
-    m' = map showNumber m
-    _audio = pure m'
-    _video = pure m'
-    _asString = show m'
-    _info = emptySignalInfo
-    _columns = Matrix.columns m
-    _rows = Matrix.rows m
+fx :: Signal Number
+fx = Signal { audio: Left 0.0, video: Right "fx", signalInfo: emptySignalInfo }
 
-fract :: Signal -> Signal
-fract x = Signal { _audio, _video, _asString, _info, _columns, _rows }
-  where
-    _audio = map (map $ unipolarFunction "fract") $ audio x
-    _video = map (map $ unipolarFunction "fract") $ video x
-    _asString = "fract (" <> show x <> ")"
-    _info = info x
-    _columns = columns x
-    _rows = rows x
+fy :: Signal Number
+fy = Signal { audio: Left 0.0, video: Right "fy", signalInfo: emptySignalInfo }
 
-unipolarFunction :: String -> String -> String
-unipolarFunction fName fArg = fName <> "(" <> fArg <> ")"
+sin :: Signal Number -> Signal Number
+sin = unaryFunction Number.sin (namedFunction "Math.sin") (namedFunction "sin")
+
+
+-- old stuff below here:
 
 {-
 cmap :: (Signal -> Signal) -> Signal -> Signal
@@ -157,36 +130,6 @@ data Signal =
   Rep Int Signal |
     -- rep :: Int -> Matrix a -> Matrix a
 -}
-
-fx :: Signal
-fx = Signal { _audio, _video, _asString, _info, _columns, _rows }
-  where
-    _audio = pure $ pure "0.0"
-    _video = pure <$> G.fx
-    _asString = "fx"
-    _info = emptySignalInfo
-    _columns = 1
-    _rows = 1
-
-fy :: Signal
-fy = Signal { _audio, _video, _asString, _info, _columns, _rows }
-  where
-    _audio = pure $ pure "0.0"
-    _video = pure <$> G.fy
-    _asString = "fy"
-    _info = emptySignalInfo
-    _columns = 1
-    _rows = 1
-
-fxy :: Signal
-fxy = Signal { _audio, _video, _asString, _info, _columns, _rows }
-  where
-    _audio = pure $ fromTuple $ Tuple "0.0" "0.0"
-    _video = fromTuple <$> G.fxy
-    _asString = "px"
-    _info = emptySignalInfo
-    _columns = 2
-    _rows = 1
 
 {-
   Px | Py | Pxy | Aspect | -- :: Signal
