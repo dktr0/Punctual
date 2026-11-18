@@ -411,7 +411,7 @@ fitG desiredAspectRatio e = do
   withFxy zoomedXy e
 -}
 
-
+{-
 signalToExprs (Early q z) = do
   qs <- flatten <$> signalToExprs q -- :: NonEmptyList Float
   s <- get
@@ -575,7 +575,9 @@ fitG desiredAspectRatio e = do
   s <- get
   zoomedXy <- assign $ product s.fxy zoomFactor
   withFxy zoomedXy e
+
 -}
+
 {-
 -- for preserving alignment requests through intermediate calculations that are Float -> G Float
 -- created during matrix refactor but currently unused???

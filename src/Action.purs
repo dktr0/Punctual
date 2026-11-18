@@ -1,5 +1,6 @@
 module Action where
 
+{-
 import Prelude (class Show, identity, one, show, zero, ($), (-), (/), (<>))
 import Data.Tuple (Tuple(..))
 import Data.Tempo (Tempo)
@@ -9,7 +10,8 @@ import Data.Time.Duration (Seconds)
 import Data.Maybe (maybe)
 import Data.Newtype (unwrap)
 
-import Signal (Signal, SignalInfo, columns, info, rows)
+import SignalInfo (SignalInfo)
+import Signal (Signal)
 import Channels (channels)
 import DefTime (DefTime(..), calculateT1)
 import Transition (Transition(..), transitionToXfade)
@@ -84,3 +86,5 @@ actionHasAudioInput x = unwrap (info $ signal x).ain
 
 actionSignalInfo :: Action -> SignalInfo
 actionSignalInfo (Action x) = info x.signal
+
+-}

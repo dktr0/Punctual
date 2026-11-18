@@ -2,10 +2,12 @@ module Signal where
 
 import Prelude ((<>), class Eq, eq, (&&), (+),(*),class Show,show)
 import Data.Number (sin) as Number
+import Data.Int (toNumber)
 -- import Number as Number
 import Data.Either (Either(..))
 import Data.Semiring (class Semiring, zero, one)
 
+import String (namedFunction)
 import SignalInfo
 
 -- a Signal is something that can be realized in different ways in audio vs video
@@ -23,9 +25,6 @@ data Signal a = Signal {
 instance Eq a => Eq (Signal a) where
   eq (Signal x) (Signal y) = eq x.audio y.audio && eq x.video y.video && eq x.signalInfo y.signalInfo
 
-namedFunction :: String -> String -> String
-namedFunction fName x = fName <> "(" <> x <> ")"
-
 -- first string is name of audio-side (JavaScript) function
 -- second string is name of GLSL function
 unaryFunction :: forall a. (a -> a) -> (String -> String) -> (String -> String) -> Signal a -> Signal a
@@ -40,10 +39,22 @@ unaryFunction f1 f2 f3 (Signal x) = Signal {
   }
 
 
--- functions specific to Signal Number
+-- creating from simpler types
 
-fromNumber :: Number -> Signal Number
-fromNumber n = Signal { audio: Left n, video: Left n, signalInfo: emptySignalInfo }
+class ToSignalInt a where
+  toSignalInt :: a -> Signal Int
+
+instance ToSignalInt Int where
+  toSignalInt x = Signal { audio: Left x, video: Left x, signalInfo: emptySignalInfo }
+
+class ToSignalNumber a where
+  toSignalNumber :: a -> Signal Number
+
+instance ToSignalNumber Int where
+  toSignalNumber x = Signal { audio: Left (toNumber x), video: Left (toNumber x), signalInfo: emptySignalInfo }
+
+instance ToSignalNumber Number where
+  toSignalNumber x = Signal { audio: Left x, video: Left x, signalInfo: emptySignalInfo }
 
 
 -- Semiring instance (for Signal Int and Signal Number)
@@ -81,6 +92,8 @@ fx = Signal { audio: Left 0.0, video: Right "fx", signalInfo: emptySignalInfo }
 
 fy :: Signal Number
 fy = Signal { audio: Left 0.0, video: Right "fy", signalInfo: emptySignalInfo }
+
+-- unary functions (e.g. trigonometry)
 
 sin :: Signal Number -> Signal Number
 sin = unaryFunction Number.sin (namedFunction "Math.sin") (namedFunction "sin")
