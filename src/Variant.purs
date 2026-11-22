@@ -1,9 +1,8 @@
 module Variant where
 
-import Prelude (class Applicative, pure, ($), (<>))
-import Parsing (ParseError(..),Position)
+import Prelude (pure, ($), (<>))
 import Data.Int (toNumber)
-import Control.Monad.Error.Class (class MonadThrow,throwError)
+import Control.Monad.Error.Class (throwError)
 import Data.Map as Map
 import Effect.Ref (Ref)
 import Data.Map (Map)
@@ -11,142 +10,68 @@ import Data.Either (Either)
 
 -- import Action (Action,signalToAction)
 import Output (Output)
-import AST (Expression, expressionPosition)
 import Signal (Signal, toSignalNumber)
-import NumberMatrix (NumberMatrix, toNumberMatrix)
+import Matrix (Matrix, singleton)
 
 type Library = Map.Map String Variant
 
 type LibraryCache = Ref (Map String Library)
 
-{-
-newtype VariantMatrix = VariantMatrix (Matrix Variant)
-
-derive instance Newtype VariantMatrix _
--}
-
-type V a = Either ParseError a
-
--- Expression argument is expression/location where application happens
--- so that that information can be included in the resulting Variant
-newtype VariantFunction = VariantFunction (Expression -> Variant -> V Variant)
-
 data Variant = 
-  Int Expression Int |
-  Number Expression Number |
-  NumberSignal Expression (Signal Number) |
-  NumberMatrix_v Expression NumberMatrix |
-  String Expression String |
-  Output Expression Output | 
-  -- Action_v Expression Action |
-  VariantFunction_v Expression VariantFunction |
-  OutputOrVariantFunction Expression Output VariantFunction
+  Int Int |
+  Number Number |
+  SignalNumber (Signal Number) |
+  Matrix_ (Matrix Variant) |
+  Function (Variant -> Either String Variant) |
+  String String |
+  Output Output | 
+  -- Action_v Action |
+  OutputOrFunction Output (Variant -> Either String Variant)
  
 variantType :: Variant -> String
-variantType (Int _ _) = "Int"
-variantType (Number _ _) = "Number"
-variantType (NumberSignal _ _) = "NumberSignal"
-variantType (NumberMatrix_v _ _) = "NumberMatrix"
-variantType (String _ _) = "String"
-variantType (Output _ _) = "Output"
--- variantType (Action_v _ _) = "Action"
-variantType (VariantFunction_v _ _) = "VariantFunction"
-variantType (OutputOrVariantFunction _ _ _) = "Output or VariantFunction"
-
-isInt :: Variant -> Boolean
-isInt (Int _ _) = true
-isInt _ = false
-
-isNumber :: Variant -> Boolean
-isNumber (Number _ _) = true
-isNumber x = isInt x
-
-isNumberSignal :: Variant -> Boolean
-isNumberSignal (NumberSignal _ _) = true
-isNumberSignal x = isNumber x
-
-isNumberMatrix :: Variant -> Boolean
-isNumberMatrix (NumberMatrix_v _ _) = true
-isNumberMatrix x = isNumberSignal x
-
-isString :: Variant -> Boolean
-isString (String _ _) = true
-isString _ = false
-
-isOutput :: Variant -> Boolean
-isOutput (Output _ _) = true
-isOutput (OutputOrVariantFunction _ _ _) = true
-isOutput _ = false
-
-{-
-isAction :: Variant -> Boolean
-isAction v = variantType v == "Action" || isSignal v
--}
-
-isVariantFunction :: Variant -> Boolean
-isVariantFunction (VariantFunction_v _ _) = true
-isVariantFunction (OutputOrVariantFunction _ _ _) = true
-isVariantFunction _ = false
-
-variantExpression :: Variant -> Expression
-variantExpression (Int e _)  = e
-variantExpression (Number e _)  = e
-variantExpression (NumberSignal e _) = e
-variantExpression (NumberMatrix_v e _) = e
-variantExpression (String e _)  = e
-variantExpression (Output e _)  = e
--- variantExpression (Action_v e _)  = e
-variantExpression (VariantFunction_v e _)  = e
-variantExpression (OutputOrVariantFunction e _ _)  = e
-
-variantPosition :: Variant -> Position
-variantPosition (Int e _)  = expressionPosition e
-variantPosition (Number e _)  = expressionPosition e
-variantPosition (NumberSignal e _)  = expressionPosition e
-variantPosition (NumberMatrix_v e _)  = expressionPosition e
-variantPosition (String e _)  = expressionPosition e
-variantPosition (Output e _)  = expressionPosition e
--- variantPosition (Action_v e _)  = expressionPosition e
-variantPosition (VariantFunction_v e _)  = expressionPosition e
-variantPosition (OutputOrVariantFunction e _ _)  = expressionPosition e
-
+variantType (Int _) = "Int"
+variantType (Number _) = "Number"
+variantType (SignalNumber _) = "SignalNumber"
+variantType (Matrix_ _) = "Matrix"
+variantType (Function _) = "Function"
+variantType (String _) = "String"
+variantType (Output _) = "Output"
+-- variantType (Action_v _) = "Action"
+variantType (OutputOrFunction _ _) = "Output or Function"
 
 class FromVariant a where
-  fromVariant :: forall m. Applicative m => MonadThrow ParseError m => Variant -> m a
+  fromVariant :: Variant -> Either String a
 
 instance FromVariant Variant where
   fromVariant x = pure x
 
 instance FromVariant Int where
-  fromVariant (Int _ x) = pure x
-  fromVariant v = throwError $ ParseError ("expected Int, found " <> variantType v) (variantPosition v)
+  fromVariant (Int x) = pure x
+  fromVariant v = throwError $ "expected Int, found " <> variantType v
 
 instance FromVariant Number where
-  fromVariant (Int _ x) = pure $ toNumber x
-  fromVariant (Number _ x) = pure x
-  fromVariant v = throwError $ ParseError ("expected Number, found " <> variantType v) (variantPosition v)
+  fromVariant (Int x) = pure $ toNumber x
+  fromVariant (Number x) = pure x
+  fromVariant v = throwError $ "expected Number, found " <> variantType v
 
 instance FromVariant (Signal Number) where
-  fromVariant (Int _ x) = pure $ toSignalNumber x
-  fromVariant (Number _ x) = pure $ toSignalNumber x
-  fromVariant (NumberSignal _ x) = pure x
-  fromVariant v = throwError $ ParseError ("expected NumberSignal, found " <> variantType v) (variantPosition v)
+  fromVariant (Int x) = pure $ toSignalNumber x
+  fromVariant (Number x) = pure $ toSignalNumber x
+  fromVariant (SignalNumber x) = pure x
+  fromVariant v = throwError $ "expected SignalNumber, found " <> variantType v
 
-instance FromVariant NumberMatrix where
-  fromVariant (Int _ x) = pure $ toNumberMatrix x
-  fromVariant (Number _ x) = pure $ toNumberMatrix x
-  fromVariant (NumberSignal _ x) = pure $ toNumberMatrix x
-  fromVariant (NumberMatrix_v _ x) = pure x
-  fromVariant v = throwError $ ParseError ("expected NumberMatrix, found " <> variantType v) (variantPosition v)
+instance FromVariant (Matrix Variant) where
+  fromVariant (Matrix_ x) = pure x
+  fromVariant x = pure $ singleton x 
 
 instance FromVariant String where
-  fromVariant (String _ x) = pure x
-  fromVariant v = throwError $ ParseError ("expected String, found " <> variantType v) (variantPosition v)
+  fromVariant (String x) = pure x
+  fromVariant v = throwError $ "expected String, found " <> variantType v
 
 instance FromVariant Output where 
-  fromVariant (Output _ x) = pure x
-  fromVariant (OutputOrVariantFunction _ x _) = pure x
-  fromVariant v = throwError $ ParseError ("expected Output, found " <> variantType v) (variantPosition v)
+  fromVariant (Output x) = pure x
+  fromVariant (OutputOrFunction x _) = pure x
+  fromVariant v = throwError $ "expected Output, found " <> variantType v
 
 {-
 instance FromVariant Action where
@@ -159,17 +84,11 @@ instance FromVariant Action where
   fromVariant v = throwError $ ParseError ("expected Action, found " <> variantType v) (variantPosition v)
 -}
 
-instance FromVariant VariantFunction where
-  fromVariant (VariantFunction_v _ x) = pure x
-  fromVariant (OutputOrVariantFunction _ _ x) = pure x
-  fromVariant v = throwError $ ParseError ("expected VariantFunction, found " <> variantType v) (variantPosition v)
-
-
 class ToVariant a where
-  toVariant :: Expression -> a -> Variant
+  toVariant :: a -> Variant
 
 instance ToVariant Variant where
-  toVariant _ a = a
+  toVariant a = a
 
 instance ToVariant Int where
   toVariant = Int
@@ -178,10 +97,10 @@ instance ToVariant Number where
   toVariant = Number
 
 instance ToVariant (Signal Number) where
-  toVariant = NumberSignal
+  toVariant = SignalNumber
 
-instance ToVariant NumberMatrix where
-  toVariant = NumberMatrix_v
+instance ToVariant (Matrix Variant) where
+  toVariant = Matrix_
 
 instance ToVariant String where
   toVariant = String
@@ -192,8 +111,6 @@ instance ToVariant Output where
 {- instance ToVariant Action where
   toVariant = Action_v -}
 
-instance ToVariant VariantFunction where
-  toVariant = VariantFunction_v
 
 
 

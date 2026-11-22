@@ -1,23 +1,18 @@
 module Functions where
 
-import Prelude (($),pure)
+import Prelude (pure, ($), (<$>))
 import Data.Int (toNumber)
 import Data.Number (sin) as Number
-import Parsing (ParseError(..))
 import Control.Monad.Error.Class (throwError)
+import Data.Either (Either)
+import Data.Traversable (traverse)
 
--- import Number as Number
-import AST (Expression,expressionPosition)
-import Variant (V, Variant(..), VariantFunction(..), toVariant, variantExpression)
+import Variant (Variant(..), toVariant)
 import Signal as Signal
-import NumberMatrix as NumberMatrix
 
-sin :: Expression -> Variant
-sin e = VariantFunction_v e $ VariantFunction _sin
-
-_sin :: Expression -> Variant -> V Variant
-_sin e (Int _ x) = pure $ toVariant e $ Number.sin $ toNumber x
-_sin e (Number _ x) = pure $ toVariant e $ Number.sin x
-_sin e (NumberSignal _ x) = pure $ toVariant e $ Signal.sin x
-_sin e (NumberMatrix_v _ x) = pure $ toVariant e $ NumberMatrix.sin x
-_sin _ v = throwError $ ParseError ("Int, Number, NumberSignal or NumberMatrix expected as 1st argument of sin") (expressionPosition $ variantExpression v)
+sin :: Variant -> Either String Variant
+sin (Int x) = pure $ toVariant $ Number.sin $ toNumber x
+sin (Number x) = pure $ toVariant $ Number.sin x
+sin (SignalNumber x) = pure $ toVariant $ Signal.sin x
+sin (Matrix_ x) = Matrix_ <$> traverse sin x
+sin _ = throwError $ "Int, Number, SignalNumber or Matrix expected as 1st argument of sin"
