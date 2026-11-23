@@ -1,7 +1,7 @@
 module Signal where
 
 import Prelude ((<>), class Eq, eq, (&&), (+),(*),class Show,show)
-import Data.Number (sin) as Number
+import Data.Number (pi,sin,cos) as Number
 import Data.Int (toNumber)
 -- import Number as Number
 import Data.Either (Either(..))
@@ -73,6 +73,8 @@ instance ToSignalNumber Int where
 instance ToSignalNumber Number where
   toSignalNumber x = Signal { audio: Left x, video: Left x, signalInfo: emptySignalInfo }
 
+toSample :: forall a. ToSignalNumber a => a -> Sample
+toSample = toSignalNumber
 
 -- Semiring instance (for Signal Int and Signal Number)
 
@@ -104,16 +106,23 @@ mulEithers (Left x) (Right y) = Right ("(" <> show x <> "*" <> y <> ")")
 mulEithers (Right x) (Left y) = Right ("(" <> x <> "*" <> show y <> ")")
 mulEithers (Right x) (Right y) = Right ("(" <> x <> "*" <> y <> ")")
 
-fx :: Signal Number
-fx = Signal { audio: Left 0.0, video: Right "fx", signalInfo: emptySignalInfo }
 
-fy :: Signal Number
-fy = Signal { audio: Left 0.0, video: Right "fy", signalInfo: emptySignalInfo }
+-- constants and semi-constants
+
+twoPi :: Sample
+twoPi = (toSignalNumber Number.pi) * (toSignalNumber 2.0)
+
+audioSampleRate :: Sample
+audioSampleRate = Signal { audio: Right "sampleRate", video: Left 0.0, signalInfo: emptySignalInfo }
+
 
 -- unary functions (e.g. trigonometry)
 
 sin :: Signal Number -> Signal Number
 sin = unaryFunction Number.sin (namedFunction "Math.sin") (namedFunction "sin")
+
+cos :: Signal Number -> Signal Number
+cos = unaryFunction Number.cos (namedFunction "Math.cos") (namedFunction "cos")
 
 
 -- old stuff below here:

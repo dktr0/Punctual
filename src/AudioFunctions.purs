@@ -1,7 +1,10 @@
 module AudioFunctions where
 
-import Signal (Sample,audioOnly)
-import T (T,writeAudio)
+import Prelude (bind,discard)
+import Data.Semiring (one)
+
+import Signal (Sample,audioOnly,twoPi,audioSampleRate,toSample)
+import T (T,writeAudio,allocateAudioFloat,assign)
 
 {-
 import Prelude (Unit, bind, discard, map, negate, otherwise, pure, show, ($), (*), (+), (-), (/), (<), (<$>), (<<<), (<=), (<>), (==), (>>=))
@@ -48,23 +51,15 @@ biquad b0 b1 b2 a0 a1 a2 i = do
   write $ y0 <> "=" <> b0x0 <> "+" <> b1x1 <> "+" <> b2x2 <> "-" <> a1y1 <> "-" <> a2y2 <> ";\n"
   pure $ audioOnly y0
 
--- TODO: move this to Signal.purs and generalize over audio and video
-twoPi :: Sample
-twoPi = Signal { audio: Right "(2.0*Math.PI)", video: Left 0.0, signalInfo: emptySignalInfo }
-
-sampleRate :: Sample
-sampleRate = Signal { audio: Right "sampleRate", video: Left 0.0, signalInfo: emptySignalInfo }
-
--- CONTINUE HERE --
-
+-- WORKING HERE
 lpf :: Sample -> Sample -> Sample -> W Sample
 lpf f0 q i = do
-  twoPiF0 <- product twoPi f0
-  w0 <- divisionUnsafe twoPiF0 sampleRate
-  cosW0 <- assign $ unaryFunction "Math.cos" w0
-  oneMinusCosW0 <- difference (Number.showNumber 1.0) cosW0
-  sinW0 <- assign $ unaryFunction "Math.sin" w0
-  alpha <- product (Number.showNumber 2.0) q >>= divisionSafe sinW0
+  let twoPiF0 = twoPi * f0
+  let w0 = divisionUnsafe twoPiF0 audioSampleRate
+  cosW0 <- assign $ Signal.cos w0
+  oneMinusCosW0 <- difference one cosW0
+  sinW0 <- assign $ Signal.sin w0
+  alpha <- divisionSafe sinW0 (toSignalNumber 2.0 * q)
   b0 <- divisionUnsafe oneMinusCosW0 (Number.showNumber 2.0)
   let b1 = oneMinusCosW0
   let b2 = b0
