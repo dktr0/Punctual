@@ -39,6 +39,8 @@ showVideo (Signal x) =
     Left a -> show a
     Right s -> s
 
+audioOnly :: String -> Sample
+audioOnly x = Signal { audio: Right x, video: Left 0.0, signalInfo: emptySignalInfo }
 
 -- first string is name of audio-side (JavaScript) function
 -- second string is name of GLSL function

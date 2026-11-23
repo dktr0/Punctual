@@ -12,7 +12,7 @@ import Effect.Class.Console (log)
 
 import Signal (Signal, audio)
 import WebAudio (WebAudioContext,WebAudioNode)
-import W
+-- import W
 import Output (Output,audioOutputChannels,audioOutputOffset)
 
 type AudioWorklet = {
