@@ -27,7 +27,7 @@ import Output (Output)
 import Output as Output
 import Program (Program)
 import Expr (class Expr, Float(..), Vec2(..), Vec3, Vec4, abs, acos, add, ampdb, asin, atan, between, bipolar, blend, castExprs, cbrt, ceil, circle, clip, constant, cos, cpsmidi, dbamp, difference, distance, division, divisionExprFloat, dotSum, equal, exp, expr, fadeIn, fadeOut, floatFloatToVec2, floor, fract, fromFloat, fromFloats, fromVec2s, function1, gate, greaterThan, greaterThanEqual, hline, hsvrgb, iline, lessThan, lessThanEqual, line, linlin, log, log10, log2, max, midicps, min, mix, mixFloat, mod, notEqual, pi, point, pow, product, productExprFloat, productFloatExpr, prox, pxy, rgbaFade, rgbhsv, rtx, rtxy, rty, seq, setX, setY, sign, sin, smoothStep, sqrt, sum, swizzleW, swizzleX, swizzleXY, swizzleXYZ, swizzleY, swizzleZ, swizzleZW, tan, tile, toExpr, unaryFunction, unipolar, vec3FloatToVec4, vline, xyr, xyrt, xyt, zero)
-import G (G, assign, runG, texture2D, texture2Da, textureFFT, withAlteredTime, withFxy, withFxys, TextureMap)
+-- import G (G, assign, runG, texture2D, texture2Da, textureFFT, withAlteredTime, withFxy, withFxys, TextureMap)
 import Matrix (Matrix(..),fromNonEmptyListMulti,mapRows,flatten,fromNonEmptyList,rep,combine,combine3,semiFlatten,fromMatrixMatrix,transpose,getFromRows,getRows)
 import Number (acosh, asinh, atanh, cosh, sinh, tanh) as Number
 import Channels (channels)

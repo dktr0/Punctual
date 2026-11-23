@@ -22,8 +22,23 @@ data Signal a = Signal {
   signalInfo :: SignalInfo
   }
 
+type Sample = Signal Number
+
 instance Eq a => Eq (Signal a) where
   eq (Signal x) (Signal y) = eq x.audio y.audio && eq x.video y.video && eq x.signalInfo y.signalInfo
+
+showAudio :: forall a. Show a => Signal a -> String
+showAudio (Signal x) = 
+  case x.audio of 
+    Left a -> show a
+    Right s -> s
+
+showVideo :: forall a. Show a => Signal a -> String
+showVideo (Signal x) = 
+  case x.video of 
+    Left a -> show a
+    Right s -> s
+
 
 -- first string is name of audio-side (JavaScript) function
 -- second string is name of GLSL function
