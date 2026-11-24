@@ -38,11 +38,11 @@ biquad b0 b1 b2 a0 a1 a2 i = do
   y0 <- allocateAudioFloat
   y1 <- allocateAudioFloat
   y2 <- allocateAudioFloat
-  write $ x2 <> "=" <> x1 <> ";\n" 
-  write $ x1 <> "=" <> x0 <> ";\n"
-  write $ x0 <> "=" <> showAudio i <> ";\n"
-  write $ y2 <> "=" <> y1 <> ";\n"
-  write $ y1 <> "=" <> y0 <> ";\n"
+  writeAudio $ x2 <> "=" <> x1 <> ";\n" 
+  writeAudio $ x1 <> "=" <> x0 <> ";\n"
+  writeAudio $ x0 <> "=" <> showAudio i <> ";\n"
+  writeAudio $ y2 <> "=" <> y1 <> ";\n"
+  writeAudio $ y1 <> "=" <> y0 <> ";\n"
   let b0x0 = "(" <> x0 <> "*" <> showAudio b0 <> "/" <> showAudio a0 <> ")"
   let b1x1 = "(" <> x1 <> "*" <> showAudio b1 <> "/" <> showAudio a0 <> ")"
   let b2x2 = "(" <> x2 <> "*" <> showAudio b2 <> "/" <> showAudio a0 <> ")"
@@ -55,12 +55,12 @@ biquad b0 b1 b2 a0 a1 a2 i = do
 lpf :: Sample -> Sample -> Sample -> W Sample
 lpf f0 q i = do
   let twoPiF0 = twoPi * f0
-  let w0 = divisionUnsafe twoPiF0 audioSampleRate
+  let w0 = twoPiF0 / audioSampleRate
   cosW0 <- assign $ Signal.cos w0
-  oneMinusCosW0 <- difference one cosW0
+  oneMinusCosW0 <- assign $ one - cosW0
   sinW0 <- assign $ Signal.sin w0
   alpha <- divisionSafe sinW0 (toSignalNumber 2.0 * q)
-  b0 <- divisionUnsafe oneMinusCosW0 (Number.showNumber 2.0)
+  b0 <- assign $ oneMinusCosW0 / toSignalNumber 2.0
   let b1 = oneMinusCosW0
   let b2 = b0
   a0 <- add (Number.showNumber 1.0) alpha 
