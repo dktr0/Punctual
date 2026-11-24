@@ -1,11 +1,14 @@
 module Signal where
 
-import Prelude ((<>), class Eq, eq, (&&), (+),(*),class Show,show)
+import Prelude ((<>), class Eq, eq, (&&), (+),(*),class Show,show,(==),otherwise)
 import Data.Number (pi,sin,cos) as Number
 import Data.Int (toNumber)
 -- import Number as Number
 import Data.Either (Either(..))
 import Data.Semiring (class Semiring, zero, one)
+import Data.Ring (class Ring, (-))
+import Data.CommutativeRing (class CommutativeRing)
+import Data.EuclideanRing (class EuclideanRing, (/), mod, degree)
 
 import String (namedFunction)
 import SignalInfo
@@ -76,9 +79,10 @@ instance ToSignalNumber Number where
 toSample :: forall a. ToSignalNumber a => a -> Sample
 toSample = toSignalNumber
 
--- Semiring instance (for Signal Int and Signal Number)
 
-instance (Show a, Semiring a) => Semiring (Signal a) where
+-- instances of ring classes (for Signal Int and Signal Number)
+
+instance (Show a, Semiring a, Eq a) => Semiring (Signal a) where
   zero = Signal { audio: Left zero, video: Left zero, signalInfo: emptySignalInfo }
   one = Signal { audio: Left one, video: Left one, signalInfo: emptySignalInfo }
   add (Signal x) (Signal y) = Signal {
@@ -91,23 +95,86 @@ instance (Show a, Semiring a) => Semiring (Signal a) where
     video: mulEithers x.video y.video,
     signalInfo: x.signalInfo <> y.signalInfo
   }
+
+instance (Show a, Ring a, Eq a) => Ring (Signal a) where
+  sub (Signal x) (Signal y) = Signal {
+    audio: subEithers x.audio y.audio,
+    video: subEithers x.video y.video,
+    signalInfo: x.signalInfo <> y.signalInfo
+  }
+
+instance (Show a, Ring a, Eq a) => CommutativeRing (Signal a)
+
+instance (Show a, EuclideanRing a, Eq a) => EuclideanRing (Signal a) where
+  degree _ = 1 -- ?
+  div (Signal x) (Signal y) = Signal {
+    audio: divEithers x.audio y.audio,
+    video: divEithers x.video y.video,
+    signalInfo: x.signalInfo <> y.signalInfo
+  }
+  mod (Signal x) (Signal y) = Signal {
+    audio: modEithersAudio x.audio y.audio,
+    video: modEithersShader x.video y.video,
+    signalInfo: x.signalInfo <> y.signalInfo
+  }
   
--- !!! TODO: this has to take care of some special cases still to do with number formatting!
-addEithers :: forall a. Semiring a => Show a => Either a String -> Either a String -> Either a String
+addEithers :: forall a. Semiring a => Show a => Eq a => Either a String -> Either a String -> Either a String
 addEithers (Left x) (Left y) = Left (x+y)
-addEithers (Left x) (Right y) = Right ("(" <> show x <> "+" <> y <> ")")
-addEithers (Right x) (Left y) = Right ("(" <> x <> "+" <> show y <> ")")
+addEithers (Left x) (Right y) 
+  | x == zero = Right y
+  | otherwise = Right ("(" <> show x <> "+" <> y <> ")")
+addEithers (Right x) (Left y) 
+  | y == zero = Right x
+  | otherwise = Right ("(" <> x <> "+" <> show y <> ")")
 addEithers (Right x) (Right y) = Right ("(" <> x <> "+" <> y <> ")")
 
--- !!! TODO: this has to take care of some special cases still to do with number formatting!
-mulEithers :: forall a. Semiring a => Show a => Either a String -> Either a String -> Either a String
+mulEithers :: forall a. Semiring a => Show a => Eq a => Either a String -> Either a String -> Either a String
 mulEithers (Left x) (Left y) = Left (x*y)
-mulEithers (Left x) (Right y) = Right ("(" <> show x <> "*" <> y <> ")")
-mulEithers (Right x) (Left y) = Right ("(" <> x <> "*" <> show y <> ")")
+mulEithers (Left x) (Right y) 
+  | x == zero = Left zero
+  | otherwise = Right ("(" <> show x <> "*" <> y <> ")")
+mulEithers (Right x) (Left y) 
+  | y == zero = Left zero
+  | otherwise = Right ("(" <> x <> "*" <> show y <> ")")
 mulEithers (Right x) (Right y) = Right ("(" <> x <> "*" <> y <> ")")
+
+subEithers :: forall a. Ring a => Show a => Eq a => Either a String -> Either a String -> Either a String
+subEithers (Left x) (Left y) = Left (x-y)
+subEithers (Left x) (Right y) = Right ("(" <> show x <> "-" <> y <> ")")
+subEithers (Right x) (Left y) 
+  | y == zero = Right x
+  | otherwise = Right ("(" <> x <> "-" <> show y <> ")")
+subEithers (Right x) (Right y) = Right ("(" <> x <> "-" <> y <> ")")
+
+divEithers :: forall a. EuclideanRing a => Show a => Eq a => Either a String -> Either a String -> Either a String
+divEithers (Left x) (Left y) = Left (x/y)
+divEithers (Left x) (Right y)
+  | x == zero = Left zero
+  | otherwise = Right ("(" <> show x <> "/" <> y <> ")")
+divEithers (Right x) (Left y) = Right ("(" <> x <> "/" <> show y <> ")")
+divEithers (Right x) (Right y) = Right ("(" <> x <> "/" <> y <> ")")
+
+modEithersAudio :: forall a. EuclideanRing a => Show a => Eq a => Either a String -> Either a String -> Either a String
+modEithersAudio (Left x) (Left y) = Left (x `mod` y)
+modEithersAudio (Left x) (Right y)
+  | x == zero = Left zero
+  | otherwise = Right ("(" <> show x <> "%" <> y <> ")")
+modEithersAudio (Right x) (Left y) = Right ("(" <> x <> "%" <> show y <> ")")
+modEithersAudio (Right x) (Right y) = Right ("(" <> x <> "%" <> y <> ")")
+
+modEithersShader :: forall a. EuclideanRing a => Show a => Eq a => Either a String -> Either a String -> Either a String
+modEithersShader (Left x) (Left y) = Left (x `mod` y)
+modEithersShader (Left x) (Right y)
+  | x == zero = Left zero
+  | otherwise = Right ("mod(" <> show x <> "," <> y <> ")")
+modEithersShader (Right x) (Left y) = Right ("mod(" <> x <> "," <> show y <> ")")
+modEithersShader (Right x) (Right y) = Right ("mod(" <> x <> "," <> y <> ")")
 
 
 -- constants and semi-constants
+
+pi :: Sample
+pi = toSignalNumber Number.pi
 
 twoPi :: Sample
 twoPi = (toSignalNumber Number.pi) * (toSignalNumber 2.0)
